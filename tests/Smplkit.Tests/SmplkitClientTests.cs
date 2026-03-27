@@ -93,4 +93,64 @@ public class SmplkitClientTests
         Assert.Equal("https://config.smplkit.com", options.BaseUrl);
         Assert.Equal(TimeSpan.FromSeconds(30), options.Timeout);
     }
+
+    [Fact]
+    public void Constructor_WithNullOptions_ThrowsArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            new SmplkitClient(null!));
+    }
+
+    [Fact]
+    public void Constructor_WithNullHttpClient_ThrowsArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            new SmplkitClient(
+                new SmplkitClientOptions { ApiKey = "sk_test" },
+                null!));
+    }
+
+    [Fact]
+    public void Dispose_CalledTwice_DoesNotThrow()
+    {
+        var client = new SmplkitClient(new SmplkitClientOptions
+        {
+            ApiKey = "sk_api_test_key",
+        });
+
+        client.Dispose();
+        // Second dispose should not throw
+        client.Dispose();
+    }
+
+    [Fact]
+    public void Constructor_WithCustomTimeout_SetsTimeout()
+    {
+        var timeout = TimeSpan.FromSeconds(120);
+        using var client = new SmplkitClient(new SmplkitClientOptions
+        {
+            ApiKey = "sk_api_test_key",
+            Timeout = timeout,
+        });
+
+        Assert.NotNull(client.Config);
+    }
+
+    [Fact]
+    public void Constructor_WithTrailingSlashBaseUrl_CreatesClient()
+    {
+        var handler = new MockHttpMessageHandler(_ =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var httpClient = new HttpClient(handler);
+
+        using var client = new SmplkitClient(
+            new SmplkitClientOptions
+            {
+                ApiKey = "sk_api_test_key",
+                BaseUrl = "https://example.com/",
+            },
+            httpClient);
+
+        Assert.NotNull(client.Config);
+    }
 }
