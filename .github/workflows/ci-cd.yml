@@ -1,0 +1,152 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Check formatting
+        run: dotnet format --verify-no-changes --verbosity diagnostic
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dotnet-version: ['8.0.x']
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ matrix.dotnet-version }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore
+
+      - name: Test with coverage
+        run: >
+          dotnet test --no-build
+          --collect:"XPlat Code Coverage"
+          --results-directory ./coverage
+
+  release:
+    needs: [lint, test]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Record latest tag before release
+        id: before
+        run: echo "tag=$(git describe --tags --abbrev=0 2>/dev/null || echo '')" >> "$GITHUB_OUTPUT"
+
+      - name: Run semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx --yes semantic-release
+
+      - name: Check if a new release was created
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LATEST_TAG=$(gh api repos/${{ github.repository }}/tags --jq '.[0].name' 2>/dev/null || echo '')
+          if [ "$LATEST_TAG" != "${{ steps.before.outputs.tag }}" ] && [ -n "$LATEST_TAG" ]; then
+            VERSION="${LATEST_TAG#v}"
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "New release detected: ${LATEST_TAG}"
+          else
+            echo "released=false" >> "$GITHUB_OUTPUT"
+            echo "No new release."
+          fi
+
+      - name: Setup .NET
+        if: steps.check.outputs.released == 'true'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Pack
+        if: steps.check.outputs.released == 'true'
+        run: >
+          dotnet pack -c Release
+          -p:PackageVersion=${{ steps.check.outputs.version }}
+          --output ./nupkg
+
+      - name: Verify package
+        if: steps.check.outputs.released == 'true'
+        run: |
+          ls nupkg/
+          ls nupkg/smplkit-csharp-sdk.*.nupkg || { echo "ERROR: Expected smplkit-csharp-sdk nupkg not found"; exit 1; }
+
+      - name: NuGet login (OIDC trusted publishing)
+        if: steps.check.outputs.released == 'true'
+        uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: smplkit
+
+      - name: Publish to NuGet
+        if: steps.check.outputs.released == 'true'
+        run: >
+          dotnet nuget push nupkg/*.nupkg
+          --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}"
+          --source https://api.nuget.org/v3/index.json
+
+      - name: Summary
+        run: |
+          echo "## Publish" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.check.outputs.released }}" = "true" ]; then
+            echo "**Version:** v${{ steps.check.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "**Published to NuGet:** yes" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No release warranted by commits since last release." >> "$GITHUB_STEP_SUMMARY"
+          fi
