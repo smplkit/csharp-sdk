@@ -1,4 +1,4 @@
-# smplkit C# SDK
+# smplkit SDK for .NET
 
 ## Repository structure
 
@@ -54,3 +54,12 @@ The SDK targets .NET 8.0 (LTS).
 
 - **NuGet package name:** `Smplkit.Sdk` (install via `dotnet add package Smplkit.Sdk`)
 - **Namespace:** `Smplkit` (import via `using Smplkit;`)
+- **The old NuGet package `smplkit-csharp-sdk` is deprecated. All new versions publish as `Smplkit.Sdk`.**
+
+## Publishing
+
+- Publishing is automated via GitHub Actions CI/CD on merge to main
+- Semantic-release handles version tagging based on conventional commits
+- NuGet publishing uses OIDC trusted publishing (no long-lived API key)
+- The `NuGet/login@v1` action exchanges a GitHub OIDC token for a short-lived NuGet API key
+- Publishing requires the `nuget` GitHub Actions environment

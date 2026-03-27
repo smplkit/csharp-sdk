@@ -78,7 +78,7 @@ public class ConfigClientTests
 
         Assert.NotNull(handler.LastRequest);
         var userAgent = handler.LastRequest.Headers.UserAgent.ToString();
-        Assert.Contains("smplkit-csharp-sdk", userAgent);
+        Assert.Contains("smplkit-dotnet-sdk", userAgent);
     }
 
     // ---------------------------------------------------------------

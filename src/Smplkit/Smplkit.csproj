@@ -4,10 +4,11 @@
     <RootNamespace>Smplkit</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <PackageId>smplkit-csharp-sdk</PackageId>
-    <Authors>Smpl Solutions LLC</Authors>
+    <PackageId>Smplkit.Sdk</PackageId>
+    <Title>smplkit SDK for .NET</Title>
+    <Authors>smplkit</Authors>
     <Company>Smpl Solutions LLC</Company>
-    <Description>Official C# SDK for smplkit — configuration management, feature flags, and log level control.</Description>
+    <Description>The official smplkit SDK for .NET</Description>
     <PackageProjectUrl>https://github.com/smplkit/csharp-sdk</PackageProjectUrl>
     <RepositoryUrl>https://github.com/smplkit/csharp-sdk</RepositoryUrl>
     <RepositoryType>git</RepositoryType>

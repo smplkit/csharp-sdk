@@ -12,7 +12,7 @@ namespace Smplkit.Internal;
 internal sealed class Transport
 {
     private const string JsonApiMediaType = "application/vnd.api+json";
-    private const string UserAgent = "smplkit-csharp-sdk/0.0.0";
+    private const string UserAgent = "smplkit-dotnet-sdk/0.0.0";
 
     private readonly HttpClient _httpClient;
     private readonly string _baseUrl;
