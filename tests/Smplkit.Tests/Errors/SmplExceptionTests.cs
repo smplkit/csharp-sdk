@@ -1,4 +1,5 @@
 using Smplkit.Errors;
+using Xunit;
 
 namespace Smplkit.Tests.Errors;
 

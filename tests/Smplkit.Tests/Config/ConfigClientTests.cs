@@ -3,6 +3,7 @@ using System.Text;
 using Smplkit.Config;
 using Smplkit.Errors;
 using Smplkit.Tests.Helpers;
+using Xunit;
 
 namespace Smplkit.Tests.Config;
 

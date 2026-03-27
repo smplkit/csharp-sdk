@@ -1,6 +1,7 @@
 using System.Net;
 using Smplkit.Config;
 using Smplkit.Tests.Helpers;
+using Xunit;
 
 namespace Smplkit.Tests;
 
