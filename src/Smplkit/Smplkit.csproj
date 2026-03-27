@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Smplkit</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PackageId>Smplkit.Sdk</PackageId>
+    <Version>0.0.0</Version>
+    <Authors>smplkit</Authors>
+    <Description>Official smplkit SDK for .NET</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://docs.smplkit.com</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/smplkit/csharp-sdk</RepositoryUrl>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+</Project>

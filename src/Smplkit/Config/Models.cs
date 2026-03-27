@@ -1,0 +1,174 @@
+using System.Text.Json.Serialization;
+
+namespace Smplkit.Config;
+
+/// <summary>
+/// Represents a configuration resource from the smplkit Config service.
+/// </summary>
+/// <param name="Id">Unique identifier (UUID).</param>
+/// <param name="Key">Human-readable config key.</param>
+/// <param name="Name">Display name.</param>
+/// <param name="Description">Optional description.</param>
+/// <param name="Parent">Parent config UUID, or null for root configs.</param>
+/// <param name="Values">Base values dictionary.</param>
+/// <param name="Environments">Dictionary mapping environment names to their overrides.</param>
+/// <param name="CreatedAt">Creation timestamp.</param>
+/// <param name="UpdatedAt">Last-modified timestamp.</param>
+public sealed record Config(
+    string Id,
+    string Key,
+    string Name,
+    string? Description,
+    string? Parent,
+    Dictionary<string, object?> Values,
+    Dictionary<string, Dictionary<string, object?>> Environments,
+    DateTime? CreatedAt,
+    DateTime? UpdatedAt
+);
+
+/// <summary>
+/// Options for creating a new configuration.
+/// </summary>
+public sealed record CreateConfigOptions
+{
+    /// <summary>Gets the display name for the config.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>Gets the human-readable key. Auto-generated if omitted.</summary>
+    public string? Key { get; init; }
+
+    /// <summary>Gets the optional description.</summary>
+    public string? Description { get; init; }
+
+    /// <summary>Gets the parent config UUID.</summary>
+    public string? Parent { get; init; }
+
+    /// <summary>Gets the initial base values.</summary>
+    public Dictionary<string, object?>? Values { get; init; }
+}
+
+/// <summary>
+/// Internal JSON:API envelope for a single config resource response.
+/// </summary>
+internal sealed class JsonApiSingleResponse
+{
+    /// <summary>Gets or sets the data element.</summary>
+    [JsonPropertyName("data")]
+    public JsonApiResource? Data { get; set; }
+}
+
+/// <summary>
+/// Internal JSON:API envelope for a list of config resources.
+/// </summary>
+internal sealed class JsonApiListResponse
+{
+    /// <summary>Gets or sets the data array.</summary>
+    [JsonPropertyName("data")]
+    public List<JsonApiResource>? Data { get; set; }
+}
+
+/// <summary>
+/// Internal JSON:API resource object.
+/// </summary>
+internal sealed class JsonApiResource
+{
+    /// <summary>Gets or sets the resource ID.</summary>
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+
+    /// <summary>Gets or sets the resource type.</summary>
+    [JsonPropertyName("type")]
+    public string? Type { get; set; }
+
+    /// <summary>Gets or sets the resource attributes.</summary>
+    [JsonPropertyName("attributes")]
+    public JsonApiConfigAttributes? Attributes { get; set; }
+}
+
+/// <summary>
+/// Internal JSON:API config attributes.
+/// </summary>
+internal sealed class JsonApiConfigAttributes
+{
+    /// <summary>Gets or sets the config key.</summary>
+    [JsonPropertyName("key")]
+    public string? Key { get; set; }
+
+    /// <summary>Gets or sets the config name.</summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    /// <summary>Gets or sets the config description.</summary>
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    /// <summary>Gets or sets the parent config UUID.</summary>
+    [JsonPropertyName("parent")]
+    public string? Parent { get; set; }
+
+    /// <summary>Gets or sets the base values.</summary>
+    [JsonPropertyName("values")]
+    public Dictionary<string, object?>? Values { get; set; }
+
+    /// <summary>Gets or sets the environment overrides.</summary>
+    [JsonPropertyName("environments")]
+    public Dictionary<string, Dictionary<string, object?>>? Environments { get; set; }
+
+    /// <summary>Gets or sets the creation timestamp.</summary>
+    [JsonPropertyName("created_at")]
+    public DateTime? CreatedAt { get; set; }
+
+    /// <summary>Gets or sets the last-modified timestamp.</summary>
+    [JsonPropertyName("updated_at")]
+    public DateTime? UpdatedAt { get; set; }
+}
+
+/// <summary>
+/// Internal JSON:API request body for create/update operations.
+/// </summary>
+internal sealed class JsonApiRequestBody
+{
+    /// <summary>Gets or sets the data element.</summary>
+    [JsonPropertyName("data")]
+    public JsonApiRequestResource? Data { get; set; }
+}
+
+/// <summary>
+/// Internal JSON:API request resource.
+/// </summary>
+internal sealed class JsonApiRequestResource
+{
+    /// <summary>Gets or sets the resource type.</summary>
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "config";
+
+    /// <summary>Gets or sets the resource attributes.</summary>
+    [JsonPropertyName("attributes")]
+    public JsonApiRequestAttributes? Attributes { get; set; }
+}
+
+/// <summary>
+/// Internal JSON:API request attributes for config creation.
+/// </summary>
+internal sealed class JsonApiRequestAttributes
+{
+    /// <summary>Gets or sets the config name.</summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    /// <summary>Gets or sets the config key.</summary>
+    [JsonPropertyName("key")]
+    public string? Key { get; set; }
+
+    /// <summary>Gets or sets the config description.</summary>
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    /// <summary>Gets or sets the parent config UUID.</summary>
+    [JsonPropertyName("parent")]
+    public string? Parent { get; set; }
+
+    /// <summary>Gets or sets the base values.</summary>
+    [JsonPropertyName("values")]
+    public Dictionary<string, object?>? Values { get; set; }
+}

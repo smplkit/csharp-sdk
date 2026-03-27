@@ -1,0 +1,335 @@
+using System.Net;
+using System.Text;
+using Smplkit.Config;
+using Smplkit.Errors;
+using Smplkit.Tests.Helpers;
+
+namespace Smplkit.Tests.Config;
+
+public class ConfigClientTests
+{
+    private static (SmplkitClient client, MockHttpMessageHandler handler) CreateClient(
+        Func<HttpRequestMessage, Task<HttpResponseMessage>> handlerFn)
+    {
+        var handler = new MockHttpMessageHandler(handlerFn);
+        var httpClient = new HttpClient(handler);
+        var options = TestData.DefaultOptions();
+        var client = new SmplkitClient(options, httpClient);
+        return (client, handler);
+    }
+
+    private static HttpResponseMessage JsonResponse(string json, HttpStatusCode status = HttpStatusCode.OK)
+    {
+        return new HttpResponseMessage(status)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/vnd.api+json"),
+        };
+    }
+
+    // ---------------------------------------------------------------
+    // GetAsync
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task GetAsync_ById_ReturnsConfig()
+    {
+        var (client, handler) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(TestData.SingleConfigJson())));
+
+        var config = await client.Config.GetAsync(TestData.ConfigId);
+
+        Assert.Equal(TestData.ConfigId, config.Id);
+        Assert.Equal(TestData.ConfigKey, config.Key);
+        Assert.Equal(TestData.ConfigName, config.Name);
+        Assert.Equal("Test config", config.Description);
+        Assert.Null(config.Parent);
+        Assert.NotNull(config.Values);
+        Assert.NotNull(config.Environments);
+
+        // Verify correct URL
+        Assert.NotNull(handler.LastRequest);
+        Assert.Contains($"/api/v1/configs/{TestData.ConfigId}", handler.LastRequest.RequestUri!.ToString());
+        Assert.Equal(HttpMethod.Get, handler.LastRequest.Method);
+    }
+
+    [Fact]
+    public async Task GetAsync_SetsAuthorizationHeader()
+    {
+        var (client, handler) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(TestData.SingleConfigJson())));
+
+        await client.Config.GetAsync(TestData.ConfigId);
+
+        Assert.NotNull(handler.LastRequest);
+        var authHeader = handler.LastRequest.Headers.Authorization;
+        Assert.NotNull(authHeader);
+        Assert.Equal("Bearer", authHeader.Scheme);
+        Assert.Equal(TestData.ApiKey, authHeader.Parameter);
+    }
+
+    [Fact]
+    public async Task GetAsync_SetsUserAgentHeader()
+    {
+        var (client, handler) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(TestData.SingleConfigJson())));
+
+        await client.Config.GetAsync(TestData.ConfigId);
+
+        Assert.NotNull(handler.LastRequest);
+        var userAgent = handler.LastRequest.Headers.UserAgent.ToString();
+        Assert.Contains("smplkit-csharp-sdk", userAgent);
+    }
+
+    // ---------------------------------------------------------------
+    // GetByKeyAsync
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task GetByKeyAsync_ReturnsConfig()
+    {
+        var listJson = $$"""
+        {
+            "data": [
+                {
+                    "id": "{{TestData.ConfigId}}",
+                    "type": "config",
+                    "attributes": {
+                        "key": "{{TestData.ConfigKey}}",
+                        "name": "{{TestData.ConfigName}}",
+                        "description": "Test config",
+                        "parent": null,
+                        "values": {},
+                        "environments": {},
+                        "created_at": "2024-01-15T10:30:00Z",
+                        "updated_at": "2024-01-15T10:30:00Z"
+                    }
+                }
+            ]
+        }
+        """;
+
+        var (client, handler) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(listJson)));
+
+        var config = await client.Config.GetByKeyAsync(TestData.ConfigKey);
+
+        Assert.Equal(TestData.ConfigId, config.Id);
+        Assert.Equal(TestData.ConfigKey, config.Key);
+
+        // Verify filter[key] query param
+        Assert.NotNull(handler.LastRequest);
+        var url = handler.LastRequest.RequestUri!.ToString();
+        Assert.Contains("filter%5Bkey%5D=user_service", url);
+    }
+
+    [Fact]
+    public async Task GetByKeyAsync_WhenNotFound_ThrowsSmplNotFoundException()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(TestData.EmptyListJson())));
+
+        await Assert.ThrowsAsync<SmplNotFoundException>(
+            () => client.Config.GetByKeyAsync("nonexistent_key"));
+    }
+
+    // ---------------------------------------------------------------
+    // ListAsync
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task ListAsync_ReturnsListOfConfigs()
+    {
+        var (client, handler) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(TestData.ConfigListJson())));
+
+        var configs = await client.Config.ListAsync();
+
+        Assert.Equal(2, configs.Count);
+        Assert.Equal(TestData.ConfigKey, configs[0].Key);
+        Assert.Equal("payment_service", configs[1].Key);
+
+        Assert.NotNull(handler.LastRequest);
+        Assert.Contains("/api/v1/configs", handler.LastRequest.RequestUri!.ToString());
+        Assert.DoesNotContain("filter", handler.LastRequest.RequestUri!.ToString());
+    }
+
+    [Fact]
+    public async Task ListAsync_WhenEmpty_ReturnsEmptyList()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(TestData.EmptyListJson())));
+
+        var configs = await client.Config.ListAsync();
+
+        Assert.Empty(configs);
+    }
+
+    // ---------------------------------------------------------------
+    // CreateAsync
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task CreateAsync_SendsCorrectBodyAndReturnsConfig()
+    {
+        var (client, handler) = CreateClient(async req =>
+        {
+            // Verify the request body
+            var body = await req.Content!.ReadAsStringAsync();
+            Assert.Contains("\"name\":", body);
+            Assert.Contains("\"type\":\"config\"", body);
+
+            return JsonResponse(
+                TestData.SingleConfigJson(),
+                HttpStatusCode.Created);
+        });
+
+        var config = await client.Config.CreateAsync(new CreateConfigOptions
+        {
+            Name = TestData.ConfigName,
+            Key = TestData.ConfigKey,
+            Description = "Test config",
+        });
+
+        Assert.Equal(TestData.ConfigId, config.Id);
+        Assert.Equal(TestData.ConfigName, config.Name);
+
+        Assert.NotNull(handler.LastRequest);
+        Assert.Equal(HttpMethod.Post, handler.LastRequest.Method);
+        Assert.Contains("/api/v1/configs", handler.LastRequest.RequestUri!.ToString());
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithValues_IncludesValuesInBody()
+    {
+        var (client, handler) = CreateClient(async req =>
+        {
+            var body = await req.Content!.ReadAsStringAsync();
+            Assert.Contains("\"timeout\"", body);
+            return JsonResponse(TestData.SingleConfigJson(), HttpStatusCode.Created);
+        });
+
+        var config = await client.Config.CreateAsync(new CreateConfigOptions
+        {
+            Name = "Test",
+            Values = new Dictionary<string, object?> { ["timeout"] = 30 },
+        });
+
+        Assert.NotNull(config);
+    }
+
+    // ---------------------------------------------------------------
+    // DeleteAsync
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task DeleteAsync_SendsDeleteRequest()
+    {
+        var (client, handler) = CreateClient(_ =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent)));
+
+        await client.Config.DeleteAsync(TestData.ConfigId);
+
+        Assert.NotNull(handler.LastRequest);
+        Assert.Equal(HttpMethod.Delete, handler.LastRequest.Method);
+        Assert.Contains($"/api/v1/configs/{TestData.ConfigId}", handler.LastRequest.RequestUri!.ToString());
+    }
+
+    // ---------------------------------------------------------------
+    // Error mapping
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task GetAsync_404_ThrowsSmplNotFoundException()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(
+                """{"errors":[{"detail":"Not found"}]}""",
+                HttpStatusCode.NotFound)));
+
+        var ex = await Assert.ThrowsAsync<SmplNotFoundException>(
+            () => client.Config.GetAsync(TestData.ConfigId));
+        Assert.Equal(404, ex.StatusCode);
+        Assert.NotNull(ex.ResponseBody);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_409_ThrowsSmplConflictException()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(
+                """{"errors":[{"detail":"Has children"}]}""",
+                HttpStatusCode.Conflict)));
+
+        var ex = await Assert.ThrowsAsync<SmplConflictException>(
+            () => client.Config.DeleteAsync(TestData.ConfigId));
+        Assert.Equal(409, ex.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateAsync_422_ThrowsSmplValidationException()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(
+                """{"errors":[{"detail":"Name is required"}]}""",
+                (HttpStatusCode)422)));
+
+        var ex = await Assert.ThrowsAsync<SmplValidationException>(
+            () => client.Config.CreateAsync(new CreateConfigOptions { Name = "" }));
+        Assert.Equal(422, ex.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetAsync_HttpRequestException_ThrowsSmplConnectionException()
+    {
+        var (client, _) = CreateClient(_ =>
+            throw new HttpRequestException("Connection refused"));
+
+        await Assert.ThrowsAsync<SmplConnectionException>(
+            () => client.Config.GetAsync(TestData.ConfigId));
+    }
+
+    [Fact]
+    public async Task GetAsync_TaskCanceledException_ThrowsSmplTimeoutException()
+    {
+        var (client, _) = CreateClient(_ =>
+            throw new TaskCanceledException("The request timed out"));
+
+        await Assert.ThrowsAsync<SmplTimeoutException>(
+            () => client.Config.GetAsync(TestData.ConfigId));
+    }
+
+    // ---------------------------------------------------------------
+    // CancellationToken support
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task GetAsync_PassesCancellationToken()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(TestData.SingleConfigJson())));
+
+        // Cancelled token should throw OperationCanceledException or TaskCanceledException
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => client.Config.GetAsync(TestData.ConfigId, cts.Token));
+    }
+
+    // ---------------------------------------------------------------
+    // Content-Type header
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task CreateAsync_SetsJsonApiContentType()
+    {
+        var (client, handler) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(TestData.SingleConfigJson(), HttpStatusCode.Created)));
+
+        await client.Config.CreateAsync(new CreateConfigOptions { Name = "Test" });
+
+        Assert.NotNull(handler.LastRequest);
+        var contentType = handler.LastRequest.Content!.Headers.ContentType!.MediaType;
+        Assert.Equal("application/vnd.api+json", contentType);
+    }
+}
