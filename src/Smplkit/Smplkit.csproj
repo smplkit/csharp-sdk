@@ -4,15 +4,20 @@
     <RootNamespace>Smplkit</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <PackageId>Smplkit.Sdk</PackageId>
-    <Version>0.0.0</Version>
-    <Authors>smplkit</Authors>
-    <Description>Official smplkit SDK for .NET</Description>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://docs.smplkit.com</PackageProjectUrl>
+    <PackageId>smplkit-csharp-sdk</PackageId>
+    <Authors>Smpl Solutions LLC</Authors>
+    <Company>Smpl Solutions LLC</Company>
+    <Description>Official C# SDK for smplkit — configuration management, feature flags, and log level control.</Description>
+    <PackageProjectUrl>https://github.com/smplkit/csharp-sdk</PackageProjectUrl>
     <RepositoryUrl>https://github.com/smplkit/csharp-sdk</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Smplkit.Tests" />
   </ItemGroup>
