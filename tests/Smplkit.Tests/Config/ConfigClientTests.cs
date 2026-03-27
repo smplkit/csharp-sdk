@@ -628,4 +628,113 @@ public class ConfigClientTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => client.Config.GetByKeyAsync("key", cts.Token));
     }
+
+    // ---------------------------------------------------------------
+    // UpdateAsync
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task UpdateAsync_SendsCorrectBodyAndReturnsConfig()
+    {
+        var (client, handler) = CreateClient(async req =>
+        {
+            var body = await req.Content!.ReadAsStringAsync();
+            Assert.Contains("\"name\":", body);
+            Assert.Contains("\"type\":\"config\"", body);
+            return JsonResponse(TestData.SingleConfigJson());
+        });
+
+        var config = await client.Config.UpdateAsync(TestData.ConfigId, new CreateConfigOptions
+        {
+            Name = "Updated Service",
+            Key = TestData.ConfigKey,
+        });
+
+        Assert.Equal(TestData.ConfigId, config.Id);
+        Assert.NotNull(handler.LastRequest);
+        Assert.Equal(HttpMethod.Put, handler.LastRequest.Method);
+        Assert.Contains($"/api/v1/configs/{TestData.ConfigId}", handler.LastRequest.RequestUri!.ToString());
+    }
+
+    [Fact]
+    public async Task UpdateAsync_SetsJsonApiContentType()
+    {
+        var (client, handler) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(TestData.SingleConfigJson())));
+
+        await client.Config.UpdateAsync(TestData.ConfigId, new CreateConfigOptions { Name = "Test" });
+
+        Assert.NotNull(handler.LastRequest);
+        var contentType = handler.LastRequest.Content!.Headers.ContentType!.MediaType;
+        Assert.Equal("application/vnd.api+json", contentType);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_404_ThrowsSmplNotFoundException()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(
+                """{"errors":[{"detail":"Not found"}]}""",
+                HttpStatusCode.NotFound)));
+
+        var ex = await Assert.ThrowsAsync<SmplNotFoundException>(
+            () => client.Config.UpdateAsync("nonexistent", new CreateConfigOptions { Name = "Test" }));
+        Assert.Equal(404, ex.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_422_ThrowsSmplValidationException()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(
+                """{"errors":[{"detail":"Name is required"}]}""",
+                (HttpStatusCode)422)));
+
+        var ex = await Assert.ThrowsAsync<SmplValidationException>(
+            () => client.Config.UpdateAsync(TestData.ConfigId, new CreateConfigOptions { Name = "" }));
+        Assert.Equal(422, ex.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_HttpRequestException_ThrowsSmplConnectionException()
+    {
+        var (client, _) = CreateClient(_ =>
+            throw new HttpRequestException("Connection refused"));
+
+        await Assert.ThrowsAsync<SmplConnectionException>(
+            () => client.Config.UpdateAsync(TestData.ConfigId, new CreateConfigOptions { Name = "Test" }));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_TaskCanceledException_ThrowsSmplTimeoutException()
+    {
+        var (client, _) = CreateClient(_ =>
+            throw new TaskCanceledException("The request timed out"));
+
+        await Assert.ThrowsAsync<SmplTimeoutException>(
+            () => client.Config.UpdateAsync(TestData.ConfigId, new CreateConfigOptions { Name = "Test" }));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_PassesCancellationToken()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(TestData.SingleConfigJson())));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => client.Config.UpdateAsync(TestData.ConfigId, new CreateConfigOptions { Name = "Test" }, cts.Token));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_NullResponseData_ThrowsSmplValidationException()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse("""{"data": null}""")));
+
+        await Assert.ThrowsAsync<SmplValidationException>(
+            () => client.Config.UpdateAsync(TestData.ConfigId, new CreateConfigOptions { Name = "Test" }));
+    }
 }

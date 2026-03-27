@@ -112,6 +112,39 @@ public sealed class ConfigClient
     }
 
     /// <summary>
+    /// Updates an existing config by its UUID.
+    /// </summary>
+    /// <param name="id">The UUID of the config to update.</param>
+    /// <param name="options">The fields to update.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The updated <see cref="Config"/>.</returns>
+    /// <exception cref="SmplNotFoundException">If the config does not exist.</exception>
+    /// <exception cref="SmplValidationException">If the server rejects the request.</exception>
+    public async Task<Config> UpdateAsync(string id, CreateConfigOptions options, CancellationToken ct = default)
+    {
+        var body = new JsonApiRequestBody
+        {
+            Data = new JsonApiRequestResource
+            {
+                Type = "config",
+                Attributes = new JsonApiRequestAttributes
+                {
+                    Name = options.Name,
+                    Key = options.Key,
+                    Description = options.Description,
+                    Parent = options.Parent,
+                    Values = options.Values,
+                },
+            },
+        };
+
+        var json = await _transport.PutAsync($"/api/v1/configs/{id}", body, ct).ConfigureAwait(false);
+        var response = JsonSerializer.Deserialize<JsonApiSingleResponse>(json, Transport.SerializerOptions);
+        return MapResource(response?.Data)
+            ?? throw new SmplValidationException("Failed to update config");
+    }
+
+    /// <summary>
     /// Deletes a config by its UUID.
     /// </summary>
     /// <param name="id">The UUID of the config to delete.</param>

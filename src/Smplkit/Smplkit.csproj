@@ -13,4 +13,7 @@
     <RepositoryUrl>https://github.com/smplkit/csharp-sdk</RepositoryUrl>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Smplkit.Tests" />
+  </ItemGroup>
 </Project>
