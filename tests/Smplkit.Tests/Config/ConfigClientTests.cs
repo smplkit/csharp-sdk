@@ -120,7 +120,7 @@ public class ConfigClientTests
         // Verify filter[key] query param
         Assert.NotNull(handler.LastRequest);
         var url = handler.LastRequest.RequestUri!.ToString();
-        Assert.Contains("filter%5Bkey%5D=user_service", url);
+        Assert.Contains("filter[key]=user_service", url);
     }
 
     [Fact]
