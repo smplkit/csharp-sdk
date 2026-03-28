@@ -434,4 +434,308 @@ public class ConfigRuntimeEdgeCaseTests : IAsyncLifetime
         await rt.CloseAsync();
         Assert.Equal("disconnected", rt.ConnectionStatus());
     }
+
+    // ------------------------------------------------------------------
+    // GetInt — double exactly at int.MinValue boundary
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetInt_DoubleJustBelowMinInt_ReturnsDefault()
+    {
+        var chain = new List<ConfigChainEntry>
+        {
+            new()
+            {
+                Id = "c1",
+                Values = new() { ["below_min"] = (double)int.MinValue - 1.0 },
+                EnvValues = new(),
+            },
+        };
+        var rt = CreateRuntime(chain);
+        Assert.Null(rt.GetInt("below_min"));
+        await rt.CloseAsync();
+    }
+
+    [Fact]
+    public async Task GetInt_DoubleJustAboveMaxInt_ReturnsDefault()
+    {
+        var chain = new List<ConfigChainEntry>
+        {
+            new()
+            {
+                Id = "c1",
+                Values = new() { ["above_max"] = (double)int.MaxValue + 1.0 },
+                EnvValues = new(),
+            },
+        };
+        var rt = CreateRuntime(chain);
+        Assert.Null(rt.GetInt("above_max"));
+        await rt.CloseAsync();
+    }
+
+    // ------------------------------------------------------------------
+    // GetInt — negative integer values
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetInt_NegativeInt_ReturnsCorrectValue()
+    {
+        var chain = new List<ConfigChainEntry>
+        {
+            new()
+            {
+                Id = "c1",
+                Values = new() { ["neg"] = -42 },
+                EnvValues = new(),
+            },
+        };
+        var rt = CreateRuntime(chain);
+        Assert.Equal(-42, rt.GetInt("neg"));
+        await rt.CloseAsync();
+    }
+
+    // ------------------------------------------------------------------
+    // GetInt — negative long
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetInt_NegativeLong_CastsToInt()
+    {
+        var chain = new List<ConfigChainEntry>
+        {
+            new()
+            {
+                Id = "c1",
+                Values = new() { ["neg_long"] = -100L },
+                EnvValues = new(),
+            },
+        };
+        var rt = CreateRuntime(chain);
+        Assert.Equal(-100, rt.GetInt("neg_long"));
+        await rt.CloseAsync();
+    }
+
+    // ------------------------------------------------------------------
+    // GetBool — string value returns default
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetBool_StringValue_ReturnsDefault()
+    {
+        var chain = new List<ConfigChainEntry>
+        {
+            new()
+            {
+                Id = "c1",
+                Values = new() { ["flag"] = "true" },
+                EnvValues = new(),
+            },
+        };
+        var rt = CreateRuntime(chain);
+        Assert.Null(rt.GetBool("flag"));
+        Assert.True(rt.GetBool("flag", true));
+        await rt.CloseAsync();
+    }
+
+    // ------------------------------------------------------------------
+    // GetString — integer value returns default
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetString_IntValue_ReturnsDefault()
+    {
+        var chain = new List<ConfigChainEntry>
+        {
+            new()
+            {
+                Id = "c1",
+                Values = new() { ["count"] = 42 },
+                EnvValues = new(),
+            },
+        };
+        var rt = CreateRuntime(chain);
+        Assert.Null(rt.GetString("count"));
+        Assert.Equal("default", rt.GetString("count", "default"));
+        await rt.CloseAsync();
+    }
+
+    // ------------------------------------------------------------------
+    // GetString — bool value returns default
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetString_BoolValue_ReturnsDefault()
+    {
+        var chain = new List<ConfigChainEntry>
+        {
+            new()
+            {
+                Id = "c1",
+                Values = new() { ["flag"] = true },
+                EnvValues = new(),
+            },
+        };
+        var rt = CreateRuntime(chain);
+        Assert.Null(rt.GetString("flag"));
+        await rt.CloseAsync();
+    }
+
+    // ------------------------------------------------------------------
+    // Get — returns null value (key exists with null)
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task Get_NullValue_WithDefault_ReturnsNull()
+    {
+        var chain = new List<ConfigChainEntry>
+        {
+            new()
+            {
+                Id = "c1",
+                Values = new() { ["key"] = null },
+                EnvValues = new(),
+            },
+        };
+        var rt = CreateRuntime(chain);
+        // The TryGetValue succeeds, so null is returned (not the default)
+        Assert.Null(rt.Get("key", "fallback"));
+        await rt.CloseAsync();
+    }
+
+    // ------------------------------------------------------------------
+    // OnChange — wildcard and key-filtered both fire
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task OnChange_WildcardAndKeyFilter_BothFire()
+    {
+        var wildcardEvents = new List<ConfigChangeEvent>();
+        var keyEvents = new List<ConfigChangeEvent>();
+
+        var chain = new List<ConfigChainEntry>
+        {
+            new()
+            {
+                Id = "c1",
+                Values = new() { ["a"] = 1 },
+                EnvValues = new(),
+            },
+        };
+        var newChain = new List<ConfigChainEntry>
+        {
+            new()
+            {
+                Id = "c1",
+                Values = new() { ["a"] = 2 },
+                EnvValues = new(),
+            },
+        };
+
+        var rt = CreateRuntime(chain, fetchChainFn: _ => Task.FromResult(newChain));
+        rt.OnChange(evt => wildcardEvents.Add(evt));
+        rt.OnChange(evt => keyEvents.Add(evt), key: "a");
+
+        await rt.RefreshAsync();
+        await rt.CloseAsync();
+
+        Assert.Single(wildcardEvents);
+        Assert.Single(keyEvents);
+    }
+
+    // ------------------------------------------------------------------
+    // Stats timestamp is ISO-8601
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task Stats_LastFetchAt_IsIso8601Format()
+    {
+        var chain = new List<ConfigChainEntry>
+        {
+            new() { Id = "c1", Values = new(), EnvValues = new() },
+        };
+        var rt = CreateRuntime(chain);
+        var stats = rt.Stats();
+        Assert.NotNull(stats.LastFetchAt);
+        // Verify it's parseable as ISO-8601
+        Assert.True(DateTimeOffset.TryParse(stats.LastFetchAt, out _));
+        await rt.CloseAsync();
+    }
+
+    // ------------------------------------------------------------------
+    // Refresh updates _lastFetchAt
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task RefreshAsync_UpdatesLastFetchAt()
+    {
+        var chain = new List<ConfigChainEntry>
+        {
+            new()
+            {
+                Id = "c1",
+                Values = new() { ["key"] = "val" },
+                EnvValues = new(),
+            },
+        };
+        var newChain = new List<ConfigChainEntry>
+        {
+            new()
+            {
+                Id = "c1",
+                Values = new() { ["key"] = "val" },
+                EnvValues = new(),
+            },
+        };
+
+        var rt = CreateRuntime(chain, fetchChainFn: _ => Task.FromResult(newChain));
+        var before = rt.Stats().LastFetchAt;
+        await Task.Delay(10); // tiny delay to ensure timestamp differs
+        await rt.RefreshAsync();
+        var after = rt.Stats().LastFetchAt;
+
+        Assert.NotEqual(before, after);
+        await rt.CloseAsync();
+    }
+
+    // ------------------------------------------------------------------
+    // GetInt — double value of exactly 0.0 returns 0
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetInt_DoubleZero_ReturnsZero()
+    {
+        var chain = new List<ConfigChainEntry>
+        {
+            new()
+            {
+                Id = "c1",
+                Values = new() { ["zero"] = 0.0 },
+                EnvValues = new(),
+            },
+        };
+        var rt = CreateRuntime(chain);
+        Assert.Equal(0, rt.GetInt("zero"));
+        await rt.CloseAsync();
+    }
+
+    // ------------------------------------------------------------------
+    // GetInt — double value of -0.0 returns 0
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetInt_NegativeDoubleZero_ReturnsZero()
+    {
+        var chain = new List<ConfigChainEntry>
+        {
+            new()
+            {
+                Id = "c1",
+                Values = new() { ["negzero"] = -0.0 },
+                EnvValues = new(),
+            },
+        };
+        var rt = CreateRuntime(chain);
+        Assert.Equal(0, rt.GetInt("negzero"));
+        await rt.CloseAsync();
+    }
 }

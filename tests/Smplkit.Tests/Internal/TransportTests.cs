@@ -450,4 +450,214 @@ public class TransportTests
         await Assert.ThrowsAsync<SmplNotFoundException>(
             () => transport.DeleteAsync("https://example.com/api/1"));
     }
+
+    // ------------------------------------------------------------------
+    // PostAsync — serializes body and sets content-type
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task PostAsync_SetsJsonApiContentType()
+    {
+        HttpRequestMessage? captured = null;
+        var handler = new MockHttpMessageHandler(req =>
+        {
+            captured = req;
+            return Task.FromResult(JsonResponse("""{"ok": true}""", HttpStatusCode.Created));
+        });
+        var httpClient = new HttpClient(handler);
+        var transport = new Transport(httpClient, new SmplkitClientOptions { ApiKey = "test" });
+
+        await transport.PostAsync("https://example.com/api", new { name = "test" });
+
+        Assert.NotNull(captured);
+        Assert.NotNull(captured.Content);
+        var contentType = captured.Content!.Headers.ContentType!.MediaType;
+        Assert.Equal("application/vnd.api+json", contentType);
+    }
+
+    [Fact]
+    public async Task PostAsync_SerializesBodyAsJson()
+    {
+        string? body = null;
+        var handler = new MockHttpMessageHandler(async req =>
+        {
+            body = await req.Content!.ReadAsStringAsync();
+            return JsonResponse("""{"ok": true}""", HttpStatusCode.Created);
+        });
+        var httpClient = new HttpClient(handler);
+        var transport = new Transport(httpClient, new SmplkitClientOptions { ApiKey = "test" });
+
+        await transport.PostAsync("https://example.com/api", new { name = "hello" });
+
+        Assert.NotNull(body);
+        Assert.Contains("\"name\"", body);
+        Assert.Contains("hello", body);
+    }
+
+    // ------------------------------------------------------------------
+    // PutAsync — serializes body and sets content-type
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task PutAsync_SetsJsonApiContentType()
+    {
+        HttpRequestMessage? captured = null;
+        var handler = new MockHttpMessageHandler(req =>
+        {
+            captured = req;
+            return Task.FromResult(JsonResponse("""{"ok": true}"""));
+        });
+        var httpClient = new HttpClient(handler);
+        var transport = new Transport(httpClient, new SmplkitClientOptions { ApiKey = "test" });
+
+        await transport.PutAsync("https://example.com/api", new { name = "test" });
+
+        Assert.NotNull(captured);
+        Assert.NotNull(captured.Content);
+        var contentType = captured.Content!.Headers.ContentType!.MediaType;
+        Assert.Equal("application/vnd.api+json", contentType);
+    }
+
+    [Fact]
+    public async Task PutAsync_SerializesBodyAsJson()
+    {
+        string? body = null;
+        var handler = new MockHttpMessageHandler(async req =>
+        {
+            body = await req.Content!.ReadAsStringAsync();
+            return JsonResponse("""{"ok": true}""");
+        });
+        var httpClient = new HttpClient(handler);
+        var transport = new Transport(httpClient, new SmplkitClientOptions { ApiKey = "test" });
+
+        await transport.PutAsync("https://example.com/api", new { name = "updated" });
+
+        Assert.NotNull(body);
+        Assert.Contains("\"name\"", body);
+        Assert.Contains("updated", body);
+    }
+
+    // ------------------------------------------------------------------
+    // HandleResponseAsync — 403 goes through default case
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task HandleResponse_403_ThrowsGenericSmplException()
+    {
+        var transport = CreateTransport(_ =>
+            Task.FromResult(JsonResponse("forbidden", HttpStatusCode.Forbidden)));
+
+        var ex = await Assert.ThrowsAsync<SmplException>(
+            () => transport.GetAsync("https://example.com/api"));
+        Assert.Equal(403, ex.StatusCode);
+        Assert.Equal("forbidden", ex.ResponseBody);
+    }
+
+    // ------------------------------------------------------------------
+    // DeleteAsync — 409 (Conflict)
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task DeleteAsync_409_ThrowsConflictException()
+    {
+        var transport = CreateTransport(_ =>
+            Task.FromResult(JsonResponse("has children", HttpStatusCode.Conflict)));
+
+        var ex = await Assert.ThrowsAsync<SmplConflictException>(
+            () => transport.DeleteAsync("https://example.com/api/1"));
+        Assert.Equal(409, ex.StatusCode);
+        Assert.Contains("has children", ex.ResponseBody!);
+    }
+
+    // ------------------------------------------------------------------
+    // DeleteAsync — 422 (Validation)
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task DeleteAsync_422_ThrowsValidationException()
+    {
+        var transport = CreateTransport(_ =>
+            Task.FromResult(JsonResponse("invalid", (HttpStatusCode)422)));
+
+        var ex = await Assert.ThrowsAsync<SmplValidationException>(
+            () => transport.DeleteAsync("https://example.com/api/1"));
+        Assert.Equal(422, ex.StatusCode);
+    }
+
+    // ------------------------------------------------------------------
+    // DeleteAsync — 500 (generic error)
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task DeleteAsync_500_ThrowsGenericSmplException()
+    {
+        var transport = CreateTransport(_ =>
+            Task.FromResult(JsonResponse("server error", HttpStatusCode.InternalServerError)));
+
+        var ex = await Assert.ThrowsAsync<SmplException>(
+            () => transport.DeleteAsync("https://example.com/api/1"));
+        Assert.Equal(500, ex.StatusCode);
+    }
+
+    // ------------------------------------------------------------------
+    // PostAsync — 404 goes through HandleResponseAsync
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task PostAsync_404_ThrowsNotFoundException()
+    {
+        var transport = CreateTransport(_ =>
+            Task.FromResult(JsonResponse("not found", HttpStatusCode.NotFound)));
+
+        await Assert.ThrowsAsync<SmplNotFoundException>(
+            () => transport.PostAsync("https://example.com/api", new { }));
+    }
+
+    // ------------------------------------------------------------------
+    // PutAsync — 404 goes through HandleResponseAsync
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task PutAsync_404_ThrowsNotFoundException()
+    {
+        var transport = CreateTransport(_ =>
+            Task.FromResult(JsonResponse("not found", HttpStatusCode.NotFound)));
+
+        await Assert.ThrowsAsync<SmplNotFoundException>(
+            () => transport.PutAsync("https://example.com/api", new { }));
+    }
+
+    // ------------------------------------------------------------------
+    // PostAsync — CancellationToken with active cancellation rethrows
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task PostAsync_CancelledToken_RethrowsTaskCanceled()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var transport = CreateTransport(_ =>
+            Task.FromResult(JsonResponse("{}", HttpStatusCode.Created)));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => transport.PostAsync("https://example.com/api", new { }, cts.Token));
+    }
+
+    // ------------------------------------------------------------------
+    // PutAsync — CancellationToken with active cancellation rethrows
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task PutAsync_CancelledToken_RethrowsTaskCanceled()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var transport = CreateTransport(_ =>
+            Task.FromResult(JsonResponse("{}")));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => transport.PutAsync("https://example.com/api", new { }, cts.Token));
+    }
 }

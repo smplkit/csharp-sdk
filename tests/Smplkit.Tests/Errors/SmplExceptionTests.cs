@@ -200,4 +200,90 @@ public class SmplExceptionTests
         Assert.Null(ex.ResponseBody);
         Assert.Null(ex.StatusCode);
     }
+
+    // ------------------------------------------------------------------
+    // errors.Is / errors.As compatibility
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void SmplNotFoundException_CanBeCaughtAsSmplException()
+    {
+        Exception ex = new SmplNotFoundException("not found", "body");
+        Assert.True(ex is SmplException);
+        var smpl = (SmplException)ex;
+        Assert.Equal(404, smpl.StatusCode);
+        Assert.Equal("body", smpl.ResponseBody);
+    }
+
+    [Fact]
+    public void SmplConflictException_CanBeCaughtAsSmplException()
+    {
+        Exception ex = new SmplConflictException("conflict", "body");
+        Assert.True(ex is SmplException);
+        var smpl = (SmplException)ex;
+        Assert.Equal(409, smpl.StatusCode);
+    }
+
+    [Fact]
+    public void SmplValidationException_CanBeCaughtAsSmplException()
+    {
+        Exception ex = new SmplValidationException("validation", "body");
+        Assert.True(ex is SmplException);
+        var smpl = (SmplException)ex;
+        Assert.Equal(422, smpl.StatusCode);
+    }
+
+    [Fact]
+    public void SmplTimeoutException_CanBeCaughtAsSmplException()
+    {
+        Exception ex = new SmplTimeoutException("timeout");
+        Assert.True(ex is SmplException);
+        var smpl = (SmplException)ex;
+        Assert.Null(smpl.StatusCode);
+    }
+
+    [Fact]
+    public void SmplConnectionException_CanBeCaughtAsSmplException()
+    {
+        Exception ex = new SmplConnectionException("conn");
+        Assert.True(ex is SmplException);
+    }
+
+    // ------------------------------------------------------------------
+    // SmplException with all four params
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void SmplException_AllFourParams()
+    {
+        var inner = new InvalidOperationException("inner");
+        var ex = new SmplException("msg", statusCode: 503, responseBody: "body", innerException: inner);
+
+        Assert.Equal("msg", ex.Message);
+        Assert.Equal(503, ex.StatusCode);
+        Assert.Equal("body", ex.ResponseBody);
+        Assert.Same(inner, ex.InnerException);
+    }
+
+    // ------------------------------------------------------------------
+    // SmplConnectionException without inner (default param)
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void SmplConnectionException_WithoutInner_HasNullInnerException()
+    {
+        var ex = new SmplConnectionException("failed");
+        Assert.Null(ex.InnerException);
+    }
+
+    // ------------------------------------------------------------------
+    // SmplTimeoutException without inner (default param)
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void SmplTimeoutException_WithoutInner_HasNullInnerException()
+    {
+        var ex = new SmplTimeoutException("timed out");
+        Assert.Null(ex.InnerException);
+    }
 }

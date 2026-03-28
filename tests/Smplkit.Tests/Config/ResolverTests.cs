@@ -500,4 +500,273 @@ public class ResolverTests
         var entry = Resolver.ToChainEntry(config);
         Assert.Equal("normalized", entry.Values["field"]);
     }
+
+    // ------------------------------------------------------------------
+    // NormalizeJsonElement — Undefined/null JsonElement
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Normalize_JsonElement_UndefinedKind_ReturnsNull()
+    {
+        // JsonValueKind.Undefined maps to the _ case in NormalizeJsonElement
+        var je = default(JsonElement); // ValueKind is Undefined
+        var result = Resolver.Normalize(je);
+        Assert.Null(result);
+    }
+
+    // ------------------------------------------------------------------
+    // NormalizeJsonElement — nested array with mixed types
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Normalize_JsonElement_MixedArray_NormalizesAll()
+    {
+        var je = JsonDocument.Parse("""[1, "two", true, null, 3.14, {"a": 1}]""").RootElement;
+        var result = Resolver.Normalize(je);
+        var arr = Assert.IsType<object?[]>(result);
+        Assert.Equal(6, arr.Length);
+        Assert.Equal(1L, arr[0]);
+        Assert.Equal("two", arr[1]);
+        Assert.Equal(true, arr[2]);
+        Assert.Null(arr[3]);
+        Assert.Equal(3.14, arr[4]);
+        var nested = Assert.IsType<Dictionary<string, object?>>(arr[5]);
+        Assert.Equal(1L, nested["a"]);
+    }
+
+    // ------------------------------------------------------------------
+    // Normalize — dict with nested JsonElements
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void NormalizeDict_WithNestedJsonElements_NormalizesRecursively()
+    {
+        var je = JsonDocument.Parse("""{"inner": [1, 2]}""").RootElement;
+        var dict = new Dictionary<string, object?> { ["nested"] = je };
+        var result = Resolver.NormalizeDict(dict);
+        var nested = Assert.IsType<Dictionary<string, object?>>(result["nested"]);
+        var arr = Assert.IsType<object?[]>(nested["inner"]);
+        Assert.Equal(1L, arr[0]);
+        Assert.Equal(2L, arr[1]);
+    }
+
+    // ------------------------------------------------------------------
+    // Normalize — non-JsonElement, non-dict value passes through
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Normalize_BoolValue_PassesThrough()
+    {
+        Assert.Equal(true, Resolver.Normalize(true));
+        Assert.Equal(false, Resolver.Normalize(false));
+    }
+
+    [Fact]
+    public void Normalize_LongValue_PassesThrough()
+    {
+        Assert.Equal(42L, Resolver.Normalize(42L));
+    }
+
+    [Fact]
+    public void Normalize_DoubleValue_PassesThrough()
+    {
+        Assert.Equal(3.14, Resolver.Normalize(3.14));
+    }
+
+    // ------------------------------------------------------------------
+    // DeepMerge — three-level nested dicts
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void DeepMerge_ThreeLevelNestedDicts_MergesCorrectly()
+    {
+        var @base = new Dictionary<string, object?>
+        {
+            ["l1"] = new Dictionary<string, object?>
+            {
+                ["l2"] = new Dictionary<string, object?>
+                {
+                    ["a"] = 1,
+                    ["b"] = 2,
+                }
+            }
+        };
+        var @override = new Dictionary<string, object?>
+        {
+            ["l1"] = new Dictionary<string, object?>
+            {
+                ["l2"] = new Dictionary<string, object?>
+                {
+                    ["b"] = 99,
+                    ["c"] = 3,
+                }
+            }
+        };
+
+        var result = Resolver.DeepMerge(@base, @override);
+        var l1 = Assert.IsType<Dictionary<string, object?>>(result["l1"]);
+        var l2 = Assert.IsType<Dictionary<string, object?>>(l1["l2"]);
+        Assert.Equal(1, l2["a"]);
+        Assert.Equal(99, l2["b"]);
+        Assert.Equal(3, l2["c"]);
+    }
+
+    // ------------------------------------------------------------------
+    // Resolve — env overrides at multiple chain levels
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Resolve_EnvOverridesAtMultipleLevels_ChildEnvWins()
+    {
+        var chain = new List<ConfigChainEntry>
+        {
+            new()
+            {
+                Id = "child",
+                Values = new() { ["timeout"] = 30 },
+                EnvValues = new()
+                {
+                    ["prod"] = new() { ["timeout"] = 100 }
+                },
+            },
+            new()
+            {
+                Id = "parent",
+                Values = new() { ["timeout"] = 10 },
+                EnvValues = new()
+                {
+                    ["prod"] = new() { ["timeout"] = 50 }
+                },
+            },
+        };
+
+        var result = Resolver.Resolve(chain, "prod");
+        // Child env override (100) should win over parent env override (50)
+        Assert.Equal(100, result["timeout"]);
+    }
+
+    // ------------------------------------------------------------------
+    // ToChainEntry — multiple environments
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void ToChainEntry_MultipleEnvironments_ExtractsAll()
+    {
+        var config = new Smplkit.Config.Config(
+            Id: "id-1",
+            Key: "key",
+            Name: "Name",
+            Description: null,
+            Parent: null,
+            Values: new(),
+            Environments: new()
+            {
+                ["production"] = new()
+                {
+                    ["values"] = JsonDocument.Parse("""{"a": 1}""").RootElement,
+                },
+                ["staging"] = new()
+                {
+                    ["values"] = JsonDocument.Parse("""{"b": 2}""").RootElement,
+                },
+            },
+            CreatedAt: null,
+            UpdatedAt: null);
+
+        var entry = Resolver.ToChainEntry(config);
+        Assert.Equal(2, entry.EnvValues.Count);
+        Assert.Equal(1L, entry.EnvValues["production"]["a"]);
+        Assert.Equal(2L, entry.EnvValues["staging"]["b"]);
+    }
+
+    // ------------------------------------------------------------------
+    // ToChainEntry — env with "values" that is null
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void ToChainEntry_EnvWithNullValues_SkipsEnvironment()
+    {
+        var config = new Smplkit.Config.Config(
+            Id: "id-1",
+            Key: "key",
+            Name: "Name",
+            Description: null,
+            Parent: null,
+            Values: new(),
+            Environments: new()
+            {
+                ["production"] = new()
+                {
+                    ["values"] = null,
+                },
+            },
+            CreatedAt: null,
+            UpdatedAt: null);
+
+        var entry = Resolver.ToChainEntry(config);
+        // null is not a Dictionary<string, object?>, so env should be skipped
+        Assert.DoesNotContain("production", entry.EnvValues.Keys);
+    }
+
+    // ------------------------------------------------------------------
+    // NormalizeJsonElement — large int64 value
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Normalize_JsonElement_LargeInt64_ReturnsLong()
+    {
+        var je = JsonDocument.Parse("9999999999").RootElement;
+        var result = Resolver.Normalize(je);
+        Assert.Equal(9999999999L, result);
+    }
+
+    // ------------------------------------------------------------------
+    // NormalizeJsonElement — empty object
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Normalize_JsonElement_EmptyObject_ReturnsEmptyDict()
+    {
+        var je = JsonDocument.Parse("{}").RootElement;
+        var result = Resolver.Normalize(je);
+        var dict = Assert.IsType<Dictionary<string, object?>>(result);
+        Assert.Empty(dict);
+    }
+
+    // ------------------------------------------------------------------
+    // NormalizeJsonElement — empty array
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Normalize_JsonElement_EmptyArray_ReturnsEmptyArray()
+    {
+        var je = JsonDocument.Parse("[]").RootElement;
+        var result = Resolver.Normalize(je);
+        var arr = Assert.IsType<object?[]>(result);
+        Assert.Empty(arr);
+    }
+
+    // ------------------------------------------------------------------
+    // Resolve — single entry with no matching env returns base only
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Resolve_NoMatchingEnv_ReturnsBaseValuesOnly()
+    {
+        var chain = new List<ConfigChainEntry>
+        {
+            new()
+            {
+                Id = "c1",
+                Values = new() { ["timeout"] = 30 },
+                EnvValues = new()
+                {
+                    ["staging"] = new() { ["timeout"] = 45 }
+                },
+            },
+        };
+
+        var result = Resolver.Resolve(chain, "production");
+        Assert.Equal(30, result["timeout"]);
+    }
 }

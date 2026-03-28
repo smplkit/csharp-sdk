@@ -737,4 +737,249 @@ public class ConfigClientTests
         await Assert.ThrowsAsync<SmplValidationException>(
             () => client.Config.UpdateAsync(TestData.ConfigId, new CreateConfigOptions { Name = "Test" }));
     }
+
+    // ---------------------------------------------------------------
+    // UpdateAsync with all fields
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task UpdateAsync_WithAllFields_IncludesAllInBody()
+    {
+        string? body = null;
+        var (client, _) = CreateClient(async req =>
+        {
+            if (req.Method == HttpMethod.Put)
+            {
+                body = await req.Content!.ReadAsStringAsync();
+            }
+            return JsonResponse(TestData.SingleConfigJson());
+        });
+
+        await client.Config.UpdateAsync(TestData.ConfigId, new CreateConfigOptions
+        {
+            Name = "Updated",
+            Key = "updated_key",
+            Description = "Updated description",
+            Parent = "parent-id",
+            Values = new() { ["a"] = 1 },
+            Environments = new() { ["prod"] = new Dictionary<string, object?> { ["b"] = 2 } },
+        });
+
+        Assert.NotNull(body);
+        Assert.Contains("Updated", body);
+        Assert.Contains("updated_key", body);
+        Assert.Contains("Updated description", body);
+        Assert.Contains("parent-id", body);
+    }
+
+    // ---------------------------------------------------------------
+    // GetAsync with environment data containing JsonElements
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task GetAsync_WithEnvironmentData_DeserializesCorrectly()
+    {
+        var json = """
+        {
+            "data": {
+                "id": "cfg-1",
+                "type": "config",
+                "attributes": {
+                    "key": "my_key",
+                    "name": "My Config",
+                    "description": null,
+                    "parent": null,
+                    "values": {"timeout": 30},
+                    "environments": {
+                        "production": {"values": {"timeout": 60}},
+                        "staging": {"values": {"debug": true}}
+                    },
+                    "created_at": "2024-01-15T10:30:00Z",
+                    "updated_at": "2024-01-15T10:30:00Z"
+                }
+            }
+        }
+        """;
+
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(json)));
+
+        var config = await client.Config.GetAsync("cfg-1");
+
+        Assert.Equal(2, config.Environments.Count);
+        Assert.True(config.Environments.ContainsKey("production"));
+        Assert.True(config.Environments.ContainsKey("staging"));
+    }
+
+    // ---------------------------------------------------------------
+    // ListAsync — verifies all resources are mapped
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task ListAsync_AllResourcesMapped_ReturnsList()
+    {
+        var json = """
+        {
+            "data": [
+                {
+                    "id": "1",
+                    "type": "config",
+                    "attributes": {
+                        "key": "a",
+                        "name": "A",
+                        "description": null,
+                        "parent": null,
+                        "values": {},
+                        "environments": {},
+                        "created_at": null,
+                        "updated_at": null
+                    }
+                },
+                {
+                    "id": "2",
+                    "type": "config",
+                    "attributes": {
+                        "key": "b",
+                        "name": "B",
+                        "description": "desc",
+                        "parent": "1",
+                        "values": {"x": 1},
+                        "environments": {},
+                        "created_at": "2024-01-15T10:30:00Z",
+                        "updated_at": "2024-01-15T10:30:00Z"
+                    }
+                }
+            ]
+        }
+        """;
+
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(json)));
+
+        var configs = await client.Config.ListAsync();
+
+        Assert.Equal(2, configs.Count);
+        Assert.Equal("a", configs[0].Key);
+        Assert.Equal("b", configs[1].Key);
+        Assert.Equal("1", configs[1].Parent);
+        Assert.Equal("desc", configs[1].Description);
+    }
+
+    // ---------------------------------------------------------------
+    // Generic HTTP 503 error
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task GetAsync_503_ThrowsSmplException()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(
+                """{"errors":[{"detail":"Service unavailable"}]}""",
+                HttpStatusCode.ServiceUnavailable)));
+
+        var ex = await Assert.ThrowsAsync<SmplException>(
+            () => client.Config.GetAsync(TestData.ConfigId));
+        Assert.Equal(503, ex.StatusCode);
+    }
+
+    // ---------------------------------------------------------------
+    // Delete error — already caught SmplException rethrown
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task DeleteAsync_404_ThrowsSmplNotFoundException()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(
+                """{"errors":[{"detail":"Not found"}]}""",
+                HttpStatusCode.NotFound)));
+
+        var ex = await Assert.ThrowsAsync<SmplNotFoundException>(
+            () => client.Config.DeleteAsync(TestData.ConfigId));
+        Assert.Equal(404, ex.StatusCode);
+    }
+
+    // ---------------------------------------------------------------
+    // Delete error — 422 Validation
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task DeleteAsync_422_ThrowsSmplValidationException()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(
+                """{"errors":[{"detail":"Invalid"}]}""",
+                (HttpStatusCode)422)));
+
+        var ex = await Assert.ThrowsAsync<SmplValidationException>(
+            () => client.Config.DeleteAsync(TestData.ConfigId));
+        Assert.Equal(422, ex.StatusCode);
+    }
+
+    // ---------------------------------------------------------------
+    // Delete error — 500 generic
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task DeleteAsync_500_ThrowsSmplException()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(
+                """{"errors":[{"detail":"Server error"}]}""",
+                HttpStatusCode.InternalServerError)));
+
+        var ex = await Assert.ThrowsAsync<SmplException>(
+            () => client.Config.DeleteAsync(TestData.ConfigId));
+        Assert.Equal(500, ex.StatusCode);
+    }
+
+    // ---------------------------------------------------------------
+    // UpdateAsync — 500 generic error
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task UpdateAsync_500_ThrowsSmplException()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(
+                """{"errors":[{"detail":"Server error"}]}""",
+                HttpStatusCode.InternalServerError)));
+
+        var ex = await Assert.ThrowsAsync<SmplException>(
+            () => client.Config.UpdateAsync(TestData.ConfigId, new CreateConfigOptions { Name = "Test" }));
+        Assert.Equal(500, ex.StatusCode);
+    }
+
+    // ---------------------------------------------------------------
+    // CreateAsync — 500 generic error
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task CreateAsync_500_ThrowsSmplException()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(
+                """{"errors":[{"detail":"Server error"}]}""",
+                HttpStatusCode.InternalServerError)));
+
+        var ex = await Assert.ThrowsAsync<SmplException>(
+            () => client.Config.CreateAsync(new CreateConfigOptions { Name = "Test" }));
+        Assert.Equal(500, ex.StatusCode);
+    }
+
+    // ---------------------------------------------------------------
+    // Multiple requests tracked by handler
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task MultipleRequests_AreTrackedByHandler()
+    {
+        var (client, handler) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(TestData.SingleConfigJson())));
+
+        await client.Config.GetAsync("id-1");
+        await client.Config.GetAsync("id-2");
+
+        Assert.Equal(2, handler.Requests.Count);
+    }
 }
