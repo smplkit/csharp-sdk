@@ -127,14 +127,14 @@ jobs:
           ls nupkg/Smplkit.Sdk.*.nupkg || { echo "ERROR: Expected Smplkit.Sdk nupkg not found"; exit 1; }
 
       - name: NuGet login (OIDC trusted publishing)
-        if: steps.check.outputs.released == 'true'
+        if: steps.check.outputs.released == 'true' && secrets.NUGET_USER != ''
         uses: NuGet/login@v1
         id: nuget-login
         with:
           user: ${{ secrets.NUGET_USER }}
 
       - name: Publish to NuGet
-        if: steps.check.outputs.released == 'true'
+        if: steps.check.outputs.released == 'true' && steps.nuget-login.outcome == 'success'
         run: >
           dotnet nuget push nupkg/*.nupkg
           --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}"
