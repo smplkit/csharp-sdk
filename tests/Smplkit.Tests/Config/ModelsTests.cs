@@ -12,7 +12,7 @@ public class ModelsTests
     [Fact]
     public void Config_Record_HasCorrectProperties()
     {
-        var config = new Config.Config(
+        var config = new Smplkit.Config.Config(
             Id: "id-1",
             Key: "my_key",
             Name: "My Config",
@@ -40,7 +40,7 @@ public class ModelsTests
     [Fact]
     public void Config_Record_NullableFieldsCanBeNull()
     {
-        var config = new Config.Config(
+        var config = new Smplkit.Config.Config(
             Id: "id-1",
             Key: "key",
             Name: "name",

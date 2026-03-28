@@ -381,7 +381,7 @@ public class ResolverTests
     [Fact]
     public void ToChainEntry_BasicConfig_ReturnsEntry()
     {
-        var config = new Config.Config(
+        var config = new Smplkit.Config.Config(
             Id: "id-1",
             Key: "my_key",
             Name: "My Config",
@@ -407,7 +407,7 @@ public class ResolverTests
             ["values"] = JsonDocument.Parse("""{"retries": 5}""").RootElement,
         };
 
-        var config = new Config.Config(
+        var config = new Smplkit.Config.Config(
             Id: "id-1",
             Key: "my_key",
             Name: "My Config",
@@ -435,7 +435,7 @@ public class ResolverTests
             ["description"] = "no values key here",
         };
 
-        var config = new Config.Config(
+        var config = new Smplkit.Config.Config(
             Id: "id-1",
             Key: "my_key",
             Name: "My Config",
@@ -463,7 +463,7 @@ public class ResolverTests
             ["values"] = "not a dict",
         };
 
-        var config = new Config.Config(
+        var config = new Smplkit.Config.Config(
             Id: "id-1",
             Key: "my_key",
             Name: "My Config",
@@ -486,7 +486,7 @@ public class ResolverTests
     public void ToChainEntry_WithJsonElementValues_Normalizes()
     {
         var je = JsonDocument.Parse("\"normalized\"").RootElement;
-        var config = new Config.Config(
+        var config = new Smplkit.Config.Config(
             Id: "id-1",
             Key: "my_key",
             Name: "My Config",
