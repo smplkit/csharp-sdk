@@ -1,4 +1,4 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -6,6 +6,10 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Smplkit", "src\Smplkit\Smplkit.csproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Smplkit.Tests", "tests\Smplkit.Tests\Smplkit.Tests.csproj", "{B2C3D4E5-F6A7-8901-BCDE-F12345678901}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "examples", "examples", "{D0DE1AB3-996C-4F14-9A3D-8A66713346EB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConfigShowcase", "examples\ConfigShowcase\ConfigShowcase.csproj", "{DBB0BAD2-502A-4BBE-B241-C0AACD1AB00B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,5 +25,12 @@ Global
 		{B2C3D4E5-F6A7-8901-BCDE-F12345678901}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B2C3D4E5-F6A7-8901-BCDE-F12345678901}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B2C3D4E5-F6A7-8901-BCDE-F12345678901}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DBB0BAD2-502A-4BBE-B241-C0AACD1AB00B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DBB0BAD2-502A-4BBE-B241-C0AACD1AB00B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DBB0BAD2-502A-4BBE-B241-C0AACD1AB00B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DBB0BAD2-502A-4BBE-B241-C0AACD1AB00B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{DBB0BAD2-502A-4BBE-B241-C0AACD1AB00B} = {D0DE1AB3-996C-4F14-9A3D-8A66713346EB}
 	EndGlobalSection
 EndGlobal
