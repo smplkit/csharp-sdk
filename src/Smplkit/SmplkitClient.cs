@@ -60,7 +60,7 @@ public sealed class SmplkitClient : IDisposable
         _ownsHttpClient = ownsHttpClient;
 
         var transport = new Transport(_httpClient, options);
-        Config = new ConfigClient(transport);
+        Config = new ConfigClient(transport, options.ApiKey);
     }
 
     /// <summary>

@@ -27,7 +27,7 @@ public sealed record Config(
 );
 
 /// <summary>
-/// Options for creating a new configuration.
+/// Options for creating or updating a configuration.
 /// </summary>
 public sealed record CreateConfigOptions
 {
@@ -45,7 +45,37 @@ public sealed record CreateConfigOptions
 
     /// <summary>Gets the initial base values.</summary>
     public Dictionary<string, object?>? Values { get; init; }
+
+    /// <summary>
+    /// Gets the environment-specific overrides. Each key is an environment name;
+    /// each value is a dict shaped as <c>{"values": {key: value, ...}}</c>.
+    /// </summary>
+    public Dictionary<string, object?>? Environments { get; init; }
 }
+
+/// <summary>
+/// Describes a single value change pushed by the config service.
+/// </summary>
+/// <param name="Key">The config key that changed.</param>
+/// <param name="OldValue">The previous value.</param>
+/// <param name="NewValue">The updated value.</param>
+/// <param name="Source">How the change was delivered: <c>"websocket"</c>, <c>"poll"</c>, or <c>"manual"</c>.</param>
+public sealed record ConfigChangeEvent(
+    string Key,
+    object? OldValue,
+    object? NewValue,
+    string Source
+);
+
+/// <summary>
+/// Diagnostic statistics for a <see cref="ConfigRuntime"/> instance.
+/// </summary>
+/// <param name="FetchCount">Total HTTP fetches performed (initial connect + reconnects + manual refreshes).</param>
+/// <param name="LastFetchAt">ISO-8601 timestamp of the most recent fetch, or <c>null</c> if none.</param>
+public sealed record ConfigStats(
+    int FetchCount,
+    string? LastFetchAt
+);
 
 /// <summary>
 /// Internal JSON:API envelope for a single config resource response.
@@ -171,4 +201,8 @@ internal sealed class JsonApiRequestAttributes
     /// <summary>Gets or sets the base values.</summary>
     [JsonPropertyName("values")]
     public Dictionary<string, object?>? Values { get; set; }
+
+    /// <summary>Gets or sets the environment-specific overrides.</summary>
+    [JsonPropertyName("environments")]
+    public Dictionary<string, object?>? Environments { get; set; }
 }

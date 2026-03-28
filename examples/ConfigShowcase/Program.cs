@@ -6,11 +6,17 @@
 ///
 /// - Client initialization (<see cref="Smplkit.SmplkitClient"/>)
 /// - Management-plane CRUD: create, update, list, and delete configs
-/// - Multi-level inheritance (auth_module → user_service → common)
+/// - Environment-specific overrides (SetValuesAsync / SetValueAsync)
+/// - Multi-level inheritance: auth_module → user_service → common
+/// - Runtime value resolution: ConnectAsync, Get, typed accessors
+/// - Local cache verification: Stats()
+/// - Real-time updates via WebSocket and change listeners
+/// - Manual refresh and connection lifecycle
+/// - Environment comparison across development / staging / production
 ///
 /// This script is designed to be read top-to-bottom as a walkthrough of the
-/// SDK's management-plane surface. It is runnable against a live smplkit
-/// environment, but is *not* a test — it creates, modifies, and deletes
+/// SDK's full capability surface. It is runnable against a live smplkit
+/// environment, but is NOT a test — it creates, modifies, and deletes
 /// real configs.
 ///
 /// Prerequisites:
@@ -111,23 +117,37 @@ common = await client.Config.UpdateAsync(common.Id, new CreateConfigOptions
             ["refresh_interval_seconds"] = 30,
         },
     },
+    Environments = new Dictionary<string, object?>(),
 });
 Step("Common config base values set");
 
-// --- SKIPPED: Environment-specific overrides (production, staging) ---
-// The C# SDK does not yet support setting environment overrides via
-// CreateConfigOptions or a set_values/set_value method. The Python SDK
-// uses common.set_values({...}, environment="production") for this.
-// When environment override support is added to the C# SDK, uncomment
-// and adapt the following:
-//
-// Production overrides:
-//   max_retries: 5, request_timeout_ms: 10000,
-//   credentials.scopes: ["read", "write", "admin"]
-//
-// Staging overrides:
-//   max_retries: 2, credentials.scopes: ["read", "write"]
-Step("SKIPPED: Environment overrides not yet supported in C# SDK");
+// Override specific values for production — these flow through to every
+// config that inherits from common, unless overridden further down.
+common = await client.Config.SetValuesAsync(common.Id,
+    new Dictionary<string, object?>
+    {
+        ["max_retries"] = 5,
+        ["request_timeout_ms"] = 10000,
+        ["credentials"] = new Dictionary<string, object?>
+        {
+            ["scopes"] = new[] { "read", "write", "admin" },
+        },
+    },
+    environment: "production");
+Step("Common config production overrides set");
+
+// Staging gets its own tweaks.
+common = await client.Config.SetValuesAsync(common.Id,
+    new Dictionary<string, object?>
+    {
+        ["max_retries"] = 2,
+        ["credentials"] = new Dictionary<string, object?>
+        {
+            ["scopes"] = new[] { "read", "write" },
+        },
+    },
+    environment: "staging");
+Step("Common config staging overrides set");
 
 // ------------------------------------------------------------------
 // 2b. Create a service-specific config (inherits from common)
@@ -160,25 +180,50 @@ var userService = await client.Config.CreateAsync(new CreateConfigOptions
 });
 Step($"Created user_service config: id={userService.Id}");
 
-// --- SKIPPED: Environment-specific overrides (production, staging, development) ---
-// The C# SDK does not yet support setting environment overrides.
-// The Python SDK uses user_service.set_values({...}, environment="production"):
-//
-// Production overrides:
-//   database.host: "prod-users-rds.internal.acme.dev",
-//   database.name: "users_prod", database.pool_size: 20,
-//   database.ssl_mode: "require", cache_ttl_seconds: 600
-//
-// Staging overrides:
-//   database.host: "staging-users-rds.internal.acme.dev",
-//   database.name: "users_staging", database.pool_size: 10
-//
-// Development-only keys:
-//   debug_sql: true, seed_test_data: true
-//
-// --- SKIPPED: set_value convenience method ---
-// Python SDK: await user_service.set_value("enable_signup", False, environment="production")
-Step("SKIPPED: Environment overrides not yet supported in C# SDK");
+// Production overrides for the user service.
+userService = await client.Config.SetValuesAsync(userService.Id,
+    new Dictionary<string, object?>
+    {
+        ["database"] = new Dictionary<string, object?>
+        {
+            ["host"] = "prod-users-rds.internal.acme.dev",
+            ["name"] = "users_prod",
+            ["pool_size"] = 20,
+            ["ssl_mode"] = "require",
+        },
+        ["cache_ttl_seconds"] = 600,
+    },
+    environment: "production");
+Step("User service production overrides set");
+
+// Staging overrides.
+userService = await client.Config.SetValuesAsync(userService.Id,
+    new Dictionary<string, object?>
+    {
+        ["database"] = new Dictionary<string, object?>
+        {
+            ["host"] = "staging-users-rds.internal.acme.dev",
+            ["name"] = "users_staging",
+            ["pool_size"] = 10,
+        },
+    },
+    environment: "staging");
+Step("User service staging overrides set");
+
+// Add keys that only exist in the development environment.
+userService = await client.Config.SetValuesAsync(userService.Id,
+    new Dictionary<string, object?>
+    {
+        ["debug_sql"] = true,
+        ["seed_test_data"] = true,
+    },
+    environment: "development");
+Step("User service development-only keys set");
+
+// Set a single value using the convenience method.
+userService = await client.Config.SetValueAsync(
+    userService.Id, "enable_signup", false, environment: "production");
+Step("Disabled signup in production via SetValueAsync");
 
 // ------------------------------------------------------------------
 // 2c. Create a second config to show multi-level inheritance
@@ -203,11 +248,15 @@ var authModule = await client.Config.CreateAsync(new CreateConfigOptions
 });
 Step($"Created auth_module config: id={authModule.Id}, parent={userService.Id}");
 
-// --- SKIPPED: auth_module production environment overrides ---
-// Python SDK: await auth_module.set_values({
-//     "session_ttl_minutes": 30, "mfa_enabled": True, "max_failed_attempts": 3
-// }, environment="production")
-Step("SKIPPED: Environment overrides not yet supported in C# SDK");
+authModule = await client.Config.SetValuesAsync(authModule.Id,
+    new Dictionary<string, object?>
+    {
+        ["session_ttl_minutes"] = 30,
+        ["mfa_enabled"] = true,
+        ["max_failed_attempts"] = 3,
+    },
+    environment: "production");
+Step("Auth module production overrides set");
 
 // ------------------------------------------------------------------
 // 2d. List all configs — verify hierarchy
@@ -225,65 +274,240 @@ foreach (var cfg in configs)
 // 3. RUNTIME PLANE — Resolve configuration in a running application
 // ======================================================================
 //
-// --- SKIPPED: The C# SDK does not yet implement the runtime plane. ---
+// ConnectAsync eagerly fetches the config and its full parent chain,
+// resolves values for the given environment via deep merge, caches
+// everything in-process, and starts a background WebSocket for
+// real-time updates.
 //
-// The Python SDK provides:
-//   runtime = await config.connect("production", timeout=10)
-//   runtime.get("key")           — read resolved value from local cache
-//   runtime.get_str("key")       — typed string accessor
-//   runtime.get_int("key")       — typed int accessor
-//   runtime.get_bool("key")      — typed bool accessor
-//   runtime.exists("key")        — check if key exists
-//   runtime.get_all()            — get all resolved values
-//   runtime.stats()              — cache diagnostics (fetch_count)
-//
-// When the C# SDK adds ConnectAsync() and ConfigRuntime, this section
-// should exercise: connect, read resolved values (including inherited
-// and deep-merged values), verify local caching, get_all, and
-// multi-level inheritance resolution.
+// Get() and all value-access methods are SYNCHRONOUS — they read from
+// a local dictionary with zero network overhead.
 // ======================================================================
 
-Section("3. Runtime Plane");
-Step("SKIPPED: Runtime plane (ConnectAsync / ConfigRuntime) not yet implemented in C# SDK");
+// ------------------------------------------------------------------
+// 3a. Connect to a config for runtime use
+// ------------------------------------------------------------------
+Section("3a. Connect to Runtime Config");
+
+var runtime = await client.Config.ConnectAsync(userService.Id, "production", timeout: 10);
+Step("Runtime config connected and fully loaded");
+
+// ------------------------------------------------------------------
+// 3b. Read resolved values — all synchronous, all from local cache
+// ------------------------------------------------------------------
+Section("3b. Read Resolved Values");
+
+var dbConfig = runtime.Get("database");
+Step($"database = {FormatValue(dbConfig)}");
+// Expected (deep-merged): user_service prod override + user_service base
+// host: "prod-users-rds.internal.acme.dev", port: 5432, name: "users_prod",
+// pool_size: 20, ssl_mode: "require"
+
+var retries = runtime.Get("max_retries");
+Step($"max_retries = {retries}");
+// Expected: 5 (from common's production override — inherited through)
+
+var creds = runtime.Get("credentials");
+Step($"credentials = {FormatValue(creds)}");
+
+var cacheTtl = runtime.Get("cache_ttl_seconds");
+Step($"cache_ttl_seconds = {cacheTtl}");
+// Expected: 600 (user_service production override)
+
+var pageSize = runtime.Get("pagination_default_page_size");
+Step($"pagination_default_page_size = {pageSize}");
+// Expected: 50 (user_service base overrides common's 25)
+
+var support = runtime.Get("support_email");
+Step($"support_email = {support}");
+// Expected: "support@acme.dev" (inherited all the way from common base)
+
+var missing = runtime.Get("this_key_does_not_exist");
+Step($"nonexistent key = {missing ?? "null"}");
+// Expected: null
+
+var withDefault = runtime.Get("this_key_does_not_exist", @default: "fallback");
+Step($"nonexistent key with default = {withDefault}");
+// Expected: "fallback"
+
+// Typed convenience accessors
+var signupEnabled = runtime.GetBool("enable_signup", @default: false);
+Step($"enable_signup (bool) = {signupEnabled}");
+// Expected: false (user_service production override via SetValueAsync)
+
+var timeoutMs = runtime.GetInt("request_timeout_ms", @default: 3000);
+Step($"request_timeout_ms (int) = {timeoutMs}");
+// Expected: 10000 (common production override)
+
+var appName = runtime.GetString("app_name", @default: "Unknown");
+Step($"app_name (str) = {appName}");
+// Expected: "Acme SaaS Platform" (common base)
+
+// Check whether a key exists (regardless of its value).
+Step($"'database' exists = {runtime.Exists("database")}");
+// Expected: true
+Step($"'ghost_key' exists = {runtime.Exists("ghost_key")}");
+// Expected: false
+
+// ------------------------------------------------------------------
+// 3c. Verify local caching — no network requests on repeated reads
+// ------------------------------------------------------------------
+Section("3c. Verify Local Caching");
+
+// ConnectAsync fetched everything eagerly. All Get() calls are pure
+// local dict reads with zero network overhead. Stats() lets us verify.
+
+var statsBefore = runtime.Stats();
+Step($"Network fetches so far: {statsBefore.FetchCount}");
+// Expected: 2 (user_service + common, fetched during connect)
+
+// Read a bunch of keys — none should trigger a network fetch.
+for (int i = 0; i < 100; i++)
+{
+    runtime.Get("max_retries");
+    runtime.Get("database");
+    runtime.Get("credentials");
+}
+
+var statsAfter = runtime.Stats();
+Step($"Network fetches after 300 reads: {statsAfter.FetchCount}");
+// Expected: still 2
+
+if (statsAfter.FetchCount != statsBefore.FetchCount)
+    throw new InvalidOperationException(
+        $"SDK made unexpected network calls! Before: {statsBefore.FetchCount}, After: {statsAfter.FetchCount}");
+
+Step("PASSED — all reads served from local cache");
+
+// ------------------------------------------------------------------
+// 3d. Get ALL resolved values as a dictionary
+// ------------------------------------------------------------------
+Section("3d. Get Full Resolved Configuration");
+
+// Sometimes you want the entire resolved config as a dict — for
+// logging at startup, passing to a framework, or debugging.
+var allValues = runtime.GetAll();
+Step($"Total resolved keys: {allValues.Count}");
+foreach (var kvp in allValues.OrderBy(k => k.Key))
+    Step($"  {kvp.Key} = {FormatValue(kvp.Value)}");
+
+// ------------------------------------------------------------------
+// 3e. Multi-level inheritance — connect to auth_module in production
+// ------------------------------------------------------------------
+Section("3e. Multi-Level Inheritance (auth_module)");
+
+await using var authRuntime = await client.Config.ConnectAsync(
+    authModule.Id, "production", timeout: 10);
+
+var sessionTtl = authRuntime.Get("session_ttl_minutes");
+Step($"session_ttl_minutes = {sessionTtl}");
+// Expected: 30 (auth_module production override)
+
+var mfa = authRuntime.Get("mfa_enabled");
+Step($"mfa_enabled = {mfa}");
+// Expected: true (auth_module production override)
+
+// Keys inherited from user_service:
+var authDb = authRuntime.Get("database");
+Step($"database (inherited from user_service) = {FormatValue(authDb)}");
+
+// Keys inherited all the way from common:
+var authApp = authRuntime.GetString("app_name");
+Step($"app_name (inherited from common) = {authApp}");
+
+Step("auth_runtime closed via await using");
 
 // ======================================================================
 // 4. REAL-TIME UPDATES — WebSocket-driven cache invalidation
 // ======================================================================
 //
-// --- SKIPPED: The C# SDK does not yet implement WebSocket support. ---
-//
-// The Python SDK provides:
-//   runtime.on_change(callback)              — global change listener
-//   runtime.on_change(callback, key="key")   — key-specific listener
-//   runtime.connection_status()              — WebSocket status
-//   runtime.refresh()                        — manual cache refresh
-//
-// When the C# SDK adds WebSocket support, this section should exercise:
-// registering change listeners, simulating a config change via the
-// management API, verifying the runtime cache updates automatically,
-// and connection lifecycle (status, manual refresh).
+// The SDK maintains a WebSocket connection to the config service. When
+// a value changes (via the console, API, or another SDK instance), the
+// server pushes an update and the SDK refreshes its local cache. The
+// application can register listeners to react to changes without polling.
 // ======================================================================
 
-Section("4. Real-Time Updates");
-Step("SKIPPED: WebSocket / real-time updates not yet implemented in C# SDK");
+Section("4. Real-Time Updates via WebSocket");
+
+// ------------------------------------------------------------------
+// 4a. Register change listeners
+// ------------------------------------------------------------------
+
+var changesReceived = new List<ConfigChangeEvent>();
+
+runtime.OnChange(evt =>
+{
+    changesReceived.Add(evt);
+    Console.WriteLine($"    [CHANGE] {evt.Key}: {FormatValue(evt.OldValue)!} → {FormatValue(evt.NewValue)}");
+});
+Step("Global change listener registered");
+
+var retryChanges = new List<ConfigChangeEvent>();
+runtime.OnChange(evt => retryChanges.Add(evt), key: "max_retries");
+Step("Key-specific listener registered for 'max_retries'");
+
+// ------------------------------------------------------------------
+// 4b. Simulate a config change via the management API
+// ------------------------------------------------------------------
+Step("Updating max_retries on common (production) via management API...");
+
+common = await client.Config.SetValueAsync(
+    common.Id, "max_retries", 7, environment: "production");
+
+// Give the WebSocket a moment to deliver the update.
+await Task.Delay(2000);
+
+// The runtime cache should now reflect the new value WITHOUT us
+// having to do anything — the WebSocket pushed the update.
+var newRetries = runtime.Get("max_retries");
+Step($"max_retries after live update = {newRetries}");
+// Expected: 7
+
+Step($"Changes received by global listener: {changesReceived.Count}");
+Step($"Retry-specific changes received: {retryChanges.Count}");
+
+// ------------------------------------------------------------------
+// 4c. Connection lifecycle
+// ------------------------------------------------------------------
+Section("4c. WebSocket Connection Lifecycle");
+
+var wsStatus = runtime.ConnectionStatus();
+Step($"WebSocket status: {wsStatus}");
+// Expected: "connected"
+
+// Force a manual refresh — re-fetches the chain via HTTP, re-resolves,
+// fires listeners for any changes with source="manual".
+await runtime.RefreshAsync();
+Step("Manual refresh completed");
 
 // ======================================================================
 // 5. ENVIRONMENT COMPARISON
 // ======================================================================
 //
-// --- SKIPPED: Requires runtime plane (ConnectAsync). ---
-//
-// The Python SDK connects to user_service in development, staging, and
-// production and prints the resolved db.host and max_retries for each.
+// A developer might want to see how the same config resolves across
+// environments — useful for debugging "works in staging but not prod."
 // ======================================================================
 
 Section("5. Environment Comparison");
-Step("SKIPPED: Requires runtime plane (ConnectAsync) not yet implemented in C# SDK");
+
+foreach (var env in new[] { "development", "staging", "production" })
+{
+    await using var envRuntime = await client.Config.ConnectAsync(
+        userService.Id, env, timeout: 10);
+
+    var db = envRuntime.Get("database") as Dictionary<string, object?>;
+    var dbHost = db?.TryGetValue("host", out var h) == true ? h?.ToString() : "N/A";
+    var envRetries = envRuntime.Get("max_retries");
+    Step($"[{env,-12}] db.host={dbHost}, retries={envRetries}");
+}
 
 // ======================================================================
 // 6. CLEANUP
 // ======================================================================
 Section("6. Cleanup");
+
+// Close the runtime connection (WebSocket teardown).
+await runtime.CloseAsync();
+Step("Runtime connection closed");
 
 // Delete configs in dependency order (children first).
 await client.Config.DeleteAsync(authModule.Id);
@@ -297,10 +521,11 @@ await client.Config.UpdateAsync(common.Id, new CreateConfigOptions
 {
     Name = common.Name,
     Values = new Dictionary<string, object?>(),
+    Environments = new Dictionary<string, object?>(),
 });
 Step("Common config reset to empty");
 
-// SmplkitClient is disposed via the using declaration above.
+// SmplkitClient is disposed via the 'using' declaration at the top.
 Step("SmplkitClient will be disposed on exit");
 
 // ======================================================================
@@ -308,7 +533,18 @@ Step("SmplkitClient will be disposed on exit");
 // ======================================================================
 Section("ALL DONE");
 Console.WriteLine("  The Config SDK showcase completed successfully.");
-Console.WriteLine("  If you got here, Smpl Config management plane is ready to ship.");
-Console.WriteLine();
+Console.WriteLine("  If you got here, Smpl Config is ready to ship.\n");
 
 return 0;
+
+// ---------------------------------------------------------------------------
+// Local helper for printing arbitrary resolved values
+// ---------------------------------------------------------------------------
+
+static string FormatValue(object? value) => value switch
+{
+    null => "null",
+    Dictionary<string, object?> d => "{" + string.Join(", ", d.Select(kvp => $"{kvp.Key}: {FormatValue(kvp.Value)}")) + "}",
+    object?[] arr => "[" + string.Join(", ", arr.Select(FormatValue)) + "]",
+    _ => value.ToString() ?? "null",
+};

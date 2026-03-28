@@ -6,21 +6,25 @@ namespace Smplkit.Config;
 
 /// <summary>
 /// Client for the smplkit Config service. Provides CRUD operations on
-/// configuration resources.
+/// configuration resources plus runtime value resolution via
+/// <see cref="ConnectAsync"/>.
 /// </summary>
 public sealed class ConfigClient
 {
     private const string BaseUrl = "https://config.smplkit.com";
 
     private readonly Transport _transport;
+    private readonly string _apiKey;
 
     /// <summary>
     /// Initializes a new instance of <see cref="ConfigClient"/>.
     /// </summary>
     /// <param name="transport">The HTTP transport layer.</param>
-    internal ConfigClient(Transport transport)
+    /// <param name="apiKey">The API key, forwarded to <see cref="ConfigRuntime"/> for WebSocket auth.</param>
+    internal ConfigClient(Transport transport, string apiKey)
     {
         _transport = transport;
+        _apiKey = apiKey;
     }
 
     /// <summary>
@@ -91,22 +95,7 @@ public sealed class ConfigClient
     /// <exception cref="SmplValidationException">If the server rejects the request.</exception>
     public async Task<Config> CreateAsync(CreateConfigOptions options, CancellationToken ct = default)
     {
-        var body = new JsonApiRequestBody
-        {
-            Data = new JsonApiRequestResource
-            {
-                Type = "config",
-                Attributes = new JsonApiRequestAttributes
-                {
-                    Name = options.Name,
-                    Key = options.Key,
-                    Description = options.Description,
-                    Parent = options.Parent,
-                    Values = options.Values,
-                },
-            },
-        };
-
+        var body = BuildRequestBody(options);
         var json = await _transport.PostAsync($"{BaseUrl}/api/v1/configs", body, ct).ConfigureAwait(false);
         var response = JsonSerializer.Deserialize<JsonApiSingleResponse>(json, Transport.SerializerOptions);
         return MapResource(response?.Data)
@@ -124,22 +113,7 @@ public sealed class ConfigClient
     /// <exception cref="SmplValidationException">If the server rejects the request.</exception>
     public async Task<Config> UpdateAsync(string id, CreateConfigOptions options, CancellationToken ct = default)
     {
-        var body = new JsonApiRequestBody
-        {
-            Data = new JsonApiRequestResource
-            {
-                Type = "config",
-                Attributes = new JsonApiRequestAttributes
-                {
-                    Name = options.Name,
-                    Key = options.Key,
-                    Description = options.Description,
-                    Parent = options.Parent,
-                    Values = options.Values,
-                },
-            },
-        };
-
+        var body = BuildRequestBody(options);
         var json = await _transport.PutAsync($"{BaseUrl}/api/v1/configs/{id}", body, ct).ConfigureAwait(false);
         var response = JsonSerializer.Deserialize<JsonApiSingleResponse>(json, Transport.SerializerOptions);
         return MapResource(response?.Data)
@@ -157,6 +131,204 @@ public sealed class ConfigClient
     {
         await _transport.DeleteAsync($"{BaseUrl}/api/v1/configs/{id}", ct).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Replaces base or environment-specific values on a config and persists via PUT.
+    /// </summary>
+    /// <param name="id">The config UUID.</param>
+    /// <param name="values">The values dict to set.</param>
+    /// <param name="environment">
+    /// If provided, replaces that environment's values. If <c>null</c>, replaces the base values.
+    /// </param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The updated <see cref="Config"/>.</returns>
+    public async Task<Config> SetValuesAsync(
+        string id,
+        Dictionary<string, object?> values,
+        string? environment = null,
+        CancellationToken ct = default)
+    {
+        var current = await GetAsync(id, ct).ConfigureAwait(false);
+        return await ApplySetValues(current, values, environment, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sets a single key within base or environment-specific values.
+    /// Merges the key into existing values rather than replacing all values.
+    /// </summary>
+    /// <param name="id">The config UUID.</param>
+    /// <param name="key">The config key to set.</param>
+    /// <param name="value">The value to assign.</param>
+    /// <param name="environment">Target environment, or <c>null</c> for base values.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The updated <see cref="Config"/>.</returns>
+    public async Task<Config> SetValueAsync(
+        string id,
+        string key,
+        object? value,
+        string? environment = null,
+        CancellationToken ct = default)
+    {
+        var current = await GetAsync(id, ct).ConfigureAwait(false);
+
+        if (environment is null)
+        {
+            var merged = new Dictionary<string, object?>(current.Values) { [key] = value };
+            return await ApplySetValues(current, merged, null, ct).ConfigureAwait(false);
+        }
+        else
+        {
+            // Get existing env values (flatten from {"values": {...}} envelope)
+            Dictionary<string, object?> existingEnvValues;
+            if (current.Environments.TryGetValue(environment, out var envData))
+            {
+                var normalized = Resolver.NormalizeDict(envData);
+                existingEnvValues = normalized.TryGetValue("values", out var v)
+                    && v is Dictionary<string, object?> d
+                    ? new Dictionary<string, object?>(d)
+                    : new Dictionary<string, object?>();
+            }
+            else
+            {
+                existingEnvValues = new Dictionary<string, object?>();
+            }
+            existingEnvValues[key] = value;
+            return await ApplySetValues(current, existingEnvValues, environment, ct).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Connect to a config for runtime value resolution. Eagerly fetches the
+    /// config and its full parent chain, resolves values for the given
+    /// environment via deep merge, opens a background WebSocket for real-time
+    /// updates, and returns a fully populated <see cref="ConfigRuntime"/>.
+    /// </summary>
+    /// <param name="id">The config UUID.</param>
+    /// <param name="environment">The environment to resolve for (e.g. <c>"production"</c>).</param>
+    /// <param name="timeout">Maximum seconds to wait for the initial HTTP fetch.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A <see cref="ConfigRuntime"/> ready for synchronous value reads.</returns>
+    /// <exception cref="SmplTimeoutException">If the fetch exceeds <paramref name="timeout"/> seconds.</exception>
+    public async Task<ConfigRuntime> ConnectAsync(
+        string id,
+        string environment,
+        int timeout = 30,
+        CancellationToken ct = default)
+    {
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(timeout));
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
+
+        try
+        {
+            var (configKey, chain) = await BuildChainAsync(id, linkedCts.Token).ConfigureAwait(false);
+
+            return new ConfigRuntime(
+                configKey: configKey,
+                configId: id,
+                environment: environment,
+                chain: chain,
+                apiKey: _apiKey,
+                fetchChainFn: async fetchCt =>
+                {
+                    var (_, freshChain) = await BuildChainAsync(id, fetchCt).ConfigureAwait(false);
+                    return freshChain;
+                });
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            throw new SmplTimeoutException($"ConnectAsync timed out after {timeout} seconds.");
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Private helpers
+    // ------------------------------------------------------------------
+
+    private async Task<Config> ApplySetValues(
+        Config current,
+        Dictionary<string, object?> values,
+        string? environment,
+        CancellationToken ct)
+    {
+        Dictionary<string, object?>? newValues;
+        Dictionary<string, object?>? newEnvs;
+
+        if (environment is null)
+        {
+            newValues = values;
+            newEnvs = BuildEnvsForRequest(current.Environments);
+        }
+        else
+        {
+            newValues = current.Values;
+            var reqEnvs = BuildEnvsForRequest(current.Environments);
+            // Build or update the env entry with the new values
+            var envEntry = current.Environments.TryGetValue(environment, out var existing)
+                ? new Dictionary<string, object?>(existing)
+                : new Dictionary<string, object?>();
+            envEntry["values"] = values;
+            reqEnvs[environment] = envEntry;
+            newEnvs = reqEnvs;
+        }
+
+        return await UpdateAsync(current.Id, new CreateConfigOptions
+        {
+            Name = current.Name,
+            Key = current.Key,
+            Description = current.Description,
+            Parent = current.Parent,
+            Values = newValues,
+            Environments = newEnvs,
+        }, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Walk the parent chain starting at <paramref name="id"/> and return
+    /// the config key and chain entries ordered child-first, root-last.</summary>
+    private async Task<(string ConfigKey, List<ConfigChainEntry> Chain)> BuildChainAsync(
+        string id, CancellationToken ct = default)
+    {
+        var config = await GetAsync(id, ct).ConfigureAwait(false);
+        var chain = new List<ConfigChainEntry> { Resolver.ToChainEntry(config) };
+
+        var current = config;
+        while (current.Parent is not null)
+        {
+            var parent = await GetAsync(current.Parent, ct).ConfigureAwait(false);
+            chain.Add(Resolver.ToChainEntry(parent));
+            current = parent;
+        }
+
+        return (config.Key, chain);
+    }
+
+    /// <summary>Convert <see cref="Config.Environments"/> to the flat
+    /// <c>Dictionary&lt;string, object?&gt;</c> used in request bodies.</summary>
+    private static Dictionary<string, object?> BuildEnvsForRequest(
+        Dictionary<string, Dictionary<string, object?>> environments)
+    {
+        var result = new Dictionary<string, object?>(environments.Count);
+        foreach (var (envName, envData) in environments)
+            result[envName] = envData;
+        return result;
+    }
+
+    private static JsonApiRequestBody BuildRequestBody(CreateConfigOptions options) =>
+        new()
+        {
+            Data = new JsonApiRequestResource
+            {
+                Type = "config",
+                Attributes = new JsonApiRequestAttributes
+                {
+                    Name = options.Name,
+                    Key = options.Key,
+                    Description = options.Description,
+                    Parent = options.Parent,
+                    Values = options.Values,
+                    Environments = options.Environments,
+                },
+            },
+        };
 
     /// <summary>
     /// Maps a JSON:API resource to a <see cref="Config"/> record.
