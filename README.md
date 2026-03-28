@@ -51,7 +51,6 @@ await client.Config.DeleteAsync("config-uuid");
 var options = new SmplkitClientOptions
 {
     ApiKey = "sk_api_your_key_here",            // Required
-    BaseUrl = "https://config.smplkit.com",     // Default
     Timeout = TimeSpan.FromSeconds(30),         // Default
 };
 ```

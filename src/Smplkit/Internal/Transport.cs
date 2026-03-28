@@ -15,7 +15,6 @@ internal sealed class Transport
     private const string UserAgent = "smplkit-dotnet-sdk/0.0.0";
 
     private readonly HttpClient _httpClient;
-    private readonly string _baseUrl;
 
     /// <summary>
     /// Initializes a new <see cref="Transport"/> with the given HTTP client and options.
@@ -25,7 +24,6 @@ internal sealed class Transport
     internal Transport(HttpClient httpClient, SmplkitClientOptions options)
     {
         _httpClient = httpClient;
-        _baseUrl = options.BaseUrl.TrimEnd('/');
 
         _httpClient.Timeout = options.Timeout;
         _httpClient.DefaultRequestHeaders.Add("User-Agent", UserAgent);
@@ -34,14 +32,13 @@ internal sealed class Transport
     }
 
     /// <summary>
-    /// Sends a GET request to the specified path.
+    /// Sends a GET request to the specified URL.
     /// </summary>
-    /// <param name="path">The relative URL path.</param>
+    /// <param name="url">The full URL.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The response body as a string.</returns>
-    internal async Task<string> GetAsync(string path, CancellationToken ct = default)
+    internal async Task<string> GetAsync(string url, CancellationToken ct = default)
     {
-        var url = _baseUrl + path;
         try
         {
             var response = await _httpClient.GetAsync(url, ct).ConfigureAwait(false);
@@ -53,7 +50,7 @@ internal sealed class Transport
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
-            throw new SmplTimeoutException($"Request to {path} timed out.", ex);
+            throw new SmplTimeoutException($"Request to {url} timed out.", ex);
         }
         catch (TaskCanceledException)
         {
@@ -61,20 +58,19 @@ internal sealed class Transport
         }
         catch (HttpRequestException ex)
         {
-            throw new SmplConnectionException($"Connection failed for {path}: {ex.Message}", ex);
+            throw new SmplConnectionException($"Connection failed for {url}: {ex.Message}", ex);
         }
     }
 
     /// <summary>
-    /// Sends a POST request with a JSON body to the specified path.
+    /// Sends a POST request with a JSON body to the specified URL.
     /// </summary>
-    /// <param name="path">The relative URL path.</param>
+    /// <param name="url">The full URL.</param>
     /// <param name="body">The object to serialize as JSON.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The response body as a string.</returns>
-    internal async Task<string> PostAsync(string path, object body, CancellationToken ct = default)
+    internal async Task<string> PostAsync(string url, object body, CancellationToken ct = default)
     {
-        var url = _baseUrl + path;
         var json = JsonSerializer.Serialize(body, SerializerOptions);
         using var content = new StringContent(json, Encoding.UTF8, JsonApiMediaType);
         try
@@ -88,7 +84,7 @@ internal sealed class Transport
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
-            throw new SmplTimeoutException($"Request to {path} timed out.", ex);
+            throw new SmplTimeoutException($"Request to {url} timed out.", ex);
         }
         catch (TaskCanceledException)
         {
@@ -96,20 +92,19 @@ internal sealed class Transport
         }
         catch (HttpRequestException ex)
         {
-            throw new SmplConnectionException($"Connection failed for {path}: {ex.Message}", ex);
+            throw new SmplConnectionException($"Connection failed for {url}: {ex.Message}", ex);
         }
     }
 
     /// <summary>
-    /// Sends a PUT request with a JSON body to the specified path.
+    /// Sends a PUT request with a JSON body to the specified URL.
     /// </summary>
-    /// <param name="path">The relative URL path.</param>
+    /// <param name="url">The full URL.</param>
     /// <param name="body">The object to serialize as JSON.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The response body as a string.</returns>
-    internal async Task<string> PutAsync(string path, object body, CancellationToken ct = default)
+    internal async Task<string> PutAsync(string url, object body, CancellationToken ct = default)
     {
-        var url = _baseUrl + path;
         var json = JsonSerializer.Serialize(body, SerializerOptions);
         using var content = new StringContent(json, Encoding.UTF8, JsonApiMediaType);
         try
@@ -123,7 +118,7 @@ internal sealed class Transport
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
-            throw new SmplTimeoutException($"Request to {path} timed out.", ex);
+            throw new SmplTimeoutException($"Request to {url} timed out.", ex);
         }
         catch (TaskCanceledException)
         {
@@ -131,18 +126,17 @@ internal sealed class Transport
         }
         catch (HttpRequestException ex)
         {
-            throw new SmplConnectionException($"Connection failed for {path}: {ex.Message}", ex);
+            throw new SmplConnectionException($"Connection failed for {url}: {ex.Message}", ex);
         }
     }
 
     /// <summary>
-    /// Sends a DELETE request to the specified path.
+    /// Sends a DELETE request to the specified URL.
     /// </summary>
-    /// <param name="path">The relative URL path.</param>
+    /// <param name="url">The full URL.</param>
     /// <param name="ct">Cancellation token.</param>
-    internal async Task DeleteAsync(string path, CancellationToken ct = default)
+    internal async Task DeleteAsync(string url, CancellationToken ct = default)
     {
-        var url = _baseUrl + path;
         try
         {
             var response = await _httpClient.DeleteAsync(url, ct).ConfigureAwait(false);
@@ -156,7 +150,7 @@ internal sealed class Transport
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
-            throw new SmplTimeoutException($"Request to {path} timed out.", ex);
+            throw new SmplTimeoutException($"Request to {url} timed out.", ex);
         }
         catch (TaskCanceledException)
         {
@@ -164,7 +158,7 @@ internal sealed class Transport
         }
         catch (HttpRequestException ex)
         {
-            throw new SmplConnectionException($"Connection failed for {path}: {ex.Message}", ex);
+            throw new SmplConnectionException($"Connection failed for {url}: {ex.Message}", ex);
         }
     }
 

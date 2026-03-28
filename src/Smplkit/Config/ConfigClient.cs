@@ -10,6 +10,8 @@ namespace Smplkit.Config;
 /// </summary>
 public sealed class ConfigClient
 {
+    private const string BaseUrl = "https://config.smplkit.com";
+
     private readonly Transport _transport;
 
     /// <summary>
@@ -30,7 +32,7 @@ public sealed class ConfigClient
     /// <exception cref="SmplNotFoundException">If no matching config exists.</exception>
     public async Task<Config> GetAsync(string id, CancellationToken ct = default)
     {
-        var json = await _transport.GetAsync($"/api/v1/configs/{id}", ct).ConfigureAwait(false);
+        var json = await _transport.GetAsync($"{BaseUrl}/api/v1/configs/{id}", ct).ConfigureAwait(false);
         var response = JsonSerializer.Deserialize<JsonApiSingleResponse>(json, Transport.SerializerOptions);
         return MapResource(response?.Data)
             ?? throw new SmplNotFoundException($"Config {id} not found");
@@ -47,7 +49,7 @@ public sealed class ConfigClient
     public async Task<Config> GetByKeyAsync(string key, CancellationToken ct = default)
     {
         var encodedKey = Uri.EscapeDataString(key);
-        var json = await _transport.GetAsync($"/api/v1/configs?filter[key]={encodedKey}", ct).ConfigureAwait(false);
+        var json = await _transport.GetAsync($"{BaseUrl}/api/v1/configs?filter[key]={encodedKey}", ct).ConfigureAwait(false);
         var response = JsonSerializer.Deserialize<JsonApiListResponse>(json, Transport.SerializerOptions);
 
         if (response?.Data is null || response.Data.Count == 0)
@@ -64,7 +66,7 @@ public sealed class ConfigClient
     /// <returns>A list of <see cref="Config"/> objects.</returns>
     public async Task<List<Config>> ListAsync(CancellationToken ct = default)
     {
-        var json = await _transport.GetAsync("/api/v1/configs", ct).ConfigureAwait(false);
+        var json = await _transport.GetAsync($"{BaseUrl}/api/v1/configs", ct).ConfigureAwait(false);
         var response = JsonSerializer.Deserialize<JsonApiListResponse>(json, Transport.SerializerOptions);
 
         if (response?.Data is null)
@@ -105,7 +107,7 @@ public sealed class ConfigClient
             },
         };
 
-        var json = await _transport.PostAsync("/api/v1/configs", body, ct).ConfigureAwait(false);
+        var json = await _transport.PostAsync($"{BaseUrl}/api/v1/configs", body, ct).ConfigureAwait(false);
         var response = JsonSerializer.Deserialize<JsonApiSingleResponse>(json, Transport.SerializerOptions);
         return MapResource(response?.Data)
             ?? throw new SmplValidationException("Failed to create config");
@@ -138,7 +140,7 @@ public sealed class ConfigClient
             },
         };
 
-        var json = await _transport.PutAsync($"/api/v1/configs/{id}", body, ct).ConfigureAwait(false);
+        var json = await _transport.PutAsync($"{BaseUrl}/api/v1/configs/{id}", body, ct).ConfigureAwait(false);
         var response = JsonSerializer.Deserialize<JsonApiSingleResponse>(json, Transport.SerializerOptions);
         return MapResource(response?.Data)
             ?? throw new SmplValidationException("Failed to update config");
@@ -153,7 +155,7 @@ public sealed class ConfigClient
     /// <exception cref="SmplConflictException">If the config has children.</exception>
     public async Task DeleteAsync(string id, CancellationToken ct = default)
     {
-        await _transport.DeleteAsync($"/api/v1/configs/{id}", ct).ConfigureAwait(false);
+        await _transport.DeleteAsync($"{BaseUrl}/api/v1/configs/{id}", ct).ConfigureAwait(false);
     }
 
     /// <summary>

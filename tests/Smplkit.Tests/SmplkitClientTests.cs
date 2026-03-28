@@ -20,19 +20,6 @@ public class SmplkitClientTests
     }
 
     [Fact]
-    public void Constructor_WithCustomBaseUrl_CreatesClient()
-    {
-        using var client = new SmplkitClient(new SmplkitClientOptions
-        {
-            ApiKey = "sk_api_test_key",
-            BaseUrl = "https://custom.example.com",
-            Timeout = TimeSpan.FromSeconds(60),
-        });
-
-        Assert.NotNull(client);
-    }
-
-    [Fact]
     public void Constructor_WithEmptyApiKey_ThrowsArgumentException()
     {
         Assert.Throws<ArgumentException>(() =>
@@ -90,7 +77,6 @@ public class SmplkitClientTests
     {
         var options = new SmplkitClientOptions { ApiKey = "test" };
 
-        Assert.Equal("https://config.smplkit.com", options.BaseUrl);
         Assert.Equal(TimeSpan.FromSeconds(30), options.Timeout);
     }
 
@@ -136,21 +122,4 @@ public class SmplkitClientTests
         Assert.NotNull(client.Config);
     }
 
-    [Fact]
-    public void Constructor_WithTrailingSlashBaseUrl_CreatesClient()
-    {
-        var handler = new MockHttpMessageHandler(_ =>
-            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
-        var httpClient = new HttpClient(handler);
-
-        using var client = new SmplkitClient(
-            new SmplkitClientOptions
-            {
-                ApiKey = "sk_api_test_key",
-                BaseUrl = "https://example.com/",
-            },
-            httpClient);
-
-        Assert.NotNull(client.Config);
-    }
 }
