@@ -47,3 +47,8 @@ Thumbs.db
 ## Rider
 _ReSharper*/
 *.[Rr]e[Ss]harper
+
+# Claude Code
+CLAUDE.md
+CLAUDE.local.md
+.claude/
