@@ -63,7 +63,7 @@ jobs:
     needs: [lint, test]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment: nuget
+    environment: production
     permissions:
       contents: write
       issues: write
