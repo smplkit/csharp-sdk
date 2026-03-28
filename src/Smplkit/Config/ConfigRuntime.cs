@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
@@ -39,9 +40,10 @@ public sealed class ConfigRuntime : IAsyncDisposable
     private volatile bool _closed;
     private volatile string _connectionStatus = "disconnected";
 
-    private ClientWebSocket? _ws;
+    private WebSocket? _ws;
     private readonly CancellationTokenSource _wsCts = new();
     private readonly Task _wsTask;
+    private readonly Func<Uri, CancellationToken, Task<WebSocket>> _wsFactory;
 
     internal ConfigRuntime(
         string configKey,
@@ -49,7 +51,8 @@ public sealed class ConfigRuntime : IAsyncDisposable
         string environment,
         List<ConfigChainEntry> chain,
         string apiKey,
-        Func<CancellationToken, Task<List<ConfigChainEntry>>>? fetchChainFn)
+        Func<CancellationToken, Task<List<ConfigChainEntry>>>? fetchChainFn,
+        Func<Uri, CancellationToken, Task<WebSocket>>? wsFactory = null)
     {
         _configKey = configKey;
         _configId = configId;
@@ -57,6 +60,7 @@ public sealed class ConfigRuntime : IAsyncDisposable
         _chain = chain;
         _apiKey = apiKey;
         _fetchChainFn = fetchChainFn;
+        _wsFactory = wsFactory ?? DefaultWsFactoryAsync;
 
         _cache = Resolver.Resolve(_chain, _environment);
         _fetchCount = chain.Count;
@@ -267,6 +271,14 @@ public sealed class ConfigRuntime : IAsyncDisposable
         }
     }
 
+    [ExcludeFromCodeCoverage]
+    private static async Task<WebSocket> DefaultWsFactoryAsync(Uri uri, CancellationToken ct)
+    {
+        var cws = new ClientWebSocket();
+        await cws.ConnectAsync(uri, ct).ConfigureAwait(false);
+        return cws;
+    }
+
     private string BuildWebSocketUrl()
     {
         const string restBase = "https://config.smplkit.com";
@@ -284,8 +296,8 @@ public sealed class ConfigRuntime : IAsyncDisposable
         _connectionStatus = "connecting";
 
         _ws?.Dispose();
-        _ws = new ClientWebSocket();
-        await _ws.ConnectAsync(new Uri(BuildWebSocketUrl()), ct).ConfigureAwait(false);
+        var wsUri = new Uri(BuildWebSocketUrl());
+        _ws = await _wsFactory(wsUri, ct).ConfigureAwait(false);
 
         var subscribeMsg = JsonSerializer.Serialize(new
         {
