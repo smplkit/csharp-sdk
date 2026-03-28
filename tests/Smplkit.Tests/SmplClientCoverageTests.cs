@@ -5,9 +5,9 @@ using Xunit;
 namespace Smplkit.Tests;
 
 /// <summary>
-/// Additional SmplkitClient tests for 100% code coverage.
+/// Additional SmplClient tests for 100% code coverage.
 /// </summary>
-public class SmplkitClientCoverageTests
+public class SmplClientCoverageTests
 {
     // ------------------------------------------------------------------
     // Dispose with owned client — disposes HttpClient
@@ -16,7 +16,7 @@ public class SmplkitClientCoverageTests
     [Fact]
     public void Dispose_OwnedClient_DisposesHttpClient()
     {
-        var client = new SmplkitClient(new SmplkitClientOptions
+        var client = new SmplClient(new SmplClientOptions
         {
             ApiKey = "sk_test_key",
         });
@@ -43,8 +43,8 @@ public class SmplkitClientCoverageTests
             }));
         var httpClient = new HttpClient(handler);
 
-        var client = new SmplkitClient(
-            new SmplkitClientOptions { ApiKey = "sk_test_key" },
+        var client = new SmplClient(
+            new SmplClientOptions { ApiKey = "sk_test_key" },
             httpClient);
 
         client.Dispose();
@@ -65,7 +65,7 @@ public class SmplkitClientCoverageTests
     {
         var httpClient = new HttpClient();
         Assert.Throws<ArgumentNullException>(() =>
-            new SmplkitClient(null!, httpClient));
+            new SmplClient(null!, httpClient));
         httpClient.Dispose();
     }
 
@@ -80,8 +80,8 @@ public class SmplkitClientCoverageTests
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
         var httpClient = new HttpClient(handler);
 
-        var client = new SmplkitClient(
-            new SmplkitClientOptions
+        var client = new SmplClient(
+            new SmplClientOptions
             {
                 ApiKey = "sk_test_key",
                 Timeout = TimeSpan.FromSeconds(120),

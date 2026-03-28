@@ -21,7 +21,7 @@ internal sealed class Transport
     /// </summary>
     /// <param name="httpClient">The underlying HTTP client.</param>
     /// <param name="options">Client configuration options.</param>
-    internal Transport(HttpClient httpClient, SmplkitClientOptions options)
+    internal Transport(HttpClient httpClient, SmplClientOptions options)
     {
         _httpClient = httpClient;
 

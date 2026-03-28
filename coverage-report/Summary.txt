@@ -1,0 +1,47 @@
+Summary
+  Generated on: 3/28/2026 - 5:28:21 PM
+  Coverage date: 3/28/2026 - 5:28:12 PM
+  Parser: Cobertura
+  Assemblies: 1
+  Classes: 25
+  Files: 14
+  Line coverage: 99.5%
+  Covered lines: 727
+  Uncovered lines: 3
+  Coverable lines: 730
+  Total lines: 1617
+  Branch coverage: 95.4% (209 of 219)
+  Covered branches: 209
+  Total branches: 219
+  Method coverage: 100% (117 of 117)
+  Full method coverage: 98.2% (115 of 117)
+  Covered methods: 117
+  Fully covered methods: 115
+  Total methods: 117
+
+Smplkit                                     99.5%
+  Smplkit.Config.Config                      100%
+  Smplkit.Config.ConfigChainEntry            100%
+  Smplkit.Config.ConfigChangeEvent           100%
+  Smplkit.Config.ConfigClient                100%
+  Smplkit.Config.ConfigRuntime              98.9%
+  Smplkit.Config.ConfigStats                 100%
+  Smplkit.Config.CreateConfigOptions         100%
+  Smplkit.Config.JsonApiConfigAttributes     100%
+  Smplkit.Config.JsonApiListResponse         100%
+  Smplkit.Config.JsonApiRequestAttributes    100%
+  Smplkit.Config.JsonApiRequestBody          100%
+  Smplkit.Config.JsonApiRequestResource      100%
+  Smplkit.Config.JsonApiResource             100%
+  Smplkit.Config.JsonApiSingleResponse       100%
+  Smplkit.Config.Resolver                    100%
+  Smplkit.Errors.SmplConflictException       100%
+  Smplkit.Errors.SmplConnectionException     100%
+  Smplkit.Errors.SmplException               100%
+  Smplkit.Errors.SmplNotFoundException       100%
+  Smplkit.Errors.SmplTimeoutException        100%
+  Smplkit.Errors.SmplValidationException     100%
+  Smplkit.Internal.Auth                      100%
+  Smplkit.Internal.Transport                 100%
+  Smplkit.SmplkitClient                      100%
+  Smplkit.SmplkitClientOptions               100%

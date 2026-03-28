@@ -76,6 +76,6 @@ internal static class TestData
         }
         """;
 
-    internal static SmplkitClientOptions DefaultOptions() =>
+    internal static SmplClientOptions DefaultOptions() =>
         new() { ApiKey = ApiKey };
 }

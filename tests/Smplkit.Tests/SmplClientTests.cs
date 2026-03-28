@@ -5,12 +5,12 @@ using Xunit;
 
 namespace Smplkit.Tests;
 
-public class SmplkitClientTests
+public class SmplClientTests
 {
     [Fact]
     public void Constructor_WithValidOptions_CreatesClient()
     {
-        using var client = new SmplkitClient(new SmplkitClientOptions
+        using var client = new SmplClient(new SmplClientOptions
         {
             ApiKey = "sk_api_test_key",
         });
@@ -23,20 +23,20 @@ public class SmplkitClientTests
     public void Constructor_WithEmptyApiKey_ThrowsArgumentException()
     {
         Assert.Throws<ArgumentException>(() =>
-            new SmplkitClient(new SmplkitClientOptions { ApiKey = "" }));
+            new SmplClient(new SmplClientOptions { ApiKey = "" }));
     }
 
     [Fact]
     public void Constructor_WithWhitespaceApiKey_ThrowsArgumentException()
     {
         Assert.Throws<ArgumentException>(() =>
-            new SmplkitClient(new SmplkitClientOptions { ApiKey = "   " }));
+            new SmplClient(new SmplClientOptions { ApiKey = "   " }));
     }
 
     [Fact]
     public void Config_ReturnsConfigClient()
     {
-        using var client = new SmplkitClient(new SmplkitClientOptions
+        using var client = new SmplClient(new SmplClientOptions
         {
             ApiKey = "sk_api_test_key",
         });
@@ -47,7 +47,7 @@ public class SmplkitClientTests
     [Fact]
     public void Dispose_WithOwnedHttpClient_DoesNotThrow()
     {
-        var client = new SmplkitClient(new SmplkitClientOptions
+        var client = new SmplClient(new SmplClientOptions
         {
             ApiKey = "sk_api_test_key",
         });
@@ -62,12 +62,12 @@ public class SmplkitClientTests
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
         var httpClient = new HttpClient(handler);
 
-        var client = new SmplkitClient(
-            new SmplkitClientOptions { ApiKey = "sk_api_test_key" },
+        var client = new SmplClient(
+            new SmplClientOptions { ApiKey = "sk_api_test_key" },
             httpClient);
         client.Dispose();
 
-        // External HttpClient should still be usable after SmplkitClient disposal.
+        // External HttpClient should still be usable after SmplClient disposal.
         // If it were disposed, this would throw ObjectDisposedException.
         Assert.NotNull(httpClient.BaseAddress?.ToString() ?? "still-alive");
     }
@@ -75,7 +75,7 @@ public class SmplkitClientTests
     [Fact]
     public void DefaultOptions_HasCorrectDefaults()
     {
-        var options = new SmplkitClientOptions { ApiKey = "test" };
+        var options = new SmplClientOptions { ApiKey = "test" };
 
         Assert.Equal(TimeSpan.FromSeconds(30), options.Timeout);
     }
@@ -84,22 +84,22 @@ public class SmplkitClientTests
     public void Constructor_WithNullOptions_ThrowsArgumentNullException()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            new SmplkitClient(null!));
+            new SmplClient(null!));
     }
 
     [Fact]
     public void Constructor_WithNullHttpClient_ThrowsArgumentNullException()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            new SmplkitClient(
-                new SmplkitClientOptions { ApiKey = "sk_test" },
+            new SmplClient(
+                new SmplClientOptions { ApiKey = "sk_test" },
                 null!));
     }
 
     [Fact]
     public void Dispose_CalledTwice_DoesNotThrow()
     {
-        var client = new SmplkitClient(new SmplkitClientOptions
+        var client = new SmplClient(new SmplClientOptions
         {
             ApiKey = "sk_api_test_key",
         });
@@ -113,7 +113,7 @@ public class SmplkitClientTests
     public void Constructor_WithCustomTimeout_SetsTimeout()
     {
         var timeout = TimeSpan.FromSeconds(120);
-        using var client = new SmplkitClient(new SmplkitClientOptions
+        using var client = new SmplClient(new SmplClientOptions
         {
             ApiKey = "sk_api_test_key",
             Timeout = timeout,

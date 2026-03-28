@@ -19,7 +19,7 @@ public class TransportCoverageTests
     {
         var handler = new MockHttpMessageHandler(handlerFn);
         var httpClient = new HttpClient(handler);
-        var options = new SmplkitClientOptions
+        var options = new SmplClientOptions
         {
             ApiKey = "sk_test_key",
             Timeout = TimeSpan.FromSeconds(30),

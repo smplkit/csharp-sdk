@@ -1,6 +1,6 @@
-# smplkit SDK for .NET
+# smplkit C# SDK
 
-The official [smplkit](https://docs.smplkit.com) SDK for .NET.
+The official C# SDK for [smplkit](https://smplkit.com) — simple application infrastructure for developers.
 
 ## Installation
 
@@ -8,27 +8,28 @@ The official [smplkit](https://docs.smplkit.com) SDK for .NET.
 dotnet add package Smplkit.Sdk
 ```
 
-## Quick start
+## Requirements
+
+- .NET 8.0+
+
+## Quick Start
 
 ```csharp
 using Smplkit;
 using Smplkit.Config;
 
-using var client = new SmplkitClient(new SmplkitClientOptions
+using var client = new SmplClient(new SmplClientOptions
 {
-    ApiKey = "sk_api_your_key_here",
+    ApiKey = "sk_api_...",
 });
+
+// Get a config by key
+var config = await client.Config.GetByKeyAsync("user_service");
 
 // List all configs
 var configs = await client.Config.ListAsync();
 
-// Get a config by ID
-var config = await client.Config.GetAsync("config-uuid");
-
-// Get a config by key
-var byKey = await client.Config.GetByKeyAsync("user_service");
-
-// Create a new config
+// Create a config
 var newConfig = await client.Config.CreateAsync(new CreateConfigOptions
 {
     Name = "My Service",
@@ -42,20 +43,20 @@ var newConfig = await client.Config.CreateAsync(new CreateConfigOptions
 });
 
 // Delete a config
-await client.Config.DeleteAsync("config-uuid");
+await client.Config.DeleteAsync(newConfig.Id);
 ```
 
 ## Configuration
 
 ```csharp
-var options = new SmplkitClientOptions
+var options = new SmplClientOptions
 {
-    ApiKey = "sk_api_your_key_here",            // Required
-    Timeout = TimeSpan.FromSeconds(30),         // Default
+    ApiKey = "sk_api_...",
+    Timeout = TimeSpan.FromSeconds(30),  // default
 };
 ```
 
-## Error handling
+## Error Handling
 
 All SDK errors extend `SmplException`:
 
@@ -69,26 +70,21 @@ try
 catch (SmplNotFoundException ex)
 {
     Console.WriteLine($"Not found: {ex.Message}");
-    Console.WriteLine($"Status: {ex.StatusCode}");     // 404
-    Console.WriteLine($"Body: {ex.ResponseBody}");
 }
-catch (SmplConflictException ex)
+catch (SmplException ex)
 {
-    // HTTP 409 — e.g., deleting a config with children
-}
-catch (SmplValidationException ex)
-{
-    // HTTP 422 — validation errors
-}
-catch (SmplConnectionException ex)
-{
-    // Network connectivity issues
-}
-catch (SmplTimeoutException ex)
-{
-    // Request timed out
+    Console.WriteLine($"Status: {ex.StatusCode}, Body: {ex.ResponseBody}");
 }
 ```
+
+| Exception                  | Cause                        |
+|----------------------------|------------------------------|
+| `SmplNotFoundException`    | HTTP 404 — resource not found |
+| `SmplConflictException`   | HTTP 409 — conflict           |
+| `SmplValidationException` | HTTP 422 — validation error   |
+| `SmplTimeoutException`    | Request timed out             |
+| `SmplConnectionException` | Network connectivity issue    |
+| `SmplException`           | Any other SDK error           |
 
 ## Cancellation
 
@@ -101,4 +97,10 @@ var configs = await client.Config.ListAsync(cts.Token);
 
 ## Documentation
 
-Full documentation is available at [docs.smplkit.com](https://docs.smplkit.com).
+- [Getting Started](https://docs.smplkit.com/getting-started)
+- [C# SDK Guide](https://docs.smplkit.com/sdks/csharp)
+- [API Reference](https://docs.smplkit.com/api)
+
+## License
+
+MIT

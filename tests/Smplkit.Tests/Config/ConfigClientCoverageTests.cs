@@ -14,13 +14,13 @@ namespace Smplkit.Tests.Config;
 /// </summary>
 public class ConfigClientCoverageTests
 {
-    private static (SmplkitClient client, MockHttpMessageHandler handler) CreateClient(
+    private static (SmplClient client, MockHttpMessageHandler handler) CreateClient(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> handlerFn)
     {
         var handler = new MockHttpMessageHandler(handlerFn);
         var httpClient = new HttpClient(handler);
         var options = TestData.DefaultOptions();
-        var client = new SmplkitClient(options, httpClient);
+        var client = new SmplClient(options, httpClient);
         return (client, handler);
     }
 

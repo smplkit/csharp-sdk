@@ -4,7 +4,7 @@
 ///
 /// Demonstrates the smplkit C# SDK for Smpl Config, covering:
 ///
-/// - Client initialization (<see cref="Smplkit.SmplkitClient"/>)
+/// - Client initialization (<see cref="Smplkit.SmplClient"/>)
 /// - Management-plane CRUD: create, update, list, and delete configs
 /// - Environment-specific overrides (SetValuesAsync / SetValueAsync)
 /// - Multi-level inheritance: auth_module → user_service → common
@@ -68,8 +68,8 @@ static void Step(string description)
 // ======================================================================
 Section("1. SDK Initialization");
 
-using var client = new SmplkitClient(new SmplkitClientOptions { ApiKey = apiKey });
-Step("SmplkitClient initialized");
+using var client = new SmplClient(new SmplClientOptions { ApiKey = apiKey });
+Step("SmplClient initialized");
 
 // ======================================================================
 // 2. MANAGEMENT PLANE — Set up the configuration hierarchy
@@ -525,8 +525,8 @@ await client.Config.UpdateAsync(common.Id, new CreateConfigOptions
 });
 Step("Common config reset to empty");
 
-// SmplkitClient is disposed via the 'using' declaration at the top.
-Step("SmplkitClient will be disposed on exit");
+// SmplClient is disposed via the 'using' declaration at the top.
+Step("SmplClient will be disposed on exit");
 
 // ======================================================================
 // DONE

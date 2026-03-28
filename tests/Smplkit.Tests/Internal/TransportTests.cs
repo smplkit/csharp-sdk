@@ -14,7 +14,7 @@ public class TransportTests
     {
         var handler = new MockHttpMessageHandler(handlerFn);
         var httpClient = new HttpClient(handler);
-        var options = new SmplkitClientOptions
+        var options = new SmplClientOptions
         {
             ApiKey = "sk_test_key",
             Timeout = TimeSpan.FromSeconds(30),
@@ -351,7 +351,7 @@ public class TransportTests
             return Task.FromResult(JsonResponse("{}"));
         });
         var httpClient = new HttpClient(handler);
-        var transport = new Transport(httpClient, new SmplkitClientOptions { ApiKey = "test" });
+        var transport = new Transport(httpClient, new SmplClientOptions { ApiKey = "test" });
 
         await transport.GetAsync("https://example.com/api");
 
@@ -369,7 +369,7 @@ public class TransportTests
             return Task.FromResult(JsonResponse("{}"));
         });
         var httpClient = new HttpClient(handler);
-        var transport = new Transport(httpClient, new SmplkitClientOptions { ApiKey = "test" });
+        var transport = new Transport(httpClient, new SmplClientOptions { ApiKey = "test" });
 
         await transport.GetAsync("https://example.com/api");
 
@@ -387,7 +387,7 @@ public class TransportTests
             return Task.FromResult(JsonResponse("{}"));
         });
         var httpClient = new HttpClient(handler);
-        var transport = new Transport(httpClient, new SmplkitClientOptions { ApiKey = "my_api_key" });
+        var transport = new Transport(httpClient, new SmplClientOptions { ApiKey = "my_api_key" });
 
         await transport.GetAsync("https://example.com/api");
 
@@ -404,7 +404,7 @@ public class TransportTests
         var handler = new MockHttpMessageHandler(_ => Task.FromResult(JsonResponse("{}")));
         var httpClient = new HttpClient(handler);
         var timeout = TimeSpan.FromSeconds(120);
-        _ = new Transport(httpClient, new SmplkitClientOptions
+        _ = new Transport(httpClient, new SmplClientOptions
         {
             ApiKey = "test",
             Timeout = timeout,
@@ -465,7 +465,7 @@ public class TransportTests
             return Task.FromResult(JsonResponse("""{"ok": true}""", HttpStatusCode.Created));
         });
         var httpClient = new HttpClient(handler);
-        var transport = new Transport(httpClient, new SmplkitClientOptions { ApiKey = "test" });
+        var transport = new Transport(httpClient, new SmplClientOptions { ApiKey = "test" });
 
         await transport.PostAsync("https://example.com/api", new { name = "test" });
 
@@ -485,7 +485,7 @@ public class TransportTests
             return JsonResponse("""{"ok": true}""", HttpStatusCode.Created);
         });
         var httpClient = new HttpClient(handler);
-        var transport = new Transport(httpClient, new SmplkitClientOptions { ApiKey = "test" });
+        var transport = new Transport(httpClient, new SmplClientOptions { ApiKey = "test" });
 
         await transport.PostAsync("https://example.com/api", new { name = "hello" });
 
@@ -508,7 +508,7 @@ public class TransportTests
             return Task.FromResult(JsonResponse("""{"ok": true}"""));
         });
         var httpClient = new HttpClient(handler);
-        var transport = new Transport(httpClient, new SmplkitClientOptions { ApiKey = "test" });
+        var transport = new Transport(httpClient, new SmplClientOptions { ApiKey = "test" });
 
         await transport.PutAsync("https://example.com/api", new { name = "test" });
 
@@ -528,7 +528,7 @@ public class TransportTests
             return JsonResponse("""{"ok": true}""");
         });
         var httpClient = new HttpClient(handler);
-        var transport = new Transport(httpClient, new SmplkitClientOptions { ApiKey = "test" });
+        var transport = new Transport(httpClient, new SmplClientOptions { ApiKey = "test" });
 
         await transport.PutAsync("https://example.com/api", new { name = "updated" });
 

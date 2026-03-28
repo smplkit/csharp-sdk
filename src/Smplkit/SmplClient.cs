@@ -11,12 +11,12 @@ namespace Smplkit;
 /// <para>
 /// Usage:
 /// <code>
-/// using var client = new SmplkitClient(new SmplkitClientOptions { ApiKey = "sk_api_..." });
+/// using var client = new SmplClient(new SmplClientOptions { ApiKey = "sk_api_..." });
 /// var config = await client.Config.GetAsync("config-uuid");
 /// </code>
 /// </para>
 /// </remarks>
-public sealed class SmplkitClient : IDisposable
+public sealed class SmplClient : IDisposable
 {
     private readonly HttpClient _httpClient;
     private readonly bool _ownsHttpClient;
@@ -27,28 +27,28 @@ public sealed class SmplkitClient : IDisposable
     public ConfigClient Config { get; }
 
     /// <summary>
-    /// Initializes a new instance of <see cref="SmplkitClient"/> with the specified options.
+    /// Initializes a new instance of <see cref="SmplClient"/> with the specified options.
     /// Creates and owns a new <see cref="HttpClient"/>.
     /// </summary>
     /// <param name="options">Client configuration options.</param>
-    public SmplkitClient(SmplkitClientOptions options)
+    public SmplClient(SmplClientOptions options)
         : this(options, new HttpClient(), ownsHttpClient: true)
     {
     }
 
     /// <summary>
-    /// Initializes a new instance of <see cref="SmplkitClient"/> with the specified options
+    /// Initializes a new instance of <see cref="SmplClient"/> with the specified options
     /// and a caller-provided <see cref="HttpClient"/>. The caller retains ownership and
     /// is responsible for disposing the <see cref="HttpClient"/>.
     /// </summary>
     /// <param name="options">Client configuration options.</param>
     /// <param name="httpClient">An externally managed HTTP client (e.g., for testing).</param>
-    public SmplkitClient(SmplkitClientOptions options, HttpClient httpClient)
+    public SmplClient(SmplClientOptions options, HttpClient httpClient)
         : this(options, httpClient, ownsHttpClient: false)
     {
     }
 
-    private SmplkitClient(SmplkitClientOptions options, HttpClient httpClient, bool ownsHttpClient)
+    private SmplClient(SmplClientOptions options, HttpClient httpClient, bool ownsHttpClient)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(httpClient);
