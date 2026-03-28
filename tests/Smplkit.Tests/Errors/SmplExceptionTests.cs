@@ -125,4 +125,79 @@ public class SmplExceptionTests
             Assert.IsAssignableFrom<Exception>(ex);
         }
     }
+
+    // ------------------------------------------------------------------
+    // SmplTimeoutException with inner exception
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void SmplTimeoutException_WithInnerException()
+    {
+        var inner = new TaskCanceledException("timed out");
+        var ex = new SmplTimeoutException("Request timed out", inner);
+
+        Assert.Equal("Request timed out", ex.Message);
+        Assert.Same(inner, ex.InnerException);
+        Assert.Null(ex.StatusCode);
+        Assert.Null(ex.ResponseBody);
+    }
+
+    // ------------------------------------------------------------------
+    // Default responseBody parameter (null)
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void SmplNotFoundException_WithoutResponseBody_HasNullResponseBody()
+    {
+        var ex = new SmplNotFoundException("not found");
+
+        Assert.Equal(404, ex.StatusCode);
+        Assert.Null(ex.ResponseBody);
+    }
+
+    [Fact]
+    public void SmplConflictException_WithoutResponseBody_HasNullResponseBody()
+    {
+        var ex = new SmplConflictException("conflict");
+
+        Assert.Equal(409, ex.StatusCode);
+        Assert.Null(ex.ResponseBody);
+    }
+
+    [Fact]
+    public void SmplValidationException_WithoutResponseBody_HasNullResponseBody()
+    {
+        var ex = new SmplValidationException("validation failed");
+
+        Assert.Equal(422, ex.StatusCode);
+        Assert.Null(ex.ResponseBody);
+    }
+
+    // ------------------------------------------------------------------
+    // SmplException with all null optional params
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void SmplException_MessageOnly_HasNullOptionalProps()
+    {
+        var ex = new SmplException("simple error");
+
+        Assert.Equal("simple error", ex.Message);
+        Assert.Null(ex.StatusCode);
+        Assert.Null(ex.ResponseBody);
+        Assert.Null(ex.InnerException);
+    }
+
+    // ------------------------------------------------------------------
+    // SmplConnectionException properties
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void SmplConnectionException_HasNullResponseBody()
+    {
+        var ex = new SmplConnectionException("failed");
+
+        Assert.Null(ex.ResponseBody);
+        Assert.Null(ex.StatusCode);
+    }
 }
