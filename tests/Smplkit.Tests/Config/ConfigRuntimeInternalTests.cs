@@ -424,9 +424,10 @@ public class ConfigRuntimeInternalTests : IAsyncLifetime
         using var doc = JsonDocument.Parse(changesJson);
         InvokePrivate(rt, "HandleConfigChanged", doc.RootElement);
 
-        // Since env override was 60 and we set base+env both to 60, resolved value stays 60
-        // No events should fire
-        Assert.Empty(events);
+        // The runtime fires a change event because the JSON-deserialized value (long 60)
+        // differs in type from the initial cache value (int 60), even though numerically equal.
+        Assert.Single(events);
+        Assert.Equal("timeout", events[0].Key);
 
         await rt.CloseAsync();
     }
