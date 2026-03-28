@@ -383,7 +383,7 @@ public class ConfigClientSetValuesTests
         try
         {
             Assert.NotNull(runtime);
-            Assert.Equal(60, runtime.Get("timeout")); // env override
+            Assert.Equal(60L, runtime.Get("timeout")); // env override
         }
         finally
         {
@@ -477,11 +477,11 @@ public class ConfigClientSetValuesTests
 
         try
         {
-            Assert.Equal(30, runtime.Get("timeout"));
+            Assert.Equal(30L, runtime.Get("timeout"));
 
             await runtime.RefreshAsync();
 
-            Assert.Equal(999, runtime.Get("timeout"));
+            Assert.Equal(999L, runtime.Get("timeout"));
         }
         finally
         {
@@ -602,7 +602,7 @@ public class ConfigClientSetValuesTests
         catch (SmplNotFoundException) { }
 
         Assert.NotNull(handler.LastRequest);
-        var url = handler.LastRequest.RequestUri!.ToString();
+        var url = handler.LastRequest.RequestUri!.AbsoluteUri;
         // Space should be encoded, & should be encoded
         Assert.DoesNotContain(" ", url);
         Assert.Contains("my%20key%26value%3Dtest", url);
