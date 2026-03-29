@@ -3,54 +3,31 @@ using Xunit;
 
 namespace Smplkit.Tests;
 
-public class ApiKeyResolverTests : IDisposable
+[Collection("EnvironmentTests")]
+public class ApiKeyResolverTests
 {
-    private readonly string? _originalEnv;
-    private readonly string? _originalHome;
-
-    public ApiKeyResolverTests()
-    {
-        _originalEnv = Environment.GetEnvironmentVariable("SMPLKIT_API_KEY");
-        _originalHome = Environment.GetEnvironmentVariable("HOME");
-    }
-
-    public void Dispose()
-    {
-        if (_originalEnv is not null)
-            Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", _originalEnv);
-        else
-            Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", null);
-
-        if (_originalHome is not null)
-            Environment.SetEnvironmentVariable("HOME", _originalHome);
-        else
-            Environment.SetEnvironmentVariable("HOME", null);
-    }
-
     [Fact]
     public void ExplicitKey_IsReturned()
     {
-        Assert.Equal("sk_api_explicit", ApiKeyResolver.Resolve("sk_api_explicit"));
+        Assert.Equal("sk_api_explicit", ApiKeyResolver.Resolve("sk_api_explicit", null, "/nonexistent"));
     }
 
     [Fact]
     public void EnvVar_UsedWhenNoExplicit()
     {
-        Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", "sk_api_env");
-        Assert.Equal("sk_api_env", ApiKeyResolver.Resolve(null));
+        Assert.Equal("sk_api_env", ApiKeyResolver.Resolve(null, "sk_api_env", "/nonexistent"));
     }
 
     [Fact]
     public void ConfigFile_UsedWhenNoExplicitNoEnv()
     {
-        Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", null);
         var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(dir);
         try
         {
-            File.WriteAllText(Path.Combine(dir, ".smplkit"), "[default]\napi_key = \"sk_api_file\"\n");
-            Environment.SetEnvironmentVariable("HOME", dir);
-            Assert.Equal("sk_api_file", ApiKeyResolver.Resolve(null));
+            var configPath = Path.Combine(dir, ".smplkit");
+            File.WriteAllText(configPath, "[default]\napi_key = \"sk_api_file\"\n");
+            Assert.Equal("sk_api_file", ApiKeyResolver.Resolve(null, null, configPath));
         }
         finally
         {
@@ -61,59 +38,37 @@ public class ApiKeyResolverTests : IDisposable
     [Fact]
     public void Throws_WhenNoKeyAnywhere()
     {
-        Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", null);
-        var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        Directory.CreateDirectory(dir);
-        try
-        {
-            Environment.SetEnvironmentVariable("HOME", dir);
-            var ex = Assert.Throws<SmplException>(() => ApiKeyResolver.Resolve(null));
-            Assert.Contains("No API key provided", ex.Message);
-        }
-        finally
-        {
-            Directory.Delete(dir, true);
-        }
+        var configPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), ".smplkit");
+        var ex = Assert.Throws<SmplException>(() => ApiKeyResolver.Resolve(null, null, configPath));
+        Assert.Contains("No API key provided", ex.Message);
     }
 
     [Fact]
     public void ErrorMessage_ListsAllMethods()
     {
-        Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", null);
-        var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        Directory.CreateDirectory(dir);
-        try
-        {
-            Environment.SetEnvironmentVariable("HOME", dir);
-            var ex = Assert.Throws<SmplException>(() => ApiKeyResolver.Resolve(null));
-            Assert.Contains("SmplClientOptions", ex.Message);
-            Assert.Contains("SMPLKIT_API_KEY", ex.Message);
-            Assert.Contains("~/.smplkit", ex.Message);
-        }
-        finally
-        {
-            Directory.Delete(dir, true);
-        }
+        var configPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), ".smplkit");
+        var ex = Assert.Throws<SmplException>(() => ApiKeyResolver.Resolve(null, null, configPath));
+        Assert.Contains("SmplClientOptions", ex.Message);
+        Assert.Contains("SMPLKIT_API_KEY", ex.Message);
+        Assert.Contains("~/.smplkit", ex.Message);
     }
 
     [Fact]
     public void ExplicitKey_TakesPrecedenceOverEnv()
     {
-        Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", "sk_api_env");
-        Assert.Equal("sk_api_explicit", ApiKeyResolver.Resolve("sk_api_explicit"));
+        Assert.Equal("sk_api_explicit", ApiKeyResolver.Resolve("sk_api_explicit", "sk_api_env", "/nonexistent"));
     }
 
     [Fact]
     public void EnvVar_TakesPrecedenceOverFile()
     {
-        Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", "sk_api_env");
         var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(dir);
         try
         {
-            File.WriteAllText(Path.Combine(dir, ".smplkit"), "[default]\napi_key = \"sk_api_file\"\n");
-            Environment.SetEnvironmentVariable("HOME", dir);
-            Assert.Equal("sk_api_env", ApiKeyResolver.Resolve(null));
+            var configPath = Path.Combine(dir, ".smplkit");
+            File.WriteAllText(configPath, "[default]\napi_key = \"sk_api_file\"\n");
+            Assert.Equal("sk_api_env", ApiKeyResolver.Resolve(null, "sk_api_env", configPath));
         }
         finally
         {
@@ -124,14 +79,13 @@ public class ApiKeyResolverTests : IDisposable
     [Fact]
     public void EmptyEnvVar_TreatedAsUnset()
     {
-        Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", "");
         var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(dir);
         try
         {
-            File.WriteAllText(Path.Combine(dir, ".smplkit"), "[default]\napi_key = \"sk_api_file\"\n");
-            Environment.SetEnvironmentVariable("HOME", dir);
-            Assert.Equal("sk_api_file", ApiKeyResolver.Resolve(null));
+            var configPath = Path.Combine(dir, ".smplkit");
+            File.WriteAllText(configPath, "[default]\napi_key = \"sk_api_file\"\n");
+            Assert.Equal("sk_api_file", ApiKeyResolver.Resolve(null, "", configPath));
         }
         finally
         {
@@ -142,14 +96,13 @@ public class ApiKeyResolverTests : IDisposable
     [Fact]
     public void MalformedFile_IsSkipped()
     {
-        Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", null);
         var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(dir);
         try
         {
-            File.WriteAllText(Path.Combine(dir, ".smplkit"), "not valid toml");
-            Environment.SetEnvironmentVariable("HOME", dir);
-            Assert.Throws<SmplException>(() => ApiKeyResolver.Resolve(null));
+            var configPath = Path.Combine(dir, ".smplkit");
+            File.WriteAllText(configPath, "not valid toml");
+            Assert.Throws<SmplException>(() => ApiKeyResolver.Resolve(null, null, configPath));
         }
         finally
         {
@@ -160,14 +113,32 @@ public class ApiKeyResolverTests : IDisposable
     [Fact]
     public void FileWithoutApiKey_Throws()
     {
-        Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", null);
         var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(dir);
         try
         {
-            File.WriteAllText(Path.Combine(dir, ".smplkit"), "[default]\nother_key = \"value\"\n");
-            Environment.SetEnvironmentVariable("HOME", dir);
-            Assert.Throws<SmplException>(() => ApiKeyResolver.Resolve(null));
+            var configPath = Path.Combine(dir, ".smplkit");
+            File.WriteAllText(configPath, "[default]\nother_key = \"value\"\n");
+            Assert.Throws<SmplException>(() => ApiKeyResolver.Resolve(null, null, configPath));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void LockedFile_CatchBlockCoverage()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var configPath = Path.Combine(dir, ".smplkit");
+            File.WriteAllText(configPath, "[default]\napi_key = \"sk_api_test\"\n");
+            // Lock the file exclusively so ReadAllText throws IOException
+            using var stream = new FileStream(configPath, FileMode.Open, FileAccess.Read, FileShare.None);
+            Assert.Throws<SmplException>(() => ApiKeyResolver.Resolve(null, null, configPath));
         }
         finally
         {

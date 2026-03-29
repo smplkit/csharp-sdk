@@ -6,6 +6,7 @@ using Xunit;
 
 namespace Smplkit.Tests;
 
+[Collection("EnvironmentTests")]
 public class SmplClientTests : IDisposable
 {
     private readonly string? _originalEnv;
