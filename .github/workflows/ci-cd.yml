@@ -121,7 +121,7 @@ jobs:
       - name: Pack
         if: steps.check.outputs.released == 'true'
         run: >
-          dotnet pack -c Release
+          dotnet pack src/Smplkit/Smplkit.csproj -c Release
           -p:PackageVersion=${{ steps.check.outputs.version }}
           --output ./nupkg
 
