@@ -1,12 +1,28 @@
 using System.Net;
 using Smplkit.Config;
+using Smplkit.Errors;
 using Smplkit.Tests.Helpers;
 using Xunit;
 
 namespace Smplkit.Tests;
 
-public class SmplClientTests
+public class SmplClientTests : IDisposable
 {
+    private readonly string? _originalEnv;
+
+    public SmplClientTests()
+    {
+        _originalEnv = Environment.GetEnvironmentVariable("SMPLKIT_API_KEY");
+    }
+
+    public void Dispose()
+    {
+        if (_originalEnv is not null)
+            Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", _originalEnv);
+        else
+            Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", null);
+    }
+
     [Fact]
     public void Constructor_WithValidOptions_CreatesClient()
     {
@@ -20,17 +36,29 @@ public class SmplClientTests
     }
 
     [Fact]
-    public void Constructor_WithEmptyApiKey_ThrowsArgumentException()
+    public void Constructor_WithEmptyApiKey_NoEnv_ThrowsSmplException()
     {
-        Assert.Throws<ArgumentException>(() =>
+        Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", null);
+        Environment.SetEnvironmentVariable("HOME", Path.GetTempPath());
+        Assert.Throws<SmplException>(() =>
             new SmplClient(new SmplClientOptions { ApiKey = "" }));
     }
 
     [Fact]
-    public void Constructor_WithWhitespaceApiKey_ThrowsArgumentException()
+    public void Constructor_WithNoApiKey_NoEnv_ThrowsSmplException()
     {
-        Assert.Throws<ArgumentException>(() =>
-            new SmplClient(new SmplClientOptions { ApiKey = "   " }));
+        Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", null);
+        Environment.SetEnvironmentVariable("HOME", Path.GetTempPath());
+        Assert.Throws<SmplException>(() =>
+            new SmplClient(new SmplClientOptions()));
+    }
+
+    [Fact]
+    public void Constructor_Parameterless_WithEnvVar_Succeeds()
+    {
+        Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", "sk_api_env");
+        using var client = new SmplClient();
+        Assert.NotNull(client);
     }
 
     [Fact]

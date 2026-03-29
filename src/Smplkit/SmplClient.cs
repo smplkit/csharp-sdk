@@ -27,6 +27,16 @@ public sealed class SmplClient : IDisposable
     public ConfigClient Config { get; }
 
     /// <summary>
+    /// Initializes a new instance of <see cref="SmplClient"/> with automatic API key
+    /// resolution from the <c>SMPLKIT_API_KEY</c> environment variable or
+    /// <c>~/.smplkit</c> config file.
+    /// </summary>
+    public SmplClient()
+        : this(new SmplClientOptions(), new HttpClient(), ownsHttpClient: true)
+    {
+    }
+
+    /// <summary>
     /// Initializes a new instance of <see cref="SmplClient"/> with the specified options.
     /// Creates and owns a new <see cref="HttpClient"/>.
     /// </summary>
@@ -53,14 +63,19 @@ public sealed class SmplClient : IDisposable
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(httpClient);
 
-        if (string.IsNullOrWhiteSpace(options.ApiKey))
-            throw new ArgumentException("ApiKey must not be null or empty.", nameof(options));
+        var resolvedApiKey = ApiKeyResolver.Resolve(options.ApiKey);
 
         _httpClient = httpClient;
         _ownsHttpClient = ownsHttpClient;
 
-        var transport = new Transport(_httpClient, options);
-        Config = new ConfigClient(transport, options.ApiKey);
+        // Create a copy of options with the resolved API key for Transport.
+        var resolvedOptions = new SmplClientOptions
+        {
+            ApiKey = resolvedApiKey,
+            Timeout = options.Timeout,
+        };
+        var transport = new Transport(_httpClient, resolvedOptions);
+        Config = new ConfigClient(transport, resolvedApiKey);
     }
 
     /// <summary>

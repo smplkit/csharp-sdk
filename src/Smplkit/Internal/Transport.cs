@@ -28,7 +28,7 @@ internal sealed class Transport
         _httpClient.Timeout = options.Timeout;
         _httpClient.DefaultRequestHeaders.Add("User-Agent", UserAgent);
         _httpClient.DefaultRequestHeaders.Add("Accept", JsonApiMediaType);
-        Auth.ApplyBearerToken(_httpClient, options.ApiKey);
+        Auth.ApplyBearerToken(_httpClient, options.ApiKey!);
     }
 
     /// <summary>

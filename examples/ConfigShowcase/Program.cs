@@ -34,6 +34,9 @@ using Smplkit.Config;
 
 // ---------------------------------------------------------------------------
 // Configuration — set your API key via the SMPLKIT_API_KEY env var
+// You can also omit the API key entirely — the SDK will resolve it from
+// the SMPLKIT_API_KEY environment variable or ~/.smplkit config file.
+// See the SDK README for details.
 // ---------------------------------------------------------------------------
 
 var apiKey = Environment.GetEnvironmentVariable("SMPLKIT_API_KEY") ?? "";

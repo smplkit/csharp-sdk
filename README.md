@@ -16,6 +16,22 @@ dotnet add package Smplkit.Sdk
 
 ```csharp
 using Smplkit;
+
+// Option 1: Explicit API key
+var client = new SmplClient(new SmplClientOptions { ApiKey = "sk_api_..." });
+
+// Option 2: Environment variable (SMPLKIT_API_KEY)
+// export SMPLKIT_API_KEY=sk_api_...
+var client2 = new SmplClient();
+
+// Option 3: Configuration file (~/.smplkit)
+// [default]
+// api_key = "sk_api_..."
+var client3 = new SmplClient();
+```
+
+```csharp
+using Smplkit;
 using Smplkit.Config;
 
 using var client = new SmplClient(new SmplClientOptions
@@ -47,6 +63,19 @@ await client.Config.DeleteAsync(newConfig.Id);
 ```
 
 ## Configuration
+
+The API key is resolved using the following priority:
+
+1. **Explicit argument:** Set `ApiKey` in `SmplClientOptions`.
+2. **Environment variable:** Set `SMPLKIT_API_KEY`.
+3. **Configuration file:** Add `api_key` under `[default]` in `~/.smplkit` (TOML format):
+
+```toml
+[default]
+api_key = "sk_api_..."
+```
+
+If none of these are set, the SDK throws `SmplException` with a message listing all three methods.
 
 ```csharp
 var options = new SmplClientOptions
