@@ -552,4 +552,37 @@ public class ConfigClientCoverageTests
         Assert.DoesNotContain("\"description\"", postBody);
         Assert.DoesNotContain("\"parent\"", postBody);
     }
+
+    // ------------------------------------------------------------------
+    // WrapEnvsForRequest — non-dict env value passes through unchanged
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task CreateAsync_NonDictEnvValue_PassesThroughInBody()
+    {
+        string? postBody = null;
+
+        var (client, _) = CreateClient(async req =>
+        {
+            if (req.Method == HttpMethod.Post)
+            {
+                postBody = await req.Content!.ReadAsStringAsync();
+            }
+            return JsonResponse(ConfigJsonWithValuesAndEnvs(), HttpStatusCode.Created);
+        });
+
+        // Pass an env value that is NOT a Dictionary<string, object?> — triggers the
+        // else branch in WrapEnvsForRequest so the value passes through as-is.
+        await client.Config.CreateAsync(new CreateConfigOptions
+        {
+            Name = "Test",
+            Environments = new Dictionary<string, object?>
+            {
+                ["production"] = "not-a-dict",
+            },
+        });
+
+        Assert.NotNull(postBody);
+        Assert.Contains("production", postBody);
+    }
 }
