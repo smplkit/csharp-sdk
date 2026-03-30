@@ -133,12 +133,12 @@ public sealed class ConfigClient
     }
 
     /// <summary>
-    /// Replaces base or environment-specific values on a config and persists via PUT.
+    /// Replaces base or environment-specific items on a config and persists via PUT.
     /// </summary>
     /// <param name="id">The config UUID.</param>
-    /// <param name="values">The values dict to set.</param>
+    /// <param name="values">The raw values dict to set.</param>
     /// <param name="environment">
-    /// If provided, replaces that environment's values. If <c>null</c>, replaces the base values.
+    /// If provided, replaces that environment's values. If <c>null</c>, replaces the base items.
     /// </param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The updated <see cref="Config"/>.</returns>
@@ -173,20 +173,16 @@ public sealed class ConfigClient
 
         if (environment is null)
         {
-            var merged = new Dictionary<string, object?>(current.Values) { [key] = value };
+            var merged = new Dictionary<string, object?>(current.Items) { [key] = value };
             return await ApplySetValues(current, merged, null, ct).ConfigureAwait(false);
         }
         else
         {
-            // Get existing env values (flatten from {"values": {...}} envelope)
+            // Get existing env values (already extracted as raw values by MapResource)
             Dictionary<string, object?> existingEnvValues;
             if (current.Environments.TryGetValue(environment, out var envData))
             {
-                var normalized = Resolver.NormalizeDict(envData);
-                existingEnvValues = normalized.TryGetValue("values", out var v)
-                    && v is Dictionary<string, object?> d
-                    ? new Dictionary<string, object?>(d)
-                    : new Dictionary<string, object?>();
+                existingEnvValues = new Dictionary<string, object?>(envData);
             }
             else
             {
@@ -250,24 +246,19 @@ public sealed class ConfigClient
         string? environment,
         CancellationToken ct)
     {
-        Dictionary<string, object?>? newValues;
+        Dictionary<string, object?>? newItems;
         Dictionary<string, object?>? newEnvs;
 
         if (environment is null)
         {
-            newValues = values;
+            newItems = values;
             newEnvs = BuildEnvsForRequest(current.Environments);
         }
         else
         {
-            newValues = current.Values;
+            newItems = current.Items;
             var reqEnvs = BuildEnvsForRequest(current.Environments);
-            // Build or update the env entry with the new values
-            var envEntry = current.Environments.TryGetValue(environment, out var existing)
-                ? new Dictionary<string, object?>(existing)
-                : new Dictionary<string, object?>();
-            envEntry["values"] = values;
-            reqEnvs[environment] = envEntry;
+            reqEnvs[environment] = values;
             newEnvs = reqEnvs;
         }
 
@@ -277,7 +268,7 @@ public sealed class ConfigClient
             Key = current.Key,
             Description = current.Description,
             Parent = current.Parent,
-            Values = newValues,
+            Items = newItems,
             Environments = newEnvs,
         }, ct).ConfigureAwait(false);
     }
@@ -301,8 +292,9 @@ public sealed class ConfigClient
         return (config.Key, chain);
     }
 
-    /// <summary>Convert <see cref="Config.Environments"/> to the flat
-    /// <c>Dictionary&lt;string, object?&gt;</c> used in request bodies.</summary>
+    /// <summary>Convert <see cref="Config.Environments"/> (already extracted as raw values)
+    /// to the flat <c>Dictionary&lt;string, object?&gt;</c> used in request bodies.
+    /// Raw values are re-wrapped as <c>{key: value}</c> for the request.</summary>
     private static Dictionary<string, object?> BuildEnvsForRequest(
         Dictionary<string, Dictionary<string, object?>> environments)
     {
@@ -311,6 +303,63 @@ public sealed class ConfigClient
             result[envName] = envData;
         return result;
     }
+
+    /// <summary>Wrap raw items into typed format for request bodies.
+    /// SDK format: <c>{key: raw}</c> ->
+    /// Wire format: <c>{key: {"value": raw, "type": "STRING"}}</c></summary>
+    private static Dictionary<string, object?>? WrapItemsForRequest(
+        Dictionary<string, object?>? items)
+    {
+        if (items is null) return null;
+
+        var result = new Dictionary<string, object?>(items.Count);
+        foreach (var (key, value) in items)
+        {
+            result[key] = new Dictionary<string, object?>
+            {
+                ["value"] = value,
+                ["type"] = InferType(value),
+            };
+        }
+        return result;
+    }
+
+    /// <summary>Wrap raw environment overrides into value wrappers for request bodies.
+    /// SDK format: <c>{env: {key: raw}}</c> ->
+    /// Wire format: <c>{env: {key: {"value": raw}}}</c></summary>
+    private static Dictionary<string, object?>? WrapEnvsForRequest(
+        Dictionary<string, object?>? environments)
+    {
+        if (environments is null) return null;
+
+        var result = new Dictionary<string, object?>(environments.Count);
+        foreach (var (envName, envData) in environments)
+        {
+            if (envData is Dictionary<string, object?> envDict)
+            {
+                var wrapped = new Dictionary<string, object?>(envDict.Count);
+                foreach (var (key, value) in envDict)
+                {
+                    wrapped[key] = new Dictionary<string, object?> { ["value"] = value };
+                }
+                result[envName] = wrapped;
+            }
+            else
+            {
+                result[envName] = envData;
+            }
+        }
+        return result;
+    }
+
+    /// <summary>Infer the type string for a raw value.</summary>
+    private static string InferType(object? value) => value switch
+    {
+        string => "STRING",
+        bool => "BOOLEAN",
+        int or long or float or double or decimal => "NUMBER",
+        _ => "JSON",
+    };
 
     private static JsonApiRequestBody BuildRequestBody(CreateConfigOptions options) =>
         new()
@@ -324,14 +373,15 @@ public sealed class ConfigClient
                     Key = options.Key,
                     Description = options.Description,
                     Parent = options.Parent,
-                    Values = options.Values,
-                    Environments = options.Environments,
+                    Items = WrapItemsForRequest(options.Items),
+                    Environments = WrapEnvsForRequest(options.Environments),
                 },
             },
         };
 
     /// <summary>
     /// Maps a JSON:API resource to a <see cref="Config"/> record.
+    /// Extracts raw values from typed item wrappers and environment override wrappers.
     /// </summary>
     private static Config? MapResource(JsonApiResource? resource)
     {
@@ -339,16 +389,76 @@ public sealed class ConfigClient
             return null;
 
         var attrs = resource.Attributes;
+
+        // Extract raw values from typed items: {key: {"value": raw, "type": ..., "description": ...}} -> {key: raw}
+        var items = ExtractRawItems(attrs.Items);
+
+        // Extract raw values from environment overrides: {env: {key: {"value": raw}}} -> {env: {key: raw}}
+        var environments = ExtractRawEnvironments(attrs.Environments);
+
         return new Config(
             Id: resource.Id ?? string.Empty,
             Key: attrs.Key ?? string.Empty,
             Name: attrs.Name ?? string.Empty,
             Description: attrs.Description,
             Parent: attrs.Parent,
-            Values: attrs.Values ?? new Dictionary<string, object?>(),
-            Environments: attrs.Environments ?? new Dictionary<string, Dictionary<string, object?>>(),
+            Items: items,
+            Environments: environments,
             CreatedAt: attrs.CreatedAt,
             UpdatedAt: attrs.UpdatedAt
         );
+    }
+
+    /// <summary>
+    /// Extracts raw values from typed item wrappers.
+    /// Wire format: <c>{key: {"value": raw, "type": "STRING", "description": "..."}}</c>
+    /// SDK format: <c>{key: raw}</c>
+    /// </summary>
+    private static Dictionary<string, object?> ExtractRawItems(
+        Dictionary<string, Dictionary<string, object?>>? items)
+    {
+        if (items is null)
+            return new Dictionary<string, object?>();
+
+        var result = new Dictionary<string, object?>(items.Count);
+        foreach (var (key, wrapper) in items)
+        {
+            var normalized = Resolver.NormalizeDict(wrapper);
+            result[key] = normalized.TryGetValue("value", out var v) ? v : null;
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Extracts raw values from environment override wrappers.
+    /// Wire format: <c>{env: {key: {"value": raw}}}</c>
+    /// SDK format: <c>{env: {key: raw}}</c>
+    /// </summary>
+    private static Dictionary<string, Dictionary<string, object?>> ExtractRawEnvironments(
+        Dictionary<string, Dictionary<string, object?>>? environments)
+    {
+        if (environments is null)
+            return new Dictionary<string, Dictionary<string, object?>>();
+
+        var result = new Dictionary<string, Dictionary<string, object?>>(environments.Count);
+        foreach (var (envName, envData) in environments)
+        {
+            var normalized = Resolver.NormalizeDict(envData);
+            var envValues = new Dictionary<string, object?>(normalized.Count);
+            foreach (var (key, wrapper) in normalized)
+            {
+                if (wrapper is Dictionary<string, object?> wrapperDict
+                    && wrapperDict.TryGetValue("value", out var v))
+                {
+                    envValues[key] = v;
+                }
+                else
+                {
+                    envValues[key] = wrapper;
+                }
+            }
+            result[envName] = envValues;
+        }
+        return result;
     }
 }

@@ -387,7 +387,7 @@ public class ResolverTests
             Name: "My Config",
             Description: null,
             Parent: null,
-            Values: new() { ["timeout"] = 30 },
+            Items: new() { ["timeout"] = 30 },
             Environments: new(),
             CreatedAt: null,
             UpdatedAt: null);
@@ -402,9 +402,10 @@ public class ResolverTests
     [Fact]
     public void ToChainEntry_WithEnvironments_ExtractsEnvValues()
     {
+        // Environments now contain flat raw values (extracted by MapResource)
         var envData = new Dictionary<string, object?>
         {
-            ["values"] = JsonDocument.Parse("""{"retries": 5}""").RootElement,
+            ["retries"] = 5,
         };
 
         var config = new Smplkit.Config.Config(
@@ -413,7 +414,7 @@ public class ResolverTests
             Name: "My Config",
             Description: null,
             Parent: null,
-            Values: new() { ["timeout"] = 30 },
+            Items: new() { ["timeout"] = 30 },
             Environments: new()
             {
                 ["production"] = envData,
@@ -424,15 +425,40 @@ public class ResolverTests
         var entry = Resolver.ToChainEntry(config);
 
         Assert.True(entry.EnvValues.ContainsKey("production"));
-        Assert.Equal(5L, entry.EnvValues["production"]["retries"]);
+        Assert.Equal(5, entry.EnvValues["production"]["retries"]);
     }
 
     [Fact]
-    public void ToChainEntry_EnvWithoutValuesKey_SkipsEnvironment()
+    public void ToChainEntry_EmptyEnvironment_IncludedInEntry()
     {
+        var config = new Smplkit.Config.Config(
+            Id: "id-1",
+            Key: "my_key",
+            Name: "My Config",
+            Description: null,
+            Parent: null,
+            Items: new(),
+            Environments: new()
+            {
+                ["staging"] = new(),
+            },
+            CreatedAt: null,
+            UpdatedAt: null);
+
+        var entry = Resolver.ToChainEntry(config);
+
+        Assert.Contains("staging", entry.EnvValues.Keys);
+        Assert.Empty(entry.EnvValues["staging"]);
+    }
+
+    [Fact]
+    public void ToChainEntry_EnvWithJsonElementValues_Normalizes()
+    {
+        // Environment values may contain JsonElements that need normalization
+        var je = JsonDocument.Parse("42").RootElement;
         var envData = new Dictionary<string, object?>
         {
-            ["description"] = "no values key here",
+            ["count"] = je,
         };
 
         var config = new Smplkit.Config.Config(
@@ -441,7 +467,7 @@ public class ResolverTests
             Name: "My Config",
             Description: null,
             Parent: null,
-            Values: new(),
+            Items: new(),
             Environments: new()
             {
                 ["staging"] = envData,
@@ -451,35 +477,8 @@ public class ResolverTests
 
         var entry = Resolver.ToChainEntry(config);
 
-        Assert.DoesNotContain("staging", entry.EnvValues.Keys);
-    }
-
-    [Fact]
-    public void ToChainEntry_EnvWithNonDictValues_SkipsEnvironment()
-    {
-        // "values" key exists but its value is not a dict (e.g., a string)
-        var envData = new Dictionary<string, object?>
-        {
-            ["values"] = "not a dict",
-        };
-
-        var config = new Smplkit.Config.Config(
-            Id: "id-1",
-            Key: "my_key",
-            Name: "My Config",
-            Description: null,
-            Parent: null,
-            Values: new(),
-            Environments: new()
-            {
-                ["staging"] = envData,
-            },
-            CreatedAt: null,
-            UpdatedAt: null);
-
-        var entry = Resolver.ToChainEntry(config);
-
-        Assert.DoesNotContain("staging", entry.EnvValues.Keys);
+        Assert.Contains("staging", entry.EnvValues.Keys);
+        Assert.Equal(42L, entry.EnvValues["staging"]["count"]);
     }
 
     [Fact]
@@ -492,7 +491,7 @@ public class ResolverTests
             Name: "My Config",
             Description: null,
             Parent: null,
-            Values: new() { ["field"] = je },
+            Items: new() { ["field"] = je },
             Environments: new(),
             CreatedAt: null,
             UpdatedAt: null);
@@ -658,33 +657,27 @@ public class ResolverTests
             Name: "Name",
             Description: null,
             Parent: null,
-            Values: new(),
+            Items: new(),
             Environments: new()
             {
-                ["production"] = new()
-                {
-                    ["values"] = JsonDocument.Parse("""{"a": 1}""").RootElement,
-                },
-                ["staging"] = new()
-                {
-                    ["values"] = JsonDocument.Parse("""{"b": 2}""").RootElement,
-                },
+                ["production"] = new() { ["a"] = 1 },
+                ["staging"] = new() { ["b"] = 2 },
             },
             CreatedAt: null,
             UpdatedAt: null);
 
         var entry = Resolver.ToChainEntry(config);
         Assert.Equal(2, entry.EnvValues.Count);
-        Assert.Equal(1L, entry.EnvValues["production"]["a"]);
-        Assert.Equal(2L, entry.EnvValues["staging"]["b"]);
+        Assert.Equal(1, entry.EnvValues["production"]["a"]);
+        Assert.Equal(2, entry.EnvValues["staging"]["b"]);
     }
 
     // ------------------------------------------------------------------
-    // ToChainEntry — env with "values" that is null
+    // ToChainEntry — env with null value preserves the key
     // ------------------------------------------------------------------
 
     [Fact]
-    public void ToChainEntry_EnvWithNullValues_SkipsEnvironment()
+    public void ToChainEntry_EnvWithNullValue_IncludesEnvironment()
     {
         var config = new Smplkit.Config.Config(
             Id: "id-1",
@@ -692,20 +685,21 @@ public class ResolverTests
             Name: "Name",
             Description: null,
             Parent: null,
-            Values: new(),
+            Items: new(),
             Environments: new()
             {
                 ["production"] = new()
                 {
-                    ["values"] = null,
+                    ["setting"] = null,
                 },
             },
             CreatedAt: null,
             UpdatedAt: null);
 
         var entry = Resolver.ToChainEntry(config);
-        // null is not a Dictionary<string, object?>, so env should be skipped
-        Assert.DoesNotContain("production", entry.EnvValues.Keys);
+        // Environments are now flat raw values; null values are preserved
+        Assert.Contains("production", entry.EnvValues.Keys);
+        Assert.Null(entry.EnvValues["production"]["setting"]);
     }
 
     // ------------------------------------------------------------------

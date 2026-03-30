@@ -44,7 +44,7 @@ public class ConfigClientTests
         Assert.Equal(TestData.ConfigName, config.Name);
         Assert.Equal("Test config", config.Description);
         Assert.Null(config.Parent);
-        Assert.NotNull(config.Values);
+        Assert.NotNull(config.Items);
         Assert.NotNull(config.Environments);
 
         // Verify correct URL
@@ -99,7 +99,7 @@ public class ConfigClientTests
                         "name": "{{TestData.ConfigName}}",
                         "description": "Test config",
                         "parent": null,
-                        "values": {},
+                        "items": {},
                         "environments": {},
                         "created_at": "2024-01-15T10:30:00Z",
                         "updated_at": "2024-01-15T10:30:00Z"
@@ -212,7 +212,7 @@ public class ConfigClientTests
         var config = await client.Config.CreateAsync(new CreateConfigOptions
         {
             Name = "Test",
-            Values = new Dictionary<string, object?> { ["timeout"] = 30 },
+            Items = new Dictionary<string, object?> { ["timeout"] = 30 },
         });
 
         Assert.NotNull(config);
@@ -469,7 +469,7 @@ public class ConfigClientTests
                         "name": "Valid",
                         "description": null,
                         "parent": null,
-                        "values": {},
+                        "items": {},
                         "environments": {},
                         "created_at": "2024-01-15T10:30:00Z",
                         "updated_at": "2024-01-15T10:30:00Z"
@@ -529,7 +529,7 @@ public class ConfigClientTests
                     "name": null,
                     "description": null,
                     "parent": null,
-                    "values": null,
+                    "items": null,
                     "environments": null,
                     "created_at": null,
                     "updated_at": null
@@ -548,8 +548,8 @@ public class ConfigClientTests
         Assert.Equal(string.Empty, config.Name);
         Assert.Null(config.Description);
         Assert.Null(config.Parent);
-        Assert.NotNull(config.Values);
-        Assert.Empty(config.Values);
+        Assert.NotNull(config.Items);
+        Assert.Empty(config.Items);
         Assert.NotNull(config.Environments);
         Assert.Empty(config.Environments);
         Assert.Null(config.CreatedAt);
@@ -761,7 +761,7 @@ public class ConfigClientTests
             Key = "updated_key",
             Description = "Updated description",
             Parent = "parent-id",
-            Values = new() { ["a"] = 1 },
+            Items = new() { ["a"] = 1 },
             Environments = new() { ["prod"] = new Dictionary<string, object?> { ["b"] = 2 } },
         });
 
@@ -789,10 +789,10 @@ public class ConfigClientTests
                     "name": "My Config",
                     "description": null,
                     "parent": null,
-                    "values": {"timeout": 30},
+                    "items": {"timeout": {"value": 30, "type": "NUMBER"}},
                     "environments": {
-                        "production": {"values": {"timeout": 60}},
-                        "staging": {"values": {"debug": true}}
+                        "production": {"timeout": {"value": 60}},
+                        "staging": {"debug": {"value": true}}
                     },
                     "created_at": "2024-01-15T10:30:00Z",
                     "updated_at": "2024-01-15T10:30:00Z"
@@ -829,7 +829,7 @@ public class ConfigClientTests
                         "name": "A",
                         "description": null,
                         "parent": null,
-                        "values": {},
+                        "items": {},
                         "environments": {},
                         "created_at": null,
                         "updated_at": null
@@ -843,7 +843,7 @@ public class ConfigClientTests
                         "name": "B",
                         "description": "desc",
                         "parent": "1",
-                        "values": {"x": 1},
+                        "items": {"x": {"value": 1, "type": "NUMBER"}},
                         "environments": {},
                         "created_at": "2024-01-15T10:30:00Z",
                         "updated_at": "2024-01-15T10:30:00Z"

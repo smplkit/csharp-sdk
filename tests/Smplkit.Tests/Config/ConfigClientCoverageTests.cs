@@ -53,7 +53,7 @@ public class ConfigClientCoverageTests
                     "name": "{{name}}",
                     "description": {{descStr}},
                     "parent": {{parentStr}},
-                    "values": {{valuesJson}},
+                    "items": {{valuesJson}},
                     "environments": {{environmentsJson}},
                     "created_at": "2024-01-15T10:30:00Z",
                     "updated_at": "2024-01-15T10:30:00Z"
@@ -144,7 +144,7 @@ public class ConfigClientCoverageTests
             if (requestCount == 1)
             {
                 return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": 30}""")));
+                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""")));
             }
             return Task.FromResult(JsonResponse(
                 """{"errors":[{"detail":"Validation failed"}]}""",
@@ -186,8 +186,8 @@ public class ConfigClientCoverageTests
             if (requestCount == 1)
             {
                 return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": 30}""",
-                    environmentsJson: """{"production": {"values": {"timeout": 60}}}""")));
+                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
+                    environmentsJson: """{"production": {"timeout": {"value": 60}}}""")));
             }
             return Task.FromResult(JsonResponse(
                 """{"errors":[{"detail":"Server error"}]}""",
@@ -214,7 +214,7 @@ public class ConfigClientCoverageTests
                 // Child config has a parent
                 return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
                     id: "child", parent: "parent-id",
-                    valuesJson: """{"child_key": "val"}""")));
+                    valuesJson: """{"child_key": {"value": "val", "type": "STRING"}}""")));
             }
             // Parent fetch fails
             return Task.FromResult(JsonResponse(
@@ -293,8 +293,8 @@ public class ConfigClientCoverageTests
                 name: "Service",
                 description: "A description",
                 parent: "parent-id",
-                valuesJson: """{"timeout": 30, "retries": 3}""",
-                environmentsJson: """{"production": {"values": {"timeout": 60}}}"""))));
+                valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}, "retries": {"value": 3, "type": "NUMBER"}}""",
+                environmentsJson: """{"production": {"timeout": {"value": 60}}}"""))));
 
         var config = await client.Config.GetAsync("cfg-1");
 
@@ -321,8 +321,8 @@ public class ConfigClientCoverageTests
             if (req.Method == HttpMethod.Get)
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": 30, "retries": 3}""",
-                    environmentsJson: """{"production": {"values": {"timeout": 60}}}"""));
+                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}, "retries": {"value": 3, "type": "NUMBER"}}""",
+                    environmentsJson: """{"production": {"timeout": {"value": 60}}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
@@ -356,11 +356,11 @@ public class ConfigClientCoverageTests
             {
                 return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
                     id: "child", parent: "parent",
-                    valuesJson: """{"child_key": "c"}""")));
+                    valuesJson: """{"child_key": {"value": "c", "type": "STRING"}}""")));
             }
             return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
                 id: "parent",
-                valuesJson: """{"parent_key": "p"}""")));
+                valuesJson: """{"parent_key": {"value": "p", "type": "STRING"}}""")));
         });
 
         var runtime = await client.Config.ConnectAsync("child", "production");
@@ -456,7 +456,7 @@ public class ConfigClientCoverageTests
             if (req.Method == HttpMethod.Get)
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"a": 1}""",
+                    valuesJson: """{"a": {"value": 1, "type": "NUMBER"}}""",
                     environmentsJson: """{}"""));
             }
             else if (req.Method == HttpMethod.Put)
@@ -490,7 +490,7 @@ public class ConfigClientCoverageTests
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
                     description: "My config desc",
                     parent: "parent-uuid",
-                    valuesJson: """{"timeout": 30}"""));
+                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
@@ -516,7 +516,7 @@ public class ConfigClientCoverageTests
     {
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
-                valuesJson: """{"timeout": 30}"""))));
+                valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}"""))));
 
         var runtime = await client.Config.ConnectAsync("cfg-1", "production");
         await runtime.DisposeAsync();

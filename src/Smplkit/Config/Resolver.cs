@@ -78,24 +78,19 @@ internal static class Resolver
     /// <summary>
     /// Build a <see cref="ConfigChainEntry"/> from a <see cref="Config"/> record,
     /// normalizing all values so there are no <see cref="JsonElement"/> references.
+    /// Items and environment overrides are already extracted as raw values by MapResource.
     /// </summary>
     public static ConfigChainEntry ToChainEntry(Config config)
     {
-        var values = NormalizeDict(config.Values);
+        var values = NormalizeDict(config.Items);
 
         var envValues = new Dictionary<string, Dictionary<string, object?>>(
             config.Environments.Count);
 
         foreach (var (envName, envData) in config.Environments)
         {
-            // envData is Dictionary<string, object?> shaped as {"values": <JsonElement>}
-            var normalized = NormalizeDict(envData);
-            if (normalized.TryGetValue("values", out var v)
-                && v is Dictionary<string, object?> vals)
-            {
-                envValues[envName] = vals;
-            }
-            // If no "values" key, this env has no overrides — skip it
+            // envData is already a flat {key: raw_value} dict (extracted by MapResource)
+            envValues[envName] = NormalizeDict(envData);
         }
 
         return new ConfigChainEntry

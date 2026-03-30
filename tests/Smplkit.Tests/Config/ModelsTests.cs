@@ -18,10 +18,10 @@ public class ModelsTests
             Name: "My Config",
             Description: "A description",
             Parent: "parent-id",
-            Values: new() { ["timeout"] = 30 },
+            Items: new() { ["timeout"] = 30 },
             Environments: new()
             {
-                ["production"] = new() { ["values"] = new Dictionary<string, object?> { ["timeout"] = 60 } },
+                ["production"] = new() { ["timeout"] = 60 },
             },
             CreatedAt: new DateTime(2024, 1, 15),
             UpdatedAt: new DateTime(2024, 1, 16));
@@ -31,7 +31,7 @@ public class ModelsTests
         Assert.Equal("My Config", config.Name);
         Assert.Equal("A description", config.Description);
         Assert.Equal("parent-id", config.Parent);
-        Assert.Equal(30, config.Values["timeout"]);
+        Assert.Equal(30, config.Items["timeout"]);
         Assert.True(config.Environments.ContainsKey("production"));
         Assert.Equal(new DateTime(2024, 1, 15), config.CreatedAt);
         Assert.Equal(new DateTime(2024, 1, 16), config.UpdatedAt);
@@ -46,7 +46,7 @@ public class ModelsTests
             Name: "name",
             Description: null,
             Parent: null,
-            Values: new(),
+            Items: new(),
             Environments: new(),
             CreatedAt: null,
             UpdatedAt: null);
@@ -73,7 +73,7 @@ public class ModelsTests
         Assert.Null(opts.Key);
         Assert.Null(opts.Description);
         Assert.Null(opts.Parent);
-        Assert.Null(opts.Values);
+        Assert.Null(opts.Items);
         Assert.Null(opts.Environments);
     }
 
@@ -89,7 +89,7 @@ public class ModelsTests
             Key = "test_key",
             Description = "desc",
             Parent = "parent-id",
-            Values = vals,
+            Items = vals,
             Environments = envs,
         };
 
@@ -97,7 +97,7 @@ public class ModelsTests
         Assert.Equal("test_key", opts.Key);
         Assert.Equal("desc", opts.Description);
         Assert.Equal("parent-id", opts.Parent);
-        Assert.Same(vals, opts.Values);
+        Assert.Same(vals, opts.Items);
         Assert.Same(envs, opts.Environments);
     }
 

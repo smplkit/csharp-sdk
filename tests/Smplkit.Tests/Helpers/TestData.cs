@@ -24,7 +24,7 @@ internal static class TestData
                     "name": "{{name}}",
                     "description": "Test config",
                     "parent": null,
-                    "values": { "timeout": 30, "retries": 3 },
+                    "items": { "timeout": {"value": 30, "type": "NUMBER"}, "retries": {"value": 3, "type": "NUMBER"} },
                     "environments": {},
                     "created_at": "2024-01-15T10:30:00Z",
                     "updated_at": "2024-01-15T10:30:00Z"
@@ -45,7 +45,7 @@ internal static class TestData
                         "name": "{{ConfigName}}",
                         "description": "Test config",
                         "parent": null,
-                        "values": { "timeout": 30 },
+                        "items": { "timeout": {"value": 30, "type": "NUMBER"} },
                         "environments": {},
                         "created_at": "2024-01-15T10:30:00Z",
                         "updated_at": "2024-01-15T10:30:00Z"
@@ -59,7 +59,7 @@ internal static class TestData
                         "name": "Payment Service",
                         "description": null,
                         "parent": null,
-                        "values": {},
+                        "items": {},
                         "environments": {},
                         "created_at": "2024-01-16T10:30:00Z",
                         "updated_at": "2024-01-16T10:30:00Z"

@@ -29,7 +29,9 @@ public class ConfigClientSetValuesTests
     }
 
     /// <summary>
-    /// Builds a config JSON with specific values and environments.
+    /// Builds a config JSON with specific items and environments.
+    /// Items use typed format: {key: {"value": raw, "type": "..."}}
+    /// Environments use value wrappers: {env: {key: {"value": raw}}}
     /// </summary>
     private static string ConfigJsonWithValuesAndEnvs(
         string id = "cfg-1",
@@ -50,7 +52,7 @@ public class ConfigClientSetValuesTests
                     "name": "{{name}}",
                     "description": null,
                     "parent": {{parentStr}},
-                    "values": {{valuesJson}},
+                    "items": {{valuesJson}},
                     "environments": {{environmentsJson}},
                     "created_at": "2024-01-15T10:30:00Z",
                     "updated_at": "2024-01-15T10:30:00Z"
@@ -77,14 +79,14 @@ public class ConfigClientSetValuesTests
             {
                 // Return current config with existing values
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": 30, "retries": 3}""",
-                    environmentsJson: """{"production": {"values": {"timeout": 60}}}"""));
+                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}, "retries": {"value": 3, "type": "NUMBER"}}""",
+                    environmentsJson: """{"production": {"timeout": {"value": 60}}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
                 putBody = await req.Content!.ReadAsStringAsync();
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"new_key": "new_value"}"""));
+                    valuesJson: """{"new_key": {"value": "new_value", "type": "STRING"}}"""));
             }
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
@@ -109,7 +111,7 @@ public class ConfigClientSetValuesTests
             if (req.Method == HttpMethod.Get)
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    environmentsJson: """{"staging": {"values": {"debug": true}}}"""));
+                    environmentsJson: """{"staging": {"debug": {"value": true}}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
@@ -142,8 +144,8 @@ public class ConfigClientSetValuesTests
             if (req.Method == HttpMethod.Get)
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": 30}""",
-                    environmentsJson: """{"production": {"values": {"timeout": 60}}}"""));
+                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
+                    environmentsJson: """{"production": {"timeout": {"value": 60}}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
@@ -172,7 +174,7 @@ public class ConfigClientSetValuesTests
             if (req.Method == HttpMethod.Get)
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": 30}"""));
+                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
@@ -205,13 +207,13 @@ public class ConfigClientSetValuesTests
             if (req.Method == HttpMethod.Get)
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": 30, "retries": 3}"""));
+                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}, "retries": {"value": 3, "type": "NUMBER"}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
                 putBody = await req.Content!.ReadAsStringAsync();
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": 30, "retries": 3, "debug": true}"""));
+                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}, "retries": {"value": 3, "type": "NUMBER"}, "debug": {"value": true, "type": "BOOLEAN"}}"""));
             }
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
@@ -235,13 +237,13 @@ public class ConfigClientSetValuesTests
             if (req.Method == HttpMethod.Get)
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": 30}"""));
+                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
                 putBody = await req.Content!.ReadAsStringAsync();
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": 60}"""));
+                    valuesJson: """{"timeout": {"value": 60, "type": "NUMBER"}}"""));
             }
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
@@ -265,8 +267,8 @@ public class ConfigClientSetValuesTests
             if (req.Method == HttpMethod.Get)
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": 30}""",
-                    environmentsJson: """{"production": {"values": {"timeout": 60}}}"""));
+                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
+                    environmentsJson: """{"production": {"timeout": {"value": 60}}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
@@ -293,7 +295,7 @@ public class ConfigClientSetValuesTests
             if (req.Method == HttpMethod.Get)
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": 30}"""));
+                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
@@ -322,7 +324,7 @@ public class ConfigClientSetValuesTests
             {
                 // Environment has a "values" entry that is a string (not a dict)
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": 30}""",
+                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
                     environmentsJson: """{"production": {"notes": "no values key here"}}"""));
             }
             else if (req.Method == HttpMethod.Put)
@@ -349,7 +351,7 @@ public class ConfigClientSetValuesTests
             if (req.Method == HttpMethod.Get)
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": 30}"""));
+                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
@@ -374,8 +376,8 @@ public class ConfigClientSetValuesTests
         var (client, _) = CreateClient(req =>
         {
             return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
-                valuesJson: """{"timeout": 30}""",
-                environmentsJson: """{"production": {"values": {"timeout": 60}}}""")));
+                valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
+                environmentsJson: """{"production": {"timeout": {"value": 60}}}""")));
         });
 
         var runtime = await client.Config.ConnectAsync("cfg-1", "production");
@@ -406,13 +408,13 @@ public class ConfigClientSetValuesTests
                 return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
                     id: "child-id",
                     parent: "parent-id",
-                    valuesJson: """{"child_key": "child_val"}""")));
+                    valuesJson: """{"child_key": {"value": "child_val", "type": "STRING"}}""")));
             }
             else if (url.Contains("parent-id"))
             {
                 return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
                     id: "parent-id",
-                    valuesJson: """{"parent_key": "parent_val", "child_key": "overridden"}""")));
+                    valuesJson: """{"parent_key": {"value": "parent_val", "type": "STRING"}, "child_key": {"value": "overridden", "type": "STRING"}}""")));
             }
 
             return Task.FromResult(JsonResponse("{}", HttpStatusCode.NotFound));
@@ -469,8 +471,8 @@ public class ConfigClientSetValuesTests
             fetchCount++;
             return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
                 valuesJson: fetchCount <= 1
-                    ? """{"timeout": 30}"""
-                    : """{"timeout": 999}""")));
+                    ? """{"timeout": {"value": 30, "type": "NUMBER"}}"""
+                    : """{"timeout": {"value": 999, "type": "NUMBER"}}""")));
         });
 
         var runtime = await client.Config.ConnectAsync("cfg-1", "production");
@@ -528,7 +530,7 @@ public class ConfigClientSetValuesTests
                     id: "cfg-1",
                     key: "svc_key",
                     name: "Service Name",
-                    valuesJson: """{"old": "val"}"""));
+                    valuesJson: """{"old": {"value": "val", "type": "STRING"}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
@@ -573,7 +575,7 @@ public class ConfigClientSetValuesTests
             Key = "full_key",
             Description = "A full description",
             Parent = "parent-uuid",
-            Values = new() { ["a"] = 1 },
+            Items = new() { ["a"] = 1 },
             Environments = new() { ["prod"] = new Dictionary<string, object?> { ["b"] = 2 } },
         });
 
@@ -622,8 +624,8 @@ public class ConfigClientSetValuesTests
             if (req.Method == HttpMethod.Get)
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": 30}""",
-                    environmentsJson: """{"production": {"values": {"timeout": 60}, "description": "prod env"}, "staging": {"values": {"debug": true}}}"""));
+                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
+                    environmentsJson: """{"production": {"timeout": {"value": 60}, "description": "prod env"}, "staging": {"debug": {"value": true}}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
@@ -658,8 +660,8 @@ public class ConfigClientSetValuesTests
             if (req.Method == HttpMethod.Get)
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": 30}""",
-                    environmentsJson: """{"production": {"values": {"retries": 5, "timeout": 60}}}"""));
+                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
+                    environmentsJson: """{"production": {"retries": {"value": 5}, "timeout": {"value": 60}}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
@@ -691,7 +693,7 @@ public class ConfigClientSetValuesTests
             if (req.Method == HttpMethod.Get)
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": 30}""",
+                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
                     environmentsJson: """{}"""));
             }
             else if (req.Method == HttpMethod.Put)
@@ -727,8 +729,8 @@ public class ConfigClientSetValuesTests
             {
                 // Environment has "values" that is a string, not a dict
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": 30}""",
-                    environmentsJson: """{"production": {"values": "not-a-dict"}}"""));
+                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
+                    environmentsJson: """{"production": {"values": {"value": "not-a-dict"}}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
@@ -759,11 +761,11 @@ public class ConfigClientSetValuesTests
             if (fetchCount <= 1)
             {
                 return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": 30}""")));
+                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""")));
             }
             // On refresh, return updated values
             return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
-                valuesJson: """{"timeout": 999}""")));
+                valuesJson: """{"timeout": {"value": 999, "type": "NUMBER"}}""")));
         });
 
         var runtime = await client.Config.ConnectAsync("cfg-1", "production");
@@ -795,7 +797,7 @@ public class ConfigClientSetValuesTests
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
                     parent: "parent-uuid",
-                    valuesJson: """{"timeout": 30}"""));
+                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
@@ -827,7 +829,7 @@ public class ConfigClientSetValuesTests
             if (req.Method == HttpMethod.Get)
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": 30, "retries": 3}"""));
+                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}, "retries": {"value": 3, "type": "NUMBER"}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
@@ -861,7 +863,7 @@ public class ConfigClientSetValuesTests
                     id: "grandchild",
                     key: "gc_key",
                     parent: "child",
-                    valuesJson: """{"gc_key": "gc_val"}""")));
+                    valuesJson: """{"gc_key": {"value": "gc_val", "type": "STRING"}}""")));
             }
             else if (url.Contains("child"))
             {
@@ -869,14 +871,14 @@ public class ConfigClientSetValuesTests
                     id: "child",
                     key: "child_key",
                     parent: "root",
-                    valuesJson: """{"child_key": "child_val"}""")));
+                    valuesJson: """{"child_key": {"value": "child_val", "type": "STRING"}}""")));
             }
             else if (url.Contains("root"))
             {
                 return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
                     id: "root",
                     key: "root_key",
-                    valuesJson: """{"root_key": "root_val", "gc_key": "root_override"}""")));
+                    valuesJson: """{"root_key": {"value": "root_val", "type": "STRING"}, "gc_key": {"value": "root_override", "type": "STRING"}}""")));
             }
 
             return Task.FromResult(JsonResponse("{}", HttpStatusCode.NotFound));
@@ -938,7 +940,7 @@ public class ConfigClientSetValuesTests
             if (req.Method == HttpMethod.Get)
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": 30}""",
+                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
                     environmentsJson: """{}"""));
             }
             else if (req.Method == HttpMethod.Put)
@@ -970,7 +972,7 @@ public class ConfigClientSetValuesTests
             if (req.Method == HttpMethod.Get)
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"old": "val"}""",
+                    valuesJson: """{"old": {"value": "val", "type": "STRING"}}""",
                     environmentsJson: """{}"""));
             }
             else if (req.Method == HttpMethod.Put)
@@ -1003,8 +1005,8 @@ public class ConfigClientSetValuesTests
             if (req.Method == HttpMethod.Get)
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": 30}""",
-                    environmentsJson: """{"production": {"values": {"timeout": 60}, "meta": "data"}}"""));
+                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
+                    environmentsJson: """{"production": {"timeout": {"value": 60}, "meta": "data"}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {

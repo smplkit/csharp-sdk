@@ -10,8 +10,8 @@ namespace Smplkit.Config;
 /// <param name="Name">Display name.</param>
 /// <param name="Description">Optional description.</param>
 /// <param name="Parent">Parent config UUID, or null for root configs.</param>
-/// <param name="Values">Base values dictionary.</param>
-/// <param name="Environments">Dictionary mapping environment names to their overrides.</param>
+/// <param name="Items">Base items dictionary (raw values extracted from typed wrappers).</param>
+/// <param name="Environments">Dictionary mapping environment names to their override values (raw values extracted from wrappers).</param>
 /// <param name="CreatedAt">Creation timestamp.</param>
 /// <param name="UpdatedAt">Last-modified timestamp.</param>
 public sealed record Config(
@@ -20,7 +20,7 @@ public sealed record Config(
     string Name,
     string? Description,
     string? Parent,
-    Dictionary<string, object?> Values,
+    Dictionary<string, object?> Items,
     Dictionary<string, Dictionary<string, object?>> Environments,
     DateTime? CreatedAt,
     DateTime? UpdatedAt
@@ -43,12 +43,12 @@ public sealed record CreateConfigOptions
     /// <summary>Gets the parent config UUID.</summary>
     public string? Parent { get; init; }
 
-    /// <summary>Gets the initial base values.</summary>
-    public Dictionary<string, object?>? Values { get; init; }
+    /// <summary>Gets the initial base items (raw key-value pairs).</summary>
+    public Dictionary<string, object?>? Items { get; init; }
 
     /// <summary>
     /// Gets the environment-specific overrides. Each key is an environment name;
-    /// each value is a dict shaped as <c>{"values": {key: value, ...}}</c>.
+    /// each value is a dict of override key-value pairs.
     /// </summary>
     public Dictionary<string, object?>? Environments { get; init; }
 }
@@ -136,11 +136,11 @@ internal sealed class JsonApiConfigAttributes
     [JsonPropertyName("parent")]
     public string? Parent { get; set; }
 
-    /// <summary>Gets or sets the base values.</summary>
-    [JsonPropertyName("values")]
-    public Dictionary<string, object?>? Values { get; set; }
+    /// <summary>Gets or sets the base items (typed wrappers on the wire).</summary>
+    [JsonPropertyName("items")]
+    public Dictionary<string, Dictionary<string, object?>>? Items { get; set; }
 
-    /// <summary>Gets or sets the environment overrides.</summary>
+    /// <summary>Gets or sets the environment overrides (value wrappers on the wire).</summary>
     [JsonPropertyName("environments")]
     public Dictionary<string, Dictionary<string, object?>>? Environments { get; set; }
 
@@ -198,11 +198,11 @@ internal sealed class JsonApiRequestAttributes
     [JsonPropertyName("parent")]
     public string? Parent { get; set; }
 
-    /// <summary>Gets or sets the base values.</summary>
-    [JsonPropertyName("values")]
-    public Dictionary<string, object?>? Values { get; set; }
+    /// <summary>Gets or sets the base items (typed wrappers for the wire).</summary>
+    [JsonPropertyName("items")]
+    public Dictionary<string, object?>? Items { get; set; }
 
-    /// <summary>Gets or sets the environment-specific overrides.</summary>
+    /// <summary>Gets or sets the environment-specific overrides (value wrappers for the wire).</summary>
     [JsonPropertyName("environments")]
     public Dictionary<string, object?>? Environments { get; set; }
 }

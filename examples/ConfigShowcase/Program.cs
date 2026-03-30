@@ -100,7 +100,7 @@ common = await client.Config.UpdateAsync(common.Id, new CreateConfigOptions
 {
     Name = "Common",
     Description = "Organization-wide shared configuration",
-    Values = new Dictionary<string, object?>
+    Items = new Dictionary<string, object?>
     {
         ["app_name"] = "Acme SaaS Platform",
         ["support_email"] = "support@acme.dev",
@@ -164,7 +164,7 @@ var userService = await client.Config.CreateAsync(new CreateConfigOptions
     Name = "User Service",
     Key = "user_service",
     Description = "Configuration for the user microservice and its dependencies.",
-    Values = new Dictionary<string, object?>
+    Items = new Dictionary<string, object?>
     {
         ["database"] = new Dictionary<string, object?>
         {
@@ -241,7 +241,7 @@ var authModule = await client.Config.CreateAsync(new CreateConfigOptions
     Key = "auth_module",
     Description = "Authentication module within the user service.",
     Parent = userService.Id,
-    Values = new Dictionary<string, object?>
+    Items = new Dictionary<string, object?>
     {
         ["session_ttl_minutes"] = 60,
         ["max_failed_attempts"] = 5,
@@ -523,7 +523,7 @@ Step($"Deleted user_service ({userService.Id})");
 await client.Config.UpdateAsync(common.Id, new CreateConfigOptions
 {
     Name = common.Name,
-    Values = new Dictionary<string, object?>(),
+    Items = new Dictionary<string, object?>(),
     Environments = new Dictionary<string, object?>(),
 });
 Step("Common config reset to empty");

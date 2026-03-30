@@ -176,7 +176,7 @@ public class ResolverCoverageTests
             Name: "Name",
             Description: null,
             Parent: null,
-            Values: new(),
+            Items: new(),
             Environments: new(),
             CreatedAt: null,
             UpdatedAt: null);
@@ -201,7 +201,7 @@ public class ResolverCoverageTests
             Name: "Name",
             Description: null,
             Parent: null,
-            Values: new() { ["complex"] = je },
+            Items: new() { ["complex"] = je },
             Environments: new(),
             CreatedAt: null,
             UpdatedAt: null);
@@ -333,9 +333,12 @@ public class ResolverCoverageTests
     [Fact]
     public void ToChainEntry_EnvWithJsonElementValues_Normalizes()
     {
+        // Environments now contain flat raw values (extracted by MapResource)
+        // but may still have JsonElement values that need normalization
+        var je = JsonDocument.Parse("""["a", "b"]""").RootElement;
         var envData = new Dictionary<string, object?>
         {
-            ["values"] = JsonDocument.Parse("""{"tags": ["a", "b"]}""").RootElement,
+            ["tags"] = je,
         };
 
         var config = new Smplkit.Config.Config(
@@ -344,7 +347,7 @@ public class ResolverCoverageTests
             Name: "Name",
             Description: null,
             Parent: null,
-            Values: new(),
+            Items: new(),
             Environments: new()
             {
                 ["production"] = envData,
