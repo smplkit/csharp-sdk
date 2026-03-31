@@ -27,6 +27,11 @@ internal static class ApiKeyResolver
 
     internal static string Resolve(string? explicitKey, string? envVal, string configPath)
     {
+        return Resolve(explicitKey, envVal, configPath, File.ReadAllText);
+    }
+
+    internal static string Resolve(string? explicitKey, string? envVal, string configPath, Func<string, string> fileReader)
+    {
         if (!string.IsNullOrEmpty(explicitKey))
             return explicitKey;
 
@@ -37,7 +42,7 @@ internal static class ApiKeyResolver
         {
             try
             {
-                var apiKey = ParseIniApiKey(File.ReadAllText(configPath));
+                var apiKey = ParseIniApiKey(fileReader(configPath));
                 if (apiKey != null)
                     return apiKey;
             }

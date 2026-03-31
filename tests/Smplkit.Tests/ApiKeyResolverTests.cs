@@ -179,7 +179,7 @@ public class ApiKeyResolverTests
     }
 
     [Fact]
-    public void LockedFile_CatchBlockCoverage()
+    public void UnreadableFile_CatchBlock_IsSkipped()
     {
         var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(dir);
@@ -187,8 +187,44 @@ public class ApiKeyResolverTests
         {
             var configPath = Path.Combine(dir, ".smplkit");
             File.WriteAllText(configPath, "[default]\napi_key = sk_api_test\n");
-            // Lock the file exclusively so ReadAllText throws IOException
-            using var stream = new FileStream(configPath, FileMode.Open, FileAccess.Read, FileShare.None);
+            // Inject a reader that throws to exercise the catch block.
+            Assert.Throws<SmplException>(() =>
+                ApiKeyResolver.Resolve(null, null, configPath, _ => throw new IOException("simulated read error")));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void ApiKeyLineWithoutEquals_Throws()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var configPath = Path.Combine(dir, ".smplkit");
+            // "api_key" present but no '=' sign — eqIndex == -1 branch
+            File.WriteAllText(configPath, "[default]\napi_key\n");
+            Assert.Throws<SmplException>(() => ApiKeyResolver.Resolve(null, null, configPath));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void ApiKeyEqualsEmptyValue_Throws()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var configPath = Path.Combine(dir, ".smplkit");
+            // "api_key = " with empty value — value.Length == 0 branch
+            File.WriteAllText(configPath, "[default]\napi_key = \n");
             Assert.Throws<SmplException>(() => ApiKeyResolver.Resolve(null, null, configPath));
         }
         finally
