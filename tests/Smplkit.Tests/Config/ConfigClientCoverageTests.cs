@@ -187,7 +187,7 @@ public class ConfigClientCoverageTests
             {
                 return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
                     valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
-                    environmentsJson: """{"production": {"timeout": {"value": 60}}}""")));
+                    environmentsJson: """{"production": {"values": {"timeout": {"value": 60}}}}""")));
             }
             return Task.FromResult(JsonResponse(
                 """{"errors":[{"detail":"Server error"}]}""",
@@ -294,7 +294,7 @@ public class ConfigClientCoverageTests
                 description: "A description",
                 parent: "parent-id",
                 valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}, "retries": {"value": 3, "type": "NUMBER"}}""",
-                environmentsJson: """{"production": {"timeout": {"value": 60}}}"""))));
+                environmentsJson: """{"production": {"values": {"timeout": {"value": 60}}}}"""))));
 
         var config = await client.Config.GetAsync("cfg-1");
 
@@ -322,7 +322,7 @@ public class ConfigClientCoverageTests
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
                     valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}, "retries": {"value": 3, "type": "NUMBER"}}""",
-                    environmentsJson: """{"production": {"timeout": {"value": 60}}}"""));
+                    environmentsJson: """{"production": {"values": {"timeout": {"value": 60}}}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {

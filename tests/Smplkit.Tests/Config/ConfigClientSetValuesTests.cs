@@ -31,7 +31,7 @@ public class ConfigClientSetValuesTests
     /// <summary>
     /// Builds a config JSON with specific items and environments.
     /// Items use typed format: {key: {"value": raw, "type": "..."}}
-    /// Environments use value wrappers: {env: {key: {"value": raw}}}
+    /// Environments use wire format: {env: {"values": {key: {"value": raw}}}}
     /// </summary>
     private static string ConfigJsonWithValuesAndEnvs(
         string id = "cfg-1",
@@ -80,7 +80,7 @@ public class ConfigClientSetValuesTests
                 // Return current config with existing values
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
                     valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}, "retries": {"value": 3, "type": "NUMBER"}}""",
-                    environmentsJson: """{"production": {"timeout": {"value": 60}}}"""));
+                    environmentsJson: """{"production": {"values": {"timeout": {"value": 60}}}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
@@ -111,7 +111,7 @@ public class ConfigClientSetValuesTests
             if (req.Method == HttpMethod.Get)
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    environmentsJson: """{"staging": {"debug": {"value": true}}}"""));
+                    environmentsJson: """{"staging": {"values": {"debug": {"value": true}}}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
@@ -145,7 +145,7 @@ public class ConfigClientSetValuesTests
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
                     valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
-                    environmentsJson: """{"production": {"timeout": {"value": 60}}}"""));
+                    environmentsJson: """{"production": {"values": {"timeout": {"value": 60}}}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
@@ -268,7 +268,7 @@ public class ConfigClientSetValuesTests
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
                     valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
-                    environmentsJson: """{"production": {"timeout": {"value": 60}}}"""));
+                    environmentsJson: """{"production": {"values": {"timeout": {"value": 60}}}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
@@ -315,14 +315,14 @@ public class ConfigClientSetValuesTests
     [Fact]
     public async Task SetValueAsync_EnvWithNonDictValues_CreatesNewDict()
     {
-        // When env data has "values" key but it normalizes to something non-dict
+        // When env data has no "values" key, env is treated as empty
         string? putBody = null;
 
         var (client, _) = CreateClient(async req =>
         {
             if (req.Method == HttpMethod.Get)
             {
-                // Environment has a "values" entry that is a string (not a dict)
+                // Environment missing "values" wrapper — no overrides extracted
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
                     valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
                     environmentsJson: """{"production": {"notes": "no values key here"}}"""));
@@ -377,7 +377,7 @@ public class ConfigClientSetValuesTests
         {
             return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
                 valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
-                environmentsJson: """{"production": {"timeout": {"value": 60}}}""")));
+                environmentsJson: """{"production": {"values": {"timeout": {"value": 60}}}}""")));
         });
 
         var runtime = await client.Config.ConnectAsync("cfg-1", "production");
@@ -625,7 +625,7 @@ public class ConfigClientSetValuesTests
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
                     valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
-                    environmentsJson: """{"production": {"timeout": {"value": 60}, "description": "prod env"}, "staging": {"debug": {"value": true}}}"""));
+                    environmentsJson: """{"production": {"values": {"timeout": {"value": 60}}}, "staging": {"values": {"debug": {"value": true}}}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
@@ -661,7 +661,7 @@ public class ConfigClientSetValuesTests
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
                     valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
-                    environmentsJson: """{"production": {"retries": {"value": 5}, "timeout": {"value": 60}}}"""));
+                    environmentsJson: """{"production": {"values": {"retries": {"value": 5}, "timeout": {"value": 60}}}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
@@ -727,7 +727,7 @@ public class ConfigClientSetValuesTests
         {
             if (req.Method == HttpMethod.Get)
             {
-                // Environment has "values" that is a string, not a dict
+                // Environment has a values item whose wrapper is a scalar (not {"value": ...})
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
                     valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
                     environmentsJson: """{"production": {"values": {"value": "not-a-dict"}}}"""));
@@ -1006,7 +1006,7 @@ public class ConfigClientSetValuesTests
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
                     valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
-                    environmentsJson: """{"production": {"timeout": {"value": 60}, "meta": "data"}}"""));
+                    environmentsJson: """{"production": {"values": {"timeout": {"value": 60}}}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {

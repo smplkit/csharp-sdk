@@ -292,9 +292,9 @@ public sealed class ConfigClient
         return (config.Key, chain);
     }
 
-    /// <summary>Convert <see cref="Config.Environments"/> (already extracted as raw values)
-    /// to the flat <c>Dictionary&lt;string, object?&gt;</c> used in request bodies.
-    /// Raw values are re-wrapped as <c>{key: value}</c> for the request.</summary>
+    /// <summary>Convert <see cref="Config.Environments"/> (already extracted as raw values
+    /// <c>{env: {key: raw}}</c>) to the flat <c>Dictionary&lt;string, object?&gt;</c> passed
+    /// to <see cref="WrapEnvsForRequest"/> for the request body.</summary>
     private static Dictionary<string, object?> BuildEnvsForRequest(
         Dictionary<string, Dictionary<string, object?>> environments)
     {
@@ -324,9 +324,9 @@ public sealed class ConfigClient
         return result;
     }
 
-    /// <summary>Wrap raw environment overrides into value wrappers for request bodies.
+    /// <summary>Wrap raw environment overrides into the wire format for request bodies.
     /// SDK format: <c>{env: {key: raw}}</c> ->
-    /// Wire format: <c>{env: {key: {"value": raw}}}</c></summary>
+    /// Wire format: <c>{env: {"values": {key: {"value": raw}}}}</c></summary>
     private static Dictionary<string, object?>? WrapEnvsForRequest(
         Dictionary<string, object?>? environments)
     {
@@ -342,7 +342,7 @@ public sealed class ConfigClient
                 {
                     wrapped[key] = new Dictionary<string, object?> { ["value"] = value };
                 }
-                result[envName] = wrapped;
+                result[envName] = new Dictionary<string, object?> { ["values"] = wrapped };
             }
             else
             {
@@ -444,19 +444,27 @@ public sealed class ConfigClient
         foreach (var (envName, envData) in environments)
         {
             var normalized = Resolver.NormalizeDict(envData);
-            var envValues = new Dictionary<string, object?>(normalized.Count);
-            foreach (var (key, wrapper) in normalized)
+            var envValues = new Dictionary<string, object?>();
+
+            // Wire format: {env: {"values": {key: {"value": raw}}}}
+            // Unwrap the "values" key from the EnvironmentOverride and extract raw values.
+            if (normalized.TryGetValue("values", out var valuesObj)
+                && valuesObj is Dictionary<string, object?> valuesDict)
             {
-                if (wrapper is Dictionary<string, object?> wrapperDict
-                    && wrapperDict.TryGetValue("value", out var v))
+                foreach (var (key, wrapper) in valuesDict)
                 {
-                    envValues[key] = v;
-                }
-                else
-                {
-                    envValues[key] = wrapper;
+                    if (wrapper is Dictionary<string, object?> wrapperDict
+                        && wrapperDict.TryGetValue("value", out var v))
+                    {
+                        envValues[key] = v;
+                    }
+                    else
+                    {
+                        envValues[key] = wrapper;
+                    }
                 }
             }
+
             result[envName] = envValues;
         }
         return result;
