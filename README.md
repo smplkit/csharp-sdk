@@ -26,7 +26,7 @@ var client2 = new SmplClient();
 
 // Option 3: Configuration file (~/.smplkit)
 // [default]
-// api_key = "sk_api_..."
+// api_key = sk_api_...
 var client3 = new SmplClient();
 ```
 
@@ -68,11 +68,13 @@ The API key is resolved using the following priority:
 
 1. **Explicit argument:** Set `ApiKey` in `SmplClientOptions`.
 2. **Environment variable:** Set `SMPLKIT_API_KEY`.
-3. **Configuration file:** Add `api_key` under `[default]` in `~/.smplkit` (TOML format):
+3. **Configuration file:** Add `api_key` under `[default]` in `~/.smplkit`:
 
-```toml
+```ini
+# ~/.smplkit
+
 [default]
-api_key = "sk_api_..."
+api_key = sk_api_your_key_here
 ```
 
 If none of these are set, the SDK throws `SmplException` with a message listing all three methods.

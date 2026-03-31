@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using Smplkit.Errors;
 
 namespace Smplkit;
@@ -8,15 +7,13 @@ namespace Smplkit;
 /// </summary>
 internal static class ApiKeyResolver
 {
-    private static readonly Regex ApiKeyPattern = new(
-        @"\[default\]\s*[\s\S]*?api_key\s*=\s*""([^""]+)""",
-        RegexOptions.Compiled);
-
     private const string NoApiKeyMessage =
         "No API key provided. Set one of:\n" +
         "  1. Set ApiKey in SmplClientOptions\n" +
         "  2. Set the SMPLKIT_API_KEY environment variable\n" +
-        "  3. Add api_key to [default] in ~/.smplkit";
+        "  3. Create a ~/.smplkit file with:\n" +
+        "     [default]\n" +
+        "     api_key = your_key_here";
 
     internal static string Resolve(string? explicitKey)
     {
@@ -40,17 +37,43 @@ internal static class ApiKeyResolver
         {
             try
             {
-                var content = File.ReadAllText(configPath);
-                var match = ApiKeyPattern.Match(content);
-                if (match.Success)
-                    return match.Groups[1].Value;
+                var apiKey = ParseIniApiKey(File.ReadAllText(configPath));
+                if (apiKey != null)
+                    return apiKey;
             }
             catch
             {
-                // Malformed file — skip
+                // Unreadable file — skip
             }
         }
 
         throw new SmplException(NoApiKeyMessage);
+    }
+
+    private static string? ParseIniApiKey(string content)
+    {
+        var inDefault = false;
+        foreach (var line in content.Split('\n'))
+        {
+            var trimmed = line.Trim();
+            if (trimmed.Length == 0 || trimmed.StartsWith('#'))
+                continue;
+            if (trimmed.StartsWith('['))
+            {
+                inDefault = trimmed.Equals("[default]", StringComparison.OrdinalIgnoreCase);
+                continue;
+            }
+            if (inDefault && trimmed.StartsWith("api_key"))
+            {
+                var eqIndex = trimmed.IndexOf('=');
+                if (eqIndex != -1)
+                {
+                    var value = trimmed[(eqIndex + 1)..].Trim();
+                    if (value.Length > 0)
+                        return value;
+                }
+            }
+        }
+        return null;
     }
 }

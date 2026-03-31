@@ -26,7 +26,7 @@ public class ApiKeyResolverTests
         try
         {
             var configPath = Path.Combine(dir, ".smplkit");
-            File.WriteAllText(configPath, "[default]\napi_key = \"sk_api_file\"\n");
+            File.WriteAllText(configPath, "[default]\napi_key = sk_api_file\n");
             Assert.Equal("sk_api_file", ApiKeyResolver.Resolve(null, null, configPath));
         }
         finally
@@ -67,7 +67,7 @@ public class ApiKeyResolverTests
         try
         {
             var configPath = Path.Combine(dir, ".smplkit");
-            File.WriteAllText(configPath, "[default]\napi_key = \"sk_api_file\"\n");
+            File.WriteAllText(configPath, "[default]\napi_key = sk_api_file\n");
             Assert.Equal("sk_api_env", ApiKeyResolver.Resolve(null, "sk_api_env", configPath));
         }
         finally
@@ -84,7 +84,7 @@ public class ApiKeyResolverTests
         try
         {
             var configPath = Path.Combine(dir, ".smplkit");
-            File.WriteAllText(configPath, "[default]\napi_key = \"sk_api_file\"\n");
+            File.WriteAllText(configPath, "[default]\napi_key = sk_api_file\n");
             Assert.Equal("sk_api_file", ApiKeyResolver.Resolve(null, "", configPath));
         }
         finally
@@ -101,7 +101,7 @@ public class ApiKeyResolverTests
         try
         {
             var configPath = Path.Combine(dir, ".smplkit");
-            File.WriteAllText(configPath, "not valid toml");
+            File.WriteAllText(configPath, "not valid ini");
             Assert.Throws<SmplException>(() => ApiKeyResolver.Resolve(null, null, configPath));
         }
         finally
@@ -118,7 +118,58 @@ public class ApiKeyResolverTests
         try
         {
             var configPath = Path.Combine(dir, ".smplkit");
-            File.WriteAllText(configPath, "[default]\nother_key = \"value\"\n");
+            File.WriteAllText(configPath, "[default]\nother_key = value\n");
+            Assert.Throws<SmplException>(() => ApiKeyResolver.Resolve(null, null, configPath));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void CommentsAreIgnored()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var configPath = Path.Combine(dir, ".smplkit");
+            File.WriteAllText(configPath, "# comment\n[default]\n# another comment\napi_key = sk_api_comment\n");
+            Assert.Equal("sk_api_comment", ApiKeyResolver.Resolve(null, null, configPath));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void MissingDefaultSection_Throws()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var configPath = Path.Combine(dir, ".smplkit");
+            File.WriteAllText(configPath, "[staging]\napi_key = sk_api_staging\n");
+            Assert.Throws<SmplException>(() => ApiKeyResolver.Resolve(null, null, configPath));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void DefaultSectionWithoutApiKey_Throws()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var configPath = Path.Combine(dir, ".smplkit");
+            File.WriteAllText(configPath, "[default]\nsome_other = value\n");
             Assert.Throws<SmplException>(() => ApiKeyResolver.Resolve(null, null, configPath));
         }
         finally
@@ -135,7 +186,7 @@ public class ApiKeyResolverTests
         try
         {
             var configPath = Path.Combine(dir, ".smplkit");
-            File.WriteAllText(configPath, "[default]\napi_key = \"sk_api_test\"\n");
+            File.WriteAllText(configPath, "[default]\napi_key = sk_api_test\n");
             // Lock the file exclusively so ReadAllText throws IOException
             using var stream = new FileStream(configPath, FileMode.Open, FileAccess.Read, FileShare.None);
             Assert.Throws<SmplException>(() => ApiKeyResolver.Resolve(null, null, configPath));
