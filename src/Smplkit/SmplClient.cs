@@ -1,11 +1,12 @@
 using Smplkit.Config;
+using Smplkit.Flags;
 using Smplkit.Internal;
 
 namespace Smplkit;
 
 /// <summary>
 /// Top-level client for the smplkit SDK. Provides access to service-specific
-/// sub-clients (e.g., <see cref="Config"/>).
+/// sub-clients (e.g., <see cref="Config"/>, <see cref="Flags"/>).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -13,6 +14,7 @@ namespace Smplkit;
 /// <code>
 /// using var client = new SmplClient(new SmplClientOptions { ApiKey = "sk_api_..." });
 /// var config = await client.Config.GetAsync("config-uuid");
+/// var flag = await client.Flags.CreateAsync("my-flag", "My Flag", FlagType.Boolean, false);
 /// </code>
 /// </para>
 /// </remarks>
@@ -20,11 +22,19 @@ public sealed class SmplClient : IDisposable
 {
     private readonly HttpClient _httpClient;
     private readonly bool _ownsHttpClient;
+    private readonly string _apiKey;
+    private SharedWebSocket? _sharedWs;
+    private readonly object _wsLock = new();
 
     /// <summary>
     /// Gets the Config service client.
     /// </summary>
     public ConfigClient Config { get; }
+
+    /// <summary>
+    /// Gets the Flags service client.
+    /// </summary>
+    public FlagsClient Flags { get; }
 
     /// <summary>
     /// Initializes a new instance of <see cref="SmplClient"/> with automatic API key
@@ -67,6 +77,7 @@ public sealed class SmplClient : IDisposable
 
         _httpClient = httpClient;
         _ownsHttpClient = ownsHttpClient;
+        _apiKey = resolvedApiKey;
 
         // Create a copy of options with the resolved API key for Transport.
         var resolvedOptions = new SmplClientOptions
@@ -76,6 +87,22 @@ public sealed class SmplClient : IDisposable
         };
         var transport = new Transport(_httpClient, resolvedOptions);
         Config = new ConfigClient(transport, resolvedApiKey);
+        Flags = new FlagsClient(transport, resolvedApiKey, EnsureSharedWebSocket);
+    }
+
+    /// <summary>
+    /// Lazily creates and starts the shared WebSocket connection.
+    /// </summary>
+    internal SharedWebSocket EnsureSharedWebSocket()
+    {
+        if (_sharedWs is not null) return _sharedWs;
+        lock (_wsLock)
+        {
+            if (_sharedWs is not null) return _sharedWs;
+            _sharedWs = new SharedWebSocket(_apiKey);
+            _sharedWs.Start();
+            return _sharedWs;
+        }
     }
 
     /// <summary>
@@ -83,6 +110,12 @@ public sealed class SmplClient : IDisposable
     /// </summary>
     public void Dispose()
     {
+        if (_sharedWs is not null)
+        {
+            _sharedWs.StopAsync().GetAwaiter().GetResult();
+            _sharedWs = null;
+        }
+
         if (_ownsHttpClient)
             _httpClient.Dispose();
     }

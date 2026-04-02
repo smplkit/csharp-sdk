@@ -22,4 +22,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Smplkit.Tests" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="JsonLogic.Net" Version="1.1.11" />
+  </ItemGroup>
 </Project>
