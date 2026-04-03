@@ -117,7 +117,7 @@ public class CoverageGapTests
         """;
 
     // ------------------------------------------------------------------
-    // SmplClient.ConnectAsync with Service — fires service context PUT
+    // SmplClient.ConnectAsync with Service — fires service context POST
     // ------------------------------------------------------------------
 
     [Fact]
@@ -128,8 +128,8 @@ public class CoverageGapTests
         {
             var url = req.RequestUri!.AbsoluteUri;
 
-            // Capture the PUT to /api/v1/contexts/bulk
-            if (req.Method == HttpMethod.Put && url.Contains("contexts/bulk"))
+            // Capture the POST to /api/v1/contexts/bulk
+            if (req.Method == HttpMethod.Post && url.Contains("contexts/bulk"))
             {
                 var body = await req.Content!.ReadAsStringAsync();
                 putSent.TrySetResult(body);
@@ -165,13 +165,12 @@ public class CoverageGapTests
             // WebSocket may fail — that's expected
         }
 
-        // Wait for the fire-and-forget PUT (with timeout)
+        // Wait for the fire-and-forget POST (with timeout)
         var completed = await Task.WhenAny(putSent.Task, Task.Delay(5000));
         if (completed == putSent.Task)
         {
             var body = await putSent.Task;
-            Assert.Contains("\"type\":\"service\"", body);
-            Assert.Contains("\"key\":\"my-service\"", body);
+            Assert.Contains("service:my-service", body);
         }
 
         client.Dispose();
@@ -415,19 +414,19 @@ public class CoverageGapTests
     }
 
     // ------------------------------------------------------------------
-    // SmplClient.ConnectAsync with Service — catch block when PUT fails
+    // SmplClient.ConnectAsync with Service — catch block when POST fails
     // ------------------------------------------------------------------
 
     [Fact]
-    public async Task ConnectAsync_WithService_PutFails_DoesNotThrow()
+    public async Task ConnectAsync_WithService_PostFails_DoesNotThrow()
     {
         var putAttempted = new TaskCompletionSource<bool>();
         var handler = new MockHttpMessageHandler(req =>
         {
             var url = req.RequestUri!.AbsoluteUri;
 
-            // Make the PUT to /api/v1/contexts/bulk fail
-            if (req.Method == HttpMethod.Put && url.Contains("contexts/bulk"))
+            // Make the POST to /api/v1/contexts/bulk fail
+            if (req.Method == HttpMethod.Post && url.Contains("contexts/bulk"))
             {
                 putAttempted.TrySetResult(true);
                 return Task.FromResult(JsonResponse(
@@ -461,9 +460,9 @@ public class CoverageGapTests
             // WebSocket may fail
         }
 
-        // Wait for the fire-and-forget PUT attempt
+        // Wait for the fire-and-forget POST attempt
         var completed = await Task.WhenAny(putAttempted.Task, Task.Delay(5000));
-        Assert.True(completed == putAttempted.Task, "PUT to contexts/bulk should have been attempted");
+        Assert.True(completed == putAttempted.Task, "POST to contexts/bulk should have been attempted");
 
         // Give the catch block time to execute
         await Task.Delay(100);

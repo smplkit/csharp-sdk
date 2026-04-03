@@ -204,7 +204,7 @@ public class FlagsClientCoverageTests
         await client.Flags.FlushContextsAsync();
 
         Assert.Single(handler.Requests);
-        Assert.Equal(HttpMethod.Put, handler.Requests[0].Method);
+        Assert.Equal(HttpMethod.Post, handler.Requests[0].Method);
         Assert.Contains("/api/v1/contexts/bulk", handler.Requests[0].RequestUri!.ToString());
     }
 

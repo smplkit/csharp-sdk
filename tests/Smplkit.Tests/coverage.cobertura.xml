@@ -1,0 +1,3258 @@
+<?xml version="1.0" encoding="utf-8"?>
+<coverage line-rate="0.9963" branch-rate="0.9525" version="1.9" timestamp="1774867373" lines-covered="819" lines-valid="822" branches-covered="241" branches-valid="253">
+  <sources>
+    <source>/Users/mike/projects/csharp-sdk/src/Smplkit/</source>
+  </sources>
+  <packages>
+    <package name="Smplkit" line-rate="0.9963" branch-rate="0.9525" complexity="340">
+      <classes>
+        <class name="Smplkit.ApiKeyResolver" filename="ApiKeyResolver.cs" line-rate="1" branch-rate="1" complexity="10">
+          <methods>
+            <method name="Resolve" signature="(System.String)" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="22" hits="120" branch="False" />
+                <line number="23" hits="120" branch="False" />
+                <line number="24" hits="120" branch="False" />
+                <line number="25" hits="120" branch="False" />
+                <line number="26" hits="120" branch="False" />
+                <line number="27" hits="120" branch="False" />
+                <line number="28" hits="120" branch="False" />
+                <line number="29" hits="118" branch="False" />
+              </lines>
+            </method>
+            <method name="Resolve" signature="(System.String,System.String,System.String)" line-rate="1" branch-rate="1" complexity="8">
+              <lines>
+                <line number="32" hits="131" branch="False" />
+                <line number="33" hits="131" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="12" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="34" hits="119" branch="False" />
+                <line number="36" hits="12" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="29" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="37" hits="3" branch="False" />
+                <line number="39" hits="9" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="43" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="40" hits="5" branch="False" />
+                <line number="42" hits="5" branch="False" />
+                <line number="43" hits="5" branch="False" />
+                <line number="44" hits="4" branch="False" />
+                <line number="45" hits="4" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="80" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="46" hits="2" branch="False" />
+                <line number="47" hits="2" branch="False" />
+                <line number="48" hits="1" branch="False" />
+                <line number="49" hits="1" branch="False" />
+                <line number="51" hits="1" branch="False" />
+                <line number="52" hits="3" branch="False" />
+                <line number="54" hits="7" branch="False" />
+                <line number="55" hits="124" branch="False" />
+              </lines>
+            </method>
+            <method name=".cctor" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="11" hits="1" branch="False" />
+                <line number="12" hits="1" branch="False" />
+                <line number="13" hits="1" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="22" hits="120" branch="False" />
+            <line number="23" hits="120" branch="False" />
+            <line number="24" hits="120" branch="False" />
+            <line number="25" hits="120" branch="False" />
+            <line number="26" hits="120" branch="False" />
+            <line number="27" hits="120" branch="False" />
+            <line number="28" hits="120" branch="False" />
+            <line number="29" hits="118" branch="False" />
+            <line number="32" hits="131" branch="False" />
+            <line number="33" hits="131" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="12" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="34" hits="119" branch="False" />
+            <line number="36" hits="12" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="29" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="37" hits="3" branch="False" />
+            <line number="39" hits="9" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="43" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="40" hits="5" branch="False" />
+            <line number="42" hits="5" branch="False" />
+            <line number="43" hits="5" branch="False" />
+            <line number="44" hits="4" branch="False" />
+            <line number="45" hits="4" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="80" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="46" hits="2" branch="False" />
+            <line number="47" hits="2" branch="False" />
+            <line number="48" hits="1" branch="False" />
+            <line number="49" hits="1" branch="False" />
+            <line number="51" hits="1" branch="False" />
+            <line number="52" hits="3" branch="False" />
+            <line number="54" hits="7" branch="False" />
+            <line number="55" hits="124" branch="False" />
+            <line number="11" hits="1" branch="False" />
+            <line number="12" hits="1" branch="False" />
+            <line number="13" hits="1" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.SmplClient" filename="SmplClient.cs" line-rate="1" branch-rate="1" complexity="7">
+          <methods>
+            <method name="get_Config" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="27" hits="113" branch="False" />
+              </lines>
+            </method>
+            <method name="Dispose" signature="()" line-rate="1" branch-rate="1" complexity="2">
+              <lines>
+                <line number="85" hits="11" branch="False" />
+                <line number="86" hits="11" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="9" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="87" hits="8" branch="False" />
+                <line number="88" hits="11" branch="False" />
+              </lines>
+            </method>
+            <method name=".ctor" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="35" hits="1" branch="False" />
+                <line number="36" hits="1" branch="False" />
+                <line number="37" hits="1" branch="False" />
+              </lines>
+            </method>
+            <method name=".ctor" signature="(Smplkit.SmplClientOptions)" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="45" hits="9" branch="False" />
+                <line number="46" hits="6" branch="False" />
+                <line number="47" hits="6" branch="False" />
+              </lines>
+            </method>
+            <method name=".ctor" signature="(Smplkit.SmplClientOptions,System.Net.Http.HttpClient)" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="57" hits="113" branch="False" />
+                <line number="58" hits="111" branch="False" />
+                <line number="59" hits="111" branch="False" />
+              </lines>
+            </method>
+            <method name=".ctor" signature="(Smplkit.SmplClientOptions,System.Net.Http.HttpClient,System.Boolean)" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="61" hits="123" branch="False" />
+                <line number="62" hits="123" branch="False" />
+                <line number="63" hits="123" branch="False" />
+                <line number="64" hits="121" branch="False" />
+                <line number="66" hits="120" branch="False" />
+                <line number="68" hits="118" branch="False" />
+                <line number="69" hits="118" branch="False" />
+                <line number="72" hits="118" branch="False" />
+                <line number="73" hits="118" branch="False" />
+                <line number="74" hits="118" branch="False" />
+                <line number="75" hits="118" branch="False" />
+                <line number="76" hits="118" branch="False" />
+                <line number="77" hits="118" branch="False" />
+                <line number="78" hits="118" branch="False" />
+                <line number="79" hits="118" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="27" hits="113" branch="False" />
+            <line number="85" hits="11" branch="False" />
+            <line number="86" hits="11" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="9" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="87" hits="8" branch="False" />
+            <line number="88" hits="11" branch="False" />
+            <line number="35" hits="1" branch="False" />
+            <line number="36" hits="1" branch="False" />
+            <line number="37" hits="1" branch="False" />
+            <line number="45" hits="9" branch="False" />
+            <line number="46" hits="6" branch="False" />
+            <line number="47" hits="6" branch="False" />
+            <line number="57" hits="113" branch="False" />
+            <line number="58" hits="111" branch="False" />
+            <line number="59" hits="111" branch="False" />
+            <line number="61" hits="123" branch="False" />
+            <line number="62" hits="123" branch="False" />
+            <line number="63" hits="123" branch="False" />
+            <line number="64" hits="121" branch="False" />
+            <line number="66" hits="120" branch="False" />
+            <line number="68" hits="118" branch="False" />
+            <line number="69" hits="118" branch="False" />
+            <line number="72" hits="118" branch="False" />
+            <line number="73" hits="118" branch="False" />
+            <line number="74" hits="118" branch="False" />
+            <line number="75" hits="118" branch="False" />
+            <line number="76" hits="118" branch="False" />
+            <line number="77" hits="118" branch="False" />
+            <line number="78" hits="118" branch="False" />
+            <line number="79" hits="118" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.SmplClientOptions" filename="SmplClientOptions.cs" line-rate="1" branch-rate="1" complexity="2">
+          <methods>
+            <method name="get_ApiKey" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="13" hits="614" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Timeout" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="19" hits="797" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="13" hits="614" branch="False" />
+            <line number="19" hits="797" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Internal.Auth" filename="Internal/Auth.cs" line-rate="1" branch-rate="1" complexity="1">
+          <methods>
+            <method name="ApplyBearerToken" signature="(System.Net.Http.HttpClient,System.String)" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="14" hits="188" branch="False" />
+                <line number="15" hits="188" branch="False" />
+                <line number="16" hits="188" branch="False" />
+                <line number="17" hits="188" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="14" hits="188" branch="False" />
+            <line number="15" hits="188" branch="False" />
+            <line number="16" hits="188" branch="False" />
+            <line number="17" hits="188" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Internal.Transport" filename="Internal/Transport.cs" line-rate="1" branch-rate="1" complexity="2">
+          <methods>
+            <method name=".ctor" signature="(System.Net.Http.HttpClient,Smplkit.SmplClientOptions)" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="24" hits="185" branch="False" />
+                <line number="25" hits="185" branch="False" />
+                <line number="26" hits="185" branch="False" />
+                <line number="28" hits="185" branch="False" />
+                <line number="29" hits="185" branch="False" />
+                <line number="30" hits="185" branch="False" />
+                <line number="31" hits="185" branch="False" />
+                <line number="32" hits="185" branch="False" />
+              </lines>
+            </method>
+            <method name=".cctor" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="197" hits="1" branch="False" />
+                <line number="198" hits="1" branch="False" />
+                <line number="199" hits="1" branch="False" />
+                <line number="200" hits="1" branch="False" />
+                <line number="201" hits="1" branch="False" />
+                <line number="202" hits="1" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="24" hits="185" branch="False" />
+            <line number="25" hits="185" branch="False" />
+            <line number="26" hits="185" branch="False" />
+            <line number="28" hits="185" branch="False" />
+            <line number="29" hits="185" branch="False" />
+            <line number="30" hits="185" branch="False" />
+            <line number="31" hits="185" branch="False" />
+            <line number="32" hits="185" branch="False" />
+            <line number="197" hits="1" branch="False" />
+            <line number="198" hits="1" branch="False" />
+            <line number="199" hits="1" branch="False" />
+            <line number="200" hits="1" branch="False" />
+            <line number="201" hits="1" branch="False" />
+            <line number="202" hits="1" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Internal.Transport/&lt;DeleteAsync&gt;d__7" filename="Internal/Transport.cs" line-rate="1" branch-rate="1" complexity="2">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="1" complexity="2">
+              <lines>
+                <line number="139" hits="25" branch="False" />
+                <line number="141" hits="25" branch="False" />
+                <line number="142" hits="25" branch="False" />
+                <line number="143" hits="17" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="209" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="144" hits="3" branch="False" />
+                <line number="145" hits="14" branch="False" />
+                <line number="146" hits="3" branch="False" />
+                <line number="147" hits="11" branch="False" />
+                <line number="148" hits="11" branch="False" />
+                <line number="149" hits="11" branch="False" />
+                <line number="151" hits="5" branch="False" />
+                <line number="152" hits="3" branch="False" />
+                <line number="153" hits="3" branch="False" />
+                <line number="155" hits="2" branch="False" />
+                <line number="156" hits="2" branch="False" />
+                <line number="157" hits="2" branch="False" />
+                <line number="159" hits="3" branch="False" />
+                <line number="160" hits="3" branch="False" />
+                <line number="161" hits="3" branch="False" />
+                <line number="163" hits="6" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="139" hits="25" branch="False" />
+            <line number="141" hits="25" branch="False" />
+            <line number="142" hits="25" branch="False" />
+            <line number="143" hits="17" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="209" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="144" hits="3" branch="False" />
+            <line number="145" hits="14" branch="False" />
+            <line number="146" hits="3" branch="False" />
+            <line number="147" hits="11" branch="False" />
+            <line number="148" hits="11" branch="False" />
+            <line number="149" hits="11" branch="False" />
+            <line number="151" hits="5" branch="False" />
+            <line number="152" hits="3" branch="False" />
+            <line number="153" hits="3" branch="False" />
+            <line number="155" hits="2" branch="False" />
+            <line number="156" hits="2" branch="False" />
+            <line number="157" hits="2" branch="False" />
+            <line number="159" hits="3" branch="False" />
+            <line number="160" hits="3" branch="False" />
+            <line number="161" hits="3" branch="False" />
+            <line number="163" hits="6" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Internal.Transport/&lt;GetAsync&gt;d__4" filename="Internal/Transport.cs" line-rate="1" branch-rate="1" complexity="1">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="41" hits="101" branch="False" />
+                <line number="43" hits="101" branch="False" />
+                <line number="44" hits="101" branch="False" />
+                <line number="45" hits="85" branch="False" />
+                <line number="47" hits="18" branch="False" />
+                <line number="48" hits="18" branch="False" />
+                <line number="49" hits="18" branch="False" />
+                <line number="51" hits="12" branch="False" />
+                <line number="52" hits="4" branch="False" />
+                <line number="53" hits="4" branch="False" />
+                <line number="55" hits="8" branch="False" />
+                <line number="56" hits="8" branch="False" />
+                <line number="57" hits="8" branch="False" />
+                <line number="59" hits="4" branch="False" />
+                <line number="60" hits="4" branch="False" />
+                <line number="61" hits="4" branch="False" />
+                <line number="63" hits="67" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="41" hits="101" branch="False" />
+            <line number="43" hits="101" branch="False" />
+            <line number="44" hits="101" branch="False" />
+            <line number="45" hits="85" branch="False" />
+            <line number="47" hits="18" branch="False" />
+            <line number="48" hits="18" branch="False" />
+            <line number="49" hits="18" branch="False" />
+            <line number="51" hits="12" branch="False" />
+            <line number="52" hits="4" branch="False" />
+            <line number="53" hits="4" branch="False" />
+            <line number="55" hits="8" branch="False" />
+            <line number="56" hits="8" branch="False" />
+            <line number="57" hits="8" branch="False" />
+            <line number="59" hits="4" branch="False" />
+            <line number="60" hits="4" branch="False" />
+            <line number="61" hits="4" branch="False" />
+            <line number="63" hits="67" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Internal.Transport/&lt;HandleResponseAsync&gt;d__8" filename="Internal/Transport.cs" line-rate="1" branch-rate="1" complexity="8">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="1" complexity="8">
+              <lines>
+                <line number="171" hits="162" branch="False" />
+                <line number="172" hits="162" branch="False" />
+                <line number="174" hits="162" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="176" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="175" hits="112" branch="False" />
+                <line number="177" hits="50" branch="False" />
+                <line number="178" hits="50" branch="True" condition-coverage="100% (6/6)">
+                  <conditions>
+                    <condition number="238" type="jump" coverage="100%" />
+                    <condition number="249" type="jump" coverage="100%" />
+                    <condition number="260" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="181" hits="15" branch="False" />
+                <line number="183" hits="10" branch="False" />
+                <line number="185" hits="9" branch="False" />
+                <line number="187" hits="16" branch="False" />
+                <line number="188" hits="16" branch="False" />
+                <line number="189" hits="16" branch="False" />
+                <line number="190" hits="16" branch="False" />
+                <line number="192" hits="112" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="171" hits="162" branch="False" />
+            <line number="172" hits="162" branch="False" />
+            <line number="174" hits="162" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="176" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="175" hits="112" branch="False" />
+            <line number="177" hits="50" branch="False" />
+            <line number="178" hits="50" branch="True" condition-coverage="100% (6/6)">
+              <conditions>
+                <condition number="238" type="jump" coverage="100%" />
+                <condition number="249" type="jump" coverage="100%" />
+                <condition number="260" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="181" hits="15" branch="False" />
+            <line number="183" hits="10" branch="False" />
+            <line number="185" hits="9" branch="False" />
+            <line number="187" hits="16" branch="False" />
+            <line number="188" hits="16" branch="False" />
+            <line number="189" hits="16" branch="False" />
+            <line number="190" hits="16" branch="False" />
+            <line number="192" hits="112" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Internal.Transport/&lt;PostAsync&gt;d__5" filename="Internal/Transport.cs" line-rate="1" branch-rate="1" complexity="1">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="73" hits="29" branch="False" />
+                <line number="74" hits="29" branch="False" />
+                <line number="75" hits="29" branch="False" />
+                <line number="77" hits="29" branch="False" />
+                <line number="78" hits="29" branch="False" />
+                <line number="79" hits="20" branch="False" />
+                <line number="81" hits="9" branch="False" />
+                <line number="82" hits="9" branch="False" />
+                <line number="83" hits="9" branch="False" />
+                <line number="85" hits="6" branch="False" />
+                <line number="86" hits="3" branch="False" />
+                <line number="87" hits="3" branch="False" />
+                <line number="89" hits="3" branch="False" />
+                <line number="90" hits="3" branch="False" />
+                <line number="91" hits="3" branch="False" />
+                <line number="93" hits="3" branch="False" />
+                <line number="94" hits="3" branch="False" />
+                <line number="95" hits="3" branch="False" />
+                <line number="97" hits="11" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="73" hits="29" branch="False" />
+            <line number="74" hits="29" branch="False" />
+            <line number="75" hits="29" branch="False" />
+            <line number="77" hits="29" branch="False" />
+            <line number="78" hits="29" branch="False" />
+            <line number="79" hits="20" branch="False" />
+            <line number="81" hits="9" branch="False" />
+            <line number="82" hits="9" branch="False" />
+            <line number="83" hits="9" branch="False" />
+            <line number="85" hits="6" branch="False" />
+            <line number="86" hits="3" branch="False" />
+            <line number="87" hits="3" branch="False" />
+            <line number="89" hits="3" branch="False" />
+            <line number="90" hits="3" branch="False" />
+            <line number="91" hits="3" branch="False" />
+            <line number="93" hits="3" branch="False" />
+            <line number="94" hits="3" branch="False" />
+            <line number="95" hits="3" branch="False" />
+            <line number="97" hits="11" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Internal.Transport/&lt;PutAsync&gt;d__6" filename="Internal/Transport.cs" line-rate="1" branch-rate="1" complexity="1">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="107" hits="52" branch="False" />
+                <line number="108" hits="52" branch="False" />
+                <line number="109" hits="52" branch="False" />
+                <line number="111" hits="52" branch="False" />
+                <line number="112" hits="52" branch="False" />
+                <line number="113" hits="43" branch="False" />
+                <line number="115" hits="12" branch="False" />
+                <line number="116" hits="12" branch="False" />
+                <line number="117" hits="12" branch="False" />
+                <line number="119" hits="6" branch="False" />
+                <line number="120" hits="3" branch="False" />
+                <line number="121" hits="3" branch="False" />
+                <line number="123" hits="3" branch="False" />
+                <line number="124" hits="3" branch="False" />
+                <line number="125" hits="3" branch="False" />
+                <line number="127" hits="3" branch="False" />
+                <line number="128" hits="3" branch="False" />
+                <line number="129" hits="3" branch="False" />
+                <line number="131" hits="31" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="107" hits="52" branch="False" />
+            <line number="108" hits="52" branch="False" />
+            <line number="109" hits="52" branch="False" />
+            <line number="111" hits="52" branch="False" />
+            <line number="112" hits="52" branch="False" />
+            <line number="113" hits="43" branch="False" />
+            <line number="115" hits="12" branch="False" />
+            <line number="116" hits="12" branch="False" />
+            <line number="117" hits="12" branch="False" />
+            <line number="119" hits="6" branch="False" />
+            <line number="120" hits="3" branch="False" />
+            <line number="121" hits="3" branch="False" />
+            <line number="123" hits="3" branch="False" />
+            <line number="124" hits="3" branch="False" />
+            <line number="125" hits="3" branch="False" />
+            <line number="127" hits="3" branch="False" />
+            <line number="128" hits="3" branch="False" />
+            <line number="129" hits="3" branch="False" />
+            <line number="131" hits="31" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Errors.SmplConflictException" filename="Errors/SmplConflictException.cs" line-rate="1" branch-rate="1" complexity="1">
+          <methods>
+            <method name=".ctor" signature="(System.String,System.String)" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="15" hits="15" branch="False" />
+                <line number="16" hits="15" branch="False" />
+                <line number="17" hits="15" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="15" hits="15" branch="False" />
+            <line number="16" hits="15" branch="False" />
+            <line number="17" hits="15" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Errors.SmplConnectionException" filename="Errors/SmplConnectionException.cs" line-rate="1" branch-rate="1" complexity="1">
+          <methods>
+            <method name=".ctor" signature="(System.String,System.Exception)" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="14" hits="20" branch="False" />
+                <line number="15" hits="20" branch="False" />
+                <line number="16" hits="20" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="14" hits="20" branch="False" />
+            <line number="15" hits="20" branch="False" />
+            <line number="16" hits="20" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Errors.SmplException" filename="Errors/SmplException.cs" line-rate="1" branch-rate="1" complexity="3">
+          <methods>
+            <method name="get_StatusCode" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="11" hits="55" branch="False" />
+              </lines>
+            </method>
+            <method name="get_ResponseBody" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="16" hits="28" branch="False" />
+              </lines>
+            </method>
+            <method name=".ctor" signature="(System.String,System.Nullable`1&lt;System.Int32&gt;,System.String,System.Exception)" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="30" hits="128" branch="False" />
+                <line number="31" hits="128" branch="False" />
+                <line number="32" hits="128" branch="False" />
+                <line number="33" hits="128" branch="False" />
+                <line number="34" hits="128" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="11" hits="55" branch="False" />
+            <line number="16" hits="28" branch="False" />
+            <line number="30" hits="128" branch="False" />
+            <line number="31" hits="128" branch="False" />
+            <line number="32" hits="128" branch="False" />
+            <line number="33" hits="128" branch="False" />
+            <line number="34" hits="128" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Errors.SmplNotFoundException" filename="Errors/SmplNotFoundException.cs" line-rate="1" branch-rate="1" complexity="1">
+          <methods>
+            <method name=".ctor" signature="(System.String,System.String)" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="14" hits="26" branch="False" />
+                <line number="15" hits="26" branch="False" />
+                <line number="16" hits="26" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="14" hits="26" branch="False" />
+            <line number="15" hits="26" branch="False" />
+            <line number="16" hits="26" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Errors.SmplTimeoutException" filename="Errors/SmplTimeoutException.cs" line-rate="1" branch-rate="1" complexity="1">
+          <methods>
+            <method name=".ctor" signature="(System.String,System.Exception)" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="14" hits="21" branch="False" />
+                <line number="15" hits="21" branch="False" />
+                <line number="16" hits="21" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="14" hits="21" branch="False" />
+            <line number="15" hits="21" branch="False" />
+            <line number="16" hits="21" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Errors.SmplValidationException" filename="Errors/SmplValidationException.cs" line-rate="1" branch-rate="1" complexity="1">
+          <methods>
+            <method name=".ctor" signature="(System.String,System.String)" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="14" hits="18" branch="False" />
+                <line number="15" hits="18" branch="False" />
+                <line number="16" hits="18" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="14" hits="18" branch="False" />
+            <line number="15" hits="18" branch="False" />
+            <line number="16" hits="18" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigClient" filename="Config/ConfigClient.cs" line-rate="0.9747" branch-rate="0.9629000000000001" complexity="56">
+          <methods>
+            <method name="BuildEnvsForRequest" signature="(System.Collections.Generic.Dictionary`2&lt;System.String,System.Collections.Generic.Dictionary`2&lt;System.String,System.Object&gt;&gt;)" line-rate="1" branch-rate="1" complexity="2">
+              <lines>
+                <line number="300" hits="25" branch="False" />
+                <line number="301" hits="25" branch="False" />
+                <line number="302" hits="99" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="66" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="303" hits="12" branch="False" />
+                <line number="304" hits="25" branch="False" />
+                <line number="305" hits="25" branch="False" />
+              </lines>
+            </method>
+            <method name="WrapItemsForRequest" signature="(System.Collections.Generic.Dictionary`2&lt;System.String,System.Object&gt;)" line-rate="1" branch-rate="1" complexity="4">
+              <lines>
+                <line number="312" hits="50" branch="False" />
+                <line number="313" hits="72" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="7" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="315" hits="28" branch="False" />
+                <line number="316" hits="150" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="123" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="317" hits="33" branch="False" />
+                <line number="318" hits="33" branch="False" />
+                <line number="319" hits="33" branch="False" />
+                <line number="320" hits="33" branch="False" />
+                <line number="321" hits="33" branch="False" />
+                <line number="322" hits="33" branch="False" />
+                <line number="323" hits="33" branch="False" />
+                <line number="324" hits="28" branch="False" />
+                <line number="325" hits="50" branch="False" />
+              </lines>
+            </method>
+            <method name="WrapEnvsForRequest" signature="(System.Collections.Generic.Dictionary`2&lt;System.String,System.Object&gt;)" line-rate="0.85" branch-rate="0.875" complexity="8">
+              <lines>
+                <line number="332" hits="50" branch="False" />
+                <line number="333" hits="73" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="7" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="335" hits="27" branch="False" />
+                <line number="336" hits="117" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="239" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="337" hits="18" branch="False" />
+                <line number="338" hits="18" branch="True" condition-coverage="50% (1/2)">
+                  <conditions>
+                    <condition number="89" type="jump" coverage="50%" />
+                  </conditions>
+                </line>
+                <line number="339" hits="18" branch="False" />
+                <line number="340" hits="18" branch="False" />
+                <line number="341" hits="102" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="185" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="342" hits="24" branch="False" />
+                <line number="343" hits="24" branch="False" />
+                <line number="344" hits="24" branch="False" />
+                <line number="345" hits="18" branch="False" />
+                <line number="346" hits="18" branch="False" />
+                <line number="348" hits="0" branch="False" />
+                <line number="349" hits="0" branch="False" />
+                <line number="350" hits="0" branch="False" />
+                <line number="351" hits="18" branch="False" />
+                <line number="352" hits="27" branch="False" />
+                <line number="353" hits="50" branch="False" />
+              </lines>
+            </method>
+            <method name="InferType" signature="(System.Object)" line-rate="1" branch-rate="1" complexity="14">
+              <lines>
+                <line number="356" hits="33" branch="True" condition-coverage="100% (14/14)">
+                  <conditions>
+                    <condition number="10" type="jump" coverage="100%" />
+                    <condition number="18" type="jump" coverage="100%" />
+                    <condition number="26" type="jump" coverage="100%" />
+                    <condition number="34" type="jump" coverage="100%" />
+                    <condition number="42" type="jump" coverage="100%" />
+                    <condition number="50" type="jump" coverage="100%" />
+                    <condition number="58" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="357" hits="33" branch="False" />
+                <line number="358" hits="6" branch="False" />
+                <line number="359" hits="2" branch="False" />
+                <line number="360" hits="23" branch="False" />
+                <line number="361" hits="2" branch="False" />
+                <line number="362" hits="33" branch="False" />
+              </lines>
+            </method>
+            <method name="BuildRequestBody" signature="(Smplkit.Config.CreateConfigOptions)" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="365" hits="50" branch="False" />
+                <line number="366" hits="50" branch="False" />
+                <line number="367" hits="50" branch="False" />
+                <line number="368" hits="50" branch="False" />
+                <line number="369" hits="50" branch="False" />
+                <line number="370" hits="50" branch="False" />
+                <line number="371" hits="50" branch="False" />
+                <line number="372" hits="50" branch="False" />
+                <line number="373" hits="50" branch="False" />
+                <line number="374" hits="50" branch="False" />
+                <line number="375" hits="50" branch="False" />
+                <line number="376" hits="50" branch="False" />
+                <line number="377" hits="50" branch="False" />
+                <line number="378" hits="50" branch="False" />
+                <line number="379" hits="50" branch="False" />
+                <line number="380" hits="50" branch="False" />
+              </lines>
+            </method>
+            <method name="MapResource" signature="(Smplkit.Config.JsonApiResource)" line-rate="1" branch-rate="1" complexity="10">
+              <lines>
+                <line number="387" hits="94" branch="False" />
+                <line number="388" hits="94" branch="True" condition-coverage="100% (4/4)">
+                  <conditions>
+                    <condition number="2" type="jump" coverage="100%" />
+                    <condition number="18" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="389" hits="8" branch="False" />
+                <line number="391" hits="86" branch="False" />
+                <line number="394" hits="86" branch="False" />
+                <line number="397" hits="86" branch="False" />
+                <line number="399" hits="86" branch="True" condition-coverage="100% (6/6)">
+                  <conditions>
+                    <condition number="63" type="jump" coverage="100%" />
+                    <condition number="78" type="jump" coverage="100%" />
+                    <condition number="93" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="400" hits="86" branch="False" />
+                <line number="401" hits="86" branch="False" />
+                <line number="402" hits="86" branch="False" />
+                <line number="403" hits="86" branch="False" />
+                <line number="404" hits="86" branch="False" />
+                <line number="405" hits="86" branch="False" />
+                <line number="406" hits="86" branch="False" />
+                <line number="407" hits="86" branch="False" />
+                <line number="408" hits="86" branch="False" />
+                <line number="409" hits="86" branch="False" />
+                <line number="410" hits="94" branch="False" />
+              </lines>
+            </method>
+            <method name="ExtractRawItems" signature="(System.Collections.Generic.Dictionary`2&lt;System.String,System.Collections.Generic.Dictionary`2&lt;System.String,System.Object&gt;&gt;)" line-rate="1" branch-rate="0.8332999999999999" complexity="6">
+              <lines>
+                <line number="419" hits="86" branch="False" />
+                <line number="420" hits="86" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="7" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="421" hits="2" branch="False" />
+                <line number="423" hits="84" branch="False" />
+                <line number="424" hits="408" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="116" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="425" hits="78" branch="False" />
+                <line number="426" hits="78" branch="False" />
+                <line number="427" hits="78" branch="True" condition-coverage="50% (1/2)">
+                  <conditions>
+                    <condition number="95" type="jump" coverage="50%" />
+                  </conditions>
+                </line>
+                <line number="428" hits="78" branch="False" />
+                <line number="429" hits="84" branch="False" />
+                <line number="430" hits="86" branch="False" />
+              </lines>
+            </method>
+            <method name="ExtractRawEnvironments" signature="(System.Collections.Generic.Dictionary`2&lt;System.String,System.Collections.Generic.Dictionary`2&lt;System.String,System.Object&gt;&gt;)" line-rate="1" branch-rate="1" complexity="10">
+              <lines>
+                <line number="439" hits="86" branch="False" />
+                <line number="440" hits="86" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="7" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="441" hits="1" branch="False" />
+                <line number="443" hits="85" branch="False" />
+                <line number="444" hits="287" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="252" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="445" hits="16" branch="False" />
+                <line number="446" hits="16" branch="False" />
+                <line number="447" hits="16" branch="False" />
+                <line number="448" hits="86" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="214" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="449" hits="19" branch="False" />
+                <line number="450" hits="19" branch="True" condition-coverage="100% (4/4)">
+                  <conditions>
+                    <condition number="151" type="jump" coverage="100%" />
+                    <condition number="174" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="451" hits="19" branch="False" />
+                <line number="452" hits="16" branch="False" />
+                <line number="453" hits="16" branch="False" />
+                <line number="454" hits="16" branch="False" />
+                <line number="456" hits="3" branch="False" />
+                <line number="457" hits="3" branch="False" />
+                <line number="458" hits="3" branch="False" />
+                <line number="459" hits="19" branch="False" />
+                <line number="460" hits="16" branch="False" />
+                <line number="461" hits="16" branch="False" />
+                <line number="462" hits="85" branch="False" />
+                <line number="463" hits="86" branch="False" />
+              </lines>
+            </method>
+            <method name=".ctor" signature="(Smplkit.Internal.Transport,System.String)" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="24" hits="118" branch="False" />
+                <line number="25" hits="118" branch="False" />
+                <line number="26" hits="118" branch="False" />
+                <line number="27" hits="118" branch="False" />
+                <line number="28" hits="118" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="300" hits="25" branch="False" />
+            <line number="301" hits="25" branch="False" />
+            <line number="302" hits="99" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="66" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="303" hits="12" branch="False" />
+            <line number="304" hits="25" branch="False" />
+            <line number="305" hits="25" branch="False" />
+            <line number="312" hits="50" branch="False" />
+            <line number="313" hits="72" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="7" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="315" hits="28" branch="False" />
+            <line number="316" hits="150" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="123" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="317" hits="33" branch="False" />
+            <line number="318" hits="33" branch="False" />
+            <line number="319" hits="33" branch="False" />
+            <line number="320" hits="33" branch="False" />
+            <line number="321" hits="33" branch="False" />
+            <line number="322" hits="33" branch="False" />
+            <line number="323" hits="33" branch="False" />
+            <line number="324" hits="28" branch="False" />
+            <line number="325" hits="50" branch="False" />
+            <line number="332" hits="50" branch="False" />
+            <line number="333" hits="73" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="7" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="335" hits="27" branch="False" />
+            <line number="336" hits="117" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="239" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="337" hits="18" branch="False" />
+            <line number="338" hits="18" branch="True" condition-coverage="50% (1/2)">
+              <conditions>
+                <condition number="89" type="jump" coverage="50%" />
+              </conditions>
+            </line>
+            <line number="339" hits="18" branch="False" />
+            <line number="340" hits="18" branch="False" />
+            <line number="341" hits="102" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="185" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="342" hits="24" branch="False" />
+            <line number="343" hits="24" branch="False" />
+            <line number="344" hits="24" branch="False" />
+            <line number="345" hits="18" branch="False" />
+            <line number="346" hits="18" branch="False" />
+            <line number="348" hits="0" branch="False" />
+            <line number="349" hits="0" branch="False" />
+            <line number="350" hits="0" branch="False" />
+            <line number="351" hits="18" branch="False" />
+            <line number="352" hits="27" branch="False" />
+            <line number="353" hits="50" branch="False" />
+            <line number="356" hits="33" branch="True" condition-coverage="100% (14/14)">
+              <conditions>
+                <condition number="10" type="jump" coverage="100%" />
+                <condition number="18" type="jump" coverage="100%" />
+                <condition number="26" type="jump" coverage="100%" />
+                <condition number="34" type="jump" coverage="100%" />
+                <condition number="42" type="jump" coverage="100%" />
+                <condition number="50" type="jump" coverage="100%" />
+                <condition number="58" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="357" hits="33" branch="False" />
+            <line number="358" hits="6" branch="False" />
+            <line number="359" hits="2" branch="False" />
+            <line number="360" hits="23" branch="False" />
+            <line number="361" hits="2" branch="False" />
+            <line number="362" hits="33" branch="False" />
+            <line number="365" hits="50" branch="False" />
+            <line number="366" hits="50" branch="False" />
+            <line number="367" hits="50" branch="False" />
+            <line number="368" hits="50" branch="False" />
+            <line number="369" hits="50" branch="False" />
+            <line number="370" hits="50" branch="False" />
+            <line number="371" hits="50" branch="False" />
+            <line number="372" hits="50" branch="False" />
+            <line number="373" hits="50" branch="False" />
+            <line number="374" hits="50" branch="False" />
+            <line number="375" hits="50" branch="False" />
+            <line number="376" hits="50" branch="False" />
+            <line number="377" hits="50" branch="False" />
+            <line number="378" hits="50" branch="False" />
+            <line number="379" hits="50" branch="False" />
+            <line number="380" hits="50" branch="False" />
+            <line number="387" hits="94" branch="False" />
+            <line number="388" hits="94" branch="True" condition-coverage="100% (4/4)">
+              <conditions>
+                <condition number="2" type="jump" coverage="100%" />
+                <condition number="18" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="389" hits="8" branch="False" />
+            <line number="391" hits="86" branch="False" />
+            <line number="394" hits="86" branch="False" />
+            <line number="397" hits="86" branch="False" />
+            <line number="399" hits="86" branch="True" condition-coverage="100% (6/6)">
+              <conditions>
+                <condition number="63" type="jump" coverage="100%" />
+                <condition number="78" type="jump" coverage="100%" />
+                <condition number="93" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="400" hits="86" branch="False" />
+            <line number="401" hits="86" branch="False" />
+            <line number="402" hits="86" branch="False" />
+            <line number="403" hits="86" branch="False" />
+            <line number="404" hits="86" branch="False" />
+            <line number="405" hits="86" branch="False" />
+            <line number="406" hits="86" branch="False" />
+            <line number="407" hits="86" branch="False" />
+            <line number="408" hits="86" branch="False" />
+            <line number="409" hits="86" branch="False" />
+            <line number="410" hits="94" branch="False" />
+            <line number="419" hits="86" branch="False" />
+            <line number="420" hits="86" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="7" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="421" hits="2" branch="False" />
+            <line number="423" hits="84" branch="False" />
+            <line number="424" hits="408" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="116" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="425" hits="78" branch="False" />
+            <line number="426" hits="78" branch="False" />
+            <line number="427" hits="78" branch="True" condition-coverage="50% (1/2)">
+              <conditions>
+                <condition number="95" type="jump" coverage="50%" />
+              </conditions>
+            </line>
+            <line number="428" hits="78" branch="False" />
+            <line number="429" hits="84" branch="False" />
+            <line number="430" hits="86" branch="False" />
+            <line number="439" hits="86" branch="False" />
+            <line number="440" hits="86" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="7" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="441" hits="1" branch="False" />
+            <line number="443" hits="85" branch="False" />
+            <line number="444" hits="287" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="252" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="445" hits="16" branch="False" />
+            <line number="446" hits="16" branch="False" />
+            <line number="447" hits="16" branch="False" />
+            <line number="448" hits="86" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="214" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="449" hits="19" branch="False" />
+            <line number="450" hits="19" branch="True" condition-coverage="100% (4/4)">
+              <conditions>
+                <condition number="151" type="jump" coverage="100%" />
+                <condition number="174" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="451" hits="19" branch="False" />
+            <line number="452" hits="16" branch="False" />
+            <line number="453" hits="16" branch="False" />
+            <line number="454" hits="16" branch="False" />
+            <line number="456" hits="3" branch="False" />
+            <line number="457" hits="3" branch="False" />
+            <line number="458" hits="3" branch="False" />
+            <line number="459" hits="19" branch="False" />
+            <line number="460" hits="16" branch="False" />
+            <line number="461" hits="16" branch="False" />
+            <line number="462" hits="85" branch="False" />
+            <line number="463" hits="86" branch="False" />
+            <line number="24" hits="118" branch="False" />
+            <line number="25" hits="118" branch="False" />
+            <line number="26" hits="118" branch="False" />
+            <line number="27" hits="118" branch="False" />
+            <line number="28" hits="118" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigClient/&lt;&gt;c__DisplayClass12_0/&lt;&lt;ConnectAsync&gt;b__0&gt;d" filename="Config/ConfigClient.cs" line-rate="1" branch-rate="1" complexity="1">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="228" hits="2" branch="False" />
+                <line number="229" hits="2" branch="False" />
+                <line number="230" hits="2" branch="False" />
+                <line number="231" hits="9" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="228" hits="2" branch="False" />
+            <line number="229" hits="2" branch="False" />
+            <line number="230" hits="2" branch="False" />
+            <line number="231" hits="9" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigClient/&lt;ApplySetValues&gt;d__13" filename="Config/ConfigClient.cs" line-rate="1" branch-rate="1" complexity="2">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="1" complexity="2">
+              <lines>
+                <line number="248" hits="25" branch="False" />
+                <line number="252" hits="25" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="29" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="253" hits="12" branch="False" />
+                <line number="254" hits="12" branch="False" />
+                <line number="255" hits="12" branch="False" />
+                <line number="256" hits="12" branch="False" />
+                <line number="258" hits="13" branch="False" />
+                <line number="259" hits="13" branch="False" />
+                <line number="260" hits="13" branch="False" />
+                <line number="261" hits="13" branch="False" />
+                <line number="262" hits="13" branch="False" />
+                <line number="263" hits="13" branch="False" />
+                <line number="265" hits="25" branch="False" />
+                <line number="266" hits="25" branch="False" />
+                <line number="267" hits="25" branch="False" />
+                <line number="268" hits="25" branch="False" />
+                <line number="269" hits="25" branch="False" />
+                <line number="270" hits="25" branch="False" />
+                <line number="271" hits="25" branch="False" />
+                <line number="272" hits="25" branch="False" />
+                <line number="273" hits="25" branch="False" />
+                <line number="274" hits="23" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="248" hits="25" branch="False" />
+            <line number="252" hits="25" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="29" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="253" hits="12" branch="False" />
+            <line number="254" hits="12" branch="False" />
+            <line number="255" hits="12" branch="False" />
+            <line number="256" hits="12" branch="False" />
+            <line number="258" hits="13" branch="False" />
+            <line number="259" hits="13" branch="False" />
+            <line number="260" hits="13" branch="False" />
+            <line number="261" hits="13" branch="False" />
+            <line number="262" hits="13" branch="False" />
+            <line number="263" hits="13" branch="False" />
+            <line number="265" hits="25" branch="False" />
+            <line number="266" hits="25" branch="False" />
+            <line number="267" hits="25" branch="False" />
+            <line number="268" hits="25" branch="False" />
+            <line number="269" hits="25" branch="False" />
+            <line number="270" hits="25" branch="False" />
+            <line number="271" hits="25" branch="False" />
+            <line number="272" hits="25" branch="False" />
+            <line number="273" hits="25" branch="False" />
+            <line number="274" hits="23" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigClient/&lt;BuildChainAsync&gt;d__14" filename="Config/ConfigClient.cs" line-rate="1" branch-rate="1" complexity="2">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="1" complexity="2">
+              <lines>
+                <line number="280" hits="16" branch="False" />
+                <line number="281" hits="16" branch="False" />
+                <line number="282" hits="10" branch="False" />
+                <line number="284" hits="10" branch="False" />
+                <line number="285" hits="14" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="439" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="286" hits="5" branch="False" />
+                <line number="287" hits="5" branch="False" />
+                <line number="288" hits="4" branch="False" />
+                <line number="289" hits="4" branch="False" />
+                <line number="290" hits="4" branch="False" />
+                <line number="292" hits="9" branch="False" />
+                <line number="293" hits="9" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="280" hits="16" branch="False" />
+            <line number="281" hits="16" branch="False" />
+            <line number="282" hits="10" branch="False" />
+            <line number="284" hits="10" branch="False" />
+            <line number="285" hits="14" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="439" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="286" hits="5" branch="False" />
+            <line number="287" hits="5" branch="False" />
+            <line number="288" hits="4" branch="False" />
+            <line number="289" hits="4" branch="False" />
+            <line number="290" hits="4" branch="False" />
+            <line number="292" hits="9" branch="False" />
+            <line number="293" hits="9" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigClient/&lt;ConnectAsync&gt;d__12" filename="Config/ConfigClient.cs" line-rate="1" branch-rate="1" complexity="1">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="213" hits="14" branch="False" />
+                <line number="214" hits="14" branch="False" />
+                <line number="215" hits="14" branch="False" />
+                <line number="218" hits="14" branch="False" />
+                <line number="219" hits="14" branch="False" />
+                <line number="221" hits="7" branch="False" />
+                <line number="222" hits="7" branch="False" />
+                <line number="223" hits="7" branch="False" />
+                <line number="224" hits="7" branch="False" />
+                <line number="225" hits="7" branch="False" />
+                <line number="226" hits="7" branch="False" />
+                <line number="227" hits="7" branch="False" />
+                <line number="233" hits="4" branch="False" />
+                <line number="234" hits="2" branch="False" />
+                <line number="235" hits="2" branch="False" />
+                <line number="237" hits="7" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="213" hits="14" branch="False" />
+            <line number="214" hits="14" branch="False" />
+            <line number="215" hits="14" branch="False" />
+            <line number="218" hits="14" branch="False" />
+            <line number="219" hits="14" branch="False" />
+            <line number="221" hits="7" branch="False" />
+            <line number="222" hits="7" branch="False" />
+            <line number="223" hits="7" branch="False" />
+            <line number="224" hits="7" branch="False" />
+            <line number="225" hits="7" branch="False" />
+            <line number="226" hits="7" branch="False" />
+            <line number="227" hits="7" branch="False" />
+            <line number="233" hits="4" branch="False" />
+            <line number="234" hits="2" branch="False" />
+            <line number="235" hits="2" branch="False" />
+            <line number="237" hits="7" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigClient/&lt;CreateAsync&gt;d__7" filename="Config/ConfigClient.cs" line-rate="1" branch-rate="0.75" complexity="4">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="0.75" complexity="4">
+              <lines>
+                <line number="97" hits="13" branch="False" />
+                <line number="98" hits="13" branch="False" />
+                <line number="99" hits="13" branch="False" />
+                <line number="100" hits="7" branch="False" />
+                <line number="101" hits="7" branch="True" condition-coverage="75% (3/4)">
+                  <conditions>
+                    <condition number="218" type="jump" coverage="50%" />
+                    <condition number="235" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="102" hits="7" branch="False" />
+                <line number="103" hits="5" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="97" hits="13" branch="False" />
+            <line number="98" hits="13" branch="False" />
+            <line number="99" hits="13" branch="False" />
+            <line number="100" hits="7" branch="False" />
+            <line number="101" hits="7" branch="True" condition-coverage="75% (3/4)">
+              <conditions>
+                <condition number="218" type="jump" coverage="50%" />
+                <condition number="235" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="102" hits="7" branch="False" />
+            <line number="103" hits="5" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigClient/&lt;DeleteAsync&gt;d__9" filename="Config/ConfigClient.cs" line-rate="1" branch-rate="1" complexity="1">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="131" hits="11" branch="False" />
+                <line number="132" hits="11" branch="False" />
+                <line number="133" hits="3" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="131" hits="11" branch="False" />
+            <line number="132" hits="11" branch="False" />
+            <line number="133" hits="3" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigClient/&lt;GetAsync&gt;d__4" filename="Config/ConfigClient.cs" line-rate="1" branch-rate="0.75" complexity="4">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="0.75" complexity="4">
+              <lines>
+                <line number="38" hits="66" branch="False" />
+                <line number="39" hits="66" branch="False" />
+                <line number="40" hits="50" branch="False" />
+                <line number="41" hits="50" branch="True" condition-coverage="75% (3/4)">
+                  <conditions>
+                    <condition number="206" type="jump" coverage="50%" />
+                    <condition number="223" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="42" hits="50" branch="False" />
+                <line number="43" hits="48" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="38" hits="66" branch="False" />
+            <line number="39" hits="66" branch="False" />
+            <line number="40" hits="50" branch="False" />
+            <line number="41" hits="50" branch="True" condition-coverage="75% (3/4)">
+              <conditions>
+                <condition number="206" type="jump" coverage="50%" />
+                <condition number="223" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="42" hits="50" branch="False" />
+            <line number="43" hits="48" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigClient/&lt;GetByKeyAsync&gt;d__5" filename="Config/ConfigClient.cs" line-rate="1" branch-rate="0.875" complexity="8">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="0.875" complexity="8">
+              <lines>
+                <line number="54" hits="7" branch="False" />
+                <line number="55" hits="7" branch="False" />
+                <line number="56" hits="7" branch="False" />
+                <line number="57" hits="6" branch="False" />
+                <line number="59" hits="6" branch="True" condition-coverage="83.33% (5/6)">
+                  <conditions>
+                    <condition number="223" type="jump" coverage="50%" />
+                    <condition number="234" type="jump" coverage="100%" />
+                    <condition number="262" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="60" hits="3" branch="False" />
+                <line number="62" hits="3" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="315" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="63" hits="3" branch="False" />
+                <line number="64" hits="2" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="54" hits="7" branch="False" />
+            <line number="55" hits="7" branch="False" />
+            <line number="56" hits="7" branch="False" />
+            <line number="57" hits="6" branch="False" />
+            <line number="59" hits="6" branch="True" condition-coverage="83.33% (5/6)">
+              <conditions>
+                <condition number="223" type="jump" coverage="50%" />
+                <condition number="234" type="jump" coverage="100%" />
+                <condition number="262" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="60" hits="3" branch="False" />
+            <line number="62" hits="3" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="315" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="63" hits="3" branch="False" />
+            <line number="64" hits="2" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigClient/&lt;ListAsync&gt;d__6" filename="Config/ConfigClient.cs" line-rate="1" branch-rate="0.875" complexity="8">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="0.875" complexity="8">
+              <lines>
+                <line number="72" hits="7" branch="False" />
+                <line number="73" hits="7" branch="False" />
+                <line number="74" hits="6" branch="False" />
+                <line number="76" hits="6" branch="True" condition-coverage="75% (3/4)">
+                  <conditions>
+                    <condition number="195" type="jump" coverage="50%" />
+                    <condition number="213" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="77" hits="1" branch="False" />
+                <line number="79" hits="5" branch="False" />
+                <line number="80" hits="27" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="372" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="81" hits="6" branch="False" />
+                <line number="82" hits="6" branch="False" />
+                <line number="83" hits="6" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="326" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="84" hits="5" branch="False" />
+                <line number="85" hits="6" branch="False" />
+                <line number="86" hits="5" branch="False" />
+                <line number="87" hits="6" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="72" hits="7" branch="False" />
+            <line number="73" hits="7" branch="False" />
+            <line number="74" hits="6" branch="False" />
+            <line number="76" hits="6" branch="True" condition-coverage="75% (3/4)">
+              <conditions>
+                <condition number="195" type="jump" coverage="50%" />
+                <condition number="213" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="77" hits="1" branch="False" />
+            <line number="79" hits="5" branch="False" />
+            <line number="80" hits="27" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="372" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="81" hits="6" branch="False" />
+            <line number="82" hits="6" branch="False" />
+            <line number="83" hits="6" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="326" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="84" hits="5" branch="False" />
+            <line number="85" hits="6" branch="False" />
+            <line number="86" hits="5" branch="False" />
+            <line number="87" hits="6" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigClient/&lt;SetValueAsync&gt;d__11" filename="Config/ConfigClient.cs" line-rate="1" branch-rate="1" complexity="4">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="1" complexity="4">
+              <lines>
+                <line number="171" hits="13" branch="False" />
+                <line number="172" hits="13" branch="False" />
+                <line number="174" hits="12" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="200" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="175" hits="5" branch="False" />
+                <line number="176" hits="5" branch="False" />
+                <line number="177" hits="5" branch="False" />
+                <line number="180" hits="7" branch="False" />
+                <line number="183" hits="7" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="434" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="184" hits="5" branch="False" />
+                <line number="185" hits="5" branch="False" />
+                <line number="186" hits="5" branch="False" />
+                <line number="188" hits="2" branch="False" />
+                <line number="189" hits="2" branch="False" />
+                <line number="190" hits="2" branch="False" />
+                <line number="191" hits="7" branch="False" />
+                <line number="192" hits="7" branch="False" />
+                <line number="194" hits="11" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="171" hits="13" branch="False" />
+            <line number="172" hits="13" branch="False" />
+            <line number="174" hits="12" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="200" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="175" hits="5" branch="False" />
+            <line number="176" hits="5" branch="False" />
+            <line number="177" hits="5" branch="False" />
+            <line number="180" hits="7" branch="False" />
+            <line number="183" hits="7" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="434" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="184" hits="5" branch="False" />
+            <line number="185" hits="5" branch="False" />
+            <line number="186" hits="5" branch="False" />
+            <line number="188" hits="2" branch="False" />
+            <line number="189" hits="2" branch="False" />
+            <line number="190" hits="2" branch="False" />
+            <line number="191" hits="7" branch="False" />
+            <line number="192" hits="7" branch="False" />
+            <line number="194" hits="11" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigClient/&lt;SetValuesAsync&gt;d__10" filename="Config/ConfigClient.cs" line-rate="1" branch-rate="1" complexity="1">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="150" hits="14" branch="False" />
+                <line number="151" hits="14" branch="False" />
+                <line number="152" hits="13" branch="False" />
+                <line number="153" hits="12" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="150" hits="14" branch="False" />
+            <line number="151" hits="14" branch="False" />
+            <line number="152" hits="13" branch="False" />
+            <line number="153" hits="12" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigClient/&lt;UpdateAsync&gt;d__8" filename="Config/ConfigClient.cs" line-rate="1" branch-rate="0.75" complexity="4">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="0.75" complexity="4">
+              <lines>
+                <line number="115" hits="37" branch="False" />
+                <line number="116" hits="37" branch="False" />
+                <line number="117" hits="37" branch="False" />
+                <line number="118" hits="28" branch="False" />
+                <line number="119" hits="28" branch="True" condition-coverage="75% (3/4)">
+                  <conditions>
+                    <condition number="229" type="jump" coverage="50%" />
+                    <condition number="246" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="120" hits="28" branch="False" />
+                <line number="121" hits="26" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="115" hits="37" branch="False" />
+            <line number="116" hits="37" branch="False" />
+            <line number="117" hits="37" branch="False" />
+            <line number="118" hits="28" branch="False" />
+            <line number="119" hits="28" branch="True" condition-coverage="75% (3/4)">
+              <conditions>
+                <condition number="229" type="jump" coverage="50%" />
+                <condition number="246" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="120" hits="28" branch="False" />
+            <line number="121" hits="26" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigRuntime" filename="Config/ConfigRuntime.cs" line-rate="1" branch-rate="0.9545" complexity="74">
+          <methods>
+            <method name="Get" signature="(System.String,System.Object)" line-rate="1" branch-rate="1" complexity="2">
+              <lines>
+                <line number="81" hits="156" branch="False" />
+                <line number="82" hits="156" branch="False" />
+                <line number="83" hits="156" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="33" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="84" hits="156" branch="False" />
+              </lines>
+            </method>
+            <method name="GetString" signature="(System.String,System.String)" line-rate="1" branch-rate="1" complexity="4">
+              <lines>
+                <line number="91" hits="111" branch="False" />
+                <line number="93" hits="111" branch="False" />
+                <line number="94" hits="111" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="33" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="95" hits="111" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="62" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="96" hits="111" branch="False" />
+              </lines>
+            </method>
+            <method name="GetInt" signature="(System.String,System.Nullable`1&lt;System.Int32&gt;)" line-rate="1" branch-rate="1" complexity="14">
+              <lines>
+                <line number="103" hits="124" branch="False" />
+                <line number="105" hits="124" branch="False" />
+                <line number="106" hits="124" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="33" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="107" hits="124" branch="True" condition-coverage="100% (6/6)">
+                  <conditions>
+                    <condition number="67" type="jump" coverage="100%" />
+                    <condition number="87" type="jump" coverage="100%" />
+                    <condition number="107" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="108" hits="124" branch="False" />
+                <line number="109" hits="102" branch="False" />
+                <line number="110" hits="2" branch="False" />
+                <line number="111" hits="13" branch="True" condition-coverage="100% (6/6)">
+                  <conditions>
+                    <condition number="156" type="jump" coverage="100%" />
+                    <condition number="169" type="jump" coverage="100%" />
+                    <condition number="182" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="112" hits="5" branch="False" />
+                <line number="113" hits="15" branch="False" />
+                <line number="114" hits="124" branch="False" />
+                <line number="115" hits="124" branch="False" />
+              </lines>
+            </method>
+            <method name="GetBool" signature="(System.String,System.Nullable`1&lt;System.Boolean&gt;)" line-rate="1" branch-rate="1" complexity="4">
+              <lines>
+                <line number="122" hits="109" branch="False" />
+                <line number="124" hits="109" branch="False" />
+                <line number="125" hits="109" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="33" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="126" hits="109" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="60" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="127" hits="109" branch="False" />
+              </lines>
+            </method>
+            <method name="GetAll" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="131" hits="103" branch="False" />
+                <line number="132" hits="103" branch="False" />
+                <line number="133" hits="103" branch="False" />
+                <line number="134" hits="103" branch="False" />
+              </lines>
+            </method>
+            <method name="Exists" signature="(System.String)" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="138" hits="114" branch="False" />
+                <line number="139" hits="114" branch="False" />
+                <line number="140" hits="114" branch="False" />
+                <line number="141" hits="114" branch="False" />
+              </lines>
+            </method>
+            <method name="OnChange" signature="(System.Action`1&lt;Smplkit.Config.ConfigChangeEvent&gt;,System.String)" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="156" hits="28" branch="False" />
+                <line number="157" hits="28" branch="False" />
+                <line number="158" hits="28" branch="False" />
+              </lines>
+            </method>
+            <method name="Stats" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="165" hits="17" branch="False" />
+              </lines>
+            </method>
+            <method name="ConnectionStatus" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="171" hits="23" branch="False" />
+              </lines>
+            </method>
+            <method name="BuildWebSocketUrl" signature="()" line-rate="1" branch-rate="0.25" complexity="4">
+              <lines>
+                <line number="283" hits="18935" branch="False" />
+                <line number="285" hits="18935" branch="True" condition-coverage="25% (1/4)">
+                  <conditions>
+                    <condition number="17" type="jump" coverage="50%" />
+                    <condition number="35" type="jump" coverage="0%" />
+                  </conditions>
+                </line>
+                <line number="286" hits="18935" branch="False" />
+                <line number="287" hits="18935" branch="False" />
+                <line number="288" hits="18935" branch="False" />
+                <line number="289" hits="18935" branch="False" />
+                <line number="290" hits="18935" branch="False" />
+                <line number="291" hits="18935" branch="False" />
+                <line number="292" hits="18935" branch="False" />
+              </lines>
+            </method>
+            <method name="HandleConfigChanged" signature="(System.Text.Json.JsonElement)" line-rate="1" branch-rate="1" complexity="22">
+              <lines>
+                <line number="367" hits="24" branch="False" />
+                <line number="368" hits="25" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="22" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="369" hits="23" branch="False" />
+                <line number="370" hits="24" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="58" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="373" hits="22" branch="False" />
+                <line number="374" hits="91" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="126" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="375" hits="23" branch="False" />
+                <line number="376" hits="23" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="110" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="377" hits="21" branch="False" />
+                <line number="378" hits="21" branch="False" />
+                <line number="379" hits="21" branch="False" />
+                <line number="381" hits="2" branch="False" />
+                <line number="382" hits="23" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="153" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="385" hits="21" branch="False" />
+                <line number="387" hits="21" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="199" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="388" hits="3" branch="False" />
+                <line number="389" hits="21" branch="False" />
+                <line number="391" hits="111" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="416" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="392" hits="24" branch="False" />
+                <line number="393" hits="24" branch="False" />
+                <line number="394" hits="24" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="288" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="395" hits="24" branch="False" />
+                <line number="396" hits="24" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="321" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="397" hits="24" branch="False" />
+                <line number="399" hits="24" branch="True" condition-coverage="100% (4/4)">
+                  <conditions>
+                    <condition number="342" type="jump" coverage="100%" />
+                    <condition number="356" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="400" hits="8" branch="False" />
+                <line number="401" hits="8" branch="False" />
+                <line number="402" hits="8" branch="False" />
+                <line number="403" hits="8" branch="False" />
+                <line number="405" hits="16" branch="False" />
+                <line number="406" hits="16" branch="False" />
+                <line number="407" hits="16" branch="False" />
+                <line number="408" hits="16" branch="False" />
+                <line number="409" hits="24" branch="False" />
+                <line number="412" hits="21" branch="False" />
+                <line number="413" hits="21" branch="False" />
+                <line number="414" hits="21" branch="False" />
+                <line number="415" hits="21" branch="False" />
+                <line number="417" hits="21" branch="False" />
+                <line number="420" hits="21" branch="False" />
+                <line number="421" hits="21" branch="False" />
+                <line number="422" hits="21" branch="False" />
+                <line number="423" hits="21" branch="False" />
+                <line number="424" hits="21" branch="False" />
+                <line number="426" hits="21" branch="False" />
+                <line number="427" hits="24" branch="False" />
+              </lines>
+            </method>
+            <method name="HandleConfigDeleted" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="430" hits="3" branch="False" />
+                <line number="431" hits="3" branch="False" />
+                <line number="432" hits="3" branch="False" />
+                <line number="433" hits="3" branch="False" />
+              </lines>
+            </method>
+            <method name="FireChangeListeners" signature="(System.Collections.Generic.Dictionary`2&lt;System.String,System.Object&gt;,System.Collections.Generic.Dictionary`2&lt;System.String,System.Object&gt;,System.String)" line-rate="1" branch-rate="1" complexity="14">
+              <lines>
+                <line number="461" hits="47" branch="False" />
+                <line number="462" hits="47" branch="False" />
+                <line number="463" hits="47" branch="False" />
+                <line number="465" hits="367" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="228" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="466" hits="113" branch="False" />
+                <line number="467" hits="113" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="57" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="468" hits="113" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="74" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="469" hits="168" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="95" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="471" hits="58" branch="False" />
+                <line number="472" hits="244" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="201" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="473" hits="35" branch="False" />
+                <line number="474" hits="40" branch="True" condition-coverage="100% (4/4)">
+                  <conditions>
+                    <condition number="152" type="jump" coverage="100%" />
+                    <condition number="169" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="475" hits="88" branch="False" />
+                <line number="476" hits="6" branch="False" />
+                <line number="477" hits="30" branch="False" />
+                <line number="478" hits="58" branch="False" />
+                <line number="479" hits="47" branch="False" />
+              </lines>
+            </method>
+            <method name="&lt;.ctor&gt;b__19_0" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="69" hits="292" branch="False" />
+              </lines>
+            </method>
+            <method name=".ctor" signature="(System.String,System.String,System.String,System.Collections.Generic.List`1&lt;Smplkit.Config.ConfigChainEntry&gt;,System.String,System.Func`2&lt;System.Threading.CancellationToken,System.Threading.Tasks.Task`1&lt;System.Collections.Generic.List`1&lt;Smplkit.Config.ConfigChainEntry&gt;&gt;&gt;,System.Func`3&lt;System.Uri,System.Threading.CancellationToken,System.Threading.Tasks.Task`1&lt;System.Net.WebSockets.WebSocket&gt;&gt;)" line-rate="1" branch-rate="1" complexity="2">
+              <lines>
+                <line number="34" hits="146" branch="False" />
+                <line number="39" hits="146" branch="False" />
+                <line number="41" hits="146" branch="False" />
+                <line number="44" hits="146" branch="False" />
+                <line number="48" hits="146" branch="False" />
+                <line number="49" hits="146" branch="False" />
+                <line number="50" hits="146" branch="False" />
+                <line number="51" hits="146" branch="False" />
+                <line number="52" hits="146" branch="False" />
+                <line number="53" hits="146" branch="False" />
+                <line number="54" hits="146" branch="False" />
+                <line number="55" hits="146" branch="False" />
+                <line number="56" hits="146" branch="False" />
+                <line number="57" hits="146" branch="False" />
+                <line number="58" hits="146" branch="False" />
+                <line number="59" hits="146" branch="False" />
+                <line number="60" hits="146" branch="False" />
+                <line number="61" hits="146" branch="False" />
+                <line number="62" hits="146" branch="False" />
+                <line number="63" hits="146" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="103" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="65" hits="146" branch="False" />
+                <line number="66" hits="146" branch="False" />
+                <line number="67" hits="146" branch="False" />
+                <line number="70" hits="146" branch="False" />
+              </lines>
+            </method>
+            <method name=".cctor" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="24" hits="1" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="81" hits="156" branch="False" />
+            <line number="82" hits="156" branch="False" />
+            <line number="83" hits="156" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="33" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="84" hits="156" branch="False" />
+            <line number="91" hits="111" branch="False" />
+            <line number="93" hits="111" branch="False" />
+            <line number="94" hits="111" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="33" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="95" hits="111" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="62" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="96" hits="111" branch="False" />
+            <line number="103" hits="124" branch="False" />
+            <line number="105" hits="124" branch="False" />
+            <line number="106" hits="124" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="33" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="107" hits="124" branch="True" condition-coverage="100% (6/6)">
+              <conditions>
+                <condition number="67" type="jump" coverage="100%" />
+                <condition number="87" type="jump" coverage="100%" />
+                <condition number="107" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="108" hits="124" branch="False" />
+            <line number="109" hits="102" branch="False" />
+            <line number="110" hits="2" branch="False" />
+            <line number="111" hits="13" branch="True" condition-coverage="100% (6/6)">
+              <conditions>
+                <condition number="156" type="jump" coverage="100%" />
+                <condition number="169" type="jump" coverage="100%" />
+                <condition number="182" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="112" hits="5" branch="False" />
+            <line number="113" hits="15" branch="False" />
+            <line number="114" hits="124" branch="False" />
+            <line number="115" hits="124" branch="False" />
+            <line number="122" hits="109" branch="False" />
+            <line number="124" hits="109" branch="False" />
+            <line number="125" hits="109" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="33" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="126" hits="109" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="60" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="127" hits="109" branch="False" />
+            <line number="131" hits="103" branch="False" />
+            <line number="132" hits="103" branch="False" />
+            <line number="133" hits="103" branch="False" />
+            <line number="134" hits="103" branch="False" />
+            <line number="138" hits="114" branch="False" />
+            <line number="139" hits="114" branch="False" />
+            <line number="140" hits="114" branch="False" />
+            <line number="141" hits="114" branch="False" />
+            <line number="156" hits="28" branch="False" />
+            <line number="157" hits="28" branch="False" />
+            <line number="158" hits="28" branch="False" />
+            <line number="165" hits="17" branch="False" />
+            <line number="171" hits="23" branch="False" />
+            <line number="283" hits="18935" branch="False" />
+            <line number="285" hits="18935" branch="True" condition-coverage="25% (1/4)">
+              <conditions>
+                <condition number="17" type="jump" coverage="50%" />
+                <condition number="35" type="jump" coverage="0%" />
+              </conditions>
+            </line>
+            <line number="286" hits="18935" branch="False" />
+            <line number="287" hits="18935" branch="False" />
+            <line number="288" hits="18935" branch="False" />
+            <line number="289" hits="18935" branch="False" />
+            <line number="290" hits="18935" branch="False" />
+            <line number="291" hits="18935" branch="False" />
+            <line number="292" hits="18935" branch="False" />
+            <line number="367" hits="24" branch="False" />
+            <line number="368" hits="25" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="22" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="369" hits="23" branch="False" />
+            <line number="370" hits="24" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="58" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="373" hits="22" branch="False" />
+            <line number="374" hits="91" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="126" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="375" hits="23" branch="False" />
+            <line number="376" hits="23" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="110" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="377" hits="21" branch="False" />
+            <line number="378" hits="21" branch="False" />
+            <line number="379" hits="21" branch="False" />
+            <line number="381" hits="2" branch="False" />
+            <line number="382" hits="23" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="153" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="385" hits="21" branch="False" />
+            <line number="387" hits="21" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="199" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="388" hits="3" branch="False" />
+            <line number="389" hits="21" branch="False" />
+            <line number="391" hits="111" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="416" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="392" hits="24" branch="False" />
+            <line number="393" hits="24" branch="False" />
+            <line number="394" hits="24" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="288" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="395" hits="24" branch="False" />
+            <line number="396" hits="24" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="321" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="397" hits="24" branch="False" />
+            <line number="399" hits="24" branch="True" condition-coverage="100% (4/4)">
+              <conditions>
+                <condition number="342" type="jump" coverage="100%" />
+                <condition number="356" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="400" hits="8" branch="False" />
+            <line number="401" hits="8" branch="False" />
+            <line number="402" hits="8" branch="False" />
+            <line number="403" hits="8" branch="False" />
+            <line number="405" hits="16" branch="False" />
+            <line number="406" hits="16" branch="False" />
+            <line number="407" hits="16" branch="False" />
+            <line number="408" hits="16" branch="False" />
+            <line number="409" hits="24" branch="False" />
+            <line number="412" hits="21" branch="False" />
+            <line number="413" hits="21" branch="False" />
+            <line number="414" hits="21" branch="False" />
+            <line number="415" hits="21" branch="False" />
+            <line number="417" hits="21" branch="False" />
+            <line number="420" hits="21" branch="False" />
+            <line number="421" hits="21" branch="False" />
+            <line number="422" hits="21" branch="False" />
+            <line number="423" hits="21" branch="False" />
+            <line number="424" hits="21" branch="False" />
+            <line number="426" hits="21" branch="False" />
+            <line number="427" hits="24" branch="False" />
+            <line number="430" hits="3" branch="False" />
+            <line number="431" hits="3" branch="False" />
+            <line number="432" hits="3" branch="False" />
+            <line number="433" hits="3" branch="False" />
+            <line number="461" hits="47" branch="False" />
+            <line number="462" hits="47" branch="False" />
+            <line number="463" hits="47" branch="False" />
+            <line number="465" hits="367" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="228" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="466" hits="113" branch="False" />
+            <line number="467" hits="113" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="57" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="468" hits="113" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="74" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="469" hits="168" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="95" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="471" hits="58" branch="False" />
+            <line number="472" hits="244" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="201" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="473" hits="35" branch="False" />
+            <line number="474" hits="40" branch="True" condition-coverage="100% (4/4)">
+              <conditions>
+                <condition number="152" type="jump" coverage="100%" />
+                <condition number="169" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="475" hits="88" branch="False" />
+            <line number="476" hits="6" branch="False" />
+            <line number="477" hits="30" branch="False" />
+            <line number="478" hits="58" branch="False" />
+            <line number="479" hits="47" branch="False" />
+            <line number="69" hits="292" branch="False" />
+            <line number="34" hits="146" branch="False" />
+            <line number="39" hits="146" branch="False" />
+            <line number="41" hits="146" branch="False" />
+            <line number="44" hits="146" branch="False" />
+            <line number="48" hits="146" branch="False" />
+            <line number="49" hits="146" branch="False" />
+            <line number="50" hits="146" branch="False" />
+            <line number="51" hits="146" branch="False" />
+            <line number="52" hits="146" branch="False" />
+            <line number="53" hits="146" branch="False" />
+            <line number="54" hits="146" branch="False" />
+            <line number="55" hits="146" branch="False" />
+            <line number="56" hits="146" branch="False" />
+            <line number="57" hits="146" branch="False" />
+            <line number="58" hits="146" branch="False" />
+            <line number="59" hits="146" branch="False" />
+            <line number="60" hits="146" branch="False" />
+            <line number="61" hits="146" branch="False" />
+            <line number="62" hits="146" branch="False" />
+            <line number="63" hits="146" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="103" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="65" hits="146" branch="False" />
+            <line number="66" hits="146" branch="False" />
+            <line number="67" hits="146" branch="False" />
+            <line number="70" hits="146" branch="False" />
+            <line number="24" hits="1" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigRuntime/&lt;CloseAsync&gt;d__30" filename="Config/ConfigRuntime.cs" line-rate="1" branch-rate="1" complexity="6">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="1" complexity="6">
+              <lines>
+                <line number="207" hits="276" branch="False" />
+                <line number="208" hits="276" branch="False" />
+                <line number="209" hits="276" branch="False" />
+                <line number="210" hits="276" branch="False" />
+                <line number="212" hits="276" branch="False" />
+                <line number="213" hits="276" branch="True" condition-coverage="100% (4/4)">
+                  <conditions>
+                    <condition number="98" type="jump" coverage="100%" />
+                    <condition number="119" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="214" hits="11" branch="False" />
+                <line number="216" hits="11" branch="False" />
+                <line number="217" hits="11" branch="False" />
+                <line number="218" hits="11" branch="False" />
+                <line number="219" hits="10" branch="False" />
+                <line number="220" hits="3" branch="False" />
+                <line number="221" hits="11" branch="False" />
+                <line number="224" hits="276" branch="False" />
+                <line number="225" hits="276" branch="False" />
+                <line number="226" hits="275" branch="False" />
+                <line number="227" hits="3" branch="False" />
+                <line number="229" hits="276" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="430" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="230" hits="276" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="207" hits="276" branch="False" />
+            <line number="208" hits="276" branch="False" />
+            <line number="209" hits="276" branch="False" />
+            <line number="210" hits="276" branch="False" />
+            <line number="212" hits="276" branch="False" />
+            <line number="213" hits="276" branch="True" condition-coverage="100% (4/4)">
+              <conditions>
+                <condition number="98" type="jump" coverage="100%" />
+                <condition number="119" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="214" hits="11" branch="False" />
+            <line number="216" hits="11" branch="False" />
+            <line number="217" hits="11" branch="False" />
+            <line number="218" hits="11" branch="False" />
+            <line number="219" hits="10" branch="False" />
+            <line number="220" hits="3" branch="False" />
+            <line number="221" hits="11" branch="False" />
+            <line number="224" hits="276" branch="False" />
+            <line number="225" hits="276" branch="False" />
+            <line number="226" hits="275" branch="False" />
+            <line number="227" hits="3" branch="False" />
+            <line number="229" hits="276" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="430" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="230" hits="276" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigRuntime/&lt;ConnectAndSubscribeAsync&gt;d__35" filename="Config/ConfigRuntime.cs" line-rate="1" branch-rate="0.9" complexity="10">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="0.9" complexity="10">
+              <lines>
+                <line number="295" hits="18931" branch="False" />
+                <line number="296" hits="18931" branch="False" />
+                <line number="298" hits="18931" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="73" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="299" hits="18931" branch="False" />
+                <line number="300" hits="18931" branch="False" />
+                <line number="302" hits="18845" branch="False" />
+                <line number="303" hits="18845" branch="False" />
+                <line number="304" hits="18845" branch="False" />
+                <line number="305" hits="18845" branch="False" />
+                <line number="306" hits="18845" branch="False" />
+                <line number="307" hits="18845" branch="False" />
+                <line number="308" hits="18845" branch="False" />
+                <line number="309" hits="18845" branch="False" />
+                <line number="310" hits="18845" branch="False" />
+                <line number="311" hits="18845" branch="False" />
+                <line number="312" hits="18845" branch="False" />
+                <line number="315" hits="18845" branch="False" />
+                <line number="316" hits="18845" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="611" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="317" hits="11" branch="False" />
+                <line number="318" hits="11" branch="False" />
+                <line number="319" hits="11" branch="True" condition-coverage="75% (3/4)">
+                  <conditions>
+                    <condition number="675" type="jump" coverage="50%" />
+                    <condition number="705" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="320" hits="3" branch="False" />
+                <line number="321" hits="3" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="740" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="322" hits="3" branch="False" />
+                <line number="323" hits="3" branch="False" />
+                <line number="325" hits="8" branch="False" />
+                <line number="327" hits="18842" branch="False" />
+                <line number="328" hits="18842" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="295" hits="18931" branch="False" />
+            <line number="296" hits="18931" branch="False" />
+            <line number="298" hits="18931" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="73" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="299" hits="18931" branch="False" />
+            <line number="300" hits="18931" branch="False" />
+            <line number="302" hits="18845" branch="False" />
+            <line number="303" hits="18845" branch="False" />
+            <line number="304" hits="18845" branch="False" />
+            <line number="305" hits="18845" branch="False" />
+            <line number="306" hits="18845" branch="False" />
+            <line number="307" hits="18845" branch="False" />
+            <line number="308" hits="18845" branch="False" />
+            <line number="309" hits="18845" branch="False" />
+            <line number="310" hits="18845" branch="False" />
+            <line number="311" hits="18845" branch="False" />
+            <line number="312" hits="18845" branch="False" />
+            <line number="315" hits="18845" branch="False" />
+            <line number="316" hits="18845" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="611" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="317" hits="11" branch="False" />
+            <line number="318" hits="11" branch="False" />
+            <line number="319" hits="11" branch="True" condition-coverage="75% (3/4)">
+              <conditions>
+                <condition number="675" type="jump" coverage="50%" />
+                <condition number="705" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="320" hits="3" branch="False" />
+            <line number="321" hits="3" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="740" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="322" hits="3" branch="False" />
+            <line number="323" hits="3" branch="False" />
+            <line number="325" hits="8" branch="False" />
+            <line number="327" hits="18842" branch="False" />
+            <line number="328" hits="18842" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigRuntime/&lt;DisposeAsync&gt;d__31" filename="Config/ConfigRuntime.cs" line-rate="1" branch-rate="1" complexity="1">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="233" hits="139" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="233" hits="139" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigRuntime/&lt;ReceiveLoopAsync&gt;d__36" filename="Config/ConfigRuntime.cs" line-rate="1" branch-rate="1" complexity="12">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="1" complexity="12">
+              <lines>
+                <line number="331" hits="18843" branch="False" />
+                <line number="332" hits="18846" branch="True" condition-coverage="100% (4/4)">
+                  <conditions>
+                    <condition number="448" type="jump" coverage="100%" />
+                    <condition number="425" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="333" hits="18844" branch="False" />
+                <line number="334" hits="18844" branch="False" />
+                <line number="335" hits="37685" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="174" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="337" hits="3" branch="False" />
+                <line number="338" hits="4" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="246" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="339" hits="2" branch="False" />
+                <line number="341" hits="2" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="290" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="342" hits="1" branch="False" />
+                <line number="343" hits="1" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="337" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="344" hits="1" branch="False" />
+                <line number="345" hits="2" branch="False" />
+                <line number="346" hits="18843" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="331" hits="18843" branch="False" />
+            <line number="332" hits="18846" branch="True" condition-coverage="100% (4/4)">
+              <conditions>
+                <condition number="448" type="jump" coverage="100%" />
+                <condition number="425" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="333" hits="18844" branch="False" />
+            <line number="334" hits="18844" branch="False" />
+            <line number="335" hits="37685" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="174" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="337" hits="3" branch="False" />
+            <line number="338" hits="4" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="246" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="339" hits="2" branch="False" />
+            <line number="341" hits="2" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="290" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="342" hits="1" branch="False" />
+            <line number="343" hits="1" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="337" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="344" hits="1" branch="False" />
+            <line number="345" hits="2" branch="False" />
+            <line number="346" hits="18843" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigRuntime/&lt;ReceiveRawAsync&gt;d__37" filename="Config/ConfigRuntime.cs" line-rate="1" branch-rate="1" complexity="8">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="1" complexity="8">
+              <lines>
+                <line number="349" hits="37691" branch="False" />
+                <line number="350" hits="37694" branch="True" condition-coverage="100% (4/4)">
+                  <conditions>
+                    <condition number="29" type="jump" coverage="100%" />
+                    <condition number="58" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="352" hits="37688" branch="False" />
+                <line number="353" hits="37688" branch="False" />
+                <line number="356" hits="37689" branch="False" />
+                <line number="357" hits="37689" branch="False" />
+                <line number="358" hits="75363" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="271" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="359" hits="15" branch="False" />
+                <line number="360" hits="15" branch="False" />
+                <line number="361" hits="15" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="336" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="363" hits="14" branch="False" />
+                <line number="364" hits="37691" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="349" hits="37691" branch="False" />
+            <line number="350" hits="37694" branch="True" condition-coverage="100% (4/4)">
+              <conditions>
+                <condition number="29" type="jump" coverage="100%" />
+                <condition number="58" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="352" hits="37688" branch="False" />
+            <line number="353" hits="37688" branch="False" />
+            <line number="356" hits="37689" branch="False" />
+            <line number="357" hits="37689" branch="False" />
+            <line number="358" hits="75363" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="271" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="359" hits="15" branch="False" />
+            <line number="360" hits="15" branch="False" />
+            <line number="361" hits="15" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="336" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="363" hits="14" branch="False" />
+            <line number="364" hits="37691" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigRuntime/&lt;RefreshAsync&gt;d__29" filename="Config/ConfigRuntime.cs" line-rate="1" branch-rate="1" complexity="2">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="1" complexity="2">
+              <lines>
+                <line number="183" hits="21" branch="False" />
+                <line number="184" hits="22" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="31" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="186" hits="20" branch="False" />
+                <line number="187" hits="19" branch="False" />
+                <line number="188" hits="19" branch="False" />
+                <line number="189" hits="19" branch="False" />
+                <line number="190" hits="19" branch="False" />
+                <line number="193" hits="19" branch="False" />
+                <line number="194" hits="19" branch="False" />
+                <line number="195" hits="19" branch="False" />
+                <line number="196" hits="19" branch="False" />
+                <line number="197" hits="19" branch="False" />
+                <line number="199" hits="19" branch="False" />
+                <line number="200" hits="20" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="183" hits="21" branch="False" />
+            <line number="184" hits="22" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="31" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="186" hits="20" branch="False" />
+            <line number="187" hits="19" branch="False" />
+            <line number="188" hits="19" branch="False" />
+            <line number="189" hits="19" branch="False" />
+            <line number="190" hits="19" branch="False" />
+            <line number="193" hits="19" branch="False" />
+            <line number="194" hits="19" branch="False" />
+            <line number="195" hits="19" branch="False" />
+            <line number="196" hits="19" branch="False" />
+            <line number="197" hits="19" branch="False" />
+            <line number="199" hits="19" branch="False" />
+            <line number="200" hits="20" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigRuntime/&lt;ResyncCacheAsync&gt;d__40" filename="Config/ConfigRuntime.cs" line-rate="1" branch-rate="1" complexity="2">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="1" complexity="2">
+              <lines>
+                <line number="436" hits="11" branch="False" />
+                <line number="437" hits="13" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="31" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="439" hits="9" branch="False" />
+                <line number="440" hits="9" branch="False" />
+                <line number="441" hits="7" branch="False" />
+                <line number="442" hits="7" branch="False" />
+                <line number="443" hits="7" branch="False" />
+                <line number="444" hits="7" branch="False" />
+                <line number="447" hits="7" branch="False" />
+                <line number="448" hits="7" branch="False" />
+                <line number="449" hits="7" branch="False" />
+                <line number="450" hits="7" branch="False" />
+                <line number="451" hits="7" branch="False" />
+                <line number="452" hits="7" branch="False" />
+                <line number="453" hits="7" branch="False" />
+                <line number="454" hits="6" branch="False" />
+                <line number="455" hits="11" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="436" hits="11" branch="False" />
+            <line number="437" hits="13" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="31" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="439" hits="9" branch="False" />
+            <line number="440" hits="9" branch="False" />
+            <line number="441" hits="7" branch="False" />
+            <line number="442" hits="7" branch="False" />
+            <line number="443" hits="7" branch="False" />
+            <line number="444" hits="7" branch="False" />
+            <line number="447" hits="7" branch="False" />
+            <line number="448" hits="7" branch="False" />
+            <line number="449" hits="7" branch="False" />
+            <line number="450" hits="7" branch="False" />
+            <line number="451" hits="7" branch="False" />
+            <line number="452" hits="7" branch="False" />
+            <line number="453" hits="7" branch="False" />
+            <line number="454" hits="6" branch="False" />
+            <line number="455" hits="11" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigRuntime/&lt;RunWebSocketAsync&gt;d__32" filename="Config/ConfigRuntime.cs" line-rate="1" branch-rate="0.875" complexity="8">
+          <methods>
+            <method name="MoveNext" signature="()" line-rate="1" branch-rate="0.875" complexity="8">
+              <lines>
+                <line number="240" hits="146" branch="False" />
+                <line number="241" hits="146" branch="False" />
+                <line number="242" hits="18993" branch="True" condition-coverage="100% (4/4)">
+                  <conditions>
+                    <condition number="844" type="jump" coverage="100%" />
+                    <condition number="819" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="243" hits="18931" branch="False" />
+                <line number="245" hits="18931" branch="False" />
+                <line number="246" hits="18931" branch="False" />
+                <line number="247" hits="18842" branch="False" />
+                <line number="248" hits="18842" branch="False" />
+                <line number="249" hits="18842" branch="False" />
+                <line number="250" hits="75" branch="False" />
+                <line number="251" hits="75" branch="False" />
+                <line number="252" hits="75" branch="False" />
+                <line number="254" hits="14" branch="False" />
+                <line number="255" hits="14" branch="False" />
+                <line number="256" hits="14" branch="True" condition-coverage="75% (3/4)">
+                  <conditions>
+                    <condition number="436" type="jump" coverage="50%" />
+                    <condition number="458" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="257" hits="14" branch="False" />
+                <line number="258" hits="14" branch="False" />
+                <line number="260" hits="14" branch="False" />
+                <line number="261" hits="14" branch="False" />
+                <line number="262" hits="5" branch="False" />
+                <line number="263" hits="9" branch="False" />
+                <line number="264" hits="9" branch="False" />
+                <line number="265" hits="9" branch="False" />
+                <line number="268" hits="5" branch="False" />
+                <line number="269" hits="5" branch="False" />
+                <line number="270" hits="5" branch="False" />
+                <line number="271" hits="18847" branch="False" />
+                <line number="272" hits="146" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="240" hits="146" branch="False" />
+            <line number="241" hits="146" branch="False" />
+            <line number="242" hits="18993" branch="True" condition-coverage="100% (4/4)">
+              <conditions>
+                <condition number="844" type="jump" coverage="100%" />
+                <condition number="819" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="243" hits="18931" branch="False" />
+            <line number="245" hits="18931" branch="False" />
+            <line number="246" hits="18931" branch="False" />
+            <line number="247" hits="18842" branch="False" />
+            <line number="248" hits="18842" branch="False" />
+            <line number="249" hits="18842" branch="False" />
+            <line number="250" hits="75" branch="False" />
+            <line number="251" hits="75" branch="False" />
+            <line number="252" hits="75" branch="False" />
+            <line number="254" hits="14" branch="False" />
+            <line number="255" hits="14" branch="False" />
+            <line number="256" hits="14" branch="True" condition-coverage="75% (3/4)">
+              <conditions>
+                <condition number="436" type="jump" coverage="50%" />
+                <condition number="458" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="257" hits="14" branch="False" />
+            <line number="258" hits="14" branch="False" />
+            <line number="260" hits="14" branch="False" />
+            <line number="261" hits="14" branch="False" />
+            <line number="262" hits="5" branch="False" />
+            <line number="263" hits="9" branch="False" />
+            <line number="264" hits="9" branch="False" />
+            <line number="265" hits="9" branch="False" />
+            <line number="268" hits="5" branch="False" />
+            <line number="269" hits="5" branch="False" />
+            <line number="270" hits="5" branch="False" />
+            <line number="271" hits="18847" branch="False" />
+            <line number="272" hits="146" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.Config" filename="Config/Models.cs" line-rate="1" branch-rate="1" complexity="10">
+          <methods>
+            <method name="get_Id" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="18" hits="56" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Key" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="19" hits="44" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Name" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="20" hits="30" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Description" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="21" hits="31" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Parent" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="22" hits="50" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Items" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="23" hits="46" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Environments" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="24" hits="87" branch="False" />
+              </lines>
+            </method>
+            <method name="get_CreatedAt" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="25" hits="4" branch="False" />
+              </lines>
+            </method>
+            <method name="get_UpdatedAt" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="26" hits="4" branch="False" />
+              </lines>
+            </method>
+            <method name=".ctor" signature="(System.String,System.String,System.String,System.String,System.String,System.Collections.Generic.Dictionary`2&lt;System.String,System.Object&gt;,System.Collections.Generic.Dictionary`2&lt;System.String,System.Collections.Generic.Dictionary`2&lt;System.String,System.Object&gt;&gt;,System.Nullable`1&lt;System.DateTime&gt;,System.Nullable`1&lt;System.DateTime&gt;)" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="17" hits="98" branch="False" />
+                <line number="27" hits="98" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="18" hits="56" branch="False" />
+            <line number="19" hits="44" branch="False" />
+            <line number="20" hits="30" branch="False" />
+            <line number="21" hits="31" branch="False" />
+            <line number="22" hits="50" branch="False" />
+            <line number="23" hits="46" branch="False" />
+            <line number="24" hits="87" branch="False" />
+            <line number="25" hits="4" branch="False" />
+            <line number="26" hits="4" branch="False" />
+            <line number="17" hits="98" branch="False" />
+            <line number="27" hits="98" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.CreateConfigOptions" filename="Config/Models.cs" line-rate="1" branch-rate="1" complexity="6">
+          <methods>
+            <method name="get_Name" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="35" hits="104" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Key" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="38" hits="82" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Description" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="41" hits="81" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Parent" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="44" hits="80" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Items" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="47" hits="81" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Environments" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="53" hits="80" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="35" hits="104" branch="False" />
+            <line number="38" hits="82" branch="False" />
+            <line number="41" hits="81" branch="False" />
+            <line number="44" hits="80" branch="False" />
+            <line number="47" hits="81" branch="False" />
+            <line number="53" hits="80" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigChangeEvent" filename="Config/Models.cs" line-rate="1" branch-rate="1" complexity="5">
+          <methods>
+            <method name="get_Key" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="64" hits="21" branch="False" />
+              </lines>
+            </method>
+            <method name="get_OldValue" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="65" hits="10" branch="False" />
+              </lines>
+            </method>
+            <method name="get_NewValue" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="66" hits="10" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Source" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="67" hits="11" branch="False" />
+              </lines>
+            </method>
+            <method name=".ctor" signature="(System.String,System.Object,System.Object,System.String)" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="63" hits="60" branch="False" />
+                <line number="68" hits="60" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="64" hits="21" branch="False" />
+            <line number="65" hits="10" branch="False" />
+            <line number="66" hits="10" branch="False" />
+            <line number="67" hits="11" branch="False" />
+            <line number="63" hits="60" branch="False" />
+            <line number="68" hits="60" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigStats" filename="Config/Models.cs" line-rate="1" branch-rate="1" complexity="3">
+          <methods>
+            <method name="get_FetchCount" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="76" hits="17" branch="False" />
+              </lines>
+            </method>
+            <method name="get_LastFetchAt" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="77" hits="11" branch="False" />
+              </lines>
+            </method>
+            <method name=".ctor" signature="(System.Int32,System.String)" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="75" hits="19" branch="False" />
+                <line number="78" hits="19" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="76" hits="17" branch="False" />
+            <line number="77" hits="11" branch="False" />
+            <line number="75" hits="19" branch="False" />
+            <line number="78" hits="19" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.JsonApiSingleResponse" filename="Config/Models.cs" line-rate="1" branch-rate="1" complexity="1">
+          <methods>
+            <method name="get_Data" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="87" hits="170" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="87" hits="170" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.JsonApiListResponse" filename="Config/Models.cs" line-rate="1" branch-rate="1" complexity="1">
+          <methods>
+            <method name="get_Data" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="97" hits="42" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="97" hits="42" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.JsonApiResource" filename="Config/Models.cs" line-rate="1" branch-rate="1" complexity="3">
+          <methods>
+            <method name="get_Id" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="107" hits="177" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Type" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="111" hits="91" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Attributes" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="115" hits="268" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="107" hits="177" branch="False" />
+            <line number="111" hits="91" branch="False" />
+            <line number="115" hits="268" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.JsonApiConfigAttributes" filename="Config/Models.cs" line-rate="1" branch-rate="1" complexity="8">
+          <methods>
+            <method name="get_Key" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="125" hits="172" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Name" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="129" hits="172" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Description" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="133" hits="172" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Parent" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="137" hits="172" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Items" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="141" hits="171" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Environments" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="145" hits="172" branch="False" />
+              </lines>
+            </method>
+            <method name="get_CreatedAt" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="149" hits="172" branch="False" />
+              </lines>
+            </method>
+            <method name="get_UpdatedAt" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="153" hits="172" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="125" hits="172" branch="False" />
+            <line number="129" hits="172" branch="False" />
+            <line number="133" hits="172" branch="False" />
+            <line number="137" hits="172" branch="False" />
+            <line number="141" hits="171" branch="False" />
+            <line number="145" hits="172" branch="False" />
+            <line number="149" hits="172" branch="False" />
+            <line number="153" hits="172" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.JsonApiRequestBody" filename="Config/Models.cs" line-rate="1" branch-rate="1" complexity="1">
+          <methods>
+            <method name="get_Data" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="163" hits="100" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="163" hits="100" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.JsonApiRequestResource" filename="Config/Models.cs" line-rate="1" branch-rate="1" complexity="2">
+          <methods>
+            <method name="get_Type" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="173" hits="150" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Attributes" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="177" hits="100" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="173" hits="150" branch="False" />
+            <line number="177" hits="100" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.JsonApiRequestAttributes" filename="Config/Models.cs" line-rate="1" branch-rate="1" complexity="6">
+          <methods>
+            <method name="get_Name" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="187" hits="100" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Key" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="191" hits="100" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Description" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="195" hits="100" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Parent" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="199" hits="100" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Items" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="203" hits="100" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Environments" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="207" hits="100" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="187" hits="100" branch="False" />
+            <line number="191" hits="100" branch="False" />
+            <line number="195" hits="100" branch="False" />
+            <line number="199" hits="100" branch="False" />
+            <line number="203" hits="100" branch="False" />
+            <line number="207" hits="100" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.ConfigChainEntry" filename="Config/Resolver.cs" line-rate="1" branch-rate="1" complexity="3">
+          <methods>
+            <method name="get_Id" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="12" hits="235" branch="False" />
+              </lines>
+            </method>
+            <method name="get_Values" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="15" hits="685" branch="False" />
+              </lines>
+            </method>
+            <method name="get_EnvValues" signature="()" line-rate="1" branch-rate="1" complexity="1">
+              <lines>
+                <line number="21" hits="705" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="12" hits="235" branch="False" />
+            <line number="15" hits="685" branch="False" />
+            <line number="21" hits="705" branch="False" />
+          </lines>
+        </class>
+        <class name="Smplkit.Config.Resolver" filename="Config/Resolver.cs" line-rate="1" branch-rate="1" complexity="29">
+          <methods>
+            <method name="Resolve" signature="(System.Collections.Generic.IReadOnlyList`1&lt;Smplkit.Config.ConfigChainEntry&gt;,System.String)" line-rate="1" branch-rate="1" complexity="2">
+              <lines>
+                <line number="36" hits="204" branch="False" />
+                <line number="37" hits="204" branch="False" />
+                <line number="40" hits="844" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="84" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="41" hits="218" branch="False" />
+                <line number="42" hits="218" branch="False" />
+                <line number="43" hits="218" branch="False" />
+                <line number="45" hits="218" branch="False" />
+                <line number="47" hits="218" branch="False" />
+                <line number="48" hits="218" branch="False" />
+                <line number="50" hits="204" branch="False" />
+                <line number="51" hits="204" branch="False" />
+              </lines>
+            </method>
+            <method name="DeepMerge" signature="(System.Collections.Generic.Dictionary`2&lt;System.String,System.Object&gt;,System.Collections.Generic.Dictionary`2&lt;System.String,System.Object&gt;)" line-rate="1" branch-rate="1" complexity="8">
+              <lines>
+                <line number="60" hits="454" branch="False" />
+                <line number="61" hits="454" branch="False" />
+                <line number="62" hits="2616" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="132" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="63" hits="627" branch="False" />
+                <line number="64" hits="627" branch="True" condition-coverage="100% (6/6)">
+                  <conditions>
+                    <condition number="55" type="jump" coverage="100%" />
+                    <condition number="68" type="jump" coverage="100%" />
+                    <condition number="90" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="65" hits="627" branch="False" />
+                <line number="66" hits="627" branch="False" />
+                <line number="67" hits="6" branch="False" />
+                <line number="68" hits="6" branch="False" />
+                <line number="69" hits="6" branch="False" />
+                <line number="71" hits="621" branch="False" />
+                <line number="72" hits="621" branch="False" />
+                <line number="73" hits="621" branch="False" />
+                <line number="74" hits="627" branch="False" />
+                <line number="75" hits="454" branch="False" />
+                <line number="76" hits="454" branch="False" />
+              </lines>
+            </method>
+            <method name="ToChainEntry" signature="(Smplkit.Config.Config)" line-rate="1" branch-rate="1" complexity="2">
+              <lines>
+                <line number="84" hits="24" branch="False" />
+                <line number="85" hits="24" branch="False" />
+                <line number="87" hits="24" branch="False" />
+                <line number="88" hits="24" branch="False" />
+                <line number="90" hits="88" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="97" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="91" hits="8" branch="False" />
+                <line number="93" hits="8" branch="False" />
+                <line number="94" hits="8" branch="False" />
+                <line number="96" hits="24" branch="False" />
+                <line number="97" hits="24" branch="False" />
+                <line number="98" hits="24" branch="False" />
+                <line number="99" hits="24" branch="False" />
+                <line number="100" hits="24" branch="False" />
+                <line number="101" hits="24" branch="False" />
+                <line number="102" hits="24" branch="False" />
+              </lines>
+            </method>
+            <method name="NormalizeDict" signature="(System.Collections.Generic.Dictionary`2&lt;System.String,System.Object&gt;)" line-rate="1" branch-rate="1" complexity="2">
+              <lines>
+                <line number="107" hits="162" branch="False" />
+                <line number="108" hits="162" branch="False" />
+                <line number="109" hits="968" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="71" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="110" hits="241" branch="False" />
+                <line number="111" hits="162" branch="False" />
+                <line number="112" hits="162" branch="False" />
+              </lines>
+            </method>
+            <method name="Normalize" signature="(System.Object)" line-rate="1" branch-rate="1" complexity="6">
+              <lines>
+                <line number="117" hits="306" branch="False" />
+                <line number="118" hits="306" branch="True" condition-coverage="100% (4/4)">
+                  <conditions>
+                    <condition number="7" type="jump" coverage="100%" />
+                    <condition number="22" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="119" hits="235" branch="False" />
+                <line number="120" hits="71" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="48" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="121" hits="5" branch="False" />
+                <line number="122" hits="66" branch="False" />
+                <line number="123" hits="306" branch="False" />
+              </lines>
+            </method>
+            <method name="NormalizeJsonElement" signature="(System.Text.Json.JsonElement)" line-rate="1" branch-rate="1" complexity="9">
+              <lines>
+                <line number="125" hits="281" branch="True" condition-coverage="100% (7/7)">
+                  <conditions>
+                    <condition number="15" type="switch" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="126" hits="281" branch="False" />
+                <line number="127" hits="26" branch="False" />
+                <line number="128" hits="82" branch="False" />
+                <line number="129" hits="7" branch="False" />
+                <line number="130" hits="117" branch="False" />
+                <line number="131" hits="117" branch="True" condition-coverage="100% (2/2)">
+                  <conditions>
+                    <condition number="207" type="jump" coverage="100%" />
+                  </conditions>
+                </line>
+                <line number="132" hits="7" branch="False" />
+                <line number="133" hits="2" branch="False" />
+                <line number="134" hits="5" branch="False" />
+                <line number="135" hits="281" branch="False" />
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="36" hits="204" branch="False" />
+            <line number="37" hits="204" branch="False" />
+            <line number="40" hits="844" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="84" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="41" hits="218" branch="False" />
+            <line number="42" hits="218" branch="False" />
+            <line number="43" hits="218" branch="False" />
+            <line number="45" hits="218" branch="False" />
+            <line number="47" hits="218" branch="False" />
+            <line number="48" hits="218" branch="False" />
+            <line number="50" hits="204" branch="False" />
+            <line number="51" hits="204" branch="False" />
+            <line number="60" hits="454" branch="False" />
+            <line number="61" hits="454" branch="False" />
+            <line number="62" hits="2616" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="132" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="63" hits="627" branch="False" />
+            <line number="64" hits="627" branch="True" condition-coverage="100% (6/6)">
+              <conditions>
+                <condition number="55" type="jump" coverage="100%" />
+                <condition number="68" type="jump" coverage="100%" />
+                <condition number="90" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="65" hits="627" branch="False" />
+            <line number="66" hits="627" branch="False" />
+            <line number="67" hits="6" branch="False" />
+            <line number="68" hits="6" branch="False" />
+            <line number="69" hits="6" branch="False" />
+            <line number="71" hits="621" branch="False" />
+            <line number="72" hits="621" branch="False" />
+            <line number="73" hits="621" branch="False" />
+            <line number="74" hits="627" branch="False" />
+            <line number="75" hits="454" branch="False" />
+            <line number="76" hits="454" branch="False" />
+            <line number="84" hits="24" branch="False" />
+            <line number="85" hits="24" branch="False" />
+            <line number="87" hits="24" branch="False" />
+            <line number="88" hits="24" branch="False" />
+            <line number="90" hits="88" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="97" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="91" hits="8" branch="False" />
+            <line number="93" hits="8" branch="False" />
+            <line number="94" hits="8" branch="False" />
+            <line number="96" hits="24" branch="False" />
+            <line number="97" hits="24" branch="False" />
+            <line number="98" hits="24" branch="False" />
+            <line number="99" hits="24" branch="False" />
+            <line number="100" hits="24" branch="False" />
+            <line number="101" hits="24" branch="False" />
+            <line number="102" hits="24" branch="False" />
+            <line number="107" hits="162" branch="False" />
+            <line number="108" hits="162" branch="False" />
+            <line number="109" hits="968" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="71" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="110" hits="241" branch="False" />
+            <line number="111" hits="162" branch="False" />
+            <line number="112" hits="162" branch="False" />
+            <line number="117" hits="306" branch="False" />
+            <line number="118" hits="306" branch="True" condition-coverage="100% (4/4)">
+              <conditions>
+                <condition number="7" type="jump" coverage="100%" />
+                <condition number="22" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="119" hits="235" branch="False" />
+            <line number="120" hits="71" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="48" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="121" hits="5" branch="False" />
+            <line number="122" hits="66" branch="False" />
+            <line number="123" hits="306" branch="False" />
+            <line number="125" hits="281" branch="True" condition-coverage="100% (7/7)">
+              <conditions>
+                <condition number="15" type="switch" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="126" hits="281" branch="False" />
+            <line number="127" hits="26" branch="False" />
+            <line number="128" hits="82" branch="False" />
+            <line number="129" hits="7" branch="False" />
+            <line number="130" hits="117" branch="False" />
+            <line number="131" hits="117" branch="True" condition-coverage="100% (2/2)">
+              <conditions>
+                <condition number="207" type="jump" coverage="100%" />
+              </conditions>
+            </line>
+            <line number="132" hits="7" branch="False" />
+            <line number="133" hits="2" branch="False" />
+            <line number="134" hits="5" branch="False" />
+            <line number="135" hits="281" branch="False" />
+          </lines>
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>

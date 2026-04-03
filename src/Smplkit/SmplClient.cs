@@ -139,7 +139,7 @@ public sealed class SmplClient : IDisposable
             {
                 try
                 {
-                    await _transport.PutAsync(
+                    await _transport.PostAsync(
                         $"{AppBaseUrl}/api/v1/contexts/bulk",
                         new
                         {
@@ -147,8 +147,8 @@ public sealed class SmplClient : IDisposable
                             {
                                 new
                                 {
-                                    type = "service",
-                                    key = svc,
+                                    id = $"service:{svc}",
+                                    name = svc,
                                     attributes = new Dictionary<string, object?>(),
                                 },
                             },

@@ -408,7 +408,7 @@ public sealed class FlagsClient
         if (batch.Count == 0) return;
         try
         {
-            await _transport.PutAsync(
+            await _transport.PostAsync(
                 $"{AppBaseUrl}/api/v1/contexts/bulk",
                 new { contexts = batch },
                 ct).ConfigureAwait(false);
@@ -1114,8 +1114,8 @@ internal sealed class ContextRegistrationBuffer
                     _seenMap[cacheKey] = node;
                     _pending.Add(new Dictionary<string, object?>
                     {
-                        ["type"] = ctx.Type,
-                        ["key"] = ctx.Key,
+                        ["id"] = $"{ctx.Type}:{ctx.Key}",
+                        ["name"] = ctx.Name ?? ctx.Key,
                         ["attributes"] = new Dictionary<string, object?>(ctx.Attributes),
                     });
                 }
