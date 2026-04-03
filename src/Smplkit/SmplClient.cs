@@ -161,6 +161,13 @@ public sealed class SmplClient : IDisposable
 
         await Flags.ConnectInternalAsync(Environment, ct).ConfigureAwait(false);
         await Config.ConnectInternalAsync(Environment, ct).ConfigureAwait(false);
+
+        // Wait for the shared WebSocket to complete its initial connection attempt
+        if (_sharedWs is not null)
+        {
+            await _sharedWs.WaitForInitialConnectAsync(ct).ConfigureAwait(false);
+        }
+
         _connected = true;
     }
 

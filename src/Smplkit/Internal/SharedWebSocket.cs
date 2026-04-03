@@ -26,6 +26,7 @@ internal sealed class SharedWebSocket
     private readonly CancellationTokenSource _wsCts = new();
     private Task? _wsTask;
     private readonly Func<Uri, CancellationToken, Task<WebSocket>> _wsFactory;
+    private readonly TaskCompletionSource<bool> _initialConnect = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     internal SharedWebSocket(string apiKey, Func<Uri, CancellationToken, Task<WebSocket>>? wsFactory = null)
     {
@@ -83,6 +84,15 @@ internal sealed class SharedWebSocket
 
     /// <summary>Return the current connection status.</summary>
     internal string ConnectionStatus => _connectionStatus;
+
+    /// <summary>
+    /// Wait for the initial WebSocket connection to succeed or fail.
+    /// Resolves once the background task has completed its first connect attempt.
+    /// </summary>
+    internal Task WaitForInitialConnectAsync(CancellationToken ct = default)
+    {
+        return _initialConnect.Task.WaitAsync(ct);
+    }
 
     // ------------------------------------------------------------------
     // Lifecycle
@@ -143,12 +153,14 @@ internal sealed class SharedWebSocket
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested || _closed)
             {
+                _initialConnect.TrySetResult(false);
                 break;
             }
             catch
             {
                 if (ct.IsCancellationRequested || _closed) break;
                 _connectionStatus = "reconnecting";
+                _initialConnect.TrySetResult(false);
                 int delay = BackoffSeconds[Math.Min(attempt, BackoffSeconds.Length - 1)];
                 try
                 {
@@ -204,6 +216,7 @@ internal sealed class SharedWebSocket
         }
 
         _connectionStatus = "connected";
+        _initialConnect.TrySetResult(true);
     }
 
     private async Task ReceiveLoopAsync(CancellationToken ct)
