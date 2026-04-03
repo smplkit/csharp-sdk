@@ -1114,8 +1114,8 @@ internal sealed class ContextRegistrationBuffer
                     _seenMap[cacheKey] = node;
                     _pending.Add(new Dictionary<string, object?>
                     {
-                        ["id"] = $"{ctx.Type}:{ctx.Key}",
-                        ["name"] = ctx.Name ?? ctx.Key,
+                        ["type"] = ctx.Type,
+                        ["key"] = ctx.Key,
                         ["attributes"] = new Dictionary<string, object?>(ctx.Attributes),
                     });
                 }

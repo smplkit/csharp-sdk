@@ -147,8 +147,8 @@ public sealed class SmplClient : IDisposable
                             {
                                 new
                                 {
-                                    id = $"service:{svc}",
-                                    name = svc,
+                                    type = "service",
+                                    key = svc,
                                     attributes = new Dictionary<string, object?>(),
                                 },
                             },
