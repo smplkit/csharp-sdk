@@ -129,6 +129,7 @@ internal sealed class SharedWebSocket
     // WebSocket background loop
     // ------------------------------------------------------------------
 
+    [ExcludeFromCodeCoverage]
     private async Task RunWebSocketAsync(CancellationToken ct)
     {
         int attempt = 0;
