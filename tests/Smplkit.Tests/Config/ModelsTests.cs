@@ -108,9 +108,10 @@ public class ModelsTests
     [Fact]
     public void ConfigChangeEvent_HasCorrectProperties()
     {
-        var evt = new ConfigChangeEvent("timeout", 30, 60, "websocket");
+        var evt = new ConfigChangeEvent("my_config", "timeout", 30, 60, "websocket");
 
-        Assert.Equal("timeout", evt.Key);
+        Assert.Equal("my_config", evt.ConfigKey);
+        Assert.Equal("timeout", evt.ItemKey);
         Assert.Equal(30, evt.OldValue);
         Assert.Equal(60, evt.NewValue);
         Assert.Equal("websocket", evt.Source);
@@ -119,34 +120,13 @@ public class ModelsTests
     [Fact]
     public void ConfigChangeEvent_WithNullValues()
     {
-        var evt = new ConfigChangeEvent("key", null, null, "manual");
+        var evt = new ConfigChangeEvent("cfg", "key", null, null, "manual");
 
-        Assert.Equal("key", evt.Key);
+        Assert.Equal("cfg", evt.ConfigKey);
+        Assert.Equal("key", evt.ItemKey);
         Assert.Null(evt.OldValue);
         Assert.Null(evt.NewValue);
         Assert.Equal("manual", evt.Source);
-    }
-
-    // ------------------------------------------------------------------
-    // ConfigStats record
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public void ConfigStats_HasCorrectProperties()
-    {
-        var stats = new ConfigStats(5, "2024-01-15T10:30:00Z");
-
-        Assert.Equal(5, stats.FetchCount);
-        Assert.Equal("2024-01-15T10:30:00Z", stats.LastFetchAt);
-    }
-
-    [Fact]
-    public void ConfigStats_WithNullLastFetchAt()
-    {
-        var stats = new ConfigStats(0, null);
-
-        Assert.Equal(0, stats.FetchCount);
-        Assert.Null(stats.LastFetchAt);
     }
 
     // ------------------------------------------------------------------

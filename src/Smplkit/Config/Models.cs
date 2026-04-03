@@ -54,27 +54,19 @@ public sealed record CreateConfigOptions
 }
 
 /// <summary>
-/// Describes a single value change pushed by the config service.
+/// Describes a single config value change detected during refresh.
 /// </summary>
-/// <param name="Key">The config key that changed.</param>
+/// <param name="ConfigKey">The config key (e.g. <c>"user_service"</c>).</param>
+/// <param name="ItemKey">The item key within the config (e.g. <c>"timeout"</c>).</param>
 /// <param name="OldValue">The previous value.</param>
 /// <param name="NewValue">The updated value.</param>
-/// <param name="Source">How the change was delivered: <c>"websocket"</c>, <c>"poll"</c>, or <c>"manual"</c>.</param>
+/// <param name="Source">How the change was delivered: <c>"websocket"</c> or <c>"manual"</c>.</param>
 public sealed record ConfigChangeEvent(
-    string Key,
+    string ConfigKey,
+    string ItemKey,
     object? OldValue,
     object? NewValue,
     string Source
-);
-
-/// <summary>
-/// Diagnostic statistics for a <see cref="ConfigRuntime"/> instance.
-/// </summary>
-/// <param name="FetchCount">Total HTTP fetches performed (initial connect + reconnects + manual refreshes).</param>
-/// <param name="LastFetchAt">ISO-8601 timestamp of the most recent fetch, or <c>null</c> if none.</param>
-public sealed record ConfigStats(
-    int FetchCount,
-    string? LastFetchAt
 );
 
 /// <summary>
