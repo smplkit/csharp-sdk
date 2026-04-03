@@ -77,5 +77,5 @@ internal static class TestData
         """;
 
     internal static SmplClientOptions DefaultOptions() =>
-        new() { ApiKey = ApiKey };
+        new() { ApiKey = ApiKey, Environment = "test" };
 }

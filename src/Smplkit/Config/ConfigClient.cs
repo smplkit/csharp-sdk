@@ -15,16 +15,21 @@ public sealed class ConfigClient
 
     private readonly Transport _transport;
     private readonly string _apiKey;
+    private readonly SmplClient? _parent;
+    private volatile bool _prescriptiveConnected;
+    private Dictionary<string, Dictionary<string, object?>> _configCache = new();
 
     /// <summary>
     /// Initializes a new instance of <see cref="ConfigClient"/>.
     /// </summary>
     /// <param name="transport">The HTTP transport layer.</param>
     /// <param name="apiKey">The API key, forwarded to <see cref="ConfigRuntime"/> for WebSocket auth.</param>
-    internal ConfigClient(Transport transport, string apiKey)
+    /// <param name="parent">The parent <see cref="SmplClient"/>, if any.</param>
+    internal ConfigClient(Transport transport, string apiKey, SmplClient? parent = null)
     {
         _transport = transport;
         _apiKey = apiKey;
+        _parent = parent;
     }
 
     /// <summary>
@@ -234,6 +239,74 @@ public sealed class ConfigClient
         {
             throw new SmplTimeoutException($"ConnectAsync timed out after {timeout} seconds.");
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Prescriptive access: ConnectInternalAsync + GetValue
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Internal connect: fetches all configs, builds chains, resolves values
+    /// for the given environment, and populates the prescriptive cache.
+    /// Called by <see cref="SmplClient.ConnectAsync"/>.
+    /// </summary>
+    /// <param name="environment">The environment key.</param>
+    /// <param name="ct">Cancellation token.</param>
+    internal async Task ConnectInternalAsync(string environment, CancellationToken ct = default)
+    {
+        var allConfigs = await ListAsync(ct).ConfigureAwait(false);
+        var configById = new Dictionary<string, Config>();
+        foreach (var cfg in allConfigs)
+            configById[cfg.Id] = cfg;
+
+        var cache = new Dictionary<string, Dictionary<string, object?>>();
+
+        foreach (var cfg in allConfigs)
+        {
+            // Build chain: child-first, root-last
+            var chain = new List<ConfigChainEntry> { Resolver.ToChainEntry(cfg) };
+            var current = cfg;
+            while (current.Parent is not null && configById.TryGetValue(current.Parent, out var parent))
+            {
+                chain.Add(Resolver.ToChainEntry(parent));
+                current = parent;
+            }
+
+            var resolved = Resolver.Resolve(chain, environment);
+            cache[cfg.Key] = resolved;
+        }
+
+        _configCache = cache;
+        _prescriptiveConnected = true;
+    }
+
+    /// <summary>
+    /// Prescriptive config access. Returns all resolved values for a config key,
+    /// or a single item value if <paramref name="itemKey"/> is specified.
+    /// </summary>
+    /// <param name="configKey">The config key.</param>
+    /// <param name="itemKey">Optional item key within the config.</param>
+    /// <returns>
+    /// When <paramref name="itemKey"/> is <c>null</c>, returns a copy of all
+    /// resolved values as <c>Dictionary&lt;string, object?&gt;</c>.
+    /// When <paramref name="itemKey"/> is specified, returns the single value
+    /// (or <c>null</c> if the key is not found).
+    /// </returns>
+    /// <exception cref="SmplNotConnectedException">If <see cref="SmplClient.ConnectAsync"/>
+    /// has not been called.</exception>
+    /// <exception cref="SmplNotFoundException">If no config with the given key exists.</exception>
+    public object? GetValue(string configKey, string? itemKey = null)
+    {
+        if (!_prescriptiveConnected)
+            throw new SmplNotConnectedException();
+
+        if (!_configCache.TryGetValue(configKey, out var values))
+            throw new SmplNotFoundException($"Config with key '{configKey}' not found in cache.");
+
+        if (itemKey is null)
+            return new Dictionary<string, object?>(values);
+
+        return values.TryGetValue(itemKey, out var value) ? value : null;
     }
 
     // ------------------------------------------------------------------

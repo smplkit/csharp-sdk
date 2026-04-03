@@ -113,7 +113,7 @@ public class FlagsClientCoverageTests
         {
             new("user", "u1", new Dictionary<string, object?> { ["plan"] = "free" }),
         });
-        await client.Flags.ConnectAsync("production");
+        await client.Flags.ConnectInternalAsync("production");
 
         // Calls EvaluateHandle with context provider path
         var result = handle.Get();
@@ -266,7 +266,7 @@ public class FlagsClientCoverageTests
             defaultVal: "true");
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
-        await client.Flags.ConnectAsync("production");
+        await client.Flags.ConnectInternalAsync("production");
 
         var result = await client.Flags.EvaluateAsync(
             "eval-flag",
@@ -298,7 +298,7 @@ public class FlagsClientCoverageTests
 
         client.Flags.SetContextProvider(() => contexts);
         var handle = client.Flags.BoolFlag("flush-flag", true);
-        await client.Flags.ConnectAsync("production");
+        await client.Flags.ConnectInternalAsync("production");
 
         handle.Get(); // triggers context provider path
         // Give background flush a moment
@@ -319,7 +319,7 @@ public class FlagsClientCoverageTests
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.BoolFlag("empty-ctx", false);
-        await client.Flags.ConnectAsync("production");
+        await client.Flags.ConnectInternalAsync("production");
 
         var result = handle.Get();
         Assert.True(result);
@@ -330,7 +330,7 @@ public class FlagsClientCoverageTests
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task ConnectAsync_Timeout_ThrowsSmplTimeoutException()
+    public async Task ConnectInternalAsync_Cancelled_ThrowsOperationCancelled()
     {
         var (client, _) = CreateClient(async _ =>
         {
@@ -338,8 +338,9 @@ public class FlagsClientCoverageTests
             return JsonResponse("{}");
         });
 
-        await Assert.ThrowsAsync<SmplTimeoutException>(() =>
-            client.Flags.ConnectAsync("production", timeout: 1));
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            client.Flags.ConnectInternalAsync("production", cts.Token));
     }
 
     // ---------------------------------------------------------------
@@ -352,16 +353,16 @@ public class FlagsClientCoverageTests
         var flagJson = FlagListWithEnvJson(key: "disc-flag", defaultVal: "true");
         var (client, handler) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
-        await client.Flags.ConnectAsync("production");
+        await client.Flags.ConnectInternalAsync("production");
 
         // Register a context so FlushContextsAsync has something
         client.Flags.Register(new Context("user", "u1"));
 
         await client.Flags.DisconnectAsync();
 
-        // After disconnect, handle should return code default (not connected)
+        // After disconnect, handle should throw SmplNotConnectedException
         var handle = client.Flags.BoolFlag("disc-flag", false);
-        Assert.False(handle.Get());
+        Assert.Throws<SmplNotConnectedException>(() => handle.Get());
     }
 
     // ---------------------------------------------------------------
@@ -376,7 +377,7 @@ public class FlagsClientCoverageTests
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         client.Flags.OnChange(evt => events.Add(evt));
-        await client.Flags.ConnectAsync("production");
+        await client.Flags.ConnectInternalAsync("production");
 
         await client.Flags.RefreshAsync();
 
@@ -419,7 +420,7 @@ public class FlagsClientCoverageTests
         client.Flags.OnChange(evt => events.Add(evt));
         var handle = client.Flags.BoolFlag("ws-flag", false);
         handle.OnChange(evt => events.Add(evt));
-        await client.Flags.ConnectAsync("production");
+        await client.Flags.ConnectInternalAsync("production");
 
         // Simulate HandleFlagChanged via reflection (it's private)
         var method = typeof(FlagsClient).GetMethod("HandleFlagChanged",
@@ -442,7 +443,7 @@ public class FlagsClientCoverageTests
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         client.Flags.OnChange(evt => events.Add(evt));
-        await client.Flags.ConnectAsync("production");
+        await client.Flags.ConnectInternalAsync("production");
 
         var method = typeof(FlagsClient).GetMethod("HandleFlagDeleted",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
@@ -462,7 +463,7 @@ public class FlagsClientCoverageTests
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         client.Flags.OnChange(evt => events.Add(evt));
-        await client.Flags.ConnectAsync("production");
+        await client.Flags.ConnectInternalAsync("production");
 
         var method = typeof(FlagsClient).GetMethod("HandleFlagChanged",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
@@ -482,7 +483,7 @@ public class FlagsClientCoverageTests
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         client.Flags.OnChange(_ => throw new InvalidOperationException("boom"));
-        await client.Flags.ConnectAsync("production");
+        await client.Flags.ConnectInternalAsync("production");
 
         var method = typeof(FlagsClient).GetMethod("HandleFlagChanged",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
@@ -502,7 +503,7 @@ public class FlagsClientCoverageTests
 
         var handle = client.Flags.BoolFlag("handle-throw", false);
         handle.OnChange(_ => throw new InvalidOperationException("boom"));
-        await client.Flags.ConnectAsync("production");
+        await client.Flags.ConnectInternalAsync("production");
 
         var method = typeof(FlagsClient).GetMethod("HandleFlagChanged",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
@@ -528,7 +529,7 @@ public class FlagsClientCoverageTests
             throw new HttpRequestException("Network error");
         });
 
-        await client.Flags.ConnectAsync("production");
+        await client.Flags.ConnectInternalAsync("production");
 
         var method = typeof(FlagsClient).GetMethod("HandleFlagChanged",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
@@ -1306,7 +1307,7 @@ public class FlagsClientCoverageTests
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.BoolFlag("ctx-bool", true);
-        await client.Flags.ConnectAsync("production");
+        await client.Flags.ConnectInternalAsync("production");
 
         var contexts = new List<Context>
         {
@@ -1354,7 +1355,7 @@ public class FlagsClientCoverageTests
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.StringFlag("ctx-str", "code-default");
-        await client.Flags.ConnectAsync("production");
+        await client.Flags.ConnectInternalAsync("production");
 
         var contexts = new List<Context>
         {
@@ -1401,7 +1402,7 @@ public class FlagsClientCoverageTests
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.NumberFlag("ctx-num", 0.0);
-        await client.Flags.ConnectAsync("production");
+        await client.Flags.ConnectInternalAsync("production");
 
         var contexts = new List<Context>
         {
@@ -1442,7 +1443,7 @@ public class FlagsClientCoverageTests
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.NumberFlag("float-num", 0.0);
-        await client.Flags.ConnectAsync("production");
+        await client.Flags.ConnectInternalAsync("production");
 
         var result = handle.Get();
         Assert.Equal(1.5, result);

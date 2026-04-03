@@ -1,4 +1,5 @@
 using Smplkit.Config;
+using Smplkit.Errors;
 using Smplkit.Flags;
 using Smplkit.Internal;
 
@@ -12,19 +13,37 @@ namespace Smplkit;
 /// <para>
 /// Usage:
 /// <code>
-/// using var client = new SmplClient(new SmplClientOptions { ApiKey = "sk_api_..." });
-/// var config = await client.Config.GetAsync("config-uuid");
-/// var flag = await client.Flags.CreateAsync("my-flag", "My Flag", FlagType.Boolean, false);
+/// using var client = new SmplClient(new SmplClientOptions
+/// {
+///     ApiKey = "sk_api_...",
+///     Environment = "production",
+/// });
+/// await client.ConnectAsync();
+/// var flag = client.Flags.BoolFlag("my-flag", false);
 /// </code>
 /// </para>
 /// </remarks>
 public sealed class SmplClient : IDisposable
 {
+    private const string AppBaseUrl = "https://app.smplkit.com";
+
     private readonly HttpClient _httpClient;
     private readonly bool _ownsHttpClient;
     private readonly string _apiKey;
+    private readonly Transport _transport;
     private SharedWebSocket? _sharedWs;
     private readonly object _wsLock = new();
+    private volatile bool _connected;
+
+    /// <summary>
+    /// Gets the resolved environment key.
+    /// </summary>
+    public string Environment { get; }
+
+    /// <summary>
+    /// Gets the resolved service identifier, or <c>null</c> if none was configured.
+    /// </summary>
+    public string? Service { get; }
 
     /// <summary>
     /// Gets the Config service client.
@@ -75,9 +94,23 @@ public sealed class SmplClient : IDisposable
 
         var resolvedApiKey = ApiKeyResolver.Resolve(options.ApiKey);
 
+        // Resolve environment: option -> env var -> throw
+        var resolvedEnvironment = options.Environment
+            ?? System.Environment.GetEnvironmentVariable("SMPLKIT_ENVIRONMENT");
+        if (string.IsNullOrEmpty(resolvedEnvironment))
+            throw new SmplException(
+                "Environment is required. Pass it via SmplClientOptions.Environment " +
+                "or set the SMPLKIT_ENVIRONMENT environment variable.");
+
+        // Resolve service: option -> env var -> null (valid)
+        var resolvedService = options.Service
+            ?? System.Environment.GetEnvironmentVariable("SMPLKIT_SERVICE");
+
         _httpClient = httpClient;
         _ownsHttpClient = ownsHttpClient;
         _apiKey = resolvedApiKey;
+        Environment = resolvedEnvironment;
+        Service = string.IsNullOrEmpty(resolvedService) ? null : resolvedService;
 
         // Create a copy of options with the resolved API key for Transport.
         var resolvedOptions = new SmplClientOptions
@@ -85,9 +118,50 @@ public sealed class SmplClient : IDisposable
             ApiKey = resolvedApiKey,
             Timeout = options.Timeout,
         };
-        var transport = new Transport(_httpClient, resolvedOptions);
-        Config = new ConfigClient(transport, resolvedApiKey);
-        Flags = new FlagsClient(transport, resolvedApiKey, EnsureSharedWebSocket);
+        _transport = new Transport(_httpClient, resolvedOptions);
+        Config = new ConfigClient(_transport, resolvedApiKey, this);
+        Flags = new FlagsClient(_transport, resolvedApiKey, EnsureSharedWebSocket, this);
+    }
+
+    /// <summary>
+    /// Connect the client: fetches flag definitions and config values for the
+    /// configured environment. Idempotent — subsequent calls are no-ops.
+    /// </summary>
+    /// <param name="ct">Cancellation token.</param>
+    public async Task ConnectAsync(CancellationToken ct = default)
+    {
+        if (_connected) return;
+
+        // Fire-and-forget service context registration
+        if (Service is { Length: > 0 } svc)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _transport.PutAsync(
+                        $"{AppBaseUrl}/api/v1/contexts/bulk",
+                        new
+                        {
+                            contexts = new[]
+                            {
+                                new
+                                {
+                                    id = $"service:{svc}",
+                                    name = svc,
+                                    attributes = new Dictionary<string, object?>(),
+                                },
+                            },
+                        },
+                        ct).ConfigureAwait(false);
+                }
+                catch { /* fire-and-forget */ }
+            }, ct);
+        }
+
+        await Flags.ConnectInternalAsync(Environment, ct).ConfigureAwait(false);
+        await Config.ConnectInternalAsync(Environment, ct).ConfigureAwait(false);
+        _connected = true;
     }
 
     /// <summary>

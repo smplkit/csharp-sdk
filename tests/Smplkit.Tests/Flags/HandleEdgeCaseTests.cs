@@ -88,7 +88,7 @@ public class HandleEdgeCaseTests
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.BoolFlag("je-bool", false);
-        await client.Flags.ConnectAsync("production");
+        await client.Flags.ConnectInternalAsync("production");
 
         var result = handle.Get();
         Assert.True(result);
@@ -102,7 +102,7 @@ public class HandleEdgeCaseTests
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.BoolFlag("je-bool-str", true);
-        await client.Flags.ConnectAsync("production");
+        await client.Flags.ConnectInternalAsync("production");
 
         // Value is "not-a-bool" which is not bool or JsonElement bool => returns code default
         var result = handle.Get();
@@ -120,7 +120,7 @@ public class HandleEdgeCaseTests
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.StringFlag("je-str", "code-default");
-        await client.Flags.ConnectAsync("production");
+        await client.Flags.ConnectInternalAsync("production");
 
         var result = handle.Get();
         Assert.Equal("matched-val", result);
@@ -134,7 +134,7 @@ public class HandleEdgeCaseTests
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.StringFlag("je-str-num", "code-default");
-        await client.Flags.ConnectAsync("production");
+        await client.Flags.ConnectInternalAsync("production");
 
         var result = handle.Get();
         Assert.Equal("code-default", result);
@@ -151,7 +151,7 @@ public class HandleEdgeCaseTests
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.NumberFlag("je-num", 0.0);
-        await client.Flags.ConnectAsync("production");
+        await client.Flags.ConnectInternalAsync("production");
 
         var result = handle.Get();
         Assert.Equal(99.0, result);
@@ -164,7 +164,7 @@ public class HandleEdgeCaseTests
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.NumberFlag("je-num-dbl", 0.0);
-        await client.Flags.ConnectAsync("production");
+        await client.Flags.ConnectInternalAsync("production");
 
         var result = handle.Get();
         Assert.Equal(3.14, result);
@@ -177,7 +177,7 @@ public class HandleEdgeCaseTests
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.NumberFlag("je-num-str", 5.5);
-        await client.Flags.ConnectAsync("production");
+        await client.Flags.ConnectInternalAsync("production");
 
         var result = handle.Get();
         Assert.Equal(5.5, result);

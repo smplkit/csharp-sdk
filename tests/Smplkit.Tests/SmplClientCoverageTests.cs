@@ -19,6 +19,7 @@ public class SmplClientCoverageTests
         var client = new SmplClient(new SmplClientOptions
         {
             ApiKey = "sk_test_key",
+            Environment = "test",
         });
 
         // Should not throw
@@ -44,7 +45,7 @@ public class SmplClientCoverageTests
         var httpClient = new HttpClient(handler);
 
         var client = new SmplClient(
-            new SmplClientOptions { ApiKey = "sk_test_key" },
+            new SmplClientOptions { ApiKey = "sk_test_key", Environment = "test" },
             httpClient);
 
         client.Dispose();
@@ -84,6 +85,7 @@ public class SmplClientCoverageTests
             new SmplClientOptions
             {
                 ApiKey = "sk_test_key",
+                Environment = "test",
                 Timeout = TimeSpan.FromSeconds(120),
             },
             httpClient);
@@ -92,10 +94,6 @@ public class SmplClientCoverageTests
         client.Dispose();
         httpClient.Dispose();
     }
-
-    // ------------------------------------------------------------------
-    // MockHttpMessageHandler — tracks multiple requests
-    // ------------------------------------------------------------------
 
     // ------------------------------------------------------------------
     // Dispose with shared WebSocket active — stops WebSocket
@@ -125,14 +123,23 @@ public class SmplClientCoverageTests
             ]
         }
         """;
-        var handler = new MockHttpMessageHandler(_ =>
-            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        var configJson = """{"data":[]}""";
+        var handler = new MockHttpMessageHandler(req =>
+        {
+            var url = req.RequestUri!.AbsoluteUri;
+            if (url.Contains("flags"))
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(flagJson, System.Text.Encoding.UTF8, "application/vnd.api+json"),
+                });
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent(flagJson, System.Text.Encoding.UTF8, "application/vnd.api+json"),
-            }));
+                Content = new StringContent(configJson, System.Text.Encoding.UTF8, "application/vnd.api+json"),
+            });
+        });
         var httpClient = new HttpClient(handler);
         var client = new SmplClient(
-            new SmplClientOptions { ApiKey = "sk_test_key" },
+            new SmplClientOptions { ApiKey = "sk_test_key", Environment = "production" },
             httpClient);
 
         // Trigger WebSocket creation by calling ConnectAsync
@@ -141,7 +148,7 @@ public class SmplClientCoverageTests
         // should still try to stop it.
         try
         {
-            await client.Flags.ConnectAsync("production", timeout: 1);
+            await client.ConnectAsync();
         }
         catch
         {

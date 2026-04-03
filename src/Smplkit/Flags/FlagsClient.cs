@@ -25,6 +25,7 @@ public sealed class FlagsClient
     private readonly Transport _transport;
     private readonly string _apiKey;
     private readonly Func<SharedWebSocket> _ensureWs;
+    private readonly SmplClient? _parent;
 
     // Runtime state
     private string? _environment;
@@ -39,11 +40,12 @@ public sealed class FlagsClient
     // Shared WebSocket
     private SharedWebSocket? _wsManager;
 
-    internal FlagsClient(Transport transport, string apiKey, Func<SharedWebSocket> ensureWs)
+    internal FlagsClient(Transport transport, string apiKey, Func<SharedWebSocket> ensureWs, SmplClient? parent = null)
     {
         _transport = transport;
         _apiKey = apiKey;
         _ensureWs = ensureWs;
+        _parent = parent;
     }
 
     // ------------------------------------------------------------------
@@ -298,33 +300,23 @@ public sealed class FlagsClient
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Connect to an environment: fetches all flag definitions, opens
-    /// a shared WebSocket for live updates, and enables local evaluation.
+    /// Internal connect: fetches all flag definitions, opens a shared WebSocket
+    /// for live updates, and enables local evaluation. Called by
+    /// <see cref="SmplClient.ConnectAsync"/>.
     /// </summary>
     /// <param name="environment">The environment key (e.g., "staging", "production").</param>
-    /// <param name="timeout">Maximum seconds to wait for the initial fetch.</param>
     /// <param name="ct">Cancellation token.</param>
-    public async Task ConnectAsync(string environment, int timeout = 10, CancellationToken ct = default)
+    internal async Task ConnectInternalAsync(string environment, CancellationToken ct = default)
     {
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(timeout));
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
+        _environment = environment;
+        await FetchAllFlagsAsync(ct).ConfigureAwait(false);
+        _connected = true;
+        _cache.Clear();
 
-        try
-        {
-            _environment = environment;
-            await FetchAllFlagsAsync(linkedCts.Token).ConfigureAwait(false);
-            _connected = true;
-            _cache.Clear();
-
-            // Register on the shared WebSocket
-            _wsManager = _ensureWs();
-            _wsManager.On("flag_changed", HandleFlagChanged);
-            _wsManager.On("flag_deleted", HandleFlagDeleted);
-        }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-        {
-            throw new SmplTimeoutException($"ConnectAsync timed out after {timeout} seconds.");
-        }
+        // Register on the shared WebSocket
+        _wsManager = _ensureWs();
+        _wsManager.On("flag_changed", HandleFlagChanged);
+        _wsManager.On("flag_deleted", HandleFlagDeleted);
     }
 
     /// <summary>
@@ -388,7 +380,7 @@ public sealed class FlagsClient
 
     /// <summary>
     /// Explicitly register context(s) for background batch registration.
-    /// Fire-and-forget; works before <see cref="ConnectAsync"/>.
+    /// Fire-and-forget; works before <see cref="SmplClient.ConnectAsync"/>.
     /// </summary>
     /// <param name="context">A single context to register.</param>
     public void Register(Context context)
@@ -398,7 +390,7 @@ public sealed class FlagsClient
 
     /// <summary>
     /// Explicitly register context(s) for background batch registration.
-    /// Fire-and-forget; works before <see cref="ConnectAsync"/>.
+    /// Fire-and-forget; works before <see cref="SmplClient.ConnectAsync"/>.
     /// </summary>
     /// <param name="contexts">Contexts to register.</param>
     public void Register(IEnumerable<Context> contexts)
@@ -444,6 +436,10 @@ public sealed class FlagsClient
     {
         var evalDict = ContextsToEvalDict(context);
 
+        // Auto-inject service context from parent SmplClient
+        if (_parent?.Service is { Length: > 0 } svc && !evalDict.ContainsKey("service"))
+            evalDict["service"] = new Dictionary<string, object?> { ["key"] = svc };
+
         if (_connected && _flagStore.TryGetValue(key, out var flagDef))
             return EvaluateFlag(flagDef, environment, evalDict);
 
@@ -470,7 +466,7 @@ public sealed class FlagsClient
     internal object? EvaluateHandle(string key, object? defaultValue, IReadOnlyList<Context>? context)
     {
         if (!_connected)
-            return defaultValue;
+            throw new SmplNotConnectedException();
 
         Dictionary<string, object?> evalDict;
         if (context is not null)
@@ -489,6 +485,10 @@ public sealed class FlagsClient
         {
             evalDict = new Dictionary<string, object?>();
         }
+
+        // Auto-inject service context from parent SmplClient
+        if (_parent?.Service is { Length: > 0 } svc && !evalDict.ContainsKey("service"))
+            evalDict["service"] = new Dictionary<string, object?> { ["key"] = svc };
 
         var ctxHash = HashContext(evalDict);
         var cacheKey = $"{key}:{ctxHash}";
