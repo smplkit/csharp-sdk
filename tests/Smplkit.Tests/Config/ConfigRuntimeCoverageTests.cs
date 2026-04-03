@@ -345,6 +345,9 @@ public class ConfigRuntimeCoverageTests : IAsyncLifetime
     {
         var rt = CreateRuntime();
 
+        // Wait briefly for the background WS task to start and fail its first attempt
+        await Task.Delay(100);
+
         // Create a WebSocket in None state (not connected)
         var ws = new ClientWebSocket();
         SetPrivateField(rt, "_ws", ws);

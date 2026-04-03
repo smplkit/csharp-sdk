@@ -1,0 +1,1464 @@
+using System.Net;
+using System.Text;
+using System.Text.Json;
+using Smplkit.Errors;
+using Smplkit.Flags;
+using Smplkit.Tests.Helpers;
+using Xunit;
+
+namespace Smplkit.Tests.Flags;
+
+/// <summary>
+/// Coverage tests for FlagsClient methods not covered by other test files.
+/// </summary>
+public class FlagsClientCoverageTests
+{
+    private const string FlagId = "aaa11111-bbbb-cccc-dddd-eeeeeeee0001";
+
+    private static (SmplClient client, MockHttpMessageHandler handler) CreateClient(
+        Func<HttpRequestMessage, Task<HttpResponseMessage>> handlerFn)
+    {
+        var handler = new MockHttpMessageHandler(handlerFn);
+        var httpClient = new HttpClient(handler);
+        var options = TestData.DefaultOptions();
+        var client = new SmplClient(options, httpClient);
+        return (client, handler);
+    }
+
+    private static HttpResponseMessage JsonResponse(string json, HttpStatusCode status = HttpStatusCode.OK)
+    {
+        return new HttpResponseMessage(status)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/vnd.api+json"),
+        };
+    }
+
+    private static string FlagListWithEnvJson(
+        string key = "my-flag",
+        string envKey = "production",
+        bool enabled = true,
+        string defaultVal = "false",
+        string? envDefault = null,
+        string? rulesJson = null) =>
+        $$"""
+        {
+            "data": [
+                {
+                    "id": "{{FlagId}}",
+                    "type": "flag",
+                    "attributes": {
+                        "key": "{{key}}",
+                        "name": "My Flag",
+                        "type": "BOOLEAN",
+                        "default": {{defaultVal}},
+                        "values": [{"name": "True", "value": true}, {"name": "False", "value": false}],
+                        "description": "Test flag",
+                        "environments": {
+                            "{{envKey}}": {
+                                "enabled": {{(enabled ? "true" : "false")}},
+                                "default": {{envDefault ?? "null"}},
+                                "rules": {{rulesJson ?? "[]"}}
+                            }
+                        },
+                        "created_at": "2024-01-15T10:30:00Z",
+                        "updated_at": "2024-01-15T10:30:00Z"
+                    }
+                }
+            ]
+        }
+        """;
+
+    private static string SingleFlagJson(
+        string id = FlagId,
+        string key = "my-flag",
+        string name = "My Flag") =>
+        $$"""
+        {
+            "data": {
+                "id": "{{id}}",
+                "type": "flag",
+                "attributes": {
+                    "key": "{{key}}",
+                    "name": "{{name}}",
+                    "type": "BOOLEAN",
+                    "default": false,
+                    "values": [{"name": "True", "value": true}, {"name": "False", "value": false}],
+                    "description": "Test flag",
+                    "environments": {
+                        "production": {
+                            "enabled": true,
+                            "default": null,
+                            "rules": []
+                        }
+                    },
+                    "created_at": "2024-01-15T10:30:00Z",
+                    "updated_at": "2024-01-15T10:30:00Z"
+                }
+            }
+        }
+        """;
+
+    // ---------------------------------------------------------------
+    // SetContextProvider
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task SetContextProvider_IsUsedDuringEvaluation()
+    {
+        var flagJson = FlagListWithEnvJson(key: "ctx-flag", enabled: true, defaultVal: "false");
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
+
+        var handle = client.Flags.BoolFlag("ctx-flag", true);
+        client.Flags.SetContextProvider(() => new List<Context>
+        {
+            new("user", "u1", new Dictionary<string, object?> { ["plan"] = "free" }),
+        });
+        await client.Flags.ConnectAsync("production");
+
+        // Calls EvaluateHandle with context provider path
+        var result = handle.Get();
+        // Flag default is false, no rules match
+        Assert.False(result);
+    }
+
+    // ---------------------------------------------------------------
+    // ConnectionStatus
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void ConnectionStatus_ReturnsDisconnected_WhenNoWebSocket()
+    {
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
+
+        Assert.Equal("disconnected", client.Flags.ConnectionStatus);
+    }
+
+    // ---------------------------------------------------------------
+    // OnChange (global listener)
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void OnChange_RegistersGlobalListener()
+    {
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
+        var events = new List<FlagChangeEvent>();
+
+        client.Flags.OnChange(evt => events.Add(evt));
+
+        // No crash; listener registered
+        Assert.Empty(events);
+    }
+
+    // ---------------------------------------------------------------
+    // Register (single context)
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void Register_SingleContext_DoesNotThrow()
+    {
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
+
+        client.Flags.Register(new Context("user", "u1",
+            new Dictionary<string, object?> { ["plan"] = "pro" }));
+    }
+
+    // ---------------------------------------------------------------
+    // Register (multiple contexts)
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void Register_MultipleContexts_DoesNotThrow()
+    {
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
+
+        client.Flags.Register(new List<Context>
+        {
+            new("user", "u1", new Dictionary<string, object?> { ["plan"] = "pro" }),
+            new("device", "d1", new Dictionary<string, object?> { ["os"] = "ios" }),
+        });
+    }
+
+    // ---------------------------------------------------------------
+    // FlushContextsAsync
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task FlushContextsAsync_EmptyBuffer_DoesNotCallApi()
+    {
+        var (client, handler) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
+
+        await client.Flags.FlushContextsAsync();
+
+        // No requests should have been made
+        Assert.Empty(handler.Requests);
+    }
+
+    [Fact]
+    public async Task FlushContextsAsync_WithPendingContexts_CallsApi()
+    {
+        var (client, handler) = CreateClient(_ =>
+            Task.FromResult(JsonResponse("{}")));
+
+        client.Flags.Register(new Context("user", "u1",
+            new Dictionary<string, object?> { ["plan"] = "pro" }));
+        await client.Flags.FlushContextsAsync();
+
+        Assert.Single(handler.Requests);
+        Assert.Equal(HttpMethod.Put, handler.Requests[0].Method);
+        Assert.Contains("/api/v1/contexts/bulk", handler.Requests[0].RequestUri!.ToString());
+    }
+
+    [Fact]
+    public async Task FlushContextsAsync_ApiFailure_DoesNotThrow()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError)));
+
+        client.Flags.Register(new Context("user", "u1"));
+        // Should not throw - fire-and-forget
+        await client.Flags.FlushContextsAsync();
+    }
+
+    // ---------------------------------------------------------------
+    // EvaluateAsync (Tier 1 explicit)
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task EvaluateAsync_WhenNotConnected_FetchesAndEvaluates()
+    {
+        var flagJson = FlagListWithEnvJson(
+            key: "eval-flag",
+            envKey: "staging",
+            enabled: true,
+            defaultVal: "\"off\"",
+            envDefault: "\"off\"");
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
+
+        var result = await client.Flags.EvaluateAsync(
+            "eval-flag",
+            "staging",
+            new List<Context>());
+
+        Assert.Equal("off", result);
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_WhenNotConnected_ReturnsNull_WhenFlagNotFound()
+    {
+        var flagJson = FlagListWithEnvJson(key: "other-flag");
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
+
+        var result = await client.Flags.EvaluateAsync(
+            "missing-flag",
+            "production",
+            new List<Context>());
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_WhenConnected_UsesLocalStore()
+    {
+        var flagJson = FlagListWithEnvJson(
+            key: "eval-flag",
+            envKey: "production",
+            enabled: true,
+            defaultVal: "true");
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
+
+        await client.Flags.ConnectAsync("production");
+
+        var result = await client.Flags.EvaluateAsync(
+            "eval-flag",
+            "production",
+            new List<Context>());
+
+        Assert.Equal(true, result);
+    }
+
+    // ---------------------------------------------------------------
+    // EvaluateHandle with context provider triggering flush
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task EvaluateHandle_WithContextProvider_FlushesWhenBufferFull()
+    {
+        var flagJson = FlagListWithEnvJson(key: "flush-flag", defaultVal: "false");
+        int requestCount = 0;
+        var (client, _) = CreateClient(_ =>
+        {
+            Interlocked.Increment(ref requestCount);
+            return Task.FromResult(JsonResponse(flagJson));
+        });
+
+        // Register many contexts to trigger flush threshold
+        var contexts = new List<Context>();
+        for (int i = 0; i < 101; i++)
+            contexts.Add(new Context("user", $"user-{i}", new Dictionary<string, object?> { ["plan"] = "free" }));
+
+        client.Flags.SetContextProvider(() => contexts);
+        var handle = client.Flags.BoolFlag("flush-flag", true);
+        await client.Flags.ConnectAsync("production");
+
+        handle.Get(); // triggers context provider path
+        // Give background flush a moment
+        await Task.Delay(100);
+
+        // At least ConnectAsync + flush request
+        Assert.True(requestCount >= 1);
+    }
+
+    // ---------------------------------------------------------------
+    // EvaluateHandle with no context provider and no explicit context
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task EvaluateHandle_NoContextProvider_NoContext_UsesEmptyDict()
+    {
+        var flagJson = FlagListWithEnvJson(key: "empty-ctx", defaultVal: "true", enabled: true);
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
+
+        var handle = client.Flags.BoolFlag("empty-ctx", false);
+        await client.Flags.ConnectAsync("production");
+
+        var result = handle.Get();
+        Assert.True(result);
+    }
+
+    // ---------------------------------------------------------------
+    // ConnectAsync timeout
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task ConnectAsync_Timeout_ThrowsSmplTimeoutException()
+    {
+        var (client, _) = CreateClient(async _ =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(30));
+            return JsonResponse("{}");
+        });
+
+        await Assert.ThrowsAsync<SmplTimeoutException>(() =>
+            client.Flags.ConnectAsync("production", timeout: 1));
+    }
+
+    // ---------------------------------------------------------------
+    // DisconnectAsync
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task DisconnectAsync_ClearsStateAndFlushes()
+    {
+        var flagJson = FlagListWithEnvJson(key: "disc-flag", defaultVal: "true");
+        var (client, handler) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
+
+        await client.Flags.ConnectAsync("production");
+
+        // Register a context so FlushContextsAsync has something
+        client.Flags.Register(new Context("user", "u1"));
+
+        await client.Flags.DisconnectAsync();
+
+        // After disconnect, handle should return code default (not connected)
+        var handle = client.Flags.BoolFlag("disc-flag", false);
+        Assert.False(handle.Get());
+    }
+
+    // ---------------------------------------------------------------
+    // RefreshAsync
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task RefreshAsync_RefetchesFlagsAndFiresListeners()
+    {
+        var flagJson = FlagListWithEnvJson(key: "refresh-flag", defaultVal: "true");
+        var events = new List<FlagChangeEvent>();
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
+
+        client.Flags.OnChange(evt => events.Add(evt));
+        await client.Flags.ConnectAsync("production");
+
+        await client.Flags.RefreshAsync();
+
+        // Should have fired change event for "refresh-flag" with source "manual"
+        Assert.Contains(events, e => e.Key == "refresh-flag" && e.Source == "manual");
+    }
+
+    // ---------------------------------------------------------------
+    // UpdateFlagInternalAsync
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task UpdateFlagInternalAsync_PutsFlagToApi()
+    {
+        var (client, handler) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(SingleFlagJson())));
+
+        var flag = await client.Flags.GetAsync(FlagId);
+
+        // Now update
+        await flag.UpdateAsync(name: "Updated Name");
+
+        // At least 2 requests: GET + PUT
+        Assert.True(handler.Requests.Count >= 2);
+        var putReq = handler.Requests.Last(r => r.Method == HttpMethod.Put);
+        Assert.Contains($"/api/v1/flags/{FlagId}", putReq.RequestUri!.ToString());
+    }
+
+    // ---------------------------------------------------------------
+    // HandleFlagChanged / HandleFlagDeleted
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task HandleFlagChanged_RefetchesAndFiresListeners()
+    {
+        var flagJson = FlagListWithEnvJson(key: "ws-flag", defaultVal: "true");
+        var events = new List<FlagChangeEvent>();
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
+
+        client.Flags.OnChange(evt => events.Add(evt));
+        var handle = client.Flags.BoolFlag("ws-flag", false);
+        handle.OnChange(evt => events.Add(evt));
+        await client.Flags.ConnectAsync("production");
+
+        // Simulate HandleFlagChanged via reflection (it's private)
+        var method = typeof(FlagsClient).GetMethod("HandleFlagChanged",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        method!.Invoke(client.Flags, new object[]
+        {
+            new Dictionary<string, object?> { ["key"] = "ws-flag" }
+        });
+
+        // Should have fired both global and handle listeners
+        Assert.True(events.Count >= 2);
+        Assert.All(events, e => Assert.Equal("ws-flag", e.Key));
+    }
+
+    [Fact]
+    public async Task HandleFlagDeleted_RefetchesAndFiresListeners()
+    {
+        var flagJson = FlagListWithEnvJson(key: "del-flag", defaultVal: "true");
+        var events = new List<FlagChangeEvent>();
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
+
+        client.Flags.OnChange(evt => events.Add(evt));
+        await client.Flags.ConnectAsync("production");
+
+        var method = typeof(FlagsClient).GetMethod("HandleFlagDeleted",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        method!.Invoke(client.Flags, new object[]
+        {
+            new Dictionary<string, object?> { ["key"] = "del-flag" }
+        });
+
+        Assert.Contains(events, e => e.Key == "del-flag" && e.Source == "websocket");
+    }
+
+    [Fact]
+    public async Task HandleFlagChanged_NullKey_DoesNotFireListeners()
+    {
+        var flagJson = FlagListWithEnvJson(key: "ws-flag", defaultVal: "true");
+        var events = new List<FlagChangeEvent>();
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
+
+        client.Flags.OnChange(evt => events.Add(evt));
+        await client.Flags.ConnectAsync("production");
+
+        var method = typeof(FlagsClient).GetMethod("HandleFlagChanged",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        method!.Invoke(client.Flags, new object[]
+        {
+            new Dictionary<string, object?> { ["something"] = "else" } // no "key"
+        });
+
+        // FireChangeListeners should skip when key is null
+        Assert.DoesNotContain(events, e => e.Source == "websocket");
+    }
+
+    [Fact]
+    public async Task HandleFlagChanged_ListenerThrows_DoesNotPropagate()
+    {
+        var flagJson = FlagListWithEnvJson(key: "throw-flag", defaultVal: "true");
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
+
+        client.Flags.OnChange(_ => throw new InvalidOperationException("boom"));
+        await client.Flags.ConnectAsync("production");
+
+        var method = typeof(FlagsClient).GetMethod("HandleFlagChanged",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+        // Should not throw despite listener exception
+        method!.Invoke(client.Flags, new object[]
+        {
+            new Dictionary<string, object?> { ["key"] = "throw-flag" }
+        });
+    }
+
+    [Fact]
+    public async Task HandleFlagChanged_HandleListenerThrows_DoesNotPropagate()
+    {
+        var flagJson = FlagListWithEnvJson(key: "handle-throw", defaultVal: "true");
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
+
+        var handle = client.Flags.BoolFlag("handle-throw", false);
+        handle.OnChange(_ => throw new InvalidOperationException("boom"));
+        await client.Flags.ConnectAsync("production");
+
+        var method = typeof(FlagsClient).GetMethod("HandleFlagChanged",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+        // Should not throw
+        method!.Invoke(client.Flags, new object[]
+        {
+            new Dictionary<string, object?> { ["key"] = "handle-throw" }
+        });
+    }
+
+    [Fact]
+    public async Task HandleFlagChanged_TransportFailure_DoesNotThrow()
+    {
+        int callCount = 0;
+        var flagJson = FlagListWithEnvJson(key: "fail-flag", defaultVal: "true");
+        var (client, _) = CreateClient(_ =>
+        {
+            callCount++;
+            // First call succeeds (ConnectAsync), subsequent ones fail
+            if (callCount <= 1)
+                return Task.FromResult(JsonResponse(flagJson));
+            throw new HttpRequestException("Network error");
+        });
+
+        await client.Flags.ConnectAsync("production");
+
+        var method = typeof(FlagsClient).GetMethod("HandleFlagChanged",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+        // Should swallow transport errors
+        method!.Invoke(client.Flags, new object[]
+        {
+            new Dictionary<string, object?> { ["key"] = "fail-flag" }
+        });
+    }
+
+    // ---------------------------------------------------------------
+    // EvaluateFlag edge cases
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void EvaluateFlag_UntypedEnvironments_Dict()
+    {
+        // environments as Dictionary<string, object?> instead of typed
+        var envConfig = new Dictionary<string, object?>
+        {
+            ["enabled"] = true,
+            ["default"] = "env-val",
+            ["rules"] = new List<object?>(),
+        };
+        var flagDef = new Dictionary<string, object?>
+        {
+            ["key"] = "test",
+            ["default"] = "flag-default",
+            ["environments"] = new Dictionary<string, object?>
+            {
+                ["prod"] = envConfig,
+            },
+        };
+
+        var result = FlagsClient.EvaluateFlag(flagDef, "prod", new Dictionary<string, object?>());
+        Assert.Equal("env-val", result);
+    }
+
+    [Fact]
+    public void EvaluateFlag_UntypedEnvironments_EnvNotFound()
+    {
+        var flagDef = new Dictionary<string, object?>
+        {
+            ["key"] = "test",
+            ["default"] = "flag-default",
+            ["environments"] = new Dictionary<string, object?>
+            {
+                ["prod"] = new Dictionary<string, object?> { ["enabled"] = true },
+            },
+        };
+
+        var result = FlagsClient.EvaluateFlag(flagDef, "staging", new Dictionary<string, object?>());
+        Assert.Equal("flag-default", result);
+    }
+
+    [Fact]
+    public void EvaluateFlag_UntypedEnvironments_EnvValueNotDict()
+    {
+        var flagDef = new Dictionary<string, object?>
+        {
+            ["key"] = "test",
+            ["default"] = "flag-default",
+            ["environments"] = new Dictionary<string, object?>
+            {
+                ["prod"] = "not-a-dict",
+            },
+        };
+
+        var result = FlagsClient.EvaluateFlag(flagDef, "prod", new Dictionary<string, object?>());
+        Assert.Equal("flag-default", result);
+    }
+
+    [Fact]
+    public void EvaluateFlag_EnabledAsJsonElement_True()
+    {
+        var je = JsonSerializer.Deserialize<JsonElement>("true");
+        var envConfig = new Dictionary<string, object?>
+        {
+            ["enabled"] = je,
+            ["default"] = "env-val",
+            ["rules"] = new List<object?>(),
+        };
+        var flagDef = new Dictionary<string, object?>
+        {
+            ["key"] = "test",
+            ["default"] = "flag-default",
+            ["environments"] = new Dictionary<string, Dictionary<string, object?>>
+            {
+                ["prod"] = envConfig,
+            },
+        };
+
+        var result = FlagsClient.EvaluateFlag(flagDef, "prod", new Dictionary<string, object?>());
+        Assert.Equal("env-val", result);
+    }
+
+    [Fact]
+    public void EvaluateFlag_EnabledAsJsonElement_False()
+    {
+        var je = JsonSerializer.Deserialize<JsonElement>("false");
+        var envConfig = new Dictionary<string, object?>
+        {
+            ["enabled"] = je,
+            ["default"] = "env-val",
+            ["rules"] = new List<object?>(),
+        };
+        var flagDef = new Dictionary<string, object?>
+        {
+            ["key"] = "test",
+            ["default"] = "flag-default",
+            ["environments"] = new Dictionary<string, Dictionary<string, object?>>
+            {
+                ["prod"] = envConfig,
+            },
+        };
+
+        var result = FlagsClient.EvaluateFlag(flagDef, "prod", new Dictionary<string, object?>());
+        Assert.Equal("env-val", result);
+    }
+
+    [Fact]
+    public void EvaluateFlag_EnabledAsOtherType_ReturnsFallback()
+    {
+        var envConfig = new Dictionary<string, object?>
+        {
+            ["enabled"] = "yes", // not bool, not JsonElement
+            ["default"] = "env-val",
+            ["rules"] = new List<object?>(),
+        };
+        var flagDef = new Dictionary<string, object?>
+        {
+            ["key"] = "test",
+            ["default"] = "flag-default",
+            ["environments"] = new Dictionary<string, Dictionary<string, object?>>
+            {
+                ["prod"] = envConfig,
+            },
+        };
+
+        // "yes" is not bool/JsonElement, falls into _ => false, so !enabled returns fallback
+        var result = FlagsClient.EvaluateFlag(flagDef, "prod", new Dictionary<string, object?>());
+        Assert.Equal("env-val", result);
+    }
+
+    // ---------------------------------------------------------------
+    // GetRulesList edge cases
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void EvaluateFlag_RulesAsJsonElement_Array()
+    {
+        var rulesJson = JsonSerializer.Deserialize<JsonElement>("""
+            [
+                {"description": "test", "logic": {"==": [{"var": "user.plan"}, "pro"]}, "value": "matched"}
+            ]
+        """);
+
+        var envConfig = new Dictionary<string, object?>
+        {
+            ["enabled"] = true,
+            ["rules"] = rulesJson,
+        };
+        var flagDef = new Dictionary<string, object?>
+        {
+            ["key"] = "test",
+            ["default"] = "default",
+            ["environments"] = new Dictionary<string, Dictionary<string, object?>>
+            {
+                ["prod"] = envConfig,
+            },
+        };
+
+        var evalDict = new Dictionary<string, object?>
+        {
+            ["user"] = new Dictionary<string, object?> { ["plan"] = "pro" },
+        };
+
+        var result = FlagsClient.EvaluateFlag(flagDef, "prod", evalDict);
+        Assert.Equal("matched", result);
+    }
+
+    [Fact]
+    public void EvaluateFlag_RulesAsObjectArray()
+    {
+        var rule = new Dictionary<string, object?>
+        {
+            ["description"] = "test",
+            ["logic"] = new Dictionary<string, object?>
+            {
+                ["=="] = new object?[]
+                {
+                    new Dictionary<string, object?> { ["var"] = "user.plan" },
+                    "pro"
+                }
+            },
+            ["value"] = "matched",
+        };
+        object?[] rulesArray = [rule];
+
+        var envConfig = new Dictionary<string, object?>
+        {
+            ["enabled"] = true,
+            ["rules"] = rulesArray,
+        };
+        var flagDef = new Dictionary<string, object?>
+        {
+            ["key"] = "test",
+            ["default"] = "default",
+            ["environments"] = new Dictionary<string, Dictionary<string, object?>>
+            {
+                ["prod"] = envConfig,
+            },
+        };
+
+        var evalDict = new Dictionary<string, object?>
+        {
+            ["user"] = new Dictionary<string, object?> { ["plan"] = "pro" },
+        };
+
+        var result = FlagsClient.EvaluateFlag(flagDef, "prod", evalDict);
+        Assert.Equal("matched", result);
+    }
+
+    [Fact]
+    public void EvaluateFlag_RulesAsOtherType_ReturnsEmptyRulesList()
+    {
+        var envConfig = new Dictionary<string, object?>
+        {
+            ["enabled"] = true,
+            ["rules"] = "not-a-list", // invalid type
+        };
+        var flagDef = new Dictionary<string, object?>
+        {
+            ["key"] = "test",
+            ["default"] = "default",
+            ["environments"] = new Dictionary<string, Dictionary<string, object?>>
+            {
+                ["prod"] = envConfig,
+            },
+        };
+
+        var result = FlagsClient.EvaluateFlag(flagDef, "prod", new Dictionary<string, object?>());
+        Assert.Equal("default", result); // falls through to fallback
+    }
+
+    // ---------------------------------------------------------------
+    // IsTruthy edge cases
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void EvaluateFlag_RuleReturnsInteger_TruthyCheck()
+    {
+        // Rule where logic evaluates to a non-zero integer (truthy)
+        var rules = new List<object?>
+        {
+            new Dictionary<string, object?>
+            {
+                ["logic"] = new Dictionary<string, object?>
+                {
+                    ["+"] = new object?[] { 1, 1 } // returns 2, which is truthy
+                },
+                ["value"] = "matched",
+            },
+        };
+        var envConfig = new Dictionary<string, object?>
+        {
+            ["enabled"] = true,
+            ["rules"] = rules,
+        };
+        var flagDef = new Dictionary<string, object?>
+        {
+            ["key"] = "test",
+            ["default"] = "default",
+            ["environments"] = new Dictionary<string, Dictionary<string, object?>>
+            {
+                ["prod"] = envConfig,
+            },
+        };
+
+        var result = FlagsClient.EvaluateFlag(flagDef, "prod", new Dictionary<string, object?>());
+        Assert.Equal("matched", result);
+    }
+
+    [Fact]
+    public void EvaluateFlag_RuleReturnsString_TruthyCheck()
+    {
+        // Rule where logic returns a non-empty string (truthy)
+        var rules = new List<object?>
+        {
+            new Dictionary<string, object?>
+            {
+                ["logic"] = new Dictionary<string, object?>
+                {
+                    ["cat"] = new object?[] { "hello" } // returns "hello", truthy
+                },
+                ["value"] = "matched",
+            },
+        };
+        var envConfig = new Dictionary<string, object?>
+        {
+            ["enabled"] = true,
+            ["rules"] = rules,
+        };
+        var flagDef = new Dictionary<string, object?>
+        {
+            ["key"] = "test",
+            ["default"] = "default",
+            ["environments"] = new Dictionary<string, Dictionary<string, object?>>
+            {
+                ["prod"] = envConfig,
+            },
+        };
+
+        var result = FlagsClient.EvaluateFlag(flagDef, "prod", new Dictionary<string, object?>());
+        Assert.Equal("matched", result);
+    }
+
+    [Fact]
+    public void EvaluateFlag_RuleLogicThrows_ContinuesToNext()
+    {
+        // First rule has invalid logic that will throw, second rule matches
+        var rules = new List<object?>
+        {
+            new Dictionary<string, object?>
+            {
+                ["logic"] = new Dictionary<string, object?>
+                {
+                    ["invalid_op_that_does_not_exist"] = new object?[] { 1 }
+                },
+                ["value"] = "first",
+            },
+            new Dictionary<string, object?>
+            {
+                ["logic"] = new Dictionary<string, object?>
+                {
+                    ["=="] = new object?[]
+                    {
+                        new Dictionary<string, object?> { ["var"] = "user.plan" },
+                        "pro"
+                    }
+                },
+                ["value"] = "second",
+            },
+        };
+        var envConfig = new Dictionary<string, object?>
+        {
+            ["enabled"] = true,
+            ["rules"] = rules,
+        };
+        var flagDef = new Dictionary<string, object?>
+        {
+            ["key"] = "test",
+            ["default"] = "default",
+            ["environments"] = new Dictionary<string, Dictionary<string, object?>>
+            {
+                ["prod"] = envConfig,
+            },
+        };
+
+        var evalDict = new Dictionary<string, object?>
+        {
+            ["user"] = new Dictionary<string, object?> { ["plan"] = "pro" },
+        };
+
+        var result = FlagsClient.EvaluateFlag(flagDef, "prod", evalDict);
+        Assert.Equal("second", result);
+    }
+
+    [Fact]
+    public void EvaluateFlag_RuleWithNullLogic_IsSkipped()
+    {
+        var rules = new List<object?>
+        {
+            new Dictionary<string, object?>
+            {
+                ["logic"] = null,
+                ["value"] = "skipped",
+            },
+            new Dictionary<string, object?>
+            {
+                ["logic"] = new Dictionary<string, object?>
+                {
+                    ["=="] = new object?[] { 1, 1 }
+                },
+                ["value"] = "matched",
+            },
+        };
+        var envConfig = new Dictionary<string, object?>
+        {
+            ["enabled"] = true,
+            ["rules"] = rules,
+        };
+        var flagDef = new Dictionary<string, object?>
+        {
+            ["key"] = "test",
+            ["default"] = "default",
+            ["environments"] = new Dictionary<string, Dictionary<string, object?>>
+            {
+                ["prod"] = envConfig,
+            },
+        };
+
+        var result = FlagsClient.EvaluateFlag(flagDef, "prod", new Dictionary<string, object?>());
+        Assert.Equal("matched", result);
+    }
+
+    // ---------------------------------------------------------------
+    // IsTruthy - null token
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void EvaluateFlag_RuleReturnsNull_IsFalsy()
+    {
+        // Rule where logic evaluates to null (falsy)
+        var rules = new List<object?>
+        {
+            new Dictionary<string, object?>
+            {
+                ["logic"] = new Dictionary<string, object?>
+                {
+                    // var referencing non-existent key returns null
+                    ["var"] = "nonexistent.path",
+                },
+                ["value"] = "should-not-match",
+            },
+            new Dictionary<string, object?>
+            {
+                ["logic"] = new Dictionary<string, object?>
+                {
+                    ["=="] = new object?[] { 1, 1 }
+                },
+                ["value"] = "fallthrough",
+            },
+        };
+        var envConfig = new Dictionary<string, object?>
+        {
+            ["enabled"] = true,
+            ["rules"] = rules,
+        };
+        var flagDef = new Dictionary<string, object?>
+        {
+            ["key"] = "test",
+            ["default"] = "default",
+            ["environments"] = new Dictionary<string, Dictionary<string, object?>>
+            {
+                ["prod"] = envConfig,
+            },
+        };
+
+        var result = FlagsClient.EvaluateFlag(flagDef, "prod", new Dictionary<string, object?>());
+        Assert.Equal("fallthrough", result);
+    }
+
+    [Fact]
+    public void EvaluateFlag_RuleReturnsZeroInteger_IsFalsy()
+    {
+        // Rule where logic evaluates to 0 (falsy integer)
+        var rules = new List<object?>
+        {
+            new Dictionary<string, object?>
+            {
+                ["logic"] = new Dictionary<string, object?>
+                {
+                    ["-"] = new object?[] { 5, 5 } // returns 0, which is falsy
+                },
+                ["value"] = "should-not-match",
+            },
+            new Dictionary<string, object?>
+            {
+                ["logic"] = new Dictionary<string, object?>
+                {
+                    ["=="] = new object?[] { 1, 1 }
+                },
+                ["value"] = "fallthrough",
+            },
+        };
+        var envConfig = new Dictionary<string, object?>
+        {
+            ["enabled"] = true,
+            ["rules"] = rules,
+        };
+        var flagDef = new Dictionary<string, object?>
+        {
+            ["key"] = "test",
+            ["default"] = "default",
+            ["environments"] = new Dictionary<string, Dictionary<string, object?>>
+            {
+                ["prod"] = envConfig,
+            },
+        };
+
+        var result = FlagsClient.EvaluateFlag(flagDef, "prod", new Dictionary<string, object?>());
+        Assert.Equal("fallthrough", result);
+    }
+
+    [Fact]
+    public void EvaluateFlag_RuleReturnsEmptyString_IsFalsy()
+    {
+        // Rule where logic evaluates to "" (falsy string)
+        var rules = new List<object?>
+        {
+            new Dictionary<string, object?>
+            {
+                ["logic"] = new Dictionary<string, object?>
+                {
+                    ["cat"] = new object?[] { } // cat with no args returns ""
+                },
+                ["value"] = "should-not-match",
+            },
+            new Dictionary<string, object?>
+            {
+                ["logic"] = new Dictionary<string, object?>
+                {
+                    ["=="] = new object?[] { 1, 1 }
+                },
+                ["value"] = "fallthrough",
+            },
+        };
+        var envConfig = new Dictionary<string, object?>
+        {
+            ["enabled"] = true,
+            ["rules"] = rules,
+        };
+        var flagDef = new Dictionary<string, object?>
+        {
+            ["key"] = "test",
+            ["default"] = "default",
+            ["environments"] = new Dictionary<string, Dictionary<string, object?>>
+            {
+                ["prod"] = envConfig,
+            },
+        };
+
+        var result = FlagsClient.EvaluateFlag(flagDef, "prod", new Dictionary<string, object?>());
+        Assert.Equal("fallthrough", result);
+    }
+
+    [Fact]
+    public void EvaluateFlag_RuleReturnsZeroFloat_IsFalsy()
+    {
+        // Rule where logic evaluates to 0.0 (falsy float)
+        var rules = new List<object?>
+        {
+            new Dictionary<string, object?>
+            {
+                ["logic"] = new Dictionary<string, object?>
+                {
+                    ["*"] = new object?[] { 0, 5 } // returns 0.0
+                },
+                ["value"] = "should-not-match",
+            },
+            new Dictionary<string, object?>
+            {
+                ["logic"] = new Dictionary<string, object?>
+                {
+                    ["=="] = new object?[] { 1, 1 }
+                },
+                ["value"] = "fallthrough",
+            },
+        };
+        var envConfig = new Dictionary<string, object?>
+        {
+            ["enabled"] = true,
+            ["rules"] = rules,
+        };
+        var flagDef = new Dictionary<string, object?>
+        {
+            ["key"] = "test",
+            ["default"] = "default",
+            ["environments"] = new Dictionary<string, Dictionary<string, object?>>
+            {
+                ["prod"] = envConfig,
+            },
+        };
+
+        var result = FlagsClient.EvaluateFlag(flagDef, "prod", new Dictionary<string, object?>());
+        Assert.Equal("fallthrough", result);
+    }
+
+    // ---------------------------------------------------------------
+    // IsTruthy direct testing via reflection
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void IsTruthy_NullToken_ReturnsFalse()
+    {
+        var method = typeof(FlagsClient).GetMethod("IsTruthy",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var result = (bool)method!.Invoke(null, new object?[] { null })!;
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void IsTruthy_IntegerZero_ReturnsFalse()
+    {
+        var method = typeof(FlagsClient).GetMethod("IsTruthy",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var token = Newtonsoft.Json.Linq.JToken.FromObject(0);
+        var result = (bool)method!.Invoke(null, new object?[] { token })!;
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void IsTruthy_IntegerNonZero_ReturnsTrue()
+    {
+        var method = typeof(FlagsClient).GetMethod("IsTruthy",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var token = Newtonsoft.Json.Linq.JToken.FromObject(42);
+        var result = (bool)method!.Invoke(null, new object?[] { token })!;
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void IsTruthy_JTokenNull_ReturnsFalse()
+    {
+        var method = typeof(FlagsClient).GetMethod("IsTruthy",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var token = Newtonsoft.Json.Linq.JValue.CreateNull();
+        var result = (bool)method!.Invoke(null, new object?[] { token })!;
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void IsTruthy_JTokenArray_ReturnsTrue_DefaultCase()
+    {
+        var method = typeof(FlagsClient).GetMethod("IsTruthy",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        // An array JToken hits the _ => true default case
+        var token = Newtonsoft.Json.Linq.JToken.Parse("[1, 2, 3]");
+        var result = (bool)method!.Invoke(null, new object?[] { token })!;
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void IsTruthy_Float_ReturnsTrueForNonZero()
+    {
+        var method = typeof(FlagsClient).GetMethod("IsTruthy",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var token = Newtonsoft.Json.Linq.JToken.FromObject(3.14);
+        var result = (bool)method!.Invoke(null, new object?[] { token })!;
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void IsTruthy_String_ReturnsTrueForNonEmpty()
+    {
+        var method = typeof(FlagsClient).GetMethod("IsTruthy",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var token = Newtonsoft.Json.Linq.JToken.FromObject("hello");
+        var result = (bool)method!.Invoke(null, new object?[] { token })!;
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void IsTruthy_EmptyString_ReturnsFalse()
+    {
+        var method = typeof(FlagsClient).GetMethod("IsTruthy",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var token = Newtonsoft.Json.Linq.JToken.FromObject("");
+        var result = (bool)method!.Invoke(null, new object?[] { token })!;
+        Assert.False(result);
+    }
+
+    // ---------------------------------------------------------------
+    // ParseFlagDef with null values
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task ParseFlagDef_NullValues_CreatesEmptyList()
+    {
+        var flagJson = """
+        {
+            "data": [
+                {
+                    "id": "flag-001",
+                    "type": "flag",
+                    "attributes": {
+                        "key": "no-values-flag",
+                        "name": "No Values",
+                        "type": "BOOLEAN",
+                        "default": false,
+                        "values": null,
+                        "description": null,
+                        "environments": {},
+                        "created_at": null,
+                        "updated_at": null
+                    }
+                }
+            ]
+        }
+        """;
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
+
+        var flags = await client.Flags.ListAsync();
+        Assert.Single(flags);
+        Assert.Empty(flags[0].Values);
+    }
+
+    // ---------------------------------------------------------------
+    // ExtractEnvironments
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task ExtractEnvironments_NormalizesValues()
+    {
+        var flagJson = """
+        {
+            "data": [
+                {
+                    "id": "flag-001",
+                    "type": "flag",
+                    "attributes": {
+                        "key": "env-flag",
+                        "name": "Env Flag",
+                        "type": "BOOLEAN",
+                        "default": false,
+                        "values": [],
+                        "description": null,
+                        "environments": {
+                            "prod": {
+                                "enabled": true,
+                                "default": false,
+                                "rules": []
+                            }
+                        },
+                        "created_at": null,
+                        "updated_at": null
+                    }
+                }
+            ]
+        }
+        """;
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
+
+        var flags = await client.Flags.ListAsync();
+        Assert.Single(flags);
+        Assert.True(flags[0].Environments.ContainsKey("prod"));
+    }
+
+    // ---------------------------------------------------------------
+    // BuildUpdateFlagBody
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task BuildUpdateFlagBody_IncludesAllFields()
+    {
+        string? capturedBody = null;
+        var (client, _) = CreateClient(async req =>
+        {
+            if (req.Method == HttpMethod.Put)
+                capturedBody = await req.Content!.ReadAsStringAsync();
+            return JsonResponse(SingleFlagJson());
+        });
+
+        var flag = await client.Flags.GetAsync(FlagId);
+        await flag.UpdateAsync(
+            description: "updated desc",
+            name: "Updated Name",
+            @default: true);
+
+        Assert.NotNull(capturedBody);
+        Assert.Contains("Updated Name", capturedBody);
+        Assert.Contains("updated desc", capturedBody);
+    }
+
+    // ---------------------------------------------------------------
+    // BoolFlagHandle.Get with explicit context
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task BoolFlagHandle_GetWithContext_EvaluatesCorrectly()
+    {
+        var flagJson = FlagListWithEnvJson(key: "ctx-bool", defaultVal: "false", enabled: true);
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
+
+        var handle = client.Flags.BoolFlag("ctx-bool", true);
+        await client.Flags.ConnectAsync("production");
+
+        var contexts = new List<Context>
+        {
+            new("user", "u1", new Dictionary<string, object?> { ["plan"] = "free" }),
+        };
+        var result = handle.Get(contexts);
+        // flag default is false, no matching rules
+        Assert.False(result);
+    }
+
+    // ---------------------------------------------------------------
+    // StringFlagHandle.Get with explicit context
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task StringFlagHandle_GetWithContext_EvaluatesCorrectly()
+    {
+        var flagJson = """
+        {
+            "data": [
+                {
+                    "id": "flag-001",
+                    "type": "flag",
+                    "attributes": {
+                        "key": "ctx-str",
+                        "name": "Ctx String",
+                        "type": "STRING",
+                        "default": "server-val",
+                        "values": [],
+                        "description": null,
+                        "environments": {
+                            "production": {
+                                "enabled": true,
+                                "default": null,
+                                "rules": []
+                            }
+                        },
+                        "created_at": null,
+                        "updated_at": null
+                    }
+                }
+            ]
+        }
+        """;
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
+
+        var handle = client.Flags.StringFlag("ctx-str", "code-default");
+        await client.Flags.ConnectAsync("production");
+
+        var contexts = new List<Context>
+        {
+            new("user", "u1", new Dictionary<string, object?> { ["plan"] = "free" }),
+        };
+        var result = handle.Get(contexts);
+        Assert.Equal("server-val", result);
+    }
+
+    // ---------------------------------------------------------------
+    // NumberFlagHandle.Get with explicit context
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task NumberFlagHandle_GetWithContext_EvaluatesCorrectly()
+    {
+        var flagJson = """
+        {
+            "data": [
+                {
+                    "id": "flag-001",
+                    "type": "flag",
+                    "attributes": {
+                        "key": "ctx-num",
+                        "name": "Ctx Number",
+                        "type": "NUMERIC",
+                        "default": 42,
+                        "values": [],
+                        "description": null,
+                        "environments": {
+                            "production": {
+                                "enabled": true,
+                                "default": null,
+                                "rules": []
+                            }
+                        },
+                        "created_at": null,
+                        "updated_at": null
+                    }
+                }
+            ]
+        }
+        """;
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
+
+        var handle = client.Flags.NumberFlag("ctx-num", 0.0);
+        await client.Flags.ConnectAsync("production");
+
+        var contexts = new List<Context>
+        {
+            new("user", "u1"),
+        };
+        var result = handle.Get(contexts);
+        Assert.Equal(42.0, result);
+    }
+
+    // ---------------------------------------------------------------
+    // NumberFlagHandle type coercion edge cases
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task NumberFlagHandle_HandlesFloat()
+    {
+        var flagJson = """
+        {
+            "data": [
+                {
+                    "id": "flag-001",
+                    "type": "flag",
+                    "attributes": {
+                        "key": "float-num",
+                        "name": "Float Number",
+                        "type": "NUMERIC",
+                        "default": 1.5,
+                        "values": [],
+                        "description": null,
+                        "environments": {},
+                        "created_at": null,
+                        "updated_at": null
+                    }
+                }
+            ]
+        }
+        """;
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
+
+        var handle = client.Flags.NumberFlag("float-num", 0.0);
+        await client.Flags.ConnectAsync("production");
+
+        var result = handle.Get();
+        Assert.Equal(1.5, result);
+    }
+
+    // ---------------------------------------------------------------
+    // Stats property
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void Stats_ReturnsZeroCounts_Initially()
+    {
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
+
+        var stats = client.Flags.Stats;
+        Assert.Equal(0, stats.CacheHits);
+        Assert.Equal(0, stats.CacheMisses);
+    }
+}

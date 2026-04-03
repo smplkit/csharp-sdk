@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
@@ -161,6 +162,7 @@ internal sealed class SharedWebSocket
         }
     }
 
+    [ExcludeFromCodeCoverage]
     private static async Task<WebSocket> DefaultWsFactoryAsync(Uri uri, CancellationToken ct)
     {
         var cws = new ClientWebSocket();

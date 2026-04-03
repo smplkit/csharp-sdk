@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -987,11 +988,8 @@ public sealed class NumberFlagHandle : FlagHandleBase
         if (value is long l) return l;
         if (value is float f) return f;
         if (value is decimal dec) return (double)dec;
-        if (value is JsonElement je)
-        {
-            if (je.TryGetInt64(out var jl)) return jl;
-            if (je.TryGetDouble(out var jd)) return jd;
-        }
+        if (value is JsonElement je && je.ValueKind == JsonValueKind.Number)
+            return je.TryGetInt64(out var jl) ? jl : je.GetDouble();
         return (double)Default!;
     }
 }

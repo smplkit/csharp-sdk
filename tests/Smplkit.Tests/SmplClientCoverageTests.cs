@@ -97,6 +97,66 @@ public class SmplClientCoverageTests
     // MockHttpMessageHandler — tracks multiple requests
     // ------------------------------------------------------------------
 
+    // ------------------------------------------------------------------
+    // Dispose with shared WebSocket active — stops WebSocket
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task Dispose_WithActiveWebSocket_StopsWebSocket()
+    {
+        var flagJson = """
+        {
+            "data": [
+                {
+                    "id": "flag-001",
+                    "type": "flag",
+                    "attributes": {
+                        "key": "ws-flag",
+                        "name": "WS Flag",
+                        "type": "BOOLEAN",
+                        "default": false,
+                        "values": [],
+                        "description": null,
+                        "environments": {},
+                        "created_at": null,
+                        "updated_at": null
+                    }
+                }
+            ]
+        }
+        """;
+        var handler = new MockHttpMessageHandler(_ =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(flagJson, System.Text.Encoding.UTF8, "application/vnd.api+json"),
+            }));
+        var httpClient = new HttpClient(handler);
+        var client = new SmplClient(
+            new SmplClientOptions { ApiKey = "sk_test_key" },
+            httpClient);
+
+        // Trigger WebSocket creation by calling ConnectAsync
+        // The real WS will fail to connect (no server), but EnsureSharedWebSocket
+        // will be called, creating _sharedWs. The connect will fail, but Dispose
+        // should still try to stop it.
+        try
+        {
+            await client.Flags.ConnectAsync("production", timeout: 1);
+        }
+        catch
+        {
+            // Expected - no real WS server
+        }
+
+        // Now Dispose should hit the _sharedWs != null path
+        client.Dispose();
+
+        // Verify double-dispose is safe
+        client.Dispose();
+
+        httpClient.Dispose();
+    }
+
     [Fact]
     public async Task MockHandler_TracksAllRequests()
     {
