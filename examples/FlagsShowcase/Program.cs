@@ -34,7 +34,7 @@ if (string.IsNullOrWhiteSpace(apiKey))
 // Dispatch
 // ---------------------------------------------------------------------------
 
-using var client = new SmplClient(new SmplClientOptions { ApiKey = apiKey });
+using var client = new SmplClient(new SmplClientOptions { ApiKey = apiKey, Environment = "production" });
 
 if (args.Length > 0 && args[0] == "management")
 {

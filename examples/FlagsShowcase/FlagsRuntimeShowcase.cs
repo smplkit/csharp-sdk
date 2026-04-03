@@ -128,7 +128,7 @@ public static class FlagsRuntimeShowcase
         // ==============================================================
         Section("4. Connect to Environment");
 
-        await client.Flags.ConnectAsync("production", timeout: 10);
+        await client.ConnectAsync();
         Step($"Connected to production — status: {client.Flags.ConnectionStatus}");
 
         // ==============================================================
@@ -265,24 +265,28 @@ public static class FlagsRuntimeShowcase
         // ==============================================================
         Section("10. Environment Comparison");
 
-        // Disconnect from production to compare environments via Tier 1
+        // Disconnect from production to compare environments via separate clients
         await client.Flags.DisconnectAsync();
         Step("Disconnected from production");
 
+        var apiKey = System.Environment.GetEnvironmentVariable("SMPLKIT_API_KEY") ?? "";
+
         foreach (var env in new[] { "development", "staging", "production" })
         {
-            await client.Flags.ConnectAsync(env, timeout: 10);
+            using var envClient = new SmplClient(new SmplClientOptions { ApiKey = apiKey, Environment = env });
 
-            // Set context provider back to Alice for consistent comparison
-            client.Flags.SetContextProvider(() => new List<Context> { currentUser });
+            // Set context provider to Alice for consistent comparison
+            envClient.Flags.SetContextProvider(() => new List<Context> { currentUser });
 
-            var envCheckout = checkoutV2.Get();
-            var envBanner = bannerColor.Get();
-            var envRetries = maxRetries.Get();
+            await envClient.ConnectAsync();
+
+            var envCheckout = envClient.Flags.BoolFlag("checkout-v2", defaultValue: false).Get();
+            var envBanner = envClient.Flags.StringFlag("banner-color", defaultValue: "blue").Get();
+            var envRetries = envClient.Flags.NumberFlag("max-retries", defaultValue: 3).Get();
 
             Step($"[{env,-12}] checkout-v2={envCheckout}, banner-color={envBanner}, max-retries={envRetries}");
 
-            await client.Flags.DisconnectAsync();
+            await envClient.Flags.DisconnectAsync();
         }
 
         // ==============================================================
