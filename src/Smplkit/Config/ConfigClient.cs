@@ -6,8 +6,8 @@ namespace Smplkit.Config;
 
 /// <summary>
 /// Client for the smplkit Config service. Provides CRUD operations on
-/// configuration resources plus runtime value resolution via
-/// <see cref="ConnectAsync"/>.
+/// configuration resources plus prescriptive value access after
+/// <see cref="SmplClient.ConnectAsync"/>.
 /// </summary>
 public sealed class ConfigClient
 {
@@ -18,12 +18,14 @@ public sealed class ConfigClient
     private readonly SmplClient? _parent;
     private volatile bool _prescriptiveConnected;
     private Dictionary<string, Dictionary<string, object?>> _configCache = new();
+    private readonly List<(Action<ConfigChangeEvent> Callback, string? ConfigKey, string? ItemKey)> _listeners = new();
+    private readonly object _listenerLock = new();
 
     /// <summary>
     /// Initializes a new instance of <see cref="ConfigClient"/>.
     /// </summary>
     /// <param name="transport">The HTTP transport layer.</param>
-    /// <param name="apiKey">The API key, forwarded to <see cref="ConfigRuntime"/> for WebSocket auth.</param>
+    /// <param name="apiKey">The API key.</param>
     /// <param name="parent">The parent <see cref="SmplClient"/>, if any.</param>
     internal ConfigClient(Transport transport, string apiKey, SmplClient? parent = null)
     {
@@ -198,51 +200,8 @@ public sealed class ConfigClient
         }
     }
 
-    /// <summary>
-    /// Connect to a config for runtime value resolution. Eagerly fetches the
-    /// config and its full parent chain, resolves values for the given
-    /// environment via deep merge, opens a background WebSocket for real-time
-    /// updates, and returns a fully populated <see cref="ConfigRuntime"/>.
-    /// </summary>
-    /// <param name="id">The config UUID.</param>
-    /// <param name="environment">The environment to resolve for (e.g. <c>"production"</c>).</param>
-    /// <param name="timeout">Maximum seconds to wait for the initial HTTP fetch.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>A <see cref="ConfigRuntime"/> ready for synchronous value reads.</returns>
-    /// <exception cref="SmplTimeoutException">If the fetch exceeds <paramref name="timeout"/> seconds.</exception>
-    public async Task<ConfigRuntime> ConnectAsync(
-        string id,
-        string environment,
-        int timeout = 30,
-        CancellationToken ct = default)
-    {
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(timeout));
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
-
-        try
-        {
-            var (configKey, chain) = await BuildChainAsync(id, linkedCts.Token).ConfigureAwait(false);
-
-            return new ConfigRuntime(
-                configKey: configKey,
-                configId: id,
-                environment: environment,
-                chain: chain,
-                apiKey: _apiKey,
-                fetchChainFn: async fetchCt =>
-                {
-                    var (_, freshChain) = await BuildChainAsync(id, fetchCt).ConfigureAwait(false);
-                    return freshChain;
-                });
-        }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-        {
-            throw new SmplTimeoutException($"ConnectAsync timed out after {timeout} seconds.");
-        }
-    }
-
     // ------------------------------------------------------------------
-    // Prescriptive access: ConnectInternalAsync + GetValue
+    // Prescriptive access: ConnectInternalAsync + typed accessors
     // ------------------------------------------------------------------
 
     /// <summary>
@@ -309,6 +268,144 @@ public sealed class ConfigClient
         return values.TryGetValue(itemKey, out var value) ? value : null;
     }
 
+    /// <summary>
+    /// Return the value for <paramref name="itemKey"/> if it is a <see cref="string"/>,
+    /// otherwise <paramref name="defaultValue"/>.
+    /// </summary>
+    /// <exception cref="SmplNotConnectedException">If <see cref="SmplClient.ConnectAsync"/>
+    /// has not been called.</exception>
+    public string? GetString(string configKey, string itemKey, string? defaultValue = null)
+    {
+        var val = GetValue(configKey, itemKey);
+        return val is string s ? s : defaultValue;
+    }
+
+    /// <summary>
+    /// Return the value for <paramref name="itemKey"/> if it is numeric and integral,
+    /// otherwise <paramref name="defaultValue"/>.
+    /// </summary>
+    /// <exception cref="SmplNotConnectedException">If <see cref="SmplClient.ConnectAsync"/>
+    /// has not been called.</exception>
+    public int? GetInt(string configKey, string itemKey, int? defaultValue = null)
+    {
+        var val = GetValue(configKey, itemKey);
+        return val switch
+        {
+            long l when l >= int.MinValue && l <= int.MaxValue => (int)l,
+            double d when d == Math.Truncate(d) && d >= int.MinValue && d <= int.MaxValue
+                => (int)d,
+            _ => defaultValue,
+        };
+    }
+
+    /// <summary>
+    /// Return the value for <paramref name="itemKey"/> if it is a <see cref="bool"/>,
+    /// otherwise <paramref name="defaultValue"/>.
+    /// </summary>
+    /// <exception cref="SmplNotConnectedException">If <see cref="SmplClient.ConnectAsync"/>
+    /// has not been called.</exception>
+    public bool? GetBool(string configKey, string itemKey, bool? defaultValue = null)
+    {
+        var val = GetValue(configKey, itemKey);
+        return val is bool b ? b : defaultValue;
+    }
+
+    /// <summary>
+    /// Re-fetches all configs, re-resolves values for the current environment,
+    /// and fires change listeners for any values that differ from the previous cache.
+    /// </summary>
+    /// <exception cref="SmplNotConnectedException">If <see cref="SmplClient.ConnectAsync"/>
+    /// has not been called.</exception>
+    public async Task RefreshAsync(CancellationToken ct = default)
+    {
+        if (!_prescriptiveConnected)
+            throw new SmplNotConnectedException();
+
+        var environment = _parent?.Environment
+            ?? throw new SmplException("No environment set.");
+
+        var allConfigs = await ListAsync(ct).ConfigureAwait(false);
+        var configById = new Dictionary<string, Config>();
+        foreach (var cfg in allConfigs)
+            configById[cfg.Id] = cfg;
+
+        var newCache = new Dictionary<string, Dictionary<string, object?>>();
+        foreach (var cfg in allConfigs)
+        {
+            var chain = new List<ConfigChainEntry> { Resolver.ToChainEntry(cfg) };
+            var current = cfg;
+            while (current.Parent is not null && configById.TryGetValue(current.Parent, out var parent))
+            {
+                chain.Add(Resolver.ToChainEntry(parent));
+                current = parent;
+            }
+            newCache[cfg.Key] = Resolver.Resolve(chain, environment);
+        }
+
+        var oldCache = _configCache;
+        _configCache = newCache;
+        DiffAndFire(oldCache, newCache, "manual");
+    }
+
+    /// <summary>
+    /// Register a listener that fires when a config value changes (on Refresh).
+    /// </summary>
+    /// <param name="callback">Called with a <see cref="ConfigChangeEvent"/> on each change.</param>
+    /// <param name="configKey">If provided, fires only for changes to this config.</param>
+    /// <param name="itemKey">If provided, fires only for changes to this specific item.</param>
+    public void OnChange(Action<ConfigChangeEvent> callback, string? configKey = null, string? itemKey = null)
+    {
+        lock (_listenerLock)
+        {
+            _listeners.Add((callback, configKey, itemKey));
+        }
+    }
+
+    /// <summary>
+    /// Compare old and new caches and fire matching change listeners.
+    /// </summary>
+    internal void DiffAndFire(
+        Dictionary<string, Dictionary<string, object?>> oldCache,
+        Dictionary<string, Dictionary<string, object?>> newCache,
+        string source)
+    {
+        List<(Action<ConfigChangeEvent> Callback, string? ConfigKey, string? ItemKey)> listeners;
+        lock (_listenerLock)
+        {
+            listeners = new(_listeners);
+        }
+
+        if (listeners.Count == 0) return;
+
+        var allConfigKeys = new HashSet<string>(oldCache.Keys);
+        allConfigKeys.UnionWith(newCache.Keys);
+
+        foreach (var cfgKey in allConfigKeys)
+        {
+            var oldItems = oldCache.GetValueOrDefault(cfgKey) ?? new Dictionary<string, object?>();
+            var newItems = newCache.GetValueOrDefault(cfgKey) ?? new Dictionary<string, object?>();
+
+            var allItemKeys = new HashSet<string>(oldItems.Keys);
+            allItemKeys.UnionWith(newItems.Keys);
+
+            foreach (var iKey in allItemKeys)
+            {
+                var oldVal = oldItems.GetValueOrDefault(iKey);
+                var newVal = newItems.GetValueOrDefault(iKey);
+                if (Equals(oldVal, newVal)) continue;
+
+                var evt = new ConfigChangeEvent(cfgKey, iKey, oldVal, newVal, source);
+                foreach (var (callback, filterCfgKey, filterItemKey) in listeners)
+                {
+                    if (filterCfgKey is not null && filterCfgKey != cfgKey) continue;
+                    if (filterItemKey is not null && filterItemKey != iKey) continue;
+                    try { callback(evt); }
+                    catch { /* Ignore listener exceptions */ }
+                }
+            }
+        }
+    }
+
     // ------------------------------------------------------------------
     // Private helpers
     // ------------------------------------------------------------------
@@ -344,25 +441,6 @@ public sealed class ConfigClient
             Items = newItems,
             Environments = newEnvs,
         }, ct).ConfigureAwait(false);
-    }
-
-    /// <summary>Walk the parent chain starting at <paramref name="id"/> and return
-    /// the config key and chain entries ordered child-first, root-last.</summary>
-    private async Task<(string ConfigKey, List<ConfigChainEntry> Chain)> BuildChainAsync(
-        string id, CancellationToken ct = default)
-    {
-        var config = await GetAsync(id, ct).ConfigureAwait(false);
-        var chain = new List<ConfigChainEntry> { Resolver.ToChainEntry(config) };
-
-        var current = config;
-        while (current.Parent is not null)
-        {
-            var parent = await GetAsync(current.Parent, ct).ConfigureAwait(false);
-            chain.Add(Resolver.ToChainEntry(parent));
-            current = parent;
-        }
-
-        return (config.Key, chain);
     }
 
     /// <summary>Convert <see cref="Config.Environments"/> (already extracted as raw values

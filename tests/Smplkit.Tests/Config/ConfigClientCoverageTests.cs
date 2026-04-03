@@ -64,56 +64,6 @@ public class ConfigClientCoverageTests
     }
 
     // ------------------------------------------------------------------
-    // ConnectAsync — timeout with non-cancelled caller token
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public async Task ConnectAsync_InternalTimeout_ThrowsSmplTimeoutException()
-    {
-        var (client, _) = CreateClient(async _ =>
-        {
-            await Task.Delay(TimeSpan.FromSeconds(10));
-            return JsonResponse(ConfigJsonWithValuesAndEnvs());
-        });
-
-        var ex = await Assert.ThrowsAsync<SmplTimeoutException>(
-            () => client.Config.ConnectAsync("cfg-1", "production", timeout: 1));
-
-        Assert.Contains("timed out", ex.Message);
-        Assert.Contains("1 seconds", ex.Message);
-    }
-
-    // ------------------------------------------------------------------
-    // ConnectAsync — HTTP error during chain building
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public async Task ConnectAsync_NotFound_ThrowsSmplNotFoundException()
-    {
-        var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(
-                """{"errors":[{"detail":"Not found"}]}""",
-                HttpStatusCode.NotFound)));
-
-        await Assert.ThrowsAsync<SmplNotFoundException>(
-            () => client.Config.ConnectAsync("nonexistent", "production"));
-    }
-
-    // ------------------------------------------------------------------
-    // ConnectAsync — connection error during chain building
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public async Task ConnectAsync_ConnectionError_ThrowsSmplConnectionException()
-    {
-        var (client, _) = CreateClient(_ =>
-            throw new HttpRequestException("Connection refused"));
-
-        await Assert.ThrowsAsync<SmplConnectionException>(
-            () => client.Config.ConnectAsync("cfg-1", "production"));
-    }
-
-    // ------------------------------------------------------------------
     // SetValuesAsync — error during GET phase
     // ------------------------------------------------------------------
 
@@ -196,34 +146,6 @@ public class ConfigClientCoverageTests
 
         await Assert.ThrowsAsync<SmplException>(
             () => client.Config.SetValueAsync("cfg-1", "debug", true, environment: "production"));
-    }
-
-    // ------------------------------------------------------------------
-    // BuildChainAsync — multi-level parent chain with error on parent fetch
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public async Task ConnectAsync_ParentFetchFails_ThrowsSmplException()
-    {
-        int requestCount = 0;
-        var (client, _) = CreateClient(_ =>
-        {
-            requestCount++;
-            if (requestCount == 1)
-            {
-                // Child config has a parent
-                return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    id: "child", parent: "parent-id",
-                    valuesJson: """{"child_key": {"value": "val", "type": "STRING"}}""")));
-            }
-            // Parent fetch fails
-            return Task.FromResult(JsonResponse(
-                """{"errors":[{"detail":"Not found"}]}""",
-                HttpStatusCode.NotFound));
-        });
-
-        await Assert.ThrowsAsync<SmplNotFoundException>(
-            () => client.Config.ConnectAsync("child", "production"));
     }
 
     // ------------------------------------------------------------------
@@ -340,40 +262,6 @@ public class ConfigClientCoverageTests
         Assert.NotNull(putBody);
         // Base values should be preserved (timeout: 30, retries: 3)
         Assert.Contains("retries", putBody);
-    }
-
-    // ------------------------------------------------------------------
-    // ConnectAsync — runtime stats match chain
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public async Task ConnectAsync_RuntimeStats_MatchChain()
-    {
-        var (client, _) = CreateClient(req =>
-        {
-            var url = req.RequestUri!.AbsoluteUri;
-            if (url.Contains("child"))
-            {
-                return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    id: "child", parent: "parent",
-                    valuesJson: """{"child_key": {"value": "c", "type": "STRING"}}""")));
-            }
-            return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
-                id: "parent",
-                valuesJson: """{"parent_key": {"value": "p", "type": "STRING"}}""")));
-        });
-
-        var runtime = await client.Config.ConnectAsync("child", "production");
-        try
-        {
-            var stats = runtime.Stats();
-            Assert.Equal(2, stats.FetchCount); // 2 entries in chain
-            Assert.NotNull(stats.LastFetchAt);
-        }
-        finally
-        {
-            await runtime.DisposeAsync();
-        }
     }
 
     // ------------------------------------------------------------------
@@ -505,21 +393,6 @@ public class ConfigClientCoverageTests
         Assert.NotNull(putBody);
         Assert.Contains("My config desc", putBody);
         Assert.Contains("parent-uuid", putBody);
-    }
-
-    // ------------------------------------------------------------------
-    // ConnectAsync — runtime can be disposed immediately
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public async Task ConnectAsync_ImmediateDispose_DoesNotThrow()
-    {
-        var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
-                valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}"""))));
-
-        var runtime = await client.Config.ConnectAsync("cfg-1", "production");
-        await runtime.DisposeAsync();
     }
 
     // ------------------------------------------------------------------

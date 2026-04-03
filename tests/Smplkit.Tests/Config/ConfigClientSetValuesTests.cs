@@ -367,131 +367,6 @@ public class ConfigClientSetValuesTests
     }
 
     // ------------------------------------------------------------------
-    // ConnectAsync
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public async Task ConnectAsync_ReturnsConfigRuntime()
-    {
-        var (client, _) = CreateClient(req =>
-        {
-            return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
-                valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
-                environmentsJson: """{"production": {"values": {"timeout": {"value": 60}}}}""")));
-        });
-
-        var runtime = await client.Config.ConnectAsync("cfg-1", "production");
-
-        try
-        {
-            Assert.NotNull(runtime);
-            Assert.Equal(60L, runtime.Get("timeout")); // env override
-        }
-        finally
-        {
-            await runtime.DisposeAsync();
-        }
-    }
-
-    [Fact]
-    public async Task ConnectAsync_WithParentChain_ResolvesInheritance()
-    {
-        int requestCount = 0;
-
-        var (client, _) = CreateClient(req =>
-        {
-            requestCount++;
-            var url = req.RequestUri!.ToString();
-
-            if (url.Contains("child-id"))
-            {
-                return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    id: "child-id",
-                    parent: "parent-id",
-                    valuesJson: """{"child_key": {"value": "child_val", "type": "STRING"}}""")));
-            }
-            else if (url.Contains("parent-id"))
-            {
-                return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    id: "parent-id",
-                    valuesJson: """{"parent_key": {"value": "parent_val", "type": "STRING"}, "child_key": {"value": "overridden", "type": "STRING"}}""")));
-            }
-
-            return Task.FromResult(JsonResponse("{}", HttpStatusCode.NotFound));
-        });
-
-        var runtime = await client.Config.ConnectAsync("child-id", "production");
-
-        try
-        {
-            Assert.Equal("child_val", runtime.Get("child_key")); // child wins
-            Assert.Equal("parent_val", runtime.Get("parent_key")); // inherited
-            Assert.True(requestCount >= 2); // At least child + parent fetched
-        }
-        finally
-        {
-            await runtime.DisposeAsync();
-        }
-    }
-
-    [Fact]
-    public async Task ConnectAsync_TimeoutExceeded_ThrowsSmplTimeoutException()
-    {
-        var (client, _) = CreateClient(async _ =>
-        {
-            // Simulate a long delay
-            await Task.Delay(TimeSpan.FromSeconds(10));
-            return JsonResponse(ConfigJsonWithValuesAndEnvs());
-        });
-
-        await Assert.ThrowsAsync<SmplTimeoutException>(
-            () => client.Config.ConnectAsync("cfg-1", "production", timeout: 1));
-    }
-
-    [Fact]
-    public async Task ConnectAsync_CallerCancellation_ThrowsOperationCanceledException()
-    {
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
-
-        var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs())));
-
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => client.Config.ConnectAsync("cfg-1", "production", ct: cts.Token));
-    }
-
-    [Fact]
-    public async Task ConnectAsync_RuntimeHasRefreshCapability()
-    {
-        int fetchCount = 0;
-
-        var (client, _) = CreateClient(req =>
-        {
-            fetchCount++;
-            return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
-                valuesJson: fetchCount <= 1
-                    ? """{"timeout": {"value": 30, "type": "NUMBER"}}"""
-                    : """{"timeout": {"value": 999, "type": "NUMBER"}}""")));
-        });
-
-        var runtime = await client.Config.ConnectAsync("cfg-1", "production");
-
-        try
-        {
-            Assert.Equal(30L, runtime.Get("timeout"));
-
-            await runtime.RefreshAsync();
-
-            Assert.Equal(999L, runtime.Get("timeout"));
-        }
-        finally
-        {
-            await runtime.DisposeAsync();
-        }
-    }
-
-    // ------------------------------------------------------------------
     // GetByKeyAsync with null attributes in first result
     // ------------------------------------------------------------------
 
@@ -747,42 +622,6 @@ public class ConfigClientSetValuesTests
     }
 
     // ------------------------------------------------------------------
-    // ConnectAsync — runtime fetchChainFn rebuilds chain
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public async Task ConnectAsync_RefreshRebuildsFreshChain()
-    {
-        int fetchCount = 0;
-
-        var (client, _) = CreateClient(req =>
-        {
-            fetchCount++;
-            if (fetchCount <= 1)
-            {
-                return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""")));
-            }
-            // On refresh, return updated values
-            return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
-                valuesJson: """{"timeout": {"value": 999, "type": "NUMBER"}}""")));
-        });
-
-        var runtime = await client.Config.ConnectAsync("cfg-1", "production");
-
-        try
-        {
-            Assert.Equal(30L, runtime.Get("timeout"));
-            await runtime.RefreshAsync();
-            Assert.Equal(999L, runtime.Get("timeout"));
-        }
-        finally
-        {
-            await runtime.DisposeAsync();
-        }
-    }
-
-    // ------------------------------------------------------------------
     // SetValuesAsync / SetValueAsync — with parent config
     // ------------------------------------------------------------------
 
@@ -844,58 +683,6 @@ public class ConfigClientSetValuesTests
         Assert.NotNull(putBody);
         // The merged values should include retries and timeout set to null
         Assert.Contains("retries", putBody);
-    }
-
-    // ------------------------------------------------------------------
-    // ConnectAsync with parent chain walking
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public async Task ConnectAsync_ThreeLevelChain_ResolvesFullInheritance()
-    {
-        var (client, _) = CreateClient(req =>
-        {
-            var url = req.RequestUri!.ToString();
-
-            if (url.Contains("grandchild"))
-            {
-                return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    id: "grandchild",
-                    key: "gc_key",
-                    parent: "child",
-                    valuesJson: """{"gc_key": {"value": "gc_val", "type": "STRING"}}""")));
-            }
-            else if (url.Contains("child"))
-            {
-                return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    id: "child",
-                    key: "child_key",
-                    parent: "root",
-                    valuesJson: """{"child_key": {"value": "child_val", "type": "STRING"}}""")));
-            }
-            else if (url.Contains("root"))
-            {
-                return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    id: "root",
-                    key: "root_key",
-                    valuesJson: """{"root_key": {"value": "root_val", "type": "STRING"}, "gc_key": {"value": "root_override", "type": "STRING"}}""")));
-            }
-
-            return Task.FromResult(JsonResponse("{}", HttpStatusCode.NotFound));
-        });
-
-        var runtime = await client.Config.ConnectAsync("grandchild", "production");
-
-        try
-        {
-            Assert.Equal("gc_val", runtime.Get("gc_key"));      // grandchild wins
-            Assert.Equal("child_val", runtime.Get("child_key")); // child
-            Assert.Equal("root_val", runtime.Get("root_key"));   // root
-        }
-        finally
-        {
-            await runtime.DisposeAsync();
-        }
     }
 
     // ------------------------------------------------------------------
@@ -1025,21 +812,4 @@ public class ConfigClientSetValuesTests
         Assert.Contains("production", putBody);
     }
 
-    // ------------------------------------------------------------------
-    // ConnectAsync — caller cancellation propagates properly
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public async Task ConnectAsync_CallerCancellation_Propagates()
-    {
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
-
-        var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs())));
-
-        // Pre-cancelled token should throw before even starting
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => client.Config.ConnectAsync("cfg-1", "production", ct: cts.Token));
-    }
 }
