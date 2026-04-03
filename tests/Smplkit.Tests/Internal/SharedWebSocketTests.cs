@@ -497,4 +497,45 @@ public class SharedWebSocketTests
 
         await ws.StopAsync();
     }
+
+    // ---------------------------------------------------------------
+    // RunWebSocketAsync — OperationCanceledException with _closed=true
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task RunWebSocketAsync_OperationCanceled_WhenClosedIsTrue_BreaksLoop()
+    {
+        // WS factory throws OperationCanceledException on the *second* connect attempt.
+        // First attempt: connect + receive throws generic exception → triggers reconnect.
+        // Before second attempt: call StopAsync → sets _closed=true + cancels CTS.
+        // Second factory call throws OperationCanceledException → caught by the
+        //   `catch (OperationCanceledException) when (ct.IsCancellationRequested || _closed)` filter.
+
+        var attempt = 0;
+        var secondAttemptReached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var ws = new SharedWebSocket("test-key", (_, ct) =>
+        {
+            attempt++;
+            if (attempt == 1)
+            {
+                // First attempt: throw a generic exception so the reconnect loop fires
+                throw new InvalidOperationException("simulate connection failure");
+            }
+            // Second attempt: signal and throw OperationCanceledException
+            secondAttemptReached.TrySetResult();
+            throw new OperationCanceledException(ct);
+        });
+
+        ws.Start();
+
+        // Wait until the second connect attempt is reached
+        await secondAttemptReached.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        // Stop — this sets _closed=true and cancels the CTS
+        await ws.StopAsync();
+
+        Assert.Equal("disconnected", ws.ConnectionStatus);
+        Assert.True(attempt >= 2);
+    }
 }
