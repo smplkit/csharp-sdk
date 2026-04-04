@@ -1,6 +1,6 @@
 # smplkit C# SDK
 
-[![NuGet Version](https://img.shields.io/nuget/v/Smplkit.Sdk)](https://www.nuget.org/packages/Smplkit.Sdk) [![Build](https://github.com/smplkit/csharp-sdk/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/smplkit/csharp-sdk/actions) [![License](https://img.shields.io/github/license/smplkit/csharp-sdk)](LICENSE) [![Docs](https://img.shields.io/badge/docs-docs.smplkit.com-blue)](https://docs.smplkit.com)
+[![NuGet Version](https://img.shields.io/nuget/v/Smplkit.Sdk)](https://www.nuget.org/packages/Smplkit.Sdk) [![Build](https://github.com/smplkit/csharp-sdk/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/smplkit/csharp-sdk/actions) [![Coverage](https://codecov.io/gh/smplkit/csharp-sdk/branch/main/graph/badge.svg)](https://codecov.io/gh/smplkit/csharp-sdk) [![License](https://img.shields.io/github/license/smplkit/csharp-sdk)](LICENSE) [![Docs](https://img.shields.io/badge/docs-docs.smplkit.com-blue)](https://docs.smplkit.com)
 
 The official C# SDK for [smplkit](https://www.smplkit.com) — simple application infrastructure that just works.
 

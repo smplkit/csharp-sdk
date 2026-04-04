@@ -56,6 +56,7 @@ jobs:
       - name: Test with coverage
         run: >
           dotnet test --no-build
+          --collect:"XPlat Code Coverage"
           /p:CollectCoverage=true
           /p:CoverletOutputFormat=cobertura
           /p:CoverletOutput=./coverage/
@@ -63,6 +64,12 @@ jobs:
           /p:Threshold=95
           /p:ThresholdType=line
           /p:ThresholdStat=total
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
 
   ci-gate:
     if: always()
