@@ -2,7 +2,7 @@
 # Regenerate client code from OpenAPI specs using NSwag.
 #
 # Prerequisites:
-#   dotnet tool install --global NSwag.ConsoleCore
+#   dotnet tool restore   (installs NSwag from .config/dotnet-tools.json)
 #
 # Usage:
 #   ./scripts/generate.sh
@@ -25,10 +25,27 @@ for spec_file in "$SPEC_DIR"/*.json; do
     echo "  Processing $spec_name -> $output_dir"
     mkdir -p "$output_dir"
 
-    # TODO: Configure NSwag generation here once NSwag config is finalized.
-    # nswag openapi2csclient /input:"$spec_file" /output:"$output_dir/Client.cs" \
-    #     /namespace:"Smplkit.Internal.Generated.$dir_name" \
-    #     /generateClientInterfaces:true
+    dotnet nswag openapi2csclient \
+        /input:"$spec_file" \
+        /output:"$output_dir/Client.cs" \
+        /namespace:"Smplkit.Internal.Generated.$dir_name" \
+        /classname:"${dir_name}Client" \
+        /generateClientInterfaces:true \
+        /generateDtoTypes:true \
+        /generateOptionalParameters:true \
+        /useBaseUrl:true \
+        /injectHttpClient:true \
+        /generateBaseUrlProperty:true \
+        /operationGenerationMode:SingleClientFromOperationId \
+        /classStyle:Poco \
+        /jsonLibrary:SystemTextJson \
+        /dateType:System.DateTimeOffset \
+        /dateTimeType:System.DateTimeOffset \
+        /arrayType:System.Collections.Generic.List \
+        /arrayBaseType:System.Collections.Generic.List \
+        /arrayInstanceType:System.Collections.Generic.List \
+        /generateDataAnnotations:false \
+        /generateNullableReferenceTypes:true
 done
 
 echo "Done. Generated code is in $GENERATED_DIR"

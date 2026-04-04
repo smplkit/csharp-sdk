@@ -170,8 +170,7 @@ public class CoverageGapTests
         if (completed == putSent.Task)
         {
             var body = await putSent.Task;
-            Assert.Contains("\"type\":\"service\"", body);
-            Assert.Contains("\"key\":\"my-service\"", body);
+            Assert.Contains("\"id\":\"service:my-service\"", body);
         }
 
         client.Dispose();

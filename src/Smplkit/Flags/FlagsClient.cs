@@ -220,7 +220,7 @@ public sealed class FlagsClient
     {
         var encodedKey = Uri.EscapeDataString(contextTypeKey);
         var json = await _transport.GetAsync(
-            $"{AppBaseUrl}/api/v1/contexts?filter[context_type]={encodedKey}", ct).ConfigureAwait(false);
+            $"{AppBaseUrl}/api/v1/contexts?filter[context_type_id]={encodedKey}", ct).ConfigureAwait(false);
         var response = JsonSerializer.Deserialize<ContextApiListResponse>(json, Transport.SerializerOptions);
         return response?.Data ?? new List<Dictionary<string, object?>>();
     }
@@ -1114,8 +1114,7 @@ internal sealed class ContextRegistrationBuffer
                     _seenMap[cacheKey] = node;
                     _pending.Add(new Dictionary<string, object?>
                     {
-                        ["type"] = ctx.Type,
-                        ["key"] = ctx.Key,
+                        ["id"] = $"{ctx.Type}:{ctx.Key}",
                         ["attributes"] = new Dictionary<string, object?>(ctx.Attributes),
                     });
                 }

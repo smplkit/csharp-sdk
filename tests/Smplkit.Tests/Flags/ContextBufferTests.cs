@@ -68,11 +68,9 @@ public class ContextBufferTests
         Assert.Equal(2, batch.Count);
         Assert.Equal(0, buffer.PendingCount);
 
-        // Verify the structure of drained items
-        Assert.Equal("user", batch[0]["type"]);
-        Assert.Equal("u1", batch[0]["key"]);
-        Assert.Equal("account", batch[1]["type"]);
-        Assert.Equal("a1", batch[1]["key"]);
+        // Verify the structure of drained items (composite id format)
+        Assert.Equal("user:u1", batch[0]["id"]);
+        Assert.Equal("account:a1", batch[1]["id"]);
     }
 
     [Fact]
@@ -84,8 +82,7 @@ public class ContextBufferTests
         var batch = buffer.Drain();
 
         Assert.Single(batch);
-        Assert.Equal("user", batch[0]["type"]);
-        Assert.Equal("u1", batch[0]["key"]);
+        Assert.Equal("user:u1", batch[0]["id"]);
     }
 
     [Fact]
