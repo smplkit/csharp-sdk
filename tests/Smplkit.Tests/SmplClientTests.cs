@@ -34,6 +34,7 @@ public class SmplClientTests : IDisposable
         {
             ApiKey = "sk_api_test_key",
             Environment = "production",
+            Service = "test-service",
         });
 
         Assert.NotNull(client);
@@ -47,7 +48,7 @@ public class SmplClientTests : IDisposable
         Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", null);
         Environment.SetEnvironmentVariable("HOME", Path.GetTempPath());
         Assert.Throws<SmplException>(() =>
-            new SmplClient(new SmplClientOptions { ApiKey = "", Environment = "test" }));
+            new SmplClient(new SmplClientOptions { ApiKey = "", Environment = "test", Service = "test-service" }));
     }
 
     [Fact]
@@ -56,7 +57,7 @@ public class SmplClientTests : IDisposable
         Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", null);
         Environment.SetEnvironmentVariable("HOME", Path.GetTempPath());
         Assert.Throws<SmplException>(() =>
-            new SmplClient(new SmplClientOptions { Environment = "test" }));
+            new SmplClient(new SmplClientOptions { Environment = "test", Service = "test-service" }));
     }
 
     [Fact]
@@ -64,6 +65,7 @@ public class SmplClientTests : IDisposable
     {
         Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", "sk_api_env");
         Environment.SetEnvironmentVariable("SMPLKIT_ENVIRONMENT", "staging");
+        Environment.SetEnvironmentVariable("SMPLKIT_SERVICE", "env-service");
         using var client = new SmplClient();
         Assert.NotNull(client);
         Assert.Equal("staging", client.Environment);
@@ -74,7 +76,16 @@ public class SmplClientTests : IDisposable
     {
         Environment.SetEnvironmentVariable("SMPLKIT_ENVIRONMENT", null);
         Assert.Throws<SmplException>(() =>
-            new SmplClient(new SmplClientOptions { ApiKey = "sk_api_test" }));
+            new SmplClient(new SmplClientOptions { ApiKey = "sk_api_test", Service = "test-service" }));
+    }
+
+    [Fact]
+    public void Constructor_MissingEnvironment_ErrorDoesNotMentionSmplkitFile()
+    {
+        Environment.SetEnvironmentVariable("SMPLKIT_ENVIRONMENT", null);
+        var ex = Assert.Throws<SmplException>(() =>
+            new SmplClient(new SmplClientOptions { ApiKey = "sk_api_test", Service = "test-service" }));
+        Assert.DoesNotContain("~/.smplkit", ex.Message);
     }
 
     [Fact]
@@ -84,6 +95,7 @@ public class SmplClientTests : IDisposable
         using var client = new SmplClient(new SmplClientOptions
         {
             ApiKey = "sk_api_test_key",
+            Service = "test-service",
         });
         Assert.Equal("from-env", client.Environment);
     }
@@ -113,15 +125,30 @@ public class SmplClientTests : IDisposable
     }
 
     [Fact]
-    public void Constructor_ServiceNull_IsValid()
+    public void Constructor_MissingService_ThrowsSmplException()
     {
         Environment.SetEnvironmentVariable("SMPLKIT_SERVICE", null);
-        using var client = new SmplClient(new SmplClientOptions
-        {
-            ApiKey = "sk_api_test_key",
-            Environment = "test",
-        });
-        Assert.Null(client.Service);
+        var ex = Assert.Throws<SmplException>(() =>
+            new SmplClient(new SmplClientOptions
+            {
+                ApiKey = "sk_api_test_key",
+                Environment = "test",
+            }));
+        Assert.Contains("No service provided", ex.Message);
+    }
+
+    [Fact]
+    public void Constructor_MissingService_ErrorMessage()
+    {
+        Environment.SetEnvironmentVariable("SMPLKIT_SERVICE", null);
+        var ex = Assert.Throws<SmplException>(() =>
+            new SmplClient(new SmplClientOptions
+            {
+                ApiKey = "sk_api_test_key",
+                Environment = "test",
+            }));
+        Assert.Contains("SmplClientOptions", ex.Message);
+        Assert.Contains("SMPLKIT_SERVICE", ex.Message);
     }
 
     [Fact]
@@ -131,6 +158,7 @@ public class SmplClientTests : IDisposable
         {
             ApiKey = "sk_api_test_key",
             Environment = "test",
+            Service = "test-service",
         });
 
         Assert.IsType<ConfigClient>(client.Config);
@@ -143,6 +171,7 @@ public class SmplClientTests : IDisposable
         {
             ApiKey = "sk_api_test_key",
             Environment = "test",
+            Service = "test-service",
         });
 
         client.Dispose();
@@ -156,7 +185,7 @@ public class SmplClientTests : IDisposable
         var httpClient = new HttpClient(handler);
 
         var client = new SmplClient(
-            new SmplClientOptions { ApiKey = "sk_api_test_key", Environment = "test" },
+            new SmplClientOptions { ApiKey = "sk_api_test_key", Environment = "test", Service = "test-service" },
             httpClient);
         client.Dispose();
 
@@ -185,7 +214,7 @@ public class SmplClientTests : IDisposable
     {
         Assert.Throws<ArgumentNullException>(() =>
             new SmplClient(
-                new SmplClientOptions { ApiKey = "sk_test", Environment = "test" },
+                new SmplClientOptions { ApiKey = "sk_test", Environment = "test", Service = "test-service" },
                 null!));
     }
 
@@ -196,6 +225,7 @@ public class SmplClientTests : IDisposable
         {
             ApiKey = "sk_api_test_key",
             Environment = "test",
+            Service = "test-service",
         });
 
         client.Dispose();
@@ -211,6 +241,7 @@ public class SmplClientTests : IDisposable
         {
             ApiKey = "sk_api_test_key",
             Environment = "test",
+            Service = "test-service",
             Timeout = timeout,
         });
 
@@ -237,7 +268,7 @@ public class SmplClientTests : IDisposable
         });
         var httpClient = new HttpClient(handler);
         var client = new SmplClient(
-            new SmplClientOptions { ApiKey = "sk_api_test_key", Environment = "test" },
+            new SmplClientOptions { ApiKey = "sk_api_test_key", Environment = "test", Service = "test-service" },
             httpClient);
 
         // ConnectAsync may throw due to WebSocket, but the _connected flag should be set
@@ -250,5 +281,33 @@ public class SmplClientTests : IDisposable
 
         client.Dispose();
         httpClient.Dispose();
+    }
+
+    // ------------------------------------------------------------------
+    // Resolution order: environment first, then service, then API key
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Constructor_ResolvesEnvironmentBeforeService()
+    {
+        // If environment resolution fails, it should throw about environment
+        // even though service is also missing.
+        Environment.SetEnvironmentVariable("SMPLKIT_ENVIRONMENT", null);
+        Environment.SetEnvironmentVariable("SMPLKIT_SERVICE", null);
+        var ex = Assert.Throws<SmplException>(() =>
+            new SmplClient(new SmplClientOptions { ApiKey = "sk_api_test" }));
+        Assert.Contains("environment", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Constructor_ResolvesServiceBeforeApiKey()
+    {
+        // With environment set but service missing, should throw about service
+        // even though API key is also missing.
+        Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", null);
+        Environment.SetEnvironmentVariable("SMPLKIT_SERVICE", null);
+        var ex = Assert.Throws<SmplException>(() =>
+            new SmplClient(new SmplClientOptions { Environment = "test" }));
+        Assert.Contains("service", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 }

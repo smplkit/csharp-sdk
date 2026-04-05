@@ -195,7 +195,7 @@ public class CoverageGapTests
         });
         var httpClient = new HttpClient(handler);
         var client = new SmplClient(
-            new SmplClientOptions { ApiKey = "sk_api_test_key", Environment = "production" },
+            new SmplClientOptions { ApiKey = "sk_api_test_key", Environment = "production", Service = "test-service" },
             httpClient);
 
         try
@@ -235,7 +235,7 @@ public class CoverageGapTests
             Task.FromResult(JsonResponse("{}")));
         var httpClient = new HttpClient(handler);
         var client = new SmplClient(
-            new SmplClientOptions { ApiKey = "sk_api_test_key", Environment = "test" },
+            new SmplClientOptions { ApiKey = "sk_api_test_key", Environment = "test", Service = "test-service" },
             httpClient);
 
         Assert.Throws<SmplNotConnectedException>(() => client.Config.GetValue("any_key"));
@@ -262,7 +262,7 @@ public class CoverageGapTests
         });
         var httpClient = new HttpClient(handler);
         var client = new SmplClient(
-            new SmplClientOptions { ApiKey = "sk_api_test_key", Environment = "production" },
+            new SmplClientOptions { ApiKey = "sk_api_test_key", Environment = "production", Service = "test-service" },
             httpClient);
 
         try { await client.ConnectAsync(); } catch { }
@@ -292,7 +292,7 @@ public class CoverageGapTests
         });
         var httpClient = new HttpClient(handler);
         var client = new SmplClient(
-            new SmplClientOptions { ApiKey = "sk_api_test_key", Environment = "production" },
+            new SmplClientOptions { ApiKey = "sk_api_test_key", Environment = "production", Service = "test-service" },
             httpClient);
 
         try { await client.ConnectAsync(); } catch { }
@@ -328,7 +328,7 @@ public class CoverageGapTests
         });
         var httpClient = new HttpClient(handler);
         var client = new SmplClient(
-            new SmplClientOptions { ApiKey = "sk_api_test_key", Environment = "production" },
+            new SmplClientOptions { ApiKey = "sk_api_test_key", Environment = "production", Service = "test-service" },
             httpClient);
 
         try { await client.ConnectAsync(); } catch { }

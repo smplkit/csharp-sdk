@@ -29,7 +29,8 @@ public sealed class SmplClientOptions
     /// <summary>
     /// Gets the service identifier for automatic context injection.
     /// When <c>null</c>, the SDK falls back to the <c>SMPLKIT_SERVICE</c>
-    /// environment variable. A <c>null</c> service is valid (no auto-injection).
+    /// environment variable. If neither is set, the <see cref="SmplClient"/>
+    /// constructor throws.
     /// </summary>
     public string? Service { get; init; }
 }

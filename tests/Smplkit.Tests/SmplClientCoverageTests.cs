@@ -20,6 +20,7 @@ public class SmplClientCoverageTests
         {
             ApiKey = "sk_test_key",
             Environment = "test",
+            Service = "test-service",
         });
 
         // Should not throw
@@ -45,7 +46,7 @@ public class SmplClientCoverageTests
         var httpClient = new HttpClient(handler);
 
         var client = new SmplClient(
-            new SmplClientOptions { ApiKey = "sk_test_key", Environment = "test" },
+            new SmplClientOptions { ApiKey = "sk_test_key", Environment = "test", Service = "test-service" },
             httpClient);
 
         client.Dispose();
@@ -86,6 +87,7 @@ public class SmplClientCoverageTests
             {
                 ApiKey = "sk_test_key",
                 Environment = "test",
+                Service = "test-service",
                 Timeout = TimeSpan.FromSeconds(120),
             },
             httpClient);
@@ -139,7 +141,7 @@ public class SmplClientCoverageTests
         });
         var httpClient = new HttpClient(handler);
         var client = new SmplClient(
-            new SmplClientOptions { ApiKey = "sk_test_key", Environment = "production" },
+            new SmplClientOptions { ApiKey = "sk_test_key", Environment = "production", Service = "test-service" },
             httpClient);
 
         // Trigger WebSocket creation by calling ConnectAsync

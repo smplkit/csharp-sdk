@@ -53,7 +53,7 @@ public class ConfigPrescriptiveTests
         var mockHandler = new MockHttpMessageHandler(handler);
         var httpClient = new HttpClient(mockHandler);
         var client = new SmplClient(
-            new SmplClientOptions { ApiKey = "sk_api_test", Environment = "production" },
+            new SmplClientOptions { ApiKey = "sk_api_test", Environment = "production", Service = "test-service" },
             httpClient);
         try { await client.ConnectAsync(); } catch { }
         return client;
@@ -193,7 +193,7 @@ public class ConfigPrescriptiveTests
         var handler = new MockHttpMessageHandler(_ => Task.FromResult(JsonResponse("{}")));
         var httpClient = new HttpClient(handler);
         var client = new SmplClient(
-            new SmplClientOptions { ApiKey = "sk_api_test", Environment = "test" },
+            new SmplClientOptions { ApiKey = "sk_api_test", Environment = "test", Service = "test-service" },
             httpClient);
 
         Assert.Throws<SmplNotConnectedException>(() => client.Config.GetString("app", "name"));
@@ -205,7 +205,7 @@ public class ConfigPrescriptiveTests
         var handler = new MockHttpMessageHandler(_ => Task.FromResult(JsonResponse("{}")));
         var httpClient = new HttpClient(handler);
         var client = new SmplClient(
-            new SmplClientOptions { ApiKey = "sk_api_test", Environment = "test" },
+            new SmplClientOptions { ApiKey = "sk_api_test", Environment = "test", Service = "test-service" },
             httpClient);
 
         Assert.Throws<SmplNotConnectedException>(() => client.Config.GetInt("app", "port"));
@@ -217,7 +217,7 @@ public class ConfigPrescriptiveTests
         var handler = new MockHttpMessageHandler(_ => Task.FromResult(JsonResponse("{}")));
         var httpClient = new HttpClient(handler);
         var client = new SmplClient(
-            new SmplClientOptions { ApiKey = "sk_api_test", Environment = "test" },
+            new SmplClientOptions { ApiKey = "sk_api_test", Environment = "test", Service = "test-service" },
             httpClient);
 
         Assert.Throws<SmplNotConnectedException>(() => client.Config.GetBool("app", "flag"));
@@ -258,7 +258,7 @@ public class ConfigPrescriptiveTests
         var handler = new MockHttpMessageHandler(_ => Task.FromResult(JsonResponse("{}")));
         var httpClient = new HttpClient(handler);
         var client = new SmplClient(
-            new SmplClientOptions { ApiKey = "sk_api_test", Environment = "test" },
+            new SmplClientOptions { ApiKey = "sk_api_test", Environment = "test", Service = "test-service" },
             httpClient);
 
         await Assert.ThrowsAsync<SmplNotConnectedException>(() => client.Config.RefreshAsync());
@@ -599,7 +599,7 @@ public class ConfigPrescriptiveTests
         var handler = new MockHttpMessageHandler(_ => Task.FromResult(JsonResponse("{}")));
         var httpClient = new HttpClient(handler);
         var client = new SmplClient(
-            new SmplClientOptions { ApiKey = "sk_api_test", Environment = "test" },
+            new SmplClientOptions { ApiKey = "sk_api_test", Environment = "test", Service = "test-service" },
             httpClient);
 
         Assert.Same(client.Config, client.Config);

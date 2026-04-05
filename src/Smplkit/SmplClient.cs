@@ -41,9 +41,9 @@ public sealed class SmplClient : IDisposable
     public string Environment { get; }
 
     /// <summary>
-    /// Gets the resolved service identifier, or <c>null</c> if none was configured.
+    /// Gets the resolved service identifier.
     /// </summary>
-    public string? Service { get; }
+    public string Service { get; }
 
     /// <summary>
     /// Gets the Config service client.
@@ -92,25 +92,32 @@ public sealed class SmplClient : IDisposable
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(httpClient);
 
-        var resolvedApiKey = ApiKeyResolver.Resolve(options.ApiKey);
-
-        // Resolve environment: option -> env var -> throw
+        // 1. Resolve environment: option -> env var -> throw
         var resolvedEnvironment = options.Environment
             ?? System.Environment.GetEnvironmentVariable("SMPLKIT_ENVIRONMENT");
         if (string.IsNullOrEmpty(resolvedEnvironment))
             throw new SmplException(
-                "Environment is required. Pass it via SmplClientOptions.Environment " +
-                "or set the SMPLKIT_ENVIRONMENT environment variable.");
+                "No environment provided. Set one of:\n" +
+                "  1. Pass Environment in SmplClientOptions\n" +
+                "  2. Set the SMPLKIT_ENVIRONMENT environment variable");
 
-        // Resolve service: option -> env var -> null (valid)
+        // 2. Resolve service: option -> env var -> throw
         var resolvedService = options.Service
             ?? System.Environment.GetEnvironmentVariable("SMPLKIT_SERVICE");
+        if (string.IsNullOrEmpty(resolvedService))
+            throw new SmplException(
+                "No service provided. Set one of:\n" +
+                "  1. Pass Service in SmplClientOptions\n" +
+                "  2. Set the SMPLKIT_SERVICE environment variable");
+
+        // 3. Resolve API key: option -> env var -> ~/.smplkit file -> throw
+        var resolvedApiKey = ApiKeyResolver.Resolve(options.ApiKey, resolvedEnvironment);
 
         _httpClient = httpClient;
         _ownsHttpClient = ownsHttpClient;
         _apiKey = resolvedApiKey;
         Environment = resolvedEnvironment;
-        Service = string.IsNullOrEmpty(resolvedService) ? null : resolvedService;
+        Service = resolvedService;
 
         // Create a copy of options with the resolved API key for Transport.
         var resolvedOptions = new SmplClientOptions
@@ -133,33 +140,30 @@ public sealed class SmplClient : IDisposable
         if (_connected) return;
 
         // Fire-and-forget service context registration
-        if (Service is { Length: > 0 } svc)
+        _ = Task.Run(async () =>
         {
-            _ = Task.Run(async () =>
+            try
             {
-                try
-                {
-                    await _transport.PostAsync(
-                        $"{AppBaseUrl}/api/v1/contexts/bulk",
-                        new
+                await _transport.PostAsync(
+                    $"{AppBaseUrl}/api/v1/contexts/bulk",
+                    new
+                    {
+                        contexts = new[]
                         {
-                            contexts = new[]
+                            new
                             {
-                                new
+                                id = $"service:{Service}",
+                                attributes = new Dictionary<string, object?>
                                 {
-                                    id = $"service:{svc}",
-                                    attributes = new Dictionary<string, object?>
-                                    {
-                                        ["name"] = svc,
-                                    },
+                                    ["name"] = Service,
                                 },
                             },
                         },
-                        ct).ConfigureAwait(false);
-                }
-                catch { /* fire-and-forget */ }
-            }, ct);
-        }
+                    },
+                    ct).ConfigureAwait(false);
+            }
+            catch { /* fire-and-forget */ }
+        }, ct);
 
         await Flags.ConnectInternalAsync(Environment, ct).ConfigureAwait(false);
         await Config.ConnectInternalAsync(Environment, ct).ConfigureAwait(false);
