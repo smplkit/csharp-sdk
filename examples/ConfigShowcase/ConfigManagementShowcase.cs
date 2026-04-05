@@ -1,0 +1,222 @@
+using Smplkit;
+using Smplkit.Config;
+
+namespace ConfigShowcase;
+
+/// <summary>
+/// Smpl Config SDK — Management API Showcase
+/// ============================================
+///
+/// Demonstrates the management plane of the smplkit Config C# SDK:
+///
+///   1. Update the common config with base items and environment overrides
+///   2. Create user_service config with environment overrides
+///   3. Create auth_module as a child config (inheritance)
+///   4. List and inspect configs
+///   5. Update a config
+///   6. Cleanup
+///
+/// This script creates, modifies, and deletes real configs.
+///
+/// Prerequisites:
+///     - .NET 8.0 SDK
+///     - A valid smplkit API key (set via SMPLKIT_API_KEY env var)
+///
+/// Usage:
+///     export SMPLKIT_API_KEY="sk_api_..."
+///     dotnet run --project examples/ConfigShowcase management
+/// </summary>
+public static class ConfigManagementShowcase
+{
+    // ------------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------------
+
+    private static void Section(string title)
+    {
+        Console.WriteLine();
+        Console.WriteLine(new string('=', 60));
+        Console.WriteLine($"  {title}");
+        Console.WriteLine(new string('=', 60));
+        Console.WriteLine();
+    }
+
+    private static void Step(string description)
+    {
+        Console.WriteLine($"  -> {description}");
+    }
+
+    // ------------------------------------------------------------------
+    // Entry point
+    // ------------------------------------------------------------------
+
+    public static async Task<int> RunAsync(SmplClient client)
+    {
+        // ==============================================================
+        // 1. UPDATE THE COMMON CONFIG
+        // ==============================================================
+        Section("1. Update the Common Config");
+
+        var common = await client.Config.GetByKeyAsync("common");
+        Step($"Fetched common config: id={common.Id}, key={common.Key}");
+
+        common = await client.Config.UpdateAsync(common.Id, new CreateConfigOptions
+        {
+            Name = "Common",
+            Description = "Organization-wide shared configuration",
+            Items = new Dictionary<string, object?>
+            {
+                ["app_name"] = "Acme SaaS Platform",
+                ["support_email"] = "support@acme.dev",
+                ["max_retries"] = 3,
+                ["request_timeout_ms"] = 5000,
+                ["log_level"] = "info",
+            },
+            Environments = new Dictionary<string, object?>(),
+        });
+        Step("Common config base values set");
+
+        common = await client.Config.SetValuesAsync(common.Id,
+            new Dictionary<string, object?>
+            {
+                ["max_retries"] = 5,
+                ["request_timeout_ms"] = 10000,
+                ["log_level"] = "warn",
+            },
+            environment: "production");
+        Step("Common config production overrides set");
+
+        // ==============================================================
+        // 2. CREATE USER SERVICE CONFIG
+        // ==============================================================
+        Section("2. Create User Service Config");
+
+        var userService = await client.Config.CreateAsync(new CreateConfigOptions
+        {
+            Name = "User Service",
+            Key = "user_service",
+            Description = "Configuration for the user management service",
+            Items = new Dictionary<string, object?>
+            {
+                ["cache_ttl_seconds"] = 300,
+                ["enable_signup"] = true,
+                ["pagination_default_page_size"] = 50,
+                ["password_min_length"] = 8,
+            },
+        });
+        Step($"Created user_service config: id={userService.Id}");
+
+        userService = await client.Config.SetValuesAsync(userService.Id,
+            new Dictionary<string, object?>
+            {
+                ["cache_ttl_seconds"] = 600,
+                ["enable_signup"] = false,
+                ["password_min_length"] = 12,
+            },
+            environment: "production");
+        Step("User service production overrides set");
+
+        // ==============================================================
+        // 3. CREATE AUTH MODULE (CHILD CONFIG)
+        // ==============================================================
+        Section("3. Create Auth Module (Child of User Service)");
+
+        var authModule = await client.Config.CreateAsync(new CreateConfigOptions
+        {
+            Name = "Auth Module",
+            Key = "auth_module",
+            Description = "Authentication module config — inherits from user_service",
+            Parent = userService.Id,
+            Items = new Dictionary<string, object?>
+            {
+                ["token_ttl_seconds"] = 3600,
+                ["mfa_enabled"] = false,
+                ["session_max_age_hours"] = 24,
+                ["allowed_origins"] = "*",
+            },
+        });
+        Step($"Created auth_module config: id={authModule.Id}, parent={authModule.Parent}");
+
+        authModule = await client.Config.SetValuesAsync(authModule.Id,
+            new Dictionary<string, object?>
+            {
+                ["mfa_enabled"] = true,
+                ["session_max_age_hours"] = 8,
+                ["allowed_origins"] = "https://app.acme.dev",
+            },
+            environment: "production");
+        Step("Auth module production overrides set");
+
+        // ==============================================================
+        // 4. LIST AND INSPECT CONFIGS
+        // ==============================================================
+        Section("4. List and Inspect Configs");
+
+        var allConfigs = await client.Config.ListAsync();
+        Step($"Total configs: {allConfigs.Count}");
+
+        foreach (var c in allConfigs)
+        {
+            var parentLabel = c.Parent != null ? $", parent={c.Parent}" : "";
+            Console.WriteLine($"     - {c.Key} (id={c.Id}{parentLabel})");
+        }
+
+        // Fetch a single config by ID to show the full payload
+        var fetched = await client.Config.GetAsync(userService.Id);
+        Step($"Fetched user_service by ID: key={fetched.Key}");
+        Step($"  Description: {fetched.Description}");
+        Step($"  Items: [{string.Join(", ", fetched.Items.Keys)}]");
+        Step($"  Environments: [{string.Join(", ", fetched.Environments.Keys)}]");
+
+        // ==============================================================
+        // 5. UPDATE A CONFIG
+        // ==============================================================
+        Section("5. Update a Config");
+
+        userService = await client.Config.UpdateAsync(userService.Id, new CreateConfigOptions
+        {
+            Name = "User Service",
+            Description = "User management service config — updated via SDK",
+            Items = userService.Items,
+            Environments = new Dictionary<string, object?>(
+                userService.Environments.Select(kv =>
+                    new KeyValuePair<string, object?>(kv.Key, kv.Value))),
+        });
+        Step($"user_service description updated: \"{userService.Description}\"");
+
+        // Update a single value via SetValueAsync
+        common = await client.Config.SetValueAsync(
+            common.Id, "max_retries", 7, environment: "production");
+        Step($"common/max_retries updated to 7 in production via SetValueAsync");
+
+        // ==============================================================
+        // 6. CLEANUP
+        // ==============================================================
+        Section("6. Cleanup");
+
+        // Delete child first, then parent
+        await client.Config.DeleteAsync(authModule.Id);
+        Step($"Deleted auth_module ({authModule.Id})");
+
+        await client.Config.DeleteAsync(userService.Id);
+        Step($"Deleted user_service ({userService.Id})");
+
+        // Reset common to empty (it's a built-in, not deletable)
+        await client.Config.UpdateAsync(common.Id, new CreateConfigOptions
+        {
+            Name = common.Name,
+            Items = new Dictionary<string, object?>(),
+            Environments = new Dictionary<string, object?>(),
+        });
+        Step("Common config reset to empty");
+
+        // ==============================================================
+        // DONE
+        // ==============================================================
+        Section("ALL DONE");
+        Console.WriteLine("  The Config Management showcase completed successfully.");
+        Console.WriteLine("  If you got here, Smpl Config management is ready to ship.\n");
+
+        return 0;
+    }
+}
