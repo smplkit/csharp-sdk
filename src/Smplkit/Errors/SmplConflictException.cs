@@ -11,8 +11,12 @@ public class SmplConflictException : SmplException
     /// </summary>
     /// <param name="message">The error message.</param>
     /// <param name="responseBody">The raw response body, if available.</param>
-    public SmplConflictException(string message, string? responseBody = null)
-        : base(message, statusCode: 409, responseBody: responseBody)
+    /// <param name="errors">Parsed JSON:API error details, if available.</param>
+    public SmplConflictException(
+        string message,
+        string? responseBody = null,
+        IReadOnlyList<ApiErrorDetail>? errors = null)
+        : base(message, statusCode: 409, responseBody: responseBody, errors: errors)
     {
     }
 }

@@ -175,20 +175,10 @@ internal sealed class Transport
             return body;
 
         var statusCode = (int)response.StatusCode;
-        switch (statusCode)
-        {
-            case 404:
-                throw new SmplNotFoundException($"Resource not found.", body);
-            case 409:
-                throw new SmplConflictException($"Conflict: {body}", body);
-            case 422:
-                throw new SmplValidationException($"Validation failed: {body}", body);
-            default:
-                throw new SmplException(
-                    $"HTTP {statusCode}: {body}",
-                    statusCode: statusCode,
-                    responseBody: body);
-        }
+        ApiErrorParser.ThrowForError(statusCode, body);
+
+        // Unreachable — ThrowForError always throws — but needed for compiler.
+        return body;
     }
 
     /// <summary>

@@ -279,8 +279,7 @@ public class TransportCoverageTests
 
         var ex = await Assert.ThrowsAsync<SmplException>(
             () => transport.GetAsync("https://example.com/api"));
-        Assert.Contains("502", ex.Message);
-        Assert.Contains("custom error body", ex.Message);
+        Assert.Contains("HTTP 502", ex.Message);
         Assert.Equal(502, ex.StatusCode);
         Assert.Equal("custom error body", ex.ResponseBody);
     }

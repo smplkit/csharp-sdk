@@ -296,7 +296,7 @@ public class TransportTests
         var ex = await Assert.ThrowsAsync<SmplConflictException>(
             () => transport.GetAsync("https://example.com/api"));
         Assert.Equal(409, ex.StatusCode);
-        Assert.Contains("conflict body", ex.Message);
+        Assert.Contains("HTTP 409", ex.Message);
         Assert.Equal("conflict body", ex.ResponseBody);
     }
 
@@ -309,7 +309,7 @@ public class TransportTests
         var ex = await Assert.ThrowsAsync<SmplValidationException>(
             () => transport.GetAsync("https://example.com/api"));
         Assert.Equal(422, ex.StatusCode);
-        Assert.Contains("validation body", ex.Message);
+        Assert.Contains("HTTP 422", ex.Message);
         Assert.Equal("validation body", ex.ResponseBody);
     }
 

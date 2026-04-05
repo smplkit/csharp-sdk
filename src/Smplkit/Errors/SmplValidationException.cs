@@ -1,7 +1,7 @@
 namespace Smplkit.Errors;
 
 /// <summary>
-/// Raised when the server rejects a request due to validation errors (HTTP 422).
+/// Raised when the server rejects a request due to validation errors (HTTP 400 or 422).
 /// </summary>
 public class SmplValidationException : SmplException
 {
@@ -10,8 +10,14 @@ public class SmplValidationException : SmplException
     /// </summary>
     /// <param name="message">The error message.</param>
     /// <param name="responseBody">The raw response body, if available.</param>
-    public SmplValidationException(string message, string? responseBody = null)
-        : base(message, statusCode: 422, responseBody: responseBody)
+    /// <param name="statusCode">The HTTP status code (400 or 422). Defaults to 422.</param>
+    /// <param name="errors">Parsed JSON:API error details, if available.</param>
+    public SmplValidationException(
+        string message,
+        string? responseBody = null,
+        int statusCode = 422,
+        IReadOnlyList<ApiErrorDetail>? errors = null)
+        : base(message, statusCode: statusCode, responseBody: responseBody, errors: errors)
     {
     }
 }
