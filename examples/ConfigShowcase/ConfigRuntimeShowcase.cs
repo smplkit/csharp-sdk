@@ -21,10 +21,9 @@ namespace ConfigShowcase;
 ///
 /// Prerequisites:
 ///     - .NET 8.0 SDK
-///     - A valid smplkit API key (set via SMPLKIT_API_KEY env var)
+///     - A valid smplkit API key, provided via SMPLKIT_API_KEY env var or ~/.smplkit config file
 ///
 /// Usage:
-///     export SMPLKIT_API_KEY="sk_api_..."
 ///     dotnet run --project examples/ConfigShowcase
 /// </summary>
 public static class ConfigRuntimeShowcase

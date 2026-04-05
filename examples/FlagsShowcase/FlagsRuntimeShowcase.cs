@@ -26,10 +26,9 @@ namespace FlagsShowcase;
 ///
 /// Prerequisites:
 ///     - .NET 8.0 SDK
-///     - A valid smplkit API key (set via SMPLKIT_API_KEY env var)
+///     - A valid smplkit API key, provided via SMPLKIT_API_KEY env var or ~/.smplkit config file
 ///
 /// Usage:
-///     export SMPLKIT_API_KEY="sk_api_..."
 ///     dotnet run --project examples/FlagsShowcase
 /// </summary>
 public static class FlagsRuntimeShowcase
@@ -269,11 +268,13 @@ public static class FlagsRuntimeShowcase
         await client.Flags.DisconnectAsync();
         Step("Disconnected from production");
 
-        var apiKey = System.Environment.GetEnvironmentVariable("SMPLKIT_API_KEY") ?? "";
-
         foreach (var env in new[] { "development", "staging", "production" })
         {
-            using var envClient = new SmplClient(new SmplClientOptions { ApiKey = apiKey, Environment = env });
+            using var envClient = new SmplClient(new SmplClientOptions
+            {
+                Environment = env,
+                Service = "showcase-service",
+            });
 
             // Set context provider to Alice for consistent comparison
             envClient.Flags.SetContextProvider(() => new List<Context> { currentUser });

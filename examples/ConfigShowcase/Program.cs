@@ -8,7 +8,6 @@
 /// - Management API: create, update, list, and delete configs with environment overrides
 ///
 /// Usage:
-///     export SMPLKIT_API_KEY="sk_api_..."
 ///     dotnet run --project examples/ConfigShowcase           # runtime showcase (default)
 ///     dotnet run --project examples/ConfigShowcase runtime    # runtime showcase
 ///     dotnet run --project examples/ConfigShowcase management # management showcase
@@ -21,20 +20,32 @@ using ConfigShowcase;
 // Configuration
 // ---------------------------------------------------------------------------
 
-var apiKey = Environment.GetEnvironmentVariable("SMPLKIT_API_KEY") ?? "";
-
-if (string.IsNullOrWhiteSpace(apiKey))
+// The SmplClient constructor resolves three required parameters:
+//
+//   ApiKey       — not passed here; resolved automatically from the
+//                  SMPLKIT_API_KEY environment variable or the
+//                  ~/.smplkit configuration file.
+//
+//   Environment  — the target environment. Can also be resolved from
+//                  SMPLKIT_ENVIRONMENT if not passed.
+//
+//   Service      — identifies this SDK instance. Can also be resolved
+//                  from SMPLKIT_SERVICE if not passed.
+//
+// To pass the API key explicitly:
+//
+//   var client = new SmplClient(new SmplClientOptions
+//   {
+//       ApiKey = "sk_api_...",
+//       Environment = "production",
+//       Service = "showcase-service",
+//   });
+//
+using var client = new SmplClient(new SmplClientOptions
 {
-    Console.WriteLine("ERROR: Set the SMPLKIT_API_KEY environment variable before running.");
-    Console.WriteLine("  export SMPLKIT_API_KEY='sk_api_...'");
-    return 1;
-}
-
-// ---------------------------------------------------------------------------
-// Dispatch
-// ---------------------------------------------------------------------------
-
-using var client = new SmplClient(new SmplClientOptions { ApiKey = apiKey, Environment = "production" });
+    Environment = "production",
+    Service = "showcase-service",
+});
 
 if (args.Length > 0 && args[0] == "management")
 {

@@ -20,10 +20,9 @@ namespace FlagsShowcase;
 ///
 /// Prerequisites:
 ///     - .NET 8.0 SDK
-///     - A valid smplkit API key (set via SMPLKIT_API_KEY env var)
+///     - A valid smplkit API key, provided via SMPLKIT_API_KEY env var or ~/.smplkit config file
 ///
 /// Usage:
-///     export SMPLKIT_API_KEY="sk_api_..."
 ///     dotnet run --project examples/FlagsShowcase management
 /// </summary>
 public static class FlagsManagementShowcase
