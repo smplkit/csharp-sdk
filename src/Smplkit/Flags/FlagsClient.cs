@@ -910,6 +910,7 @@ public sealed class FlagsClient
                     Default = @default ?? new object(),
                     Description = description ?? "",
                     Values = flagValues,
+                    Environments = new Dictionary<string, GenFlags.FlagEnvironment>(),
                 },
             }
         };
