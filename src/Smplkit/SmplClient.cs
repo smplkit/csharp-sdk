@@ -2,6 +2,7 @@ using Smplkit.Config;
 using Smplkit.Errors;
 using Smplkit.Flags;
 using Smplkit.Internal;
+using GenApp = Smplkit.Internal.Generated.App;
 
 namespace Smplkit;
 
@@ -25,12 +26,10 @@ namespace Smplkit;
 /// </remarks>
 public sealed class SmplClient : IDisposable
 {
-    private const string AppBaseUrl = "https://app.smplkit.com";
-
     private readonly HttpClient _httpClient;
     private readonly bool _ownsHttpClient;
     private readonly string _apiKey;
-    private readonly Transport _transport;
+    private readonly GeneratedClientFactory _clients;
     private SharedWebSocket? _sharedWs;
     private readonly object _wsLock = new();
     private volatile bool _connected;
@@ -119,15 +118,15 @@ public sealed class SmplClient : IDisposable
         Environment = resolvedEnvironment;
         Service = resolvedService;
 
-        // Create a copy of options with the resolved API key for Transport.
+        // Create options with resolved API key and build generated clients.
         var resolvedOptions = new SmplClientOptions
         {
             ApiKey = resolvedApiKey,
             Timeout = options.Timeout,
         };
-        _transport = new Transport(_httpClient, resolvedOptions);
-        Config = new ConfigClient(_transport, resolvedApiKey, this);
-        Flags = new FlagsClient(_transport, resolvedApiKey, EnsureSharedWebSocket, this);
+        _clients = new GeneratedClientFactory(_httpClient, resolvedOptions);
+        Config = new ConfigClient(_clients, this);
+        Flags = new FlagsClient(_clients, _apiKey, EnsureSharedWebSocket, this);
     }
 
     /// <summary>
@@ -139,28 +138,26 @@ public sealed class SmplClient : IDisposable
     {
         if (_connected) return;
 
-        // Fire-and-forget service context registration
+        // Fire-and-forget service context registration via generated App client.
         _ = Task.Run(async () =>
         {
             try
             {
-                await _transport.PostAsync(
-                    $"{AppBaseUrl}/api/v1/contexts/bulk",
-                    new
-                    {
-                        contexts = new[]
+                await ApiExceptionMapper.ExecuteAsync(async () =>
+                    await _clients.App.Bulk_register_contextsAsync(
+                        new GenApp.ContextBulkRegister
                         {
-                            new
+                            Contexts = new List<GenApp.ContextBulkItem>
                             {
-                                id = $"service:{Service}",
-                                attributes = new Dictionary<string, object?>
+                                new()
                                 {
-                                    ["name"] = Service,
+                                    Type = "service",
+                                    Key = Service,
+                                    Attributes = new Dictionary<string, object?> { ["name"] = Service },
                                 },
                             },
                         },
-                    },
-                    ct).ConfigureAwait(false);
+                        ct).ConfigureAwait(false)).ConfigureAwait(false);
             }
             catch { /* fire-and-forget */ }
         }, ct);

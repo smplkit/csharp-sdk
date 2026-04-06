@@ -95,7 +95,7 @@ public class FlagsClientTests
         """;
 
     private static string SingleContextTypeJson(
-        string id = "ct-001",
+        string id = "c0000001-c000-c000-c000-c00000000001",
         string key = "user",
         string name = "User") =>
         $$"""
@@ -117,7 +117,7 @@ public class FlagsClientTests
         {
             "data": [
                 {
-                    "id": "ct-001",
+                    "id": "c0000001-c000-c000-c000-c00000000001",
                     "type": "context_type",
                     "attributes": {
                         "key": "user",
@@ -126,7 +126,7 @@ public class FlagsClientTests
                     }
                 },
                 {
-                    "id": "ct-002",
+                    "id": "c0000002-c000-c000-c000-c00000000002",
                     "type": "context_type",
                     "attributes": {
                         "key": "account",
@@ -156,7 +156,7 @@ public class FlagsClientTests
     public async Task CreateAsync_ReturnsFlag()
     {
         var (client, handler) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(SingleFlagJson())));
+            Task.FromResult(JsonResponse(SingleFlagJson(), HttpStatusCode.Created)));
 
         var flag = await client.Flags.CreateAsync(
             FlagKey, FlagName, FlagType.Boolean, false, description: "Test flag");
@@ -179,7 +179,7 @@ public class FlagsClientTests
         var (client, _) = CreateClient(async req =>
         {
             capturedBody = await req.Content!.ReadAsStringAsync();
-            return JsonResponse(SingleFlagJson());
+            return JsonResponse(SingleFlagJson(), HttpStatusCode.Created);
         });
 
         await client.Flags.CreateAsync(FlagKey, FlagName, FlagType.Boolean, false);
@@ -262,11 +262,11 @@ public class FlagsClientTests
     public async Task CreateContextTypeAsync_ReturnsContextType()
     {
         var (client, handler) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(SingleContextTypeJson())));
+            Task.FromResult(JsonResponse(SingleContextTypeJson(), HttpStatusCode.Created)));
 
         var ct = await client.Flags.CreateContextTypeAsync("user", "User");
 
-        Assert.Equal("ct-001", ct.Id);
+        Assert.Equal("c0000001-c000-c000-c000-c00000000001", ct.Id);
         Assert.Equal("user", ct.Key);
         Assert.Equal("User", ct.Name);
         Assert.NotNull(ct.Attributes);
@@ -286,12 +286,12 @@ public class FlagsClientTests
             Task.FromResult(JsonResponse(SingleContextTypeJson())));
 
         var attrs = new Dictionary<string, object?> { ["plan"] = "string" };
-        var ct = await client.Flags.UpdateContextTypeAsync("ct-001", attrs);
+        var ct = await client.Flags.UpdateContextTypeAsync("c0000001-c000-c000-c000-c00000000001", attrs);
 
-        Assert.Equal("ct-001", ct.Id);
+        Assert.Equal("c0000001-c000-c000-c000-c00000000001", ct.Id);
         Assert.NotNull(handler.LastRequest);
         Assert.Equal(HttpMethod.Put, handler.LastRequest.Method);
-        Assert.Contains("/api/v1/context_types/ct-001", handler.LastRequest.RequestUri!.ToString());
+        Assert.Contains("/api/v1/context_types/c0000001-c000-c000-c000-c00000000001", handler.LastRequest.RequestUri!.ToString());
     }
 
     // ---------------------------------------------------------------
@@ -321,10 +321,10 @@ public class FlagsClientTests
         var (client, handler) = CreateClient(_ =>
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent)));
 
-        await client.Flags.DeleteContextTypeAsync("ct-001");
+        await client.Flags.DeleteContextTypeAsync("c0000001-c000-c000-c000-c00000000001");
 
         Assert.NotNull(handler.LastRequest);
-        Assert.Contains("/api/v1/context_types/ct-001", handler.LastRequest.RequestUri!.ToString());
+        Assert.Contains("/api/v1/context_types/c0000001-c000-c000-c000-c00000000001", handler.LastRequest.RequestUri!.ToString());
         Assert.Equal(HttpMethod.Delete, handler.LastRequest.Method);
     }
 

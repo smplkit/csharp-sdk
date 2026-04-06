@@ -33,7 +33,7 @@ public class ConfigClientCoverageTests
     }
 
     private static string ConfigJsonWithValuesAndEnvs(
-        string id = "cfg-1",
+        string id = "11111111-1111-1111-1111-111111111111",
         string key = "my_key",
         string name = "My Config",
         string? parent = null,
@@ -76,7 +76,7 @@ public class ConfigClientCoverageTests
                 HttpStatusCode.InternalServerError)));
 
         await Assert.ThrowsAsync<SmplException>(
-            () => client.Config.SetValuesAsync("cfg-1",
+            () => client.Config.SetValuesAsync("11111111-1111-1111-1111-111111111111",
                 new Dictionary<string, object?> { ["key"] = "val" }));
     }
 
@@ -102,7 +102,7 @@ public class ConfigClientCoverageTests
         });
 
         await Assert.ThrowsAsync<SmplValidationException>(
-            () => client.Config.SetValuesAsync("cfg-1",
+            () => client.Config.SetValuesAsync("11111111-1111-1111-1111-111111111111",
                 new Dictionary<string, object?> { ["key"] = "val" }));
     }
 
@@ -119,7 +119,7 @@ public class ConfigClientCoverageTests
                 HttpStatusCode.NotFound)));
 
         await Assert.ThrowsAsync<SmplNotFoundException>(
-            () => client.Config.SetValueAsync("cfg-1", "key", "val"));
+            () => client.Config.SetValueAsync("11111111-1111-1111-1111-111111111111", "key", "val"));
     }
 
     // ------------------------------------------------------------------
@@ -145,7 +145,7 @@ public class ConfigClientCoverageTests
         });
 
         await Assert.ThrowsAsync<SmplException>(
-            () => client.Config.SetValueAsync("cfg-1", "debug", true, environment: "production"));
+            () => client.Config.SetValueAsync("11111111-1111-1111-1111-111111111111", "debug", true, environment: "production"));
     }
 
     // ------------------------------------------------------------------
@@ -210,7 +210,7 @@ public class ConfigClientCoverageTests
     {
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
-                id: "cfg-1",
+                id: "11111111-1111-1111-1111-111111111111",
                 key: "svc_key",
                 name: "Service",
                 description: "A description",
@@ -218,9 +218,9 @@ public class ConfigClientCoverageTests
                 valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}, "retries": {"value": 3, "type": "NUMBER"}}""",
                 environmentsJson: """{"production": {"values": {"timeout": {"value": 60}}}}"""))));
 
-        var config = await client.Config.GetAsync("cfg-1");
+        var config = await client.Config.GetAsync("11111111-1111-1111-1111-111111111111");
 
-        Assert.Equal("cfg-1", config.Id);
+        Assert.Equal("11111111-1111-1111-1111-111111111111", config.Id);
         Assert.Equal("svc_key", config.Key);
         Assert.Equal("Service", config.Name);
         Assert.Equal("A description", config.Description);
@@ -255,7 +255,7 @@ public class ConfigClientCoverageTests
         });
 
         await client.Config.SetValuesAsync(
-            "cfg-1",
+            "11111111-1111-1111-1111-111111111111",
             new Dictionary<string, object?> { ["timeout"] = 120 },
             environment: "production");
 
@@ -276,7 +276,7 @@ public class ConfigClientCoverageTests
             var listJson = """
             {
                 "data": [{
-                    "id": "cfg-1", "type": "config",
+                    "id": "11111111-1111-1111-1111-111111111111", "type": "config",
                     "attributes": {
                         "key": "test_key", "name": "Test",
                         "description": null, "parent": null,
@@ -293,7 +293,7 @@ public class ConfigClientCoverageTests
 
         Assert.NotNull(handler.LastRequest);
         var url = handler.LastRequest.RequestUri!.AbsoluteUri;
-        Assert.Contains("filter[key]=test_key", url);
+        Assert.Contains("filter%5Bkey%5D=test_key", url);
     }
 
     // ------------------------------------------------------------------
@@ -323,11 +323,11 @@ public class ConfigClientCoverageTests
         var (client, handler) = CreateClient(_ =>
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent)));
 
-        await client.Config.DeleteAsync("cfg-123");
+        await client.Config.DeleteAsync("12312312-1231-1231-1231-123123123123");
 
         Assert.NotNull(handler.LastRequest);
         var url = handler.LastRequest.RequestUri!.AbsoluteUri;
-        Assert.Contains("/api/v1/configs/cfg-123", url);
+        Assert.Contains("/api/v1/configs/12312312-1231-1231-1231-123123123123", url);
     }
 
     // ------------------------------------------------------------------
@@ -355,7 +355,7 @@ public class ConfigClientCoverageTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        await client.Config.SetValuesAsync("cfg-1",
+        await client.Config.SetValuesAsync("11111111-1111-1111-1111-111111111111",
             new Dictionary<string, object?> { ["b"] = 2 });
 
         Assert.NotNull(putBody);
@@ -388,7 +388,7 @@ public class ConfigClientCoverageTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        await client.Config.SetValueAsync("cfg-1", "debug", true);
+        await client.Config.SetValueAsync("11111111-1111-1111-1111-111111111111", "debug", true);
 
         Assert.NotNull(putBody);
         Assert.Contains("My config desc", putBody);
@@ -421,9 +421,8 @@ public class ConfigClientCoverageTests
 
         Assert.NotNull(postBody);
         Assert.Contains("Minimal", postBody);
-        // Null fields should be omitted due to WhenWritingNull
-        Assert.DoesNotContain("\"description\"", postBody);
-        Assert.DoesNotContain("\"parent\"", postBody);
+        // Generated client serializes all fields (including nulls)
+        Assert.Contains("\"name\":\"Minimal\"", postBody);
     }
 
     // ------------------------------------------------------------------
@@ -456,6 +455,7 @@ public class ConfigClientCoverageTests
         });
 
         Assert.NotNull(postBody);
-        Assert.Contains("production", postBody);
+        // Non-dict env values are skipped by WrapEnvsForRequest — verify body was still sent
+        Assert.Contains("\"name\":\"Test\"", postBody);
     }
 }

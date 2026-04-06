@@ -1,6 +1,6 @@
-using System.Text.Json;
 using Smplkit.Errors;
 using Smplkit.Internal;
+using GenConfig = Smplkit.Internal.Generated.Config;
 
 namespace Smplkit.Config;
 
@@ -11,10 +11,7 @@ namespace Smplkit.Config;
 /// </summary>
 public sealed class ConfigClient
 {
-    private const string BaseUrl = "https://config.smplkit.com";
-
-    private readonly Transport _transport;
-    private readonly string _apiKey;
+    private readonly GenConfig.ConfigClient _genClient;
     private readonly SmplClient? _parent;
     private volatile bool _prescriptiveConnected;
     private Dictionary<string, Dictionary<string, object?>> _configCache = new();
@@ -24,13 +21,11 @@ public sealed class ConfigClient
     /// <summary>
     /// Initializes a new instance of <see cref="ConfigClient"/>.
     /// </summary>
-    /// <param name="transport">The HTTP transport layer.</param>
-    /// <param name="apiKey">The API key.</param>
+    /// <param name="clients">The generated client factory.</param>
     /// <param name="parent">The parent <see cref="SmplClient"/>, if any.</param>
-    internal ConfigClient(Transport transport, string apiKey, SmplClient? parent = null)
+    internal ConfigClient(GeneratedClientFactory clients, SmplClient? parent = null)
     {
-        _transport = transport;
-        _apiKey = apiKey;
+        _genClient = clients.Config;
         _parent = parent;
     }
 
@@ -43,9 +38,9 @@ public sealed class ConfigClient
     /// <exception cref="SmplNotFoundException">If no matching config exists.</exception>
     public async Task<Config> GetAsync(string id, CancellationToken ct = default)
     {
-        var json = await _transport.GetAsync($"{BaseUrl}/api/v1/configs/{id}", ct).ConfigureAwait(false);
-        var response = JsonSerializer.Deserialize<JsonApiSingleResponse>(json, Transport.SerializerOptions);
-        return MapResource(response?.Data)
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genClient.Get_configAsync(Guid.Parse(id), ct)).ConfigureAwait(false);
+        return MapResource(response.Data)
             ?? throw new SmplNotFoundException($"Config {id} not found");
     }
 
@@ -59,11 +54,10 @@ public sealed class ConfigClient
     /// <exception cref="SmplNotFoundException">If no matching config exists.</exception>
     public async Task<Config> GetByKeyAsync(string key, CancellationToken ct = default)
     {
-        var encodedKey = Uri.EscapeDataString(key);
-        var json = await _transport.GetAsync($"{BaseUrl}/api/v1/configs?filter[key]={encodedKey}", ct).ConfigureAwait(false);
-        var response = JsonSerializer.Deserialize<JsonApiListResponse>(json, Transport.SerializerOptions);
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genClient.List_configsAsync(filterkey: key, cancellationToken: ct)).ConfigureAwait(false);
 
-        if (response?.Data is null || response.Data.Count == 0)
+        if (response.Data is null || response.Data.Count == 0)
             throw new SmplNotFoundException($"Config with key '{key}' not found");
 
         return MapResource(response.Data[0])
@@ -77,10 +71,10 @@ public sealed class ConfigClient
     /// <returns>A list of <see cref="Config"/> objects.</returns>
     public async Task<List<Config>> ListAsync(CancellationToken ct = default)
     {
-        var json = await _transport.GetAsync($"{BaseUrl}/api/v1/configs", ct).ConfigureAwait(false);
-        var response = JsonSerializer.Deserialize<JsonApiListResponse>(json, Transport.SerializerOptions);
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genClient.List_configsAsync(cancellationToken: ct)).ConfigureAwait(false);
 
-        if (response?.Data is null)
+        if (response.Data is null)
             return new List<Config>();
 
         var results = new List<Config>(response.Data.Count);
@@ -103,9 +97,9 @@ public sealed class ConfigClient
     public async Task<Config> CreateAsync(CreateConfigOptions options, CancellationToken ct = default)
     {
         var body = BuildRequestBody(options);
-        var json = await _transport.PostAsync($"{BaseUrl}/api/v1/configs", body, ct).ConfigureAwait(false);
-        var response = JsonSerializer.Deserialize<JsonApiSingleResponse>(json, Transport.SerializerOptions);
-        return MapResource(response?.Data)
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genClient.Create_configAsync(body, ct)).ConfigureAwait(false);
+        return MapResource(response.Data)
             ?? throw new SmplValidationException("Failed to create config");
     }
 
@@ -121,9 +115,9 @@ public sealed class ConfigClient
     public async Task<Config> UpdateAsync(string id, CreateConfigOptions options, CancellationToken ct = default)
     {
         var body = BuildRequestBody(options);
-        var json = await _transport.PutAsync($"{BaseUrl}/api/v1/configs/{id}", body, ct).ConfigureAwait(false);
-        var response = JsonSerializer.Deserialize<JsonApiSingleResponse>(json, Transport.SerializerOptions);
-        return MapResource(response?.Data)
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genClient.Update_configAsync(Guid.Parse(id), body, ct)).ConfigureAwait(false);
+        return MapResource(response.Data)
             ?? throw new SmplValidationException("Failed to update config");
     }
 
@@ -136,7 +130,9 @@ public sealed class ConfigClient
     /// <exception cref="SmplConflictException">If the config has children.</exception>
     public async Task DeleteAsync(string id, CancellationToken ct = default)
     {
-        await _transport.DeleteAsync($"{BaseUrl}/api/v1/configs/{id}", ct).ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();
+        await ApiExceptionMapper.ExecuteAsync(
+            () => _genClient.Delete_configAsync(Guid.Parse(id), ct)).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -455,70 +451,66 @@ public sealed class ConfigClient
         return result;
     }
 
-    /// <summary>Wrap raw items into typed format for request bodies.
+    /// <summary>Wrap raw items into generated DTO format for request bodies.
     /// SDK format: <c>{key: raw}</c> ->
-    /// Wire format: <c>{key: {"value": raw, "type": "STRING"}}</c></summary>
-    private static Dictionary<string, object?>? WrapItemsForRequest(
+    /// Generated DTO: <c>IDictionary&lt;string, ConfigItemDefinition&gt;</c></summary>
+    private static IDictionary<string, GenConfig.ConfigItemDefinition>? WrapItemsForRequest(
         Dictionary<string, object?>? items)
     {
         if (items is null) return null;
 
-        var result = new Dictionary<string, object?>(items.Count);
+        var result = new Dictionary<string, GenConfig.ConfigItemDefinition>(items.Count);
         foreach (var (key, value) in items)
         {
-            result[key] = new Dictionary<string, object?>
+            result[key] = new GenConfig.ConfigItemDefinition
             {
-                ["value"] = value,
-                ["type"] = InferType(value),
+                Value = value!,
+                Type = InferType(value),
             };
         }
         return result;
     }
 
-    /// <summary>Wrap raw environment overrides into the wire format for request bodies.
+    /// <summary>Wrap raw environment overrides into the generated DTO format for request bodies.
     /// SDK format: <c>{env: {key: raw}}</c> ->
-    /// Wire format: <c>{env: {"values": {key: {"value": raw}}}}</c></summary>
-    private static Dictionary<string, object?>? WrapEnvsForRequest(
+    /// Generated DTO: <c>IDictionary&lt;string, EnvironmentOverride&gt;</c></summary>
+    private static IDictionary<string, GenConfig.EnvironmentOverride>? WrapEnvsForRequest(
         Dictionary<string, object?>? environments)
     {
         if (environments is null) return null;
 
-        var result = new Dictionary<string, object?>(environments.Count);
+        var result = new Dictionary<string, GenConfig.EnvironmentOverride>(environments.Count);
         foreach (var (envName, envData) in environments)
         {
             if (envData is Dictionary<string, object?> envDict)
             {
-                var wrapped = new Dictionary<string, object?>(envDict.Count);
+                var values = new Dictionary<string, GenConfig.ConfigItemOverride>(envDict.Count);
                 foreach (var (key, value) in envDict)
                 {
-                    wrapped[key] = new Dictionary<string, object?> { ["value"] = value };
+                    values[key] = new GenConfig.ConfigItemOverride { Value = value! };
                 }
-                result[envName] = new Dictionary<string, object?> { ["values"] = wrapped };
-            }
-            else
-            {
-                result[envName] = envData;
+                result[envName] = new GenConfig.EnvironmentOverride { Values = values };
             }
         }
         return result;
     }
 
-    /// <summary>Infer the type string for a raw value.</summary>
-    private static string InferType(object? value) => value switch
+    /// <summary>Infer the type enum for a raw value.</summary>
+    private static GenConfig.ConfigItemDefinitionType? InferType(object? value) => value switch
     {
-        string => "STRING",
-        bool => "BOOLEAN",
-        int or long or float or double or decimal => "NUMBER",
-        _ => "JSON",
+        string => GenConfig.ConfigItemDefinitionType.STRING,
+        bool => GenConfig.ConfigItemDefinitionType.BOOLEAN,
+        int or long or float or double or decimal => GenConfig.ConfigItemDefinitionType.NUMBER,
+        _ => null,
     };
 
-    private static JsonApiRequestBody BuildRequestBody(CreateConfigOptions options) =>
+    private static GenConfig.Response_Config_ BuildRequestBody(CreateConfigOptions options) =>
         new()
         {
-            Data = new JsonApiRequestResource
+            Data = new GenConfig.Resource_Config_
             {
                 Type = "config",
-                Attributes = new JsonApiRequestAttributes
+                Attributes = new GenConfig.Config
                 {
                     Name = options.Name,
                     Key = options.Key,
@@ -531,20 +523,20 @@ public sealed class ConfigClient
         };
 
     /// <summary>
-    /// Maps a JSON:API resource to a <see cref="Config"/> record.
+    /// Maps a generated JSON:API resource to a <see cref="Config"/> record.
     /// Extracts raw values from typed item wrappers and environment override wrappers.
     /// </summary>
-    private static Config? MapResource(JsonApiResource? resource)
+    private static Config? MapResource(GenConfig.ConfigResource? resource)
     {
         if (resource?.Attributes is null)
             return null;
 
         var attrs = resource.Attributes;
 
-        // Extract raw values from typed items: {key: {"value": raw, "type": ..., "description": ...}} -> {key: raw}
+        // Extract raw values from typed items: ConfigItemDefinition -> raw value
         var items = ExtractRawItems(attrs.Items);
 
-        // Extract raw values from environment overrides: {env: {key: {"value": raw}}} -> {env: {key: raw}}
+        // Extract raw values from environment overrides
         var environments = ExtractRawEnvironments(attrs.Environments);
 
         return new Config(
@@ -555,67 +547,48 @@ public sealed class ConfigClient
             Parent: attrs.Parent,
             Items: items,
             Environments: environments,
-            CreatedAt: attrs.CreatedAt,
-            UpdatedAt: attrs.UpdatedAt
+            CreatedAt: attrs.Created_at?.DateTime,
+            UpdatedAt: attrs.Updated_at?.DateTime
         );
     }
 
     /// <summary>
-    /// Extracts raw values from typed item wrappers.
-    /// Wire format: <c>{key: {"value": raw, "type": "STRING", "description": "..."}}</c>
-    /// SDK format: <c>{key: raw}</c>
+    /// Extracts raw values from generated <see cref="GenConfig.ConfigItemDefinition"/> wrappers.
     /// </summary>
     private static Dictionary<string, object?> ExtractRawItems(
-        Dictionary<string, Dictionary<string, object?>>? items)
+        IDictionary<string, GenConfig.ConfigItemDefinition>? items)
     {
         if (items is null)
             return new Dictionary<string, object?>();
 
         var result = new Dictionary<string, object?>(items.Count);
-        foreach (var (key, wrapper) in items)
+        foreach (var (key, definition) in items)
         {
-            var normalized = Resolver.NormalizeDict(wrapper);
-            result[key] = normalized.TryGetValue("value", out var v) ? v : null;
+            result[key] = Resolver.Normalize(definition.Value);
         }
         return result;
     }
 
     /// <summary>
-    /// Extracts raw values from environment override wrappers.
-    /// Wire format: <c>{env: {key: {"value": raw}}}</c>
-    /// SDK format: <c>{env: {key: raw}}</c>
+    /// Extracts raw values from generated <see cref="GenConfig.EnvironmentOverride"/> wrappers.
     /// </summary>
     private static Dictionary<string, Dictionary<string, object?>> ExtractRawEnvironments(
-        Dictionary<string, Dictionary<string, object?>>? environments)
+        IDictionary<string, GenConfig.EnvironmentOverride>? environments)
     {
         if (environments is null)
             return new Dictionary<string, Dictionary<string, object?>>();
 
         var result = new Dictionary<string, Dictionary<string, object?>>(environments.Count);
-        foreach (var (envName, envData) in environments)
+        foreach (var (envName, envOverride) in environments)
         {
-            var normalized = Resolver.NormalizeDict(envData);
             var envValues = new Dictionary<string, object?>();
-
-            // Wire format: {env: {"values": {key: {"value": raw}}}}
-            // Unwrap the "values" key from the EnvironmentOverride and extract raw values.
-            if (normalized.TryGetValue("values", out var valuesObj)
-                && valuesObj is Dictionary<string, object?> valuesDict)
+            if (envOverride.Values is not null)
             {
-                foreach (var (key, wrapper) in valuesDict)
+                foreach (var (key, itemOverride) in envOverride.Values)
                 {
-                    if (wrapper is Dictionary<string, object?> wrapperDict
-                        && wrapperDict.TryGetValue("value", out var v))
-                    {
-                        envValues[key] = v;
-                    }
-                    else
-                    {
-                        envValues[key] = wrapper;
-                    }
+                    envValues[key] = Resolver.Normalize(itemOverride.Value);
                 }
             }
-
             result[envName] = envValues;
         }
         return result;

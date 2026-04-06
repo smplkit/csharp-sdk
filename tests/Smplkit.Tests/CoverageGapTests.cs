@@ -95,7 +95,7 @@ public class CoverageGapTests
         {
             "data": [
                 {
-                    "id": "cfg-1",
+                    "id": "11111111-1111-1111-1111-111111111111",
                     "type": "config",
                     "attributes": {
                         "key": "my_config",
@@ -170,7 +170,7 @@ public class CoverageGapTests
         if (completed == putSent.Task)
         {
             var body = await putSent.Task;
-            Assert.Contains("\"id\":\"service:my-service\"", body);
+            Assert.Contains("\"key\":\"my-service\"", body);
         }
 
         client.Dispose();

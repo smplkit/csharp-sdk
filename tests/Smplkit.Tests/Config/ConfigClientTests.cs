@@ -120,7 +120,7 @@ public class ConfigClientTests
         // Verify filter[key] query param
         Assert.NotNull(handler.LastRequest);
         var url = handler.LastRequest.RequestUri!.ToString();
-        Assert.Contains("filter[key]=user_service", url);
+        Assert.Contains("filter%5Bkey%5D=user_service", url);
     }
 
     [Fact]
@@ -331,7 +331,7 @@ public class ConfigClientTests
 
         Assert.NotNull(handler.LastRequest);
         var contentType = handler.LastRequest.Content!.Headers.ContentType!.MediaType;
-        Assert.Equal("application/vnd.api+json", contentType);
+        Assert.Equal("application/json", contentType);
     }
 
     // ---------------------------------------------------------------
@@ -541,7 +541,7 @@ public class ConfigClientTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(json)));
 
-        var config = await client.Config.GetAsync("some-id");
+        var config = await client.Config.GetAsync("50000000-5000-5000-5000-500000000000");
 
         Assert.Equal(string.Empty, config.Id);
         Assert.Equal(string.Empty, config.Key);
@@ -666,7 +666,7 @@ public class ConfigClientTests
 
         Assert.NotNull(handler.LastRequest);
         var contentType = handler.LastRequest.Content!.Headers.ContentType!.MediaType;
-        Assert.Equal("application/vnd.api+json", contentType);
+        Assert.Equal("application/json", contentType);
     }
 
     [Fact]
@@ -678,7 +678,7 @@ public class ConfigClientTests
                 HttpStatusCode.NotFound)));
 
         var ex = await Assert.ThrowsAsync<SmplNotFoundException>(
-            () => client.Config.UpdateAsync("nonexistent", new CreateConfigOptions { Name = "Test" }));
+            () => client.Config.UpdateAsync("99999999-9999-9999-9999-999999999999", new CreateConfigOptions { Name = "Test" }));
         Assert.Equal(404, ex.StatusCode);
     }
 
@@ -782,7 +782,7 @@ public class ConfigClientTests
         var json = """
         {
             "data": {
-                "id": "cfg-1",
+                "id": "11111111-1111-1111-1111-111111111111",
                 "type": "config",
                 "attributes": {
                     "key": "my_key",
@@ -804,7 +804,7 @@ public class ConfigClientTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(json)));
 
-        var config = await client.Config.GetAsync("cfg-1");
+        var config = await client.Config.GetAsync("11111111-1111-1111-1111-111111111111");
 
         Assert.Equal(2, config.Environments.Count);
         Assert.True(config.Environments.ContainsKey("production"));
@@ -977,8 +977,8 @@ public class ConfigClientTests
         var (client, handler) = CreateClient(_ =>
             Task.FromResult(JsonResponse(TestData.SingleConfigJson())));
 
-        await client.Config.GetAsync("id-1");
-        await client.Config.GetAsync("id-2");
+        await client.Config.GetAsync("10000001-1000-1000-1000-100000000001");
+        await client.Config.GetAsync("10000002-1000-1000-1000-100000000002");
 
         Assert.Equal(2, handler.Requests.Count);
     }

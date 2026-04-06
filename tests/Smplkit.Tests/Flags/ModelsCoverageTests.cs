@@ -31,7 +31,7 @@ public class ModelsCoverageTests
     }
 
     private static string SingleFlagJson(
-        string id = "flag-001",
+        string id = "faa00001-faa0-faa0-faa0-faa000000001",
         string key = "my-flag",
         string envJson = "{}") =>
         $$"""
@@ -63,7 +63,7 @@ public class ModelsCoverageTests
     {
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(SingleFlagJson())));
 
-        var flag = await client.Flags.GetAsync("flag-001");
+        var flag = await client.Flags.GetAsync("faa00001-faa0-faa0-faa0-faa000000001");
         var str = flag.ToString();
 
         Assert.Contains("Key=my-flag", str);
@@ -78,12 +78,12 @@ public class ModelsCoverageTests
     [Fact]
     public async Task Flag_UpdateAsync_UpdatesSelf()
     {
-        var updatedJson = SingleFlagJson(id: "flag-001", key: "my-flag")
+        var updatedJson = SingleFlagJson(id: "faa00001-faa0-faa0-faa0-faa000000001", key: "my-flag")
             .Replace("My Flag", "Updated Flag");
 
         var (client, handler) = CreateClient(_ => Task.FromResult(JsonResponse(updatedJson)));
 
-        var flag = await client.Flags.GetAsync("flag-001");
+        var flag = await client.Flags.GetAsync("faa00001-faa0-faa0-faa0-faa000000001");
         Assert.Equal("Updated Flag", flag.Name);
 
         await flag.UpdateAsync(name: "Updated Flag");
@@ -111,7 +111,7 @@ public class ModelsCoverageTests
         var flagJsonWithEnv = SingleFlagJson(envJson: envJson);
         var (client, handler) = CreateClient(_ => Task.FromResult(JsonResponse(flagJsonWithEnv)));
 
-        var flag = await client.Flags.GetAsync("flag-001");
+        var flag = await client.Flags.GetAsync("faa00001-faa0-faa0-faa0-faa000000001");
 
         var rule = new Rule("Test Rule")
             .Environment("staging")
@@ -130,7 +130,7 @@ public class ModelsCoverageTests
     {
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(SingleFlagJson())));
 
-        var flag = await client.Flags.GetAsync("flag-001");
+        var flag = await client.Flags.GetAsync("faa00001-faa0-faa0-faa0-faa000000001");
 
         var rule = new Rule("New Env Rule")
             .Environment("production")
@@ -146,7 +146,7 @@ public class ModelsCoverageTests
     {
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(SingleFlagJson())));
 
-        var flag = await client.Flags.GetAsync("flag-001");
+        var flag = await client.Flags.GetAsync("faa00001-faa0-faa0-faa0-faa000000001");
 
         var rule = new Rule("No Env")
             .When("user.plan", "==", "pro")
@@ -171,7 +171,7 @@ public class ModelsCoverageTests
         var (client, handler) = CreateClient(_ =>
             Task.FromResult(JsonResponse(SingleFlagJson(envJson: envJson))));
 
-        var flag = await client.Flags.GetAsync("flag-001");
+        var flag = await client.Flags.GetAsync("faa00001-faa0-faa0-faa0-faa000000001");
 
         var rule = new Rule("New Rule")
             .Environment("staging")
@@ -205,7 +205,7 @@ public class ModelsCoverageTests
         var ctJson = """
         {
             "data": {
-                "id": "ct-001",
+                "id": "c0000001-c000-c000-c000-c00000000001",
                 "type": "context_type",
                 "attributes": {
                     "key": "user",
@@ -215,7 +215,11 @@ public class ModelsCoverageTests
             }
         }
         """;
-        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(ctJson)));
+        var (client, _) = CreateClient(_ => Task.FromResult(
+            new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = new StringContent(ctJson, Encoding.UTF8, "application/vnd.api+json"),
+            }));
 
         var ct = await client.Flags.CreateContextTypeAsync("user", "User");
         var str = ct.ToString();

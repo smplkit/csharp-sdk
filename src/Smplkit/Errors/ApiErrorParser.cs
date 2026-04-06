@@ -9,30 +9,23 @@ namespace Smplkit.Errors;
 internal static class ApiErrorParser
 {
     /// <summary>
-    /// Parses a JSON:API error response body and throws the appropriate exception.
+    /// Parses a JSON:API error response body and creates the appropriate exception.
     /// </summary>
     /// <param name="statusCode">The HTTP status code.</param>
     /// <param name="body">The raw response body string.</param>
-    /// <exception cref="SmplValidationException">For 400 or 422 responses.</exception>
-    /// <exception cref="SmplNotFoundException">For 404 responses.</exception>
-    /// <exception cref="SmplConflictException">For 409 responses.</exception>
-    /// <exception cref="SmplException">For all other non-2xx responses.</exception>
-    internal static void ThrowForError(int statusCode, string body)
+    /// <returns>A typed <see cref="SmplException"/> subclass for the given status code.</returns>
+    internal static SmplException CreateException(int statusCode, string body)
     {
         var errors = ParseErrors(body);
         var message = SmplException.DeriveMessage(errors, statusCode);
 
-        switch (statusCode)
+        return statusCode switch
         {
-            case 400 or 422:
-                throw new SmplValidationException(message, responseBody: body, statusCode: statusCode, errors: errors);
-            case 404:
-                throw new SmplNotFoundException(message, body, errors);
-            case 409:
-                throw new SmplConflictException(message, body, errors);
-            default:
-                throw new SmplException(message, statusCode: statusCode, responseBody: body, errors: errors);
-        }
+            400 or 422 => new SmplValidationException(message, responseBody: body, statusCode: statusCode, errors: errors),
+            404 => new SmplNotFoundException(message, body, errors),
+            409 => new SmplConflictException(message, body, errors),
+            _ => new SmplException(message, statusCode: statusCode, responseBody: body, errors: errors),
+        };
     }
 
     /// <summary>

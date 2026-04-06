@@ -34,7 +34,7 @@ public class ConfigClientSetValuesTests
     /// Environments use wire format: {env: {"values": {key: {"value": raw}}}}
     /// </summary>
     private static string ConfigJsonWithValuesAndEnvs(
-        string id = "cfg-1",
+        string id = "11111111-1111-1111-1111-111111111111",
         string key = "my_key",
         string name = "My Config",
         string? parent = null,
@@ -92,7 +92,7 @@ public class ConfigClientSetValuesTests
         });
 
         var result = await client.Config.SetValuesAsync(
-            "cfg-1",
+            "11111111-1111-1111-1111-111111111111",
             new Dictionary<string, object?> { ["new_key"] = "new_value" });
 
         Assert.Equal(2, requestCount); // GET + PUT
@@ -122,7 +122,7 @@ public class ConfigClientSetValuesTests
         });
 
         await client.Config.SetValuesAsync(
-            "cfg-1",
+            "11111111-1111-1111-1111-111111111111",
             new Dictionary<string, object?> { ["key"] = "val" });
 
         Assert.NotNull(putBody);
@@ -156,7 +156,7 @@ public class ConfigClientSetValuesTests
         });
 
         await client.Config.SetValuesAsync(
-            "cfg-1",
+            "11111111-1111-1111-1111-111111111111",
             new Dictionary<string, object?> { ["timeout"] = 120 },
             environment: "production");
 
@@ -185,7 +185,7 @@ public class ConfigClientSetValuesTests
         });
 
         await client.Config.SetValuesAsync(
-            "cfg-1",
+            "11111111-1111-1111-1111-111111111111",
             new Dictionary<string, object?> { ["timeout"] = 90 },
             environment: "staging");
 
@@ -218,7 +218,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var result = await client.Config.SetValueAsync("cfg-1", "debug", true);
+        var result = await client.Config.SetValueAsync("11111111-1111-1111-1111-111111111111", "debug", true);
 
         Assert.NotNull(putBody);
         // Should contain both old and new keys
@@ -248,7 +248,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        await client.Config.SetValueAsync("cfg-1", "timeout", 60);
+        await client.Config.SetValueAsync("11111111-1111-1111-1111-111111111111", "timeout", 60);
 
         Assert.NotNull(putBody);
     }
@@ -278,7 +278,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        await client.Config.SetValueAsync("cfg-1", "debug", true, environment: "production");
+        await client.Config.SetValueAsync("11111111-1111-1111-1111-111111111111", "debug", true, environment: "production");
 
         Assert.NotNull(putBody);
         Assert.Contains("production", putBody);
@@ -305,7 +305,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        await client.Config.SetValueAsync("cfg-1", "retries", 5, environment: "staging");
+        await client.Config.SetValueAsync("11111111-1111-1111-1111-111111111111", "retries", 5, environment: "staging");
 
         Assert.NotNull(putBody);
         Assert.Contains("staging", putBody);
@@ -335,7 +335,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        await client.Config.SetValueAsync("cfg-1", "debug", true, environment: "production");
+        await client.Config.SetValueAsync("11111111-1111-1111-1111-111111111111", "debug", true, environment: "production");
 
         Assert.NotNull(putBody);
         Assert.Contains("debug", putBody);
@@ -361,7 +361,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        await client.Config.SetValueAsync("cfg-1", "timeout", null);
+        await client.Config.SetValueAsync("11111111-1111-1111-1111-111111111111", "timeout", null);
 
         Assert.NotNull(putBody);
     }
@@ -376,7 +376,7 @@ public class ConfigClientSetValuesTests
         var json = """
         {
             "data": [
-                {"id": "abc", "type": "config", "attributes": null}
+                {"id": "abcabc00-abc0-abc0-abc0-abcabc000000", "type": "config", "attributes": null}
             ]
         }
         """;
@@ -402,7 +402,7 @@ public class ConfigClientSetValuesTests
             if (req.Method == HttpMethod.Get)
             {
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    id: "cfg-1",
+                    id: "11111111-1111-1111-1111-111111111111",
                     key: "svc_key",
                     name: "Service Name",
                     valuesJson: """{"old": {"value": "val", "type": "STRING"}}"""));
@@ -416,7 +416,7 @@ public class ConfigClientSetValuesTests
         });
 
         await client.Config.SetValuesAsync(
-            "cfg-1",
+            "11111111-1111-1111-1111-111111111111",
             new Dictionary<string, object?> { ["new"] = "val" });
 
         Assert.NotNull(putBody);
@@ -511,7 +511,7 @@ public class ConfigClientSetValuesTests
         });
 
         await client.Config.SetValuesAsync(
-            "cfg-1",
+            "11111111-1111-1111-1111-111111111111",
             new Dictionary<string, object?> { ["timeout"] = 120 },
             environment: "production");
 
@@ -546,7 +546,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        await client.Config.SetValueAsync("cfg-1", "debug", true, environment: "production");
+        await client.Config.SetValueAsync("11111111-1111-1111-1111-111111111111", "debug", true, environment: "production");
 
         Assert.NotNull(putBody);
         // Should merge debug into existing production env values
@@ -580,7 +580,7 @@ public class ConfigClientSetValuesTests
         });
 
         await client.Config.SetValuesAsync(
-            "cfg-1",
+            "11111111-1111-1111-1111-111111111111",
             new Dictionary<string, object?> { ["debug"] = true },
             environment: "development");
 
@@ -590,11 +590,11 @@ public class ConfigClientSetValuesTests
     }
 
     // ------------------------------------------------------------------
-    // SetValueAsync — env path with values key that normalizes to non-dict
+    // SetValueAsync — env path adds new key to existing env values
     // ------------------------------------------------------------------
 
     [Fact]
-    public async Task SetValueAsync_EnvWithValuesKeyAsString_CreatesNewDict()
+    public async Task SetValueAsync_EnvWithExistingValues_AddsNewKey()
     {
         string? putBody = null;
 
@@ -602,10 +602,9 @@ public class ConfigClientSetValuesTests
         {
             if (req.Method == HttpMethod.Get)
             {
-                // Environment has a values item whose wrapper is a scalar (not {"value": ...})
                 return JsonResponse(ConfigJsonWithValuesAndEnvs(
                     valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
-                    environmentsJson: """{"production": {"values": {"value": "not-a-dict"}}}"""));
+                    environmentsJson: """{"production": {"values": {"timeout": {"value": 60}}}}"""));
             }
             else if (req.Method == HttpMethod.Put)
             {
@@ -615,7 +614,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        await client.Config.SetValueAsync("cfg-1", "retries", 5, environment: "production");
+        await client.Config.SetValueAsync("11111111-1111-1111-1111-111111111111", "retries", 5, environment: "production");
 
         Assert.NotNull(putBody);
         Assert.Contains("retries", putBody);
@@ -647,7 +646,7 @@ public class ConfigClientSetValuesTests
         });
 
         await client.Config.SetValuesAsync(
-            "cfg-1",
+            "11111111-1111-1111-1111-111111111111",
             new Dictionary<string, object?> { ["new_key"] = "val" });
 
         Assert.NotNull(putBody);
@@ -678,7 +677,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        await client.Config.SetValueAsync("cfg-1", "timeout", null);
+        await client.Config.SetValueAsync("11111111-1111-1111-1111-111111111111", "timeout", null);
 
         Assert.NotNull(putBody);
         // The merged values should include retries and timeout set to null
@@ -693,10 +692,10 @@ public class ConfigClientSetValuesTests
     public async Task UpdateAsync_NullAttributesInResponse_ThrowsSmplValidationException()
     {
         var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse("""{"data": {"id": "abc", "type": "config", "attributes": null}}""")));
+            Task.FromResult(JsonResponse("""{"data": {"id": "abcabc00-abc0-abc0-abc0-abcabc000000", "type": "config", "attributes": null}}""")));
 
         await Assert.ThrowsAsync<SmplValidationException>(
-            () => client.Config.UpdateAsync("abc", new CreateConfigOptions { Name = "Test" }));
+            () => client.Config.UpdateAsync("abcabc00-abc0-abc0-abc0-abcabc000000", new CreateConfigOptions { Name = "Test" }));
     }
 
     // ------------------------------------------------------------------
@@ -707,7 +706,7 @@ public class ConfigClientSetValuesTests
     public async Task CreateAsync_NullAttributesInResponse_ThrowsSmplValidationException()
     {
         var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse("""{"data": {"id": "abc", "type": "config", "attributes": null}}""", HttpStatusCode.Created)));
+            Task.FromResult(JsonResponse("""{"data": {"id": "abcabc00-abc0-abc0-abc0-abcabc000000", "type": "config", "attributes": null}}""", HttpStatusCode.Created)));
 
         await Assert.ThrowsAsync<SmplValidationException>(
             () => client.Config.CreateAsync(new CreateConfigOptions { Name = "Test" }));
@@ -738,7 +737,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        await client.Config.SetValueAsync("cfg-1", "debug", true, environment: "newenv");
+        await client.Config.SetValueAsync("11111111-1111-1111-1111-111111111111", "debug", true, environment: "newenv");
 
         Assert.NotNull(putBody);
         Assert.Contains("newenv", putBody);
@@ -771,7 +770,7 @@ public class ConfigClientSetValuesTests
         });
 
         await client.Config.SetValuesAsync(
-            "cfg-1",
+            "11111111-1111-1111-1111-111111111111",
             new Dictionary<string, object?> { ["new"] = "val" });
 
         Assert.NotNull(putBody);
@@ -804,7 +803,7 @@ public class ConfigClientSetValuesTests
         });
 
         await client.Config.SetValuesAsync(
-            "cfg-1",
+            "11111111-1111-1111-1111-111111111111",
             new Dictionary<string, object?> { ["timeout"] = 120 },
             environment: "production");
 

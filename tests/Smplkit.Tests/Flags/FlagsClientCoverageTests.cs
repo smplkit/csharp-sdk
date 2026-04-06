@@ -1462,4 +1462,90 @@ public class FlagsClientCoverageTests
         Assert.Equal(0, stats.CacheHits);
         Assert.Equal(0, stats.CacheMisses);
     }
+
+    // ---------------------------------------------------------------
+    // NormalizeAttributes — non-object attributes fallback
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task CreateContextType_NonObjectAttributes_ReturnsEmptyDict()
+    {
+        // Context type whose "attributes" field is a number, not an object.
+        // NormalizeAttributes should fall through to the empty-dict fallback.
+        var ctJson = """
+        {
+            "data": {
+                "id": "c0000001-c000-c000-c000-c00000000001",
+                "type": "context_type",
+                "attributes": {
+                    "key": "device",
+                    "name": "Device",
+                    "attributes": 42
+                }
+            }
+        }
+        """;
+        var (client, _) = CreateClient(_ => Task.FromResult(
+            new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = new StringContent(ctJson, Encoding.UTF8, "application/vnd.api+json"),
+            }));
+
+        var ct = await client.Flags.CreateContextTypeAsync("device", "Device");
+
+        Assert.Equal("device", ct.Key);
+        Assert.NotNull(ct.Attributes);
+        Assert.Empty(ct.Attributes);
+    }
+
+    // ---------------------------------------------------------------
+    // BuildUpdateFlagBody — env without rules key
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task UpdateAsync_EnvWithoutRules_SetsEmptyRulesList()
+    {
+        // Flag whose environment has enabled + default but NO rules key.
+        // After MapFlagResource → ExtractEnvironments, the env dict will
+        // not have a "rules" key, triggering the else branch in BuildUpdateFlagBody.
+        var flagJson = $$"""
+        {
+            "data": {
+                "id": "{{FlagId}}",
+                "type": "flag",
+                "attributes": {
+                    "key": "no-rules-flag",
+                    "name": "No Rules",
+                    "type": "BOOLEAN",
+                    "default": false,
+                    "values": [{"name": "True", "value": true}, {"name": "False", "value": false}],
+                    "description": "Flag with env that has null rules",
+                    "environments": {
+                        "staging": {
+                            "enabled": true,
+                            "default": null
+                        }
+                    },
+                    "created_at": "2024-01-15T10:30:00Z",
+                    "updated_at": "2024-01-15T10:30:00Z"
+                }
+            }
+        }
+        """;
+
+        string? capturedBody = null;
+        var (client, _) = CreateClient(async req =>
+        {
+            if (req.Method == HttpMethod.Put)
+                capturedBody = await req.Content!.ReadAsStringAsync();
+            return JsonResponse(flagJson);
+        });
+
+        var flag = await client.Flags.GetAsync(FlagId);
+        await flag.UpdateAsync(name: "No Rules Updated");
+
+        Assert.NotNull(capturedBody);
+        // The rules list should be present (as an empty array) in the PUT body
+        Assert.Contains("\"rules\"", capturedBody);
+    }
 }

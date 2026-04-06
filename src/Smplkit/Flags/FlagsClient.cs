@@ -7,6 +7,8 @@ using JsonLogic.Net;
 using Newtonsoft.Json.Linq;
 using Smplkit.Errors;
 using Smplkit.Internal;
+using GenApp = Smplkit.Internal.Generated.App;
+using GenFlags = Smplkit.Internal.Generated.Flags;
 
 namespace Smplkit.Flags;
 
@@ -16,13 +18,12 @@ namespace Smplkit.Flags;
 /// </summary>
 public sealed class FlagsClient
 {
-    private const string FlagsBaseUrl = "https://flags.smplkit.com";
-    private const string AppBaseUrl = "https://app.smplkit.com";
     private const int CacheMaxSize = 10_000;
     private const int ContextRegistrationLruSize = 10_000;
     private const int ContextBatchFlushSize = 100;
 
-    private readonly Transport _transport;
+    private readonly GenFlags.FlagsClient _genFlagsClient;
+    private readonly GenApp.AppClient _genAppClient;
     private readonly string _apiKey;
     private readonly Func<SharedWebSocket> _ensureWs;
     private readonly SmplClient? _parent;
@@ -40,9 +41,10 @@ public sealed class FlagsClient
     // Shared WebSocket
     private SharedWebSocket? _wsManager;
 
-    internal FlagsClient(Transport transport, string apiKey, Func<SharedWebSocket> ensureWs, SmplClient? parent = null)
+    internal FlagsClient(GeneratedClientFactory clients, string apiKey, Func<SharedWebSocket> ensureWs, SmplClient? parent = null)
     {
-        _transport = transport;
+        _genFlagsClient = clients.Flags;
+        _genAppClient = clients.App;
         _apiKey = apiKey;
         _ensureWs = ensureWs;
         _parent = parent;
@@ -76,9 +78,9 @@ public sealed class FlagsClient
             values = [new() { ["name"] = "True", ["value"] = true }, new() { ["name"] = "False", ["value"] = false }];
 
         var body = BuildCreateFlagBody(key, name, type.ToWireString(), @default, description, values);
-        var json = await _transport.PostAsync($"{FlagsBaseUrl}/api/v1/flags", body, ct).ConfigureAwait(false);
-        var response = JsonSerializer.Deserialize<FlagApiSingleResponse>(json, Transport.SerializerOptions);
-        return MapFlagResource(response?.Data)
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genFlagsClient.Create_flagAsync(body, ct)).ConfigureAwait(false);
+        return MapFlagResource(response.Data)
             ?? throw new SmplValidationException("Failed to create flag");
     }
 
@@ -90,9 +92,9 @@ public sealed class FlagsClient
     /// <returns>The matching <see cref="Flag"/>.</returns>
     public async Task<Flag> GetAsync(string flagId, CancellationToken ct = default)
     {
-        var json = await _transport.GetAsync($"{FlagsBaseUrl}/api/v1/flags/{flagId}", ct).ConfigureAwait(false);
-        var response = JsonSerializer.Deserialize<FlagApiSingleResponse>(json, Transport.SerializerOptions);
-        return MapFlagResource(response?.Data)
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genFlagsClient.Get_flagAsync(Guid.Parse(flagId), ct)).ConfigureAwait(false);
+        return MapFlagResource(response.Data)
             ?? throw new SmplNotFoundException($"Flag {flagId} not found");
     }
 
@@ -103,9 +105,9 @@ public sealed class FlagsClient
     /// <returns>A list of <see cref="Flag"/> objects.</returns>
     public async Task<List<Flag>> ListAsync(CancellationToken ct = default)
     {
-        var json = await _transport.GetAsync($"{FlagsBaseUrl}/api/v1/flags", ct).ConfigureAwait(false);
-        var response = JsonSerializer.Deserialize<FlagApiListResponse>(json, Transport.SerializerOptions);
-        if (response?.Data is null) return new List<Flag>();
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genFlagsClient.List_flagsAsync(cancellationToken: ct)).ConfigureAwait(false);
+        if (response.Data is null) return new List<Flag>();
         return response.Data.Select(r => MapFlagResource(r)!).Where(f => f is not null).ToList();
     }
 
@@ -116,7 +118,8 @@ public sealed class FlagsClient
     /// <param name="ct">Cancellation token.</param>
     public async Task DeleteAsync(string flagId, CancellationToken ct = default)
     {
-        await _transport.DeleteAsync($"{FlagsBaseUrl}/api/v1/flags/{flagId}", ct).ConfigureAwait(false);
+        await ApiExceptionMapper.ExecuteAsync(
+            () => _genFlagsClient.Delete_flagAsync(Guid.Parse(flagId), ct)).ConfigureAwait(false);
     }
 
     /// <summary>Internal: PUT a full flag update.</summary>
@@ -138,9 +141,9 @@ public sealed class FlagsClient
             description: description ?? flag.Description,
             environments: environments ?? flag.Environments);
 
-        var json = await _transport.PutAsync($"{FlagsBaseUrl}/api/v1/flags/{flag.Id}", body, ct).ConfigureAwait(false);
-        var response = JsonSerializer.Deserialize<FlagApiSingleResponse>(json, Transport.SerializerOptions);
-        return MapFlagResource(response?.Data)
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genFlagsClient.Update_flagAsync(Guid.Parse(flag.Id), body, ct)).ConfigureAwait(false);
+        return MapFlagResource(response.Data)
             ?? throw new SmplValidationException("Failed to update flag");
     }
 
@@ -158,13 +161,17 @@ public sealed class FlagsClient
     public async Task<ContextType> CreateContextTypeAsync(
         string key, string name, CancellationToken ct = default)
     {
-        var body = new
+        var body = new GenApp.ContextTypeResponse
         {
-            data = new { type = "context_type", attributes = new { key, name } }
+            Data = new GenApp.ContextTypeResource
+            {
+                Type = GenApp.ContextTypeResourceType.Context_type,
+                Attributes = new GenApp.ContextType { Key = key, Name = name, Attributes = new object() },
+            }
         };
-        var json = await _transport.PostAsync($"{AppBaseUrl}/api/v1/context_types", body, ct).ConfigureAwait(false);
-        var response = JsonSerializer.Deserialize<ContextTypeApiSingleResponse>(json, Transport.SerializerOptions);
-        return ParseContextType(response?.Data);
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genAppClient.Create_context_typeAsync(body, ct)).ConfigureAwait(false);
+        return ParseContextType(response.Data);
     }
 
     /// <summary>
@@ -177,13 +184,17 @@ public sealed class FlagsClient
     public async Task<ContextType> UpdateContextTypeAsync(
         string ctId, Dictionary<string, object?> attributes, CancellationToken ct = default)
     {
-        var body = new
+        var body = new GenApp.ContextTypeResponse
         {
-            data = new { type = "context_type", attributes = new { attributes } }
+            Data = new GenApp.ContextTypeResource
+            {
+                Type = GenApp.ContextTypeResourceType.Context_type,
+                Attributes = new GenApp.ContextType { Key = "", Name = "", Attributes = attributes },
+            }
         };
-        var json = await _transport.PutAsync($"{AppBaseUrl}/api/v1/context_types/{ctId}", body, ct).ConfigureAwait(false);
-        var response = JsonSerializer.Deserialize<ContextTypeApiSingleResponse>(json, Transport.SerializerOptions);
-        return ParseContextType(response?.Data);
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genAppClient.Update_context_typeAsync(Guid.Parse(ctId), body, ct)).ConfigureAwait(false);
+        return ParseContextType(response.Data);
     }
 
     /// <summary>
@@ -193,9 +204,9 @@ public sealed class FlagsClient
     /// <returns>A list of <see cref="ContextType"/> objects.</returns>
     public async Task<List<ContextType>> ListContextTypesAsync(CancellationToken ct = default)
     {
-        var json = await _transport.GetAsync($"{AppBaseUrl}/api/v1/context_types", ct).ConfigureAwait(false);
-        var response = JsonSerializer.Deserialize<ContextTypeApiListResponse>(json, Transport.SerializerOptions);
-        if (response?.Data is null) return new List<ContextType>();
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genAppClient.List_context_typesAsync(ct)).ConfigureAwait(false);
+        if (response.Data is null) return new List<ContextType>();
         return response.Data.Select(ParseContextType).ToList();
     }
 
@@ -206,7 +217,8 @@ public sealed class FlagsClient
     /// <param name="ct">Cancellation token.</param>
     public async Task DeleteContextTypeAsync(string ctId, CancellationToken ct = default)
     {
-        await _transport.DeleteAsync($"{AppBaseUrl}/api/v1/context_types/{ctId}", ct).ConfigureAwait(false);
+        await ApiExceptionMapper.ExecuteAsync(
+            () => _genAppClient.Delete_context_typeAsync(Guid.Parse(ctId), ct)).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -218,11 +230,23 @@ public sealed class FlagsClient
     public async Task<List<Dictionary<string, object?>>> ListContextsAsync(
         string contextTypeKey, CancellationToken ct = default)
     {
-        var encodedKey = Uri.EscapeDataString(contextTypeKey);
-        var json = await _transport.GetAsync(
-            $"{AppBaseUrl}/api/v1/contexts?filter[context_type_id]={encodedKey}", ct).ConfigureAwait(false);
-        var response = JsonSerializer.Deserialize<ContextApiListResponse>(json, Transport.SerializerOptions);
-        return response?.Data ?? new List<Dictionary<string, object?>>();
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genAppClient.List_contextsAsync(filtercontext_type_id: contextTypeKey, cancellationToken: ct)).ConfigureAwait(false);
+
+        var results = new List<Dictionary<string, object?>>();
+        if (response.Data is not null)
+        {
+            foreach (var resource in response.Data)
+            {
+                results.Add(new Dictionary<string, object?>
+                {
+                    ["id"] = resource.Id,
+                    ["type"] = resource.Type.ToString(),
+                    ["attributes"] = resource.Attributes,
+                });
+            }
+        }
+        return results;
     }
 
     // ------------------------------------------------------------------
@@ -408,10 +432,20 @@ public sealed class FlagsClient
         if (batch.Count == 0) return;
         try
         {
-            await _transport.PostAsync(
-                $"{AppBaseUrl}/api/v1/contexts/bulk",
-                new { contexts = batch },
-                ct).ConfigureAwait(false);
+            var items = batch.Select(b => new GenApp.ContextBulkItem
+            {
+                Type = b.TryGetValue("id", out var id) && id is string idStr && idStr.Contains(':')
+                    ? idStr.Split(':')[0]
+                    : "",
+                Key = b.TryGetValue("id", out var id2) && id2 is string idStr2 && idStr2.Contains(':')
+                    ? idStr2[(idStr2.IndexOf(':') + 1)..]
+                    : "",
+                Attributes = b.TryGetValue("attributes", out var attrs) ? attrs ?? new object() : new object(),
+            }).ToList();
+
+            await ApiExceptionMapper.ExecuteAsync(
+                () => _genAppClient.Bulk_register_contextsAsync(
+                    new GenApp.ContextBulkRegister { Contexts = items }, ct)).ConfigureAwait(false);
         }
         catch { /* Context registration is fire-and-forget */ }
     }
@@ -443,10 +477,10 @@ public sealed class FlagsClient
         if (_connected && _flagStore.TryGetValue(key, out var flagDef))
             return EvaluateFlag(flagDef, environment, evalDict);
 
-        // Fetch all flags to find the one we need
-        var json = await _transport.GetAsync($"{FlagsBaseUrl}/api/v1/flags", ct).ConfigureAwait(false);
-        var response = JsonSerializer.Deserialize<FlagApiListResponse>(json, Transport.SerializerOptions);
-        if (response?.Data is not null)
+        // Fetch all flags via generated client to find the one we need
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genFlagsClient.List_flagsAsync(cancellationToken: ct)).ConfigureAwait(false);
+        if (response.Data is not null)
         {
             foreach (var resource in response.Data)
             {
@@ -519,9 +553,8 @@ public sealed class FlagsClient
         // Re-fetch all flags synchronously (called from WS background thread)
         try
         {
-            var json = _transport.GetAsync($"{FlagsBaseUrl}/api/v1/flags").GetAwaiter().GetResult();
-            var response = JsonSerializer.Deserialize<FlagApiListResponse>(json, Transport.SerializerOptions);
-            if (response?.Data is not null)
+            var response = _genFlagsClient.List_flagsAsync().GetAwaiter().GetResult();
+            if (response.Data is not null)
             {
                 _flagStore.Clear();
                 foreach (var resource in response.Data)
@@ -549,10 +582,10 @@ public sealed class FlagsClient
 
     private async Task FetchAllFlagsAsync(CancellationToken ct = default)
     {
-        var json = await _transport.GetAsync($"{FlagsBaseUrl}/api/v1/flags", ct).ConfigureAwait(false);
-        var response = JsonSerializer.Deserialize<FlagApiListResponse>(json, Transport.SerializerOptions);
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genFlagsClient.List_flagsAsync(cancellationToken: ct)).ConfigureAwait(false);
         _flagStore.Clear();
-        if (response?.Data is null) return;
+        if (response.Data is null) return;
         foreach (var resource in response.Data)
         {
             var flag = ParseFlagDef(resource);
@@ -650,8 +683,8 @@ public sealed class FlagsClient
 
             try
             {
-                var logicJson = JsonSerializer.Serialize(logic, Transport.SerializerOptions);
-                var dataJson = JsonSerializer.Serialize(evalDict, Transport.SerializerOptions);
+                var logicJson = JsonSerializer.Serialize(logic, JsonOptions.Default);
+                var dataJson = JsonSerializer.Serialize(evalDict, JsonOptions.Default);
                 var logicToken = JToken.Parse(logicJson);
                 var dataToken = JToken.Parse(dataJson);
 
@@ -741,7 +774,7 @@ public sealed class FlagsClient
     // Helpers: model mapping
     // ------------------------------------------------------------------
 
-    private Flag? MapFlagResource(FlagApiResource? resource)
+    private Flag? MapFlagResource(GenFlags.FlagResource? resource)
     {
         if (resource?.Attributes is null) return null;
         var attrs = resource.Attributes;
@@ -760,16 +793,16 @@ public sealed class FlagsClient
             id: resource.Id ?? string.Empty,
             key: attrs.Key ?? string.Empty,
             name: attrs.Name ?? string.Empty,
-            type: attrs.FlagType ?? "BOOLEAN",
+            type: attrs.Type ?? "BOOLEAN",
             @default: NormalizeValue(attrs.Default),
             values: values,
             description: attrs.Description,
             environments: environments,
-            createdAt: attrs.CreatedAt,
-            updatedAt: attrs.UpdatedAt);
+            createdAt: attrs.Created_at,
+            updatedAt: attrs.Updated_at);
     }
 
-    private static Dictionary<string, object?>? ParseFlagDef(FlagApiResource? resource)
+    private static Dictionary<string, object?>? ParseFlagDef(GenFlags.FlagResource? resource)
     {
         if (resource?.Attributes is null) return null;
         var attrs = resource.Attributes;
@@ -787,7 +820,7 @@ public sealed class FlagsClient
         {
             ["key"] = attrs.Key,
             ["name"] = attrs.Name,
-            ["type"] = attrs.FlagType,
+            ["type"] = attrs.Type,
             ["default"] = NormalizeValue(attrs.Default),
             ["values"] = values,
             ["description"] = attrs.Description,
@@ -796,24 +829,38 @@ public sealed class FlagsClient
     }
 
     private static Dictionary<string, Dictionary<string, object?>> ExtractEnvironments(
-        Dictionary<string, Dictionary<string, object?>>? environments)
+        IDictionary<string, GenFlags.FlagEnvironment>? environments)
     {
         if (environments is null) return new Dictionary<string, Dictionary<string, object?>>();
 
         var result = new Dictionary<string, Dictionary<string, object?>>();
         foreach (var (envName, envData) in environments)
         {
-            var normalized = new Dictionary<string, object?>();
-            foreach (var (key, value) in envData)
+            var normalized = new Dictionary<string, object?>
             {
-                normalized[key] = NormalizeValue(value);
+                ["enabled"] = envData.Enabled,
+                ["default"] = NormalizeValue(envData.Default),
+            };
+            if (envData.Rules is not null)
+            {
+                var rules = new List<object?>();
+                foreach (var rule in envData.Rules)
+                {
+                    rules.Add(new Dictionary<string, object?>
+                    {
+                        ["description"] = rule.Description,
+                        ["logic"] = NormalizeValue(rule.Logic),
+                        ["value"] = NormalizeValue(rule.Value),
+                    });
+                }
+                normalized["rules"] = rules;
             }
             result[envName] = normalized;
         }
         return result;
     }
 
-    private static ContextType ParseContextType(ContextTypeApiResource? resource)
+    private static ContextType ParseContextType(GenApp.ContextTypeResource? resource)
     {
         var attrs = resource?.Attributes;
         return new ContextType(
@@ -823,65 +870,103 @@ public sealed class FlagsClient
             attributes: NormalizeAttributes(attrs?.Attributes));
     }
 
-    private static Dictionary<string, object?> NormalizeAttributes(Dictionary<string, object?>? attributes)
+    private static Dictionary<string, object?> NormalizeAttributes(object? attributes)
     {
         if (attributes is null) return new Dictionary<string, object?>();
-        var result = new Dictionary<string, object?>();
-        foreach (var (key, value) in attributes)
-            result[key] = NormalizeValue(value);
-        return result;
+        if (attributes is JsonElement je && je.ValueKind == JsonValueKind.Object)
+        {
+            var result = new Dictionary<string, object?>();
+            foreach (var prop in je.EnumerateObject())
+                result[prop.Name] = Config.Resolver.Normalize(prop.Value);
+            return result;
+        }
+        return new Dictionary<string, object?>();
     }
 
     // ------------------------------------------------------------------
     // Helpers: request body building
     // ------------------------------------------------------------------
 
-    private static object BuildCreateFlagBody(
+    private static GenFlags.Response_Flag_ BuildCreateFlagBody(
         string key, string name, string type, object? @default,
         string? description, List<Dictionary<string, object?>>? values)
     {
-        var attrs = new Dictionary<string, object?>
+        var flagValues = values?.Select(v => new GenFlags.FlagValue
         {
-            ["key"] = key,
-            ["name"] = name,
-            ["type"] = type,
-            ["default"] = @default,
-        };
-        if (description is not null) attrs["description"] = description;
-        if (values is not null) attrs["values"] = values;
+            Name = v.TryGetValue("name", out var n) ? n?.ToString() ?? "" : "",
+            Value = v.TryGetValue("value", out var val) ? val! : new object(),
+        }).ToList() ?? new List<GenFlags.FlagValue>();
 
-        return new Dictionary<string, object?>
+        return new GenFlags.Response_Flag_
         {
-            ["data"] = new Dictionary<string, object?>
+            Data = new GenFlags.Resource_Flag_
             {
-                ["type"] = "flag",
-                ["attributes"] = attrs,
+                Type = "flag",
+                Attributes = new GenFlags.Flag
+                {
+                    Key = key,
+                    Name = name,
+                    Type = type,
+                    Default = @default ?? new object(),
+                    Description = description ?? "",
+                    Values = flagValues,
+                },
             }
         };
     }
 
-    private static object BuildUpdateFlagBody(
+    private static GenFlags.Response_Flag_ BuildUpdateFlagBody(
         string key, string name, string type, object? @default,
         List<Dictionary<string, object?>> values, string? description,
         Dictionary<string, Dictionary<string, object?>> environments)
     {
-        var attrs = new Dictionary<string, object?>
+        var flagValues = values.Select(v => new GenFlags.FlagValue
         {
-            ["key"] = key,
-            ["name"] = name,
-            ["type"] = type,
-            ["default"] = @default,
-            ["values"] = values,
-            ["environments"] = environments,
-        };
-        if (description is not null) attrs["description"] = description;
+            Name = v.TryGetValue("name", out var n) ? n?.ToString() ?? "" : "",
+            Value = v.TryGetValue("value", out var val) ? val! : new object(),
+        }).ToList();
 
-        return new Dictionary<string, object?>
+        var flagEnvs = new Dictionary<string, GenFlags.FlagEnvironment>();
+        foreach (var (envName, envData) in environments)
         {
-            ["data"] = new Dictionary<string, object?>
+            var flagEnv = new GenFlags.FlagEnvironment
             {
-                ["type"] = "flag",
-                ["attributes"] = attrs,
+                Enabled = envData.TryGetValue("enabled", out var e) && e is bool eb && eb,
+                Default = envData.TryGetValue("default", out var d) ? d : null,
+            };
+            if (envData.TryGetValue("rules", out var rulesObj) && rulesObj is List<object?> rulesList)
+            {
+                flagEnv.Rules = rulesList
+                    .OfType<Dictionary<string, object?>>()
+                    .Select(r => new GenFlags.FlagRule
+                    {
+                        Description = r.TryGetValue("description", out var desc) ? desc?.ToString() : null,
+                        Logic = r.TryGetValue("logic", out var logic) ? logic ?? new object() : new object(),
+                        Value = r.TryGetValue("value", out var v) ? v! : new object(),
+                    }).ToList();
+            }
+            else
+            {
+                flagEnv.Rules = new List<GenFlags.FlagRule>();
+            }
+            flagEnvs[envName] = flagEnv;
+        }
+
+        return new GenFlags.Response_Flag_
+        {
+            Data = new GenFlags.Resource_Flag_
+            {
+                Type = "flag",
+                Attributes = new GenFlags.Flag
+                {
+                    Key = key,
+                    Name = name,
+                    Type = type,
+                    Default = @default ?? new object(),
+                    Description = description ?? "",
+                    Values = flagValues,
+                    Environments = flagEnvs,
+                },
             }
         };
     }

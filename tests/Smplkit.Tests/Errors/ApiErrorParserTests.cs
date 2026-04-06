@@ -146,7 +146,7 @@ public class ApiErrorParserTests
             Task.FromResult(JsonResponse(errorBody, HttpStatusCode.NotFound)));
 
         var ex = await Assert.ThrowsAsync<SmplNotFoundException>(
-            () => client.Config.GetAsync("123"));
+            () => client.Config.GetAsync("00000123-0000-0000-0000-000000000000"));
 
         Assert.Contains("Config with id '123' does not exist.", ex.Message);
         Assert.Equal(404, ex.StatusCode);
@@ -177,7 +177,7 @@ public class ApiErrorParserTests
             Task.FromResult(JsonResponse(errorBody, HttpStatusCode.Conflict)));
 
         var ex = await Assert.ThrowsAsync<SmplConflictException>(
-            () => client.Config.DeleteAsync("some-id"));
+            () => client.Config.DeleteAsync("50000000-5000-5000-5000-500000000000"));
 
         Assert.Contains("Cannot delete config with children.", ex.Message);
         Assert.Equal(409, ex.StatusCode);
@@ -426,6 +426,21 @@ public class ApiErrorParserTests
     {
         var ex = new SmplException("test");
         Assert.NotNull(ex.Errors);
+        Assert.Empty(ex.Errors);
+    }
+
+    [Fact]
+    public async Task ErrorsPropertyNotArray_FallsBackToHttpStatus()
+    {
+        var errorBody = """{"errors": "not-an-array"}""";
+
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(errorBody, HttpStatusCode.BadRequest)));
+
+        var ex = await Assert.ThrowsAsync<SmplValidationException>(
+            () => client.Config.ListAsync());
+
+        Assert.Contains("HTTP 400", ex.Message);
         Assert.Empty(ex.Errors);
     }
 }
