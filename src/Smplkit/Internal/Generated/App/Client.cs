@@ -382,7 +382,7 @@ namespace Smplkit.Internal.Generated.App
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<UserListResponse> List_usersAsync(string? filteraccount = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<UserListResponse> List_usersAsync(string? filteraccount = null, string? filteremail = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -5389,7 +5389,7 @@ namespace Smplkit.Internal.Generated.App
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<UserListResponse> List_usersAsync(string? filteraccount = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<UserListResponse> List_usersAsync(string? filteraccount = null, string? filteremail = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -5408,6 +5408,10 @@ namespace Smplkit.Internal.Generated.App
                     if (filteraccount != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[account]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filteraccount, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filteremail != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[email]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filteremail, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
