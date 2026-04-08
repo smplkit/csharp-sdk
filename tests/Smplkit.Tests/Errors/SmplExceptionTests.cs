@@ -90,25 +90,6 @@ public class SmplExceptionTests
     }
 
     [Fact]
-    public void SmplNotConnectedException_IsSmplException()
-    {
-        var ex = new SmplNotConnectedException();
-
-        Assert.IsAssignableFrom<SmplException>(ex);
-        Assert.Equal("SmplClient is not connected. Call ConnectAsync() first.", ex.Message);
-        Assert.Null(ex.StatusCode);
-    }
-
-    [Fact]
-    public void SmplNotConnectedException_WithCustomMessage()
-    {
-        var ex = new SmplNotConnectedException("custom message");
-
-        Assert.Equal("custom message", ex.Message);
-        Assert.Null(ex.StatusCode);
-    }
-
-    [Fact]
     public void AllExceptions_AreInstanceOfSmplException()
     {
         SmplException[] exceptions =
@@ -118,7 +99,6 @@ public class SmplExceptionTests
             new SmplNotFoundException("test"),
             new SmplConflictException("test"),
             new SmplValidationException("test"),
-            new SmplNotConnectedException(),
         ];
 
         foreach (var ex in exceptions)
@@ -138,7 +118,6 @@ public class SmplExceptionTests
             new SmplNotFoundException("not found"),
             new SmplConflictException("conflict"),
             new SmplValidationException("validation"),
-            new SmplNotConnectedException(),
         ];
 
         foreach (var ex in exceptions)
@@ -270,12 +249,6 @@ public class SmplExceptionTests
         Assert.True(ex is SmplException);
     }
 
-    [Fact]
-    public void SmplNotConnectedException_CanBeCaughtAsSmplException()
-    {
-        Exception ex = new SmplNotConnectedException();
-        Assert.True(ex is SmplException);
-    }
 
     // ------------------------------------------------------------------
     // SmplException with all four params

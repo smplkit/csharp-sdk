@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using Smplkit.Errors;
 using Smplkit.Flags;
 using Smplkit.Tests.Helpers;
 using Xunit;
@@ -94,72 +95,45 @@ public class FlagsClientTests
         }
         """;
 
-    private static string SingleContextTypeJson(
-        string id = "c0000001-c000-c000-c000-c00000000001",
-        string key = "user",
-        string name = "User") =>
+    /// <summary>List response with a single flag matching the given key, used for GetAsync(key).</summary>
+    private static string FlagListForGetJson(
+        string id = FlagId,
+        string key = FlagKey,
+        string name = FlagName) =>
         $$"""
         {
-            "data": {
-                "id": "{{id}}",
-                "type": "context_type",
-                "attributes": {
-                    "key": "{{key}}",
-                    "name": "{{name}}",
-                    "attributes": {"plan": "string", "region": "string"}
-                }
-            }
-        }
-        """;
-
-    private static string ContextTypeListJson() =>
-        """
-        {
             "data": [
                 {
-                    "id": "c0000001-c000-c000-c000-c00000000001",
-                    "type": "context_type",
+                    "id": "{{id}}",
+                    "type": "flag",
                     "attributes": {
-                        "key": "user",
-                        "name": "User",
-                        "attributes": {"plan": "string"}
-                    }
-                },
-                {
-                    "id": "c0000002-c000-c000-c000-c00000000002",
-                    "type": "context_type",
-                    "attributes": {
-                        "key": "account",
-                        "name": "Account",
-                        "attributes": {}
+                        "key": "{{key}}",
+                        "name": "{{name}}",
+                        "type": "BOOLEAN",
+                        "default": false,
+                        "values": [{"name": "True", "value": true}, {"name": "False", "value": false}],
+                        "description": "Test flag",
+                        "environments": {},
+                        "created_at": "2024-01-15T10:30:00Z",
+                        "updated_at": "2024-01-15T10:30:00Z"
                     }
                 }
-            ]
-        }
-        """;
-
-    private static string ContextListJson() =>
-        """
-        {
-            "data": [
-                {"id": "user:user-1", "name": "Alice", "attributes": {"plan": "pro"}},
-                {"id": "user:user-2", "name": "Bob", "attributes": {"plan": "free"}}
             ]
         }
         """;
 
     // ---------------------------------------------------------------
-    // CreateAsync
+    // SaveAsync (create — Id is null → POST)
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task CreateAsync_ReturnsFlag()
+    public async Task SaveAsync_Create_ReturnsFlag()
     {
         var (client, handler) = CreateClient(_ =>
             Task.FromResult(JsonResponse(SingleFlagJson(), HttpStatusCode.Created)));
 
-        var flag = await client.Flags.CreateAsync(
-            FlagKey, FlagName, FlagType.Boolean, false, description: "Test flag");
+        var flag = client.Flags.NewBooleanFlag(FlagKey, false, name: FlagName, description: "Test flag");
+        await flag.SaveAsync();
 
         Assert.Equal(FlagId, flag.Id);
         Assert.Equal(FlagKey, flag.Key);
@@ -173,7 +147,7 @@ public class FlagsClientTests
     }
 
     [Fact]
-    public async Task CreateAsync_BooleanAutoGeneratesValues()
+    public async Task SaveAsync_Create_BooleanAutoGeneratesValues()
     {
         string? capturedBody = null;
         var (client, _) = CreateClient(async req =>
@@ -182,7 +156,8 @@ public class FlagsClientTests
             return JsonResponse(SingleFlagJson(), HttpStatusCode.Created);
         });
 
-        await client.Flags.CreateAsync(FlagKey, FlagName, FlagType.Boolean, false);
+        var flag = client.Flags.NewBooleanFlag(FlagKey, false, name: FlagName);
+        await flag.SaveAsync();
 
         Assert.NotNull(capturedBody);
         Assert.Contains("True", capturedBody);
@@ -190,22 +165,32 @@ public class FlagsClientTests
     }
 
     // ---------------------------------------------------------------
-    // GetAsync
+    // GetAsync (by key — uses list with filter)
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task GetAsync_ReturnsFlag()
+    public async Task GetAsync_ByKey_ReturnsFlag()
     {
         var (client, handler) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(SingleFlagJson())));
+            Task.FromResult(JsonResponse(FlagListForGetJson())));
 
-        var flag = await client.Flags.GetAsync(FlagId);
+        var flag = await client.Flags.GetAsync(FlagKey);
 
         Assert.Equal(FlagId, flag.Id);
         Assert.Equal(FlagKey, flag.Key);
         Assert.NotNull(handler.LastRequest);
-        Assert.Contains($"/api/v1/flags/{FlagId}", handler.LastRequest.RequestUri!.ToString());
+        Assert.Contains("/api/v1/flags", handler.LastRequest.RequestUri!.ToString());
         Assert.Equal(HttpMethod.Get, handler.LastRequest.Method);
+    }
+
+    [Fact]
+    public async Task GetAsync_NotFound_ThrowsSmplNotFoundException()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse("""{"data": []}""")));
+
+        await Assert.ThrowsAsync<SmplNotFoundException>(() =>
+            client.Flags.GetAsync("nonexistent-key"));
     }
 
     // ---------------------------------------------------------------
@@ -238,112 +223,32 @@ public class FlagsClientTests
     }
 
     // ---------------------------------------------------------------
-    // DeleteAsync
+    // DeleteAsync (by key — internally calls GetAsync then DELETE by UUID)
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task DeleteAsync_CallsCorrectUrl()
+    public async Task DeleteAsync_ByKey_CallsCorrectUrls()
     {
+        int requestCount = 0;
         var (client, handler) = CreateClient(_ =>
-            Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent)));
+        {
+            requestCount++;
+            if (requestCount == 1)
+            {
+                // First request: list with filter[key] for GetAsync(key)
+                return Task.FromResult(JsonResponse(FlagListForGetJson()));
+            }
+            // Second request: DELETE by UUID
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
+        });
 
-        await client.Flags.DeleteAsync(FlagId);
+        await client.Flags.DeleteAsync(FlagKey);
 
-        Assert.NotNull(handler.LastRequest);
-        Assert.Contains($"/api/v1/flags/{FlagId}", handler.LastRequest.RequestUri!.ToString());
-        Assert.Equal(HttpMethod.Delete, handler.LastRequest.Method);
-    }
-
-    // ---------------------------------------------------------------
-    // CreateContextTypeAsync
-    // ---------------------------------------------------------------
-
-    [Fact]
-    public async Task CreateContextTypeAsync_ReturnsContextType()
-    {
-        var (client, handler) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(SingleContextTypeJson(), HttpStatusCode.Created)));
-
-        var ct = await client.Flags.CreateContextTypeAsync("user", "User");
-
-        Assert.Equal("c0000001-c000-c000-c000-c00000000001", ct.Id);
-        Assert.Equal("user", ct.Key);
-        Assert.Equal("User", ct.Name);
-        Assert.NotNull(ct.Attributes);
-        Assert.NotNull(handler.LastRequest);
-        Assert.Equal(HttpMethod.Post, handler.LastRequest.Method);
-        Assert.Contains("/api/v1/context_types", handler.LastRequest.RequestUri!.ToString());
-    }
-
-    // ---------------------------------------------------------------
-    // UpdateContextTypeAsync
-    // ---------------------------------------------------------------
-
-    [Fact]
-    public async Task UpdateContextTypeAsync_ReturnsUpdatedContextType()
-    {
-        var (client, handler) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(SingleContextTypeJson())));
-
-        var attrs = new Dictionary<string, object?> { ["plan"] = "string" };
-        var ct = await client.Flags.UpdateContextTypeAsync("c0000001-c000-c000-c000-c00000000001", attrs);
-
-        Assert.Equal("c0000001-c000-c000-c000-c00000000001", ct.Id);
-        Assert.NotNull(handler.LastRequest);
-        Assert.Equal(HttpMethod.Put, handler.LastRequest.Method);
-        Assert.Contains("/api/v1/context_types/c0000001-c000-c000-c000-c00000000001", handler.LastRequest.RequestUri!.ToString());
-    }
-
-    // ---------------------------------------------------------------
-    // ListContextTypesAsync
-    // ---------------------------------------------------------------
-
-    [Fact]
-    public async Task ListContextTypesAsync_ReturnsList()
-    {
-        var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(ContextTypeListJson())));
-
-        var types = await client.Flags.ListContextTypesAsync();
-
-        Assert.Equal(2, types.Count);
-        Assert.Equal("user", types[0].Key);
-        Assert.Equal("account", types[1].Key);
-    }
-
-    // ---------------------------------------------------------------
-    // DeleteContextTypeAsync
-    // ---------------------------------------------------------------
-
-    [Fact]
-    public async Task DeleteContextTypeAsync_CallsCorrectUrl()
-    {
-        var (client, handler) = CreateClient(_ =>
-            Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent)));
-
-        await client.Flags.DeleteContextTypeAsync("c0000001-c000-c000-c000-c00000000001");
-
-        Assert.NotNull(handler.LastRequest);
-        Assert.Contains("/api/v1/context_types/c0000001-c000-c000-c000-c00000000001", handler.LastRequest.RequestUri!.ToString());
-        Assert.Equal(HttpMethod.Delete, handler.LastRequest.Method);
-    }
-
-    // ---------------------------------------------------------------
-    // ListContextsAsync
-    // ---------------------------------------------------------------
-
-    [Fact]
-    public async Task ListContextsAsync_WithFilter_ReturnsContexts()
-    {
-        var (client, handler) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(ContextListJson())));
-
-        var contexts = await client.Flags.ListContextsAsync("user");
-
-        Assert.Equal(2, contexts.Count);
-        Assert.NotNull(handler.LastRequest);
-        var url = handler.LastRequest.RequestUri!.ToString();
-        Assert.Contains("context_type", url);
-        Assert.Contains("user", url);
+        Assert.True(handler.Requests.Count >= 2);
+        // First request is the list/filter
+        Assert.Equal(HttpMethod.Get, handler.Requests[0].Method);
+        // Second request is the DELETE by UUID
+        var deleteReq = handler.Requests.Last(r => r.Method == HttpMethod.Delete);
+        Assert.Contains($"/api/v1/flags/{FlagId}", deleteReq.RequestUri!.ToString());
     }
 }

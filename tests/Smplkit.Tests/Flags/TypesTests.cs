@@ -1,3 +1,4 @@
+using Smplkit;
 using Smplkit.Flags;
 using Xunit;
 

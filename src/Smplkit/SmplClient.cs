@@ -2,13 +2,14 @@ using Smplkit.Config;
 using Smplkit.Errors;
 using Smplkit.Flags;
 using Smplkit.Internal;
+using Smplkit.Logging;
 using GenApp = Smplkit.Internal.Generated.App;
 
 namespace Smplkit;
 
 /// <summary>
 /// Top-level client for the smplkit SDK. Provides access to service-specific
-/// sub-clients (e.g., <see cref="Config"/>, <see cref="Flags"/>).
+/// sub-clients (<see cref="Config"/>, <see cref="Flags"/>, <see cref="Logging"/>).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -19,8 +20,8 @@ namespace Smplkit;
 ///     ApiKey = "sk_api_...",
 ///     Environment = "production",
 /// });
-/// await client.ConnectAsync();
-/// var flag = client.Flags.BoolFlag("my-flag", false);
+/// var flag = client.Flags.BooleanFlag("my-flag", false);
+/// bool value = flag.Get(); // triggers lazy init on first call
 /// </code>
 /// </para>
 /// </remarks>
@@ -32,7 +33,6 @@ public sealed class SmplClient : IDisposable
     private readonly GeneratedClientFactory _clients;
     private SharedWebSocket? _sharedWs;
     private readonly object _wsLock = new();
-    private volatile bool _connected;
 
     /// <summary>
     /// Gets the resolved environment key.
@@ -53,6 +53,11 @@ public sealed class SmplClient : IDisposable
     /// Gets the Flags service client.
     /// </summary>
     public FlagsClient Flags { get; }
+
+    /// <summary>
+    /// Gets the Logging service client.
+    /// </summary>
+    public LoggingClient Logging { get; }
 
     /// <summary>
     /// Initializes a new instance of <see cref="SmplClient"/> with automatic API key
@@ -125,53 +130,9 @@ public sealed class SmplClient : IDisposable
             Timeout = options.Timeout,
         };
         _clients = new GeneratedClientFactory(_httpClient, resolvedOptions);
-        Config = new ConfigClient(_clients, this);
+        Config = new ConfigClient(_clients, EnsureSharedWebSocket, this);
         Flags = new FlagsClient(_clients, _apiKey, EnsureSharedWebSocket, this);
-    }
-
-    /// <summary>
-    /// Connect the client: fetches flag definitions and config values for the
-    /// configured environment. Idempotent — subsequent calls are no-ops.
-    /// </summary>
-    /// <param name="ct">Cancellation token.</param>
-    public async Task ConnectAsync(CancellationToken ct = default)
-    {
-        if (_connected) return;
-
-        // Fire-and-forget service context registration via generated App client.
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await ApiExceptionMapper.ExecuteAsync(async () =>
-                    await _clients.App.Bulk_register_contextsAsync(
-                        new GenApp.ContextBulkRegister
-                        {
-                            Contexts = new List<GenApp.ContextBulkItem>
-                            {
-                                new()
-                                {
-                                    Type = "service",
-                                    Key = Service,
-                                    Attributes = new Dictionary<string, object?> { ["name"] = Service },
-                                },
-                            },
-                        },
-                        ct).ConfigureAwait(false)).ConfigureAwait(false);
-            }
-            catch { /* fire-and-forget */ }
-        }, ct);
-
-        await Flags.ConnectInternalAsync(Environment, ct).ConfigureAwait(false);
-        await Config.ConnectInternalAsync(Environment, ct).ConfigureAwait(false);
-
-        // Wait for the shared WebSocket to complete its initial connection attempt
-        if (_sharedWs is not null)
-        {
-            await _sharedWs.WaitForInitialConnectAsync(ct).ConfigureAwait(false);
-        }
-
-        _connected = true;
+        Logging = new LoggingClient(_clients, _apiKey, EnsureSharedWebSocket, this);
     }
 
     /// <summary>
@@ -194,6 +155,8 @@ public sealed class SmplClient : IDisposable
     /// </summary>
     public void Dispose()
     {
+        Logging.Close();
+
         if (_sharedWs is not null)
         {
             _sharedWs.StopAsync().GetAwaiter().GetResult();

@@ -1,45 +1,49 @@
+using System.Text.Json;
+
 namespace Smplkit.Flags;
 
 /// <summary>
 /// Represents a flag resource from the smplkit Flags service.
+/// Supports both management (CRUD via <see cref="SaveAsync"/>) and
+/// runtime (evaluation via <see cref="Get"/>) operations.
 /// </summary>
-public sealed class Flag
+public class Flag
 {
     private readonly FlagsClient _client;
 
-    /// <summary>Gets the flag UUID.</summary>
-    public string Id { get; internal set; }
+    /// <summary>Gets the flag UUID. Null for unsaved flags.</summary>
+    public string? Id { get; internal set; }
 
-    /// <summary>Gets the flag key.</summary>
-    public string Key { get; }
+    /// <summary>Gets or sets the flag key.</summary>
+    public string Key { get; internal set; }
 
-    /// <summary>Gets the display name.</summary>
-    public string Name { get; internal set; }
+    /// <summary>Gets or sets the display name.</summary>
+    public string Name { get; set; }
 
     /// <summary>Gets the flag type (BOOLEAN, STRING, NUMERIC, JSON).</summary>
-    public string Type { get; }
+    public string Type { get; internal set; }
 
-    /// <summary>Gets the flag-level default value.</summary>
-    public object? Default { get; internal set; }
+    /// <summary>Gets or sets the flag-level default value.</summary>
+    public object? Default { get; set; }
 
-    /// <summary>Gets the closed set of legal values.</summary>
-    public List<Dictionary<string, object?>> Values { get; internal set; }
+    /// <summary>Gets or sets the closed set of legal values.</summary>
+    public List<Dictionary<string, object?>> Values { get; set; }
 
-    /// <summary>Gets the optional description.</summary>
-    public string? Description { get; internal set; }
+    /// <summary>Gets or sets the optional description.</summary>
+    public string? Description { get; set; }
 
-    /// <summary>Gets the environments configuration.</summary>
-    public Dictionary<string, Dictionary<string, object?>> Environments { get; internal set; }
+    /// <summary>Gets or sets the environments configuration.</summary>
+    public Dictionary<string, Dictionary<string, object?>> Environments { get; set; }
 
     /// <summary>Gets the creation timestamp.</summary>
-    public object? CreatedAt { get; internal set; }
+    public DateTime? CreatedAt { get; internal set; }
 
     /// <summary>Gets the last-modified timestamp.</summary>
-    public object? UpdatedAt { get; internal set; }
+    public DateTime? UpdatedAt { get; internal set; }
 
     internal Flag(
         FlagsClient client,
-        string id,
+        string? id,
         string key,
         string name,
         string type,
@@ -47,8 +51,8 @@ public sealed class Flag
         List<Dictionary<string, object?>> values,
         string? description,
         Dictionary<string, Dictionary<string, object?>> environments,
-        object? createdAt,
-        object? updatedAt)
+        DateTime? createdAt,
+        DateTime? updatedAt)
     {
         _client = client;
         Id = id;
@@ -64,80 +68,210 @@ public sealed class Flag
     }
 
     /// <summary>
-    /// Update this flag's definition on the server.
+    /// Persist this flag to the server. Creates (POST) if <see cref="Id"/> is null,
+    /// updates (PUT) if it already exists.
     /// </summary>
-    /// <param name="environments">New environment configuration.</param>
-    /// <param name="values">New values array.</param>
-    /// <param name="default">New default value.</param>
-    /// <param name="description">New description.</param>
-    /// <param name="name">New display name.</param>
     /// <param name="ct">Cancellation token.</param>
-    public async Task UpdateAsync(
-        Dictionary<string, Dictionary<string, object?>>? environments = null,
-        List<Dictionary<string, object?>>? values = null,
-        object? @default = null,
-        string? description = null,
-        string? name = null,
-        CancellationToken ct = default)
+    public async Task SaveAsync(CancellationToken ct = default)
     {
-        var updated = await _client.UpdateFlagInternalAsync(
-            flag: this,
-            environments: environments,
-            values: values,
-            @default: @default,
-            description: description,
-            name: name,
-            ct: ct).ConfigureAwait(false);
-
-        // Apply result to self
-        Id = updated.Id;
-        Name = updated.Name;
-        Default = updated.Default;
-        Values = updated.Values;
-        Description = updated.Description;
-        Environments = updated.Environments;
-        CreatedAt = updated.CreatedAt;
-        UpdatedAt = updated.UpdatedAt;
+        var saved = await _client.SaveFlagInternalAsync(this, ct).ConfigureAwait(false);
+        Id = saved.Id;
+        Key = saved.Key;
+        Name = saved.Name;
+        Default = saved.Default;
+        Values = saved.Values;
+        Description = saved.Description;
+        Environments = saved.Environments;
+        CreatedAt = saved.CreatedAt;
+        UpdatedAt = saved.UpdatedAt;
     }
 
     /// <summary>
-    /// Add a rule to an environment. The built rule must include an
+    /// Add a rule to an environment. This is a local mutation — call
+    /// <see cref="SaveAsync"/> to persist. The built rule must include an
     /// "environment" key (set via <see cref="Rule.Environment"/>).
     /// </summary>
     /// <param name="builtRule">A rule dict from <see cref="Rule.Build"/>.</param>
-    /// <param name="ct">Cancellation token.</param>
-    public async Task AddRuleAsync(Dictionary<string, object?> builtRule, CancellationToken ct = default)
+    /// <returns>This flag for chaining.</returns>
+    public Flag AddRule(Dictionary<string, object?> builtRule)
     {
         if (!builtRule.TryGetValue("environment", out var envObj) || envObj is not string envKey)
             throw new ArgumentException("Built rule must include an 'environment' key.", nameof(builtRule));
 
-        // Re-fetch current state to avoid stale data
-        var current = await _client.GetAsync(Id, ct).ConfigureAwait(false);
-
-        var envs = new Dictionary<string, Dictionary<string, object?>>(current.Environments);
-
-        if (!envs.TryGetValue(envKey, out var envConfig))
+        if (!Environments.TryGetValue(envKey, out var envConfig))
+        {
             envConfig = new Dictionary<string, object?> { ["enabled"] = true, ["rules"] = new List<object?>() };
-        else
-            envConfig = new Dictionary<string, object?>(envConfig);
+            Environments[envKey] = envConfig;
+        }
 
         var rules = envConfig.TryGetValue("rules", out var rulesObj) && rulesObj is List<object?> existingRules
-            ? new List<object?>(existingRules)
+            ? existingRules
             : new List<object?>();
 
-        // Remove the "environment" key from the rule before appending
-        var ruleForApi = new Dictionary<string, object?>(builtRule);
-        ruleForApi.Remove("environment");
-        rules.Add(ruleForApi);
+        var ruleForStorage = new Dictionary<string, object?>(builtRule);
+        ruleForStorage.Remove("environment");
+        rules.Add(ruleForStorage);
         envConfig["rules"] = rules;
-        envs[envKey] = envConfig;
 
-        await UpdateAsync(environments: envs, ct: ct).ConfigureAwait(false);
+        return this;
+    }
+
+    /// <summary>
+    /// Set whether an environment is enabled for this flag. Local mutation only.
+    /// </summary>
+    /// <param name="envKey">The environment key.</param>
+    /// <param name="enabled">Whether the environment is enabled.</param>
+    public void SetEnvironmentEnabled(string envKey, bool enabled)
+    {
+        if (!Environments.TryGetValue(envKey, out var envConfig))
+        {
+            envConfig = new Dictionary<string, object?>();
+            Environments[envKey] = envConfig;
+        }
+        envConfig["enabled"] = enabled;
+    }
+
+    /// <summary>
+    /// Set the default value for a specific environment. Local mutation only.
+    /// </summary>
+    /// <param name="envKey">The environment key.</param>
+    /// <param name="defaultValue">The default value for the environment.</param>
+    public void SetEnvironmentDefault(string envKey, object? defaultValue)
+    {
+        if (!Environments.TryGetValue(envKey, out var envConfig))
+        {
+            envConfig = new Dictionary<string, object?>();
+            Environments[envKey] = envConfig;
+        }
+        envConfig["default"] = defaultValue;
+    }
+
+    /// <summary>
+    /// Clear all rules for a specific environment. Local mutation only.
+    /// </summary>
+    /// <param name="envKey">The environment key.</param>
+    public void ClearRules(string envKey)
+    {
+        if (Environments.TryGetValue(envKey, out var envConfig))
+            envConfig["rules"] = new List<object?>();
+    }
+
+    /// <summary>
+    /// Evaluate this flag using the runtime engine. Triggers lazy initialization
+    /// on first call.
+    /// </summary>
+    /// <param name="context">Optional explicit context override.</param>
+    /// <returns>The evaluated value.</returns>
+    public object? Get(IReadOnlyList<Context>? context = null)
+    {
+        return _client.EvaluateHandle(Key, Default, context);
     }
 
     /// <inheritdoc />
     public override string ToString() =>
         $"Flag(Key={Key}, Type={Type}, Default={Default})";
+}
+
+/// <summary>Typed flag for boolean values.</summary>
+public sealed class BooleanFlag : Flag
+{
+    internal BooleanFlag(
+        FlagsClient client, string? id, string key, string name,
+        object? @default, List<Dictionary<string, object?>> values,
+        string? description, Dictionary<string, Dictionary<string, object?>> environments,
+        DateTime? createdAt, DateTime? updatedAt)
+        : base(client, id, key, name, "BOOLEAN", @default, values, description, environments, createdAt, updatedAt)
+    {
+    }
+
+    /// <summary>Evaluate the flag and return a bool.</summary>
+    /// <param name="context">Optional explicit context override.</param>
+    /// <returns>The evaluated boolean value.</returns>
+    public new bool Get(IReadOnlyList<Context>? context = null)
+    {
+        var value = base.Get(context);
+        if (value is bool b) return b;
+        if (value is JsonElement je && je.ValueKind is JsonValueKind.True or JsonValueKind.False)
+            return je.GetBoolean();
+        return Default is bool db ? db : false;
+    }
+}
+
+/// <summary>Typed flag for string values.</summary>
+public sealed class StringFlag : Flag
+{
+    internal StringFlag(
+        FlagsClient client, string? id, string key, string name,
+        object? @default, List<Dictionary<string, object?>> values,
+        string? description, Dictionary<string, Dictionary<string, object?>> environments,
+        DateTime? createdAt, DateTime? updatedAt)
+        : base(client, id, key, name, "STRING", @default, values, description, environments, createdAt, updatedAt)
+    {
+    }
+
+    /// <summary>Evaluate the flag and return a string.</summary>
+    /// <param name="context">Optional explicit context override.</param>
+    /// <returns>The evaluated string value.</returns>
+    public new string Get(IReadOnlyList<Context>? context = null)
+    {
+        var value = base.Get(context);
+        if (value is string s) return s;
+        if (value is JsonElement je && je.ValueKind == JsonValueKind.String)
+            return je.GetString()!;
+        return Default as string ?? string.Empty;
+    }
+}
+
+/// <summary>Typed flag for numeric values.</summary>
+public sealed class NumberFlag : Flag
+{
+    internal NumberFlag(
+        FlagsClient client, string? id, string key, string name,
+        object? @default, List<Dictionary<string, object?>> values,
+        string? description, Dictionary<string, Dictionary<string, object?>> environments,
+        DateTime? createdAt, DateTime? updatedAt)
+        : base(client, id, key, name, "NUMERIC", @default, values, description, environments, createdAt, updatedAt)
+    {
+    }
+
+    /// <summary>Evaluate the flag and return a number.</summary>
+    /// <param name="context">Optional explicit context override.</param>
+    /// <returns>The evaluated numeric value.</returns>
+    public new double Get(IReadOnlyList<Context>? context = null)
+    {
+        var value = base.Get(context);
+        if (value is double d) return d;
+        if (value is int i) return i;
+        if (value is long l) return l;
+        if (value is float f) return f;
+        if (value is decimal dec) return (double)dec;
+        if (value is JsonElement je && je.ValueKind == JsonValueKind.Number)
+            return je.TryGetInt64(out var jl) ? jl : je.GetDouble();
+        return Default is double dd ? dd : 0.0;
+    }
+}
+
+/// <summary>Typed flag for JSON object values.</summary>
+public sealed class JsonFlag : Flag
+{
+    internal JsonFlag(
+        FlagsClient client, string? id, string key, string name,
+        object? @default, List<Dictionary<string, object?>> values,
+        string? description, Dictionary<string, Dictionary<string, object?>> environments,
+        DateTime? createdAt, DateTime? updatedAt)
+        : base(client, id, key, name, "JSON", @default, values, description, environments, createdAt, updatedAt)
+    {
+    }
+
+    /// <summary>Evaluate the flag and return a dictionary.</summary>
+    /// <param name="context">Optional explicit context override.</param>
+    /// <returns>The evaluated dictionary value.</returns>
+    public new Dictionary<string, object?> Get(IReadOnlyList<Context>? context = null)
+    {
+        var value = base.Get(context);
+        if (value is Dictionary<string, object?> dict) return dict;
+        return Default as Dictionary<string, object?> ?? new Dictionary<string, object?>();
+    }
 }
 
 /// <summary>
@@ -153,34 +287,3 @@ public sealed record FlagChangeEvent(string Key, string Source);
 /// <param name="CacheHits">Number of cache hits.</param>
 /// <param name="CacheMisses">Number of cache misses.</param>
 public sealed record FlagStats(int CacheHits, int CacheMisses);
-
-/// <summary>
-/// A context type resource from the management API.
-/// </summary>
-public sealed class ContextType
-{
-    /// <summary>Gets the context type UUID.</summary>
-    public string Id { get; }
-
-    /// <summary>Gets the context type key.</summary>
-    public string Key { get; }
-
-    /// <summary>Gets the display name.</summary>
-    public string Name { get; }
-
-    /// <summary>Gets the known attributes.</summary>
-    public Dictionary<string, object?> Attributes { get; }
-
-    internal ContextType(string id, string key, string name, Dictionary<string, object?> attributes)
-    {
-        Id = id;
-        Key = key;
-        Name = name;
-        Attributes = attributes;
-    }
-
-    /// <inheritdoc />
-    public override string ToString() =>
-        $"ContextType(Key={Key}, Name={Name})";
-}
-

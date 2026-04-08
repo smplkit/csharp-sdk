@@ -30,29 +30,28 @@ public static class ConfigRuntimeSetup
         // ------------------------------------------------------------------
         Console.WriteLine("  -> Setting up common config...");
 
-        var common = await client.Config.GetByKeyAsync("common");
+        var common = await client.Config.GetAsync("common");
 
-        common = await client.Config.UpdateAsync(common.Id, new CreateConfigOptions
+        // Mutate properties directly + SaveAsync
+        common.Name = "Common";
+        common.Description = "Organization-wide shared configuration";
+        common.Items = new Dictionary<string, object?>
         {
-            Name = "Common",
-            Description = "Organization-wide shared configuration",
-            Items = new Dictionary<string, object?>
-            {
-                ["app_name"] = "Acme SaaS Platform",
-                ["support_email"] = "support@acme.dev",
-                ["max_retries"] = 3,
-                ["request_timeout_ms"] = 5000,
-            },
-            Environments = new Dictionary<string, object?>(),
-        });
+            ["app_name"] = "Acme SaaS Platform",
+            ["support_email"] = "support@acme.dev",
+            ["max_retries"] = 3,
+            ["request_timeout_ms"] = 5000,
+        };
+        common.Environments = new Dictionary<string, Dictionary<string, object?>>();
+        await common.SaveAsync();
 
-        common = await client.Config.SetValuesAsync(common.Id,
-            new Dictionary<string, object?>
-            {
-                ["max_retries"] = 5,
-                ["request_timeout_ms"] = 10000,
-            },
-            environment: "production");
+        // Add production overrides
+        common.Environments["production"] = new Dictionary<string, object?>
+        {
+            ["max_retries"] = 5,
+            ["request_timeout_ms"] = 10000,
+        };
+        await common.SaveAsync();
 
         Console.WriteLine($"     Updated: id={common.Id}, key={common.Key}");
 
@@ -61,25 +60,24 @@ public static class ConfigRuntimeSetup
         // ------------------------------------------------------------------
         Console.WriteLine("  -> Creating user_service config...");
 
-        var userService = await client.Config.CreateAsync(new CreateConfigOptions
+        var userService = client.Config.New(
+            key: "user_service",
+            name: "User Service");
+        userService.Items = new Dictionary<string, object?>
         {
-            Name = "User Service",
-            Key = "user_service",
-            Items = new Dictionary<string, object?>
-            {
-                ["cache_ttl_seconds"] = 300,
-                ["enable_signup"] = true,
-                ["pagination_default_page_size"] = 50,
-            },
-        });
+            ["cache_ttl_seconds"] = 300,
+            ["enable_signup"] = true,
+            ["pagination_default_page_size"] = 50,
+        };
+        await userService.SaveAsync();
 
-        userService = await client.Config.SetValuesAsync(userService.Id,
-            new Dictionary<string, object?>
-            {
-                ["cache_ttl_seconds"] = 600,
-                ["enable_signup"] = false,
-            },
-            environment: "production");
+        // Add production overrides
+        userService.Environments["production"] = new Dictionary<string, object?>
+        {
+            ["cache_ttl_seconds"] = 600,
+            ["enable_signup"] = false,
+        };
+        await userService.SaveAsync();
 
         Console.WriteLine($"     Created: id={userService.Id}");
 
@@ -88,26 +86,25 @@ public static class ConfigRuntimeSetup
         // ------------------------------------------------------------------
         Console.WriteLine("  -> Creating auth_module config (child of user_service)...");
 
-        var authModule = await client.Config.CreateAsync(new CreateConfigOptions
+        var authModule = client.Config.New(
+            key: "auth_module",
+            name: "Auth Module",
+            parent: userService.Id);
+        authModule.Items = new Dictionary<string, object?>
         {
-            Name = "Auth Module",
-            Key = "auth_module",
-            Parent = userService.Id,
-            Items = new Dictionary<string, object?>
-            {
-                ["token_ttl_seconds"] = 3600,
-                ["mfa_enabled"] = false,
-                ["session_max_age_hours"] = 24,
-            },
-        });
+            ["token_ttl_seconds"] = 3600,
+            ["mfa_enabled"] = false,
+            ["session_max_age_hours"] = 24,
+        };
+        await authModule.SaveAsync();
 
-        authModule = await client.Config.SetValuesAsync(authModule.Id,
-            new Dictionary<string, object?>
-            {
-                ["mfa_enabled"] = true,
-                ["session_max_age_hours"] = 8,
-            },
-            environment: "production");
+        // Add production overrides
+        authModule.Environments["production"] = new Dictionary<string, object?>
+        {
+            ["mfa_enabled"] = true,
+            ["session_max_age_hours"] = 8,
+        };
+        await authModule.SaveAsync();
 
         Console.WriteLine($"     Created: id={authModule.Id}, parent={authModule.Parent}");
 
@@ -125,19 +122,16 @@ public static class ConfigRuntimeSetup
         Console.WriteLine();
 
         // Delete child first (auth_module), then parent (user_service)
-        await client.Config.DeleteAsync(configs.AuthModule.Id);
-        Console.WriteLine($"  -> Deleted auth_module ({configs.AuthModule.Id})");
+        await client.Config.DeleteAsync("auth_module");
+        Console.WriteLine("  -> Deleted auth_module");
 
-        await client.Config.DeleteAsync(configs.UserService.Id);
-        Console.WriteLine($"  -> Deleted user_service ({configs.UserService.Id})");
+        await client.Config.DeleteAsync("user_service");
+        Console.WriteLine("  -> Deleted user_service");
 
         // Reset common to empty (it's a built-in, not deletable)
-        await client.Config.UpdateAsync(configs.Common.Id, new CreateConfigOptions
-        {
-            Name = configs.Common.Name,
-            Items = new Dictionary<string, object?>(),
-            Environments = new Dictionary<string, object?>(),
-        });
+        configs.Common.Items = new Dictionary<string, object?>();
+        configs.Common.Environments = new Dictionary<string, Dictionary<string, object?>>();
+        await configs.Common.SaveAsync();
         Console.WriteLine($"  -> Common config reset to empty ({configs.Common.Id})");
 
         Console.WriteLine("  Teardown complete.");

@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -32,11 +31,13 @@ public sealed class FlagsClient
     private string? _environment;
     private readonly ConcurrentDictionary<string, Dictionary<string, object?>> _flagStore = new();
     private volatile bool _connected;
+    private readonly object _initLock = new();
     private readonly ResolutionCache _cache = new(CacheMaxSize);
     private Func<IReadOnlyList<Context>>? _contextProvider;
     private readonly ContextRegistrationBuffer _contextBuffer = new(ContextRegistrationLruSize, ContextBatchFlushSize);
-    private readonly ConcurrentDictionary<string, FlagHandleBase> _handles = new();
+    private readonly ConcurrentDictionary<string, Flag> _handles = new();
     private readonly List<Action<FlagChangeEvent>> _globalListeners = new();
+    private readonly ConcurrentDictionary<string, List<Action<FlagChangeEvent>>> _scopedListeners = new();
 
     // Shared WebSocket
     private SharedWebSocket? _wsManager;
@@ -51,51 +52,127 @@ public sealed class FlagsClient
     }
 
     // ------------------------------------------------------------------
-    // Management methods
+    // Management: typed factory methods
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Creates a new flag.
+    /// Create an unsaved boolean flag. Call <see cref="Flag.SaveAsync"/> to persist.
     /// </summary>
     /// <param name="key">The flag key.</param>
-    /// <param name="name">Display name.</param>
-    /// <param name="type">Flag value type.</param>
-    /// <param name="default">Default value.</param>
+    /// <param name="defaultValue">Default boolean value.</param>
+    /// <param name="name">Display name. Auto-generated from key if null.</param>
     /// <param name="description">Optional description.</param>
-    /// <param name="values">Optional values array.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The created <see cref="Flag"/>.</returns>
-    public async Task<Flag> CreateAsync(
-        string key,
-        string name,
-        FlagType type,
-        object? @default,
-        string? description = null,
-        List<Dictionary<string, object?>>? values = null,
-        CancellationToken ct = default)
+    /// <returns>An unsaved <see cref="BooleanFlag"/>.</returns>
+    public BooleanFlag NewBooleanFlag(string key, bool defaultValue, string? name = null, string? description = null)
     {
-        if (values is null && type == FlagType.Boolean)
-            values = [new() { ["name"] = "True", ["value"] = true }, new() { ["name"] = "False", ["value"] = false }];
-
-        var body = BuildCreateFlagBody(key, name, type.ToWireString(), @default, description, values);
-        var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genFlagsClient.Create_flagAsync(body, ct)).ConfigureAwait(false);
-        return MapFlagResource(response.Data)
-            ?? throw new SmplValidationException("Failed to create flag");
+        return new BooleanFlag(
+            client: this,
+            id: null,
+            key: key,
+            name: name ?? Helpers.KeyToDisplayName(key),
+            @default: defaultValue,
+            values: new List<Dictionary<string, object?>>
+            {
+                new() { ["name"] = "True", ["value"] = true },
+                new() { ["name"] = "False", ["value"] = false },
+            },
+            description: description,
+            environments: new Dictionary<string, Dictionary<string, object?>>(),
+            createdAt: null,
+            updatedAt: null);
     }
 
     /// <summary>
-    /// Fetches a flag by its UUID.
+    /// Create an unsaved string flag. Call <see cref="Flag.SaveAsync"/> to persist.
     /// </summary>
-    /// <param name="flagId">The flag UUID.</param>
+    /// <param name="key">The flag key.</param>
+    /// <param name="defaultValue">Default string value.</param>
+    /// <param name="name">Display name. Auto-generated from key if null.</param>
+    /// <param name="description">Optional description.</param>
+    /// <param name="values">Optional closed set of allowed values.</param>
+    /// <returns>An unsaved <see cref="StringFlag"/>.</returns>
+    public StringFlag NewStringFlag(string key, string defaultValue, string? name = null, string? description = null, List<Dictionary<string, object?>>? values = null)
+    {
+        return new StringFlag(
+            client: this,
+            id: null,
+            key: key,
+            name: name ?? Helpers.KeyToDisplayName(key),
+            @default: defaultValue,
+            values: values ?? new List<Dictionary<string, object?>>(),
+            description: description,
+            environments: new Dictionary<string, Dictionary<string, object?>>(),
+            createdAt: null,
+            updatedAt: null);
+    }
+
+    /// <summary>
+    /// Create an unsaved number flag. Call <see cref="Flag.SaveAsync"/> to persist.
+    /// </summary>
+    /// <param name="key">The flag key.</param>
+    /// <param name="defaultValue">Default numeric value.</param>
+    /// <param name="name">Display name. Auto-generated from key if null.</param>
+    /// <param name="description">Optional description.</param>
+    /// <param name="values">Optional closed set of allowed values.</param>
+    /// <returns>An unsaved <see cref="NumberFlag"/>.</returns>
+    public NumberFlag NewNumberFlag(string key, double defaultValue, string? name = null, string? description = null, List<Dictionary<string, object?>>? values = null)
+    {
+        return new NumberFlag(
+            client: this,
+            id: null,
+            key: key,
+            name: name ?? Helpers.KeyToDisplayName(key),
+            @default: defaultValue,
+            values: values ?? new List<Dictionary<string, object?>>(),
+            description: description,
+            environments: new Dictionary<string, Dictionary<string, object?>>(),
+            createdAt: null,
+            updatedAt: null);
+    }
+
+    /// <summary>
+    /// Create an unsaved JSON flag. Call <see cref="Flag.SaveAsync"/> to persist.
+    /// </summary>
+    /// <param name="key">The flag key.</param>
+    /// <param name="defaultValue">Default JSON value.</param>
+    /// <param name="name">Display name. Auto-generated from key if null.</param>
+    /// <param name="description">Optional description.</param>
+    /// <param name="values">Optional closed set of allowed values.</param>
+    /// <returns>An unsaved <see cref="JsonFlag"/>.</returns>
+    public JsonFlag NewJsonFlag(string key, Dictionary<string, object?> defaultValue, string? name = null, string? description = null, List<Dictionary<string, object?>>? values = null)
+    {
+        return new JsonFlag(
+            client: this,
+            id: null,
+            key: key,
+            name: name ?? Helpers.KeyToDisplayName(key),
+            @default: defaultValue,
+            values: values ?? new List<Dictionary<string, object?>>(),
+            description: description,
+            environments: new Dictionary<string, Dictionary<string, object?>>(),
+            createdAt: null,
+            updatedAt: null);
+    }
+
+    // ------------------------------------------------------------------
+    // Management: CRUD by key
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Fetches a flag by its human-readable key.
+    /// </summary>
+    /// <param name="key">The flag key.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The matching <see cref="Flag"/>.</returns>
-    public async Task<Flag> GetAsync(string flagId, CancellationToken ct = default)
+    /// <exception cref="SmplNotFoundException">If no matching flag exists.</exception>
+    public async Task<Flag> GetAsync(string key, CancellationToken ct = default)
     {
         var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genFlagsClient.Get_flagAsync(Guid.Parse(flagId), ct)).ConfigureAwait(false);
-        return MapFlagResource(response.Data)
-            ?? throw new SmplNotFoundException($"Flag {flagId} not found");
+            () => _genFlagsClient.List_flagsAsync(filterkey: key, cancellationToken: ct)).ConfigureAwait(false);
+        if (response.Data is null || response.Data.Count == 0)
+            throw new SmplNotFoundException($"Flag with key '{key}' not found");
+        return MapFlagResource(response.Data[0])
+            ?? throw new SmplNotFoundException($"Flag with key '{key}' not found");
     }
 
     /// <summary>
@@ -112,141 +189,39 @@ public sealed class FlagsClient
     }
 
     /// <summary>
-    /// Deletes a flag by its UUID.
+    /// Deletes a flag by its human-readable key.
     /// </summary>
-    /// <param name="flagId">The flag UUID.</param>
+    /// <param name="key">The flag key.</param>
     /// <param name="ct">Cancellation token.</param>
-    public async Task DeleteAsync(string flagId, CancellationToken ct = default)
+    /// <exception cref="SmplNotFoundException">If no matching flag exists.</exception>
+    public async Task DeleteAsync(string key, CancellationToken ct = default)
     {
+        var flag = await GetAsync(key, ct).ConfigureAwait(false);
         await ApiExceptionMapper.ExecuteAsync(
-            () => _genFlagsClient.Delete_flagAsync(Guid.Parse(flagId), ct)).ConfigureAwait(false);
+            () => _genFlagsClient.Delete_flagAsync(Guid.Parse(flag.Id!), ct)).ConfigureAwait(false);
     }
 
-    /// <summary>Internal: PUT a full flag update.</summary>
-    internal async Task<Flag> UpdateFlagInternalAsync(
-        Flag flag,
-        Dictionary<string, Dictionary<string, object?>>? environments = null,
-        List<Dictionary<string, object?>>? values = null,
-        object? @default = null,
-        string? description = null,
-        string? name = null,
-        CancellationToken ct = default)
+    /// <summary>Internal: save a flag (create or update).</summary>
+    internal async Task<Flag> SaveFlagInternalAsync(Flag flag, CancellationToken ct = default)
     {
-        var body = BuildUpdateFlagBody(
-            key: flag.Key,
-            name: name ?? flag.Name,
-            type: flag.Type,
-            @default: @default ?? flag.Default,
-            values: values ?? flag.Values,
-            description: description ?? flag.Description,
-            environments: environments ?? flag.Environments);
-
-        var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genFlagsClient.Update_flagAsync(Guid.Parse(flag.Id), body, ct)).ConfigureAwait(false);
-        return MapFlagResource(response.Data)
-            ?? throw new SmplValidationException("Failed to update flag");
-    }
-
-    // ------------------------------------------------------------------
-    // Context type management
-    // ------------------------------------------------------------------
-
-    /// <summary>
-    /// Creates a context type.
-    /// </summary>
-    /// <param name="key">The context type key.</param>
-    /// <param name="name">Display name.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The created <see cref="ContextType"/>.</returns>
-    public async Task<ContextType> CreateContextTypeAsync(
-        string key, string name, CancellationToken ct = default)
-    {
-        var body = new GenApp.ContextTypeResponse
+        if (flag.Id is null)
         {
-            Data = new GenApp.ContextTypeResource
-            {
-                Type = GenApp.ContextTypeResourceType.Context_type,
-                Attributes = new GenApp.ContextType { Key = key, Name = name, Attributes = new object() },
-            }
-        };
-        var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genAppClient.Create_context_typeAsync(body, ct)).ConfigureAwait(false);
-        return ParseContextType(response.Data);
-    }
-
-    /// <summary>
-    /// Updates a context type (merge attributes).
-    /// </summary>
-    /// <param name="ctId">The context type UUID.</param>
-    /// <param name="attributes">Attributes to merge.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The updated <see cref="ContextType"/>.</returns>
-    public async Task<ContextType> UpdateContextTypeAsync(
-        string ctId, Dictionary<string, object?> attributes, CancellationToken ct = default)
-    {
-        var body = new GenApp.ContextTypeResponse
-        {
-            Data = new GenApp.ContextTypeResource
-            {
-                Type = GenApp.ContextTypeResourceType.Context_type,
-                Attributes = new GenApp.ContextType { Key = "", Name = "", Attributes = attributes },
-            }
-        };
-        var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genAppClient.Update_context_typeAsync(Guid.Parse(ctId), body, ct)).ConfigureAwait(false);
-        return ParseContextType(response.Data);
-    }
-
-    /// <summary>
-    /// Lists all context types.
-    /// </summary>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>A list of <see cref="ContextType"/> objects.</returns>
-    public async Task<List<ContextType>> ListContextTypesAsync(CancellationToken ct = default)
-    {
-        var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genAppClient.List_context_typesAsync(ct)).ConfigureAwait(false);
-        if (response.Data is null) return new List<ContextType>();
-        return response.Data.Select(ParseContextType).ToList();
-    }
-
-    /// <summary>
-    /// Deletes a context type.
-    /// </summary>
-    /// <param name="ctId">The context type UUID.</param>
-    /// <param name="ct">Cancellation token.</param>
-    public async Task DeleteContextTypeAsync(string ctId, CancellationToken ct = default)
-    {
-        await ApiExceptionMapper.ExecuteAsync(
-            () => _genAppClient.Delete_context_typeAsync(Guid.Parse(ctId), ct)).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Lists context instances filtered by context type key.
-    /// </summary>
-    /// <param name="contextTypeKey">The context type key to filter by (required).</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>A list of context instance dictionaries.</returns>
-    public async Task<List<Dictionary<string, object?>>> ListContextsAsync(
-        string contextTypeKey, CancellationToken ct = default)
-    {
-        var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genAppClient.List_contextsAsync(filtercontext_type_id: contextTypeKey, cancellationToken: ct)).ConfigureAwait(false);
-
-        var results = new List<Dictionary<string, object?>>();
-        if (response.Data is not null)
-        {
-            foreach (var resource in response.Data)
-            {
-                results.Add(new Dictionary<string, object?>
-                {
-                    ["id"] = resource.Id,
-                    ["type"] = resource.Type.ToString(),
-                    ["attributes"] = resource.Attributes,
-                });
-            }
+            // Create
+            var body = BuildCreateFlagBody(flag.Key, flag.Name, flag.Type, flag.Default, flag.Description, flag.Values);
+            var response = await ApiExceptionMapper.ExecuteAsync(
+                () => _genFlagsClient.Create_flagAsync(body, ct)).ConfigureAwait(false);
+            return MapFlagResource(response.Data)
+                ?? throw new SmplValidationException("Failed to create flag");
         }
-        return results;
+        else
+        {
+            // Update
+            var body = BuildUpdateFlagBody(flag.Key, flag.Name, flag.Type, flag.Default, flag.Values, flag.Description, flag.Environments);
+            var response = await ApiExceptionMapper.ExecuteAsync(
+                () => _genFlagsClient.Update_flagAsync(Guid.Parse(flag.Id), body, ct)).ConfigureAwait(false);
+            return MapFlagResource(response.Data)
+                ?? throw new SmplValidationException("Failed to update flag");
+        }
     }
 
     // ------------------------------------------------------------------
@@ -255,52 +230,80 @@ public sealed class FlagsClient
 
     /// <summary>
     /// Declare a boolean flag handle with a code-level default.
+    /// No HTTP call. No lazy init trigger.
     /// </summary>
     /// <param name="key">The flag key.</param>
     /// <param name="defaultValue">The code-level default value.</param>
     /// <returns>A typed flag handle.</returns>
-    public BoolFlagHandle BoolFlag(string key, bool defaultValue)
+    public BooleanFlag BooleanFlag(string key, bool defaultValue)
     {
-        var handle = new BoolFlagHandle(this, key, defaultValue);
+        var handle = new BooleanFlag(
+            client: this, id: null, key: key, name: key,
+            @default: defaultValue,
+            values: new List<Dictionary<string, object?>>(),
+            description: null,
+            environments: new Dictionary<string, Dictionary<string, object?>>(),
+            createdAt: null, updatedAt: null);
         _handles[key] = handle;
         return handle;
     }
 
     /// <summary>
     /// Declare a string flag handle with a code-level default.
+    /// No HTTP call. No lazy init trigger.
     /// </summary>
     /// <param name="key">The flag key.</param>
     /// <param name="defaultValue">The code-level default value.</param>
     /// <returns>A typed flag handle.</returns>
-    public StringFlagHandle StringFlag(string key, string defaultValue)
+    public StringFlag StringFlag(string key, string defaultValue)
     {
-        var handle = new StringFlagHandle(this, key, defaultValue);
+        var handle = new StringFlag(
+            client: this, id: null, key: key, name: key,
+            @default: defaultValue,
+            values: new List<Dictionary<string, object?>>(),
+            description: null,
+            environments: new Dictionary<string, Dictionary<string, object?>>(),
+            createdAt: null, updatedAt: null);
         _handles[key] = handle;
         return handle;
     }
 
     /// <summary>
     /// Declare a number flag handle with a code-level default.
+    /// No HTTP call. No lazy init trigger.
     /// </summary>
     /// <param name="key">The flag key.</param>
     /// <param name="defaultValue">The code-level default value.</param>
     /// <returns>A typed flag handle.</returns>
-    public NumberFlagHandle NumberFlag(string key, double defaultValue)
+    public NumberFlag NumberFlag(string key, double defaultValue)
     {
-        var handle = new NumberFlagHandle(this, key, defaultValue);
+        var handle = new NumberFlag(
+            client: this, id: null, key: key, name: key,
+            @default: defaultValue,
+            values: new List<Dictionary<string, object?>>(),
+            description: null,
+            environments: new Dictionary<string, Dictionary<string, object?>>(),
+            createdAt: null, updatedAt: null);
         _handles[key] = handle;
         return handle;
     }
 
     /// <summary>
     /// Declare a JSON flag handle with a code-level default.
+    /// No HTTP call. No lazy init trigger.
     /// </summary>
     /// <param name="key">The flag key.</param>
     /// <param name="defaultValue">The code-level default value.</param>
     /// <returns>A typed flag handle.</returns>
-    public JsonFlagHandle JsonFlag(string key, Dictionary<string, object?> defaultValue)
+    public JsonFlag JsonFlag(string key, Dictionary<string, object?> defaultValue)
     {
-        var handle = new JsonFlagHandle(this, key, defaultValue);
+        var handle = new JsonFlag(
+            client: this, id: null, key: key, name: key,
+            @default: defaultValue,
+            values: new List<Dictionary<string, object?>>(),
+            description: null,
+            environments: new Dictionary<string, Dictionary<string, object?>>(),
+            createdAt: null, updatedAt: null);
         _handles[key] = handle;
         return handle;
     }
@@ -320,48 +323,60 @@ public sealed class FlagsClient
     }
 
     // ------------------------------------------------------------------
-    // Runtime: connect / disconnect / refresh
+    // Runtime: lazy initialization
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Internal connect: fetches all flag definitions, opens a shared WebSocket
-    /// for live updates, and enables local evaluation. Called by
-    /// <see cref="SmplClient.ConnectAsync"/>.
+    /// Ensures the flags runtime is initialized. Called on first <see cref="Flag.Get"/>.
+    /// Fetches all flag definitions and opens the shared WebSocket.
     /// </summary>
-    /// <param name="environment">The environment key (e.g., "staging", "production").</param>
-    /// <param name="ct">Cancellation token.</param>
-    internal async Task ConnectInternalAsync(string environment, CancellationToken ct = default)
+    internal void EnsureInitialized()
     {
-        _environment = environment;
-        await FetchAllFlagsAsync(ct).ConfigureAwait(false);
-        _connected = true;
-        _cache.Clear();
-
-        // Register on the shared WebSocket
-        _wsManager = _ensureWs();
-        _wsManager.On("flag_changed", HandleFlagChanged);
-        _wsManager.On("flag_deleted", HandleFlagDeleted);
-    }
-
-    /// <summary>
-    /// Disconnect: unregisters from WebSocket, flushes contexts, clears state.
-    /// </summary>
-    /// <param name="ct">Cancellation token.</param>
-    public async Task DisconnectAsync(CancellationToken ct = default)
-    {
-        if (_wsManager is not null)
+        if (_connected) return;
+        lock (_initLock)
         {
-            _wsManager.Off("flag_changed", HandleFlagChanged);
-            _wsManager.Off("flag_deleted", HandleFlagDeleted);
-            _wsManager = null;
-        }
+            if (_connected) return;
+            _environment = _parent?.Environment;
 
-        await FlushContextsAsync(ct).ConfigureAwait(false);
-        _flagStore.Clear();
-        _cache.Clear();
-        _connected = false;
-        _environment = null;
+            // Fire-and-forget service context registration
+            if (_parent?.Service is { Length: > 0 } svc)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await ApiExceptionMapper.ExecuteAsync(async () =>
+                            await _genAppClient.Bulk_register_contextsAsync(
+                                new GenApp.ContextBulkRegister
+                                {
+                                    Contexts = new List<GenApp.ContextBulkItem>
+                                    {
+                                        new()
+                                        {
+                                            Type = "service",
+                                            Key = svc,
+                                            Attributes = new Dictionary<string, object?> { ["name"] = svc },
+                                        },
+                                    },
+                                }).ConfigureAwait(false)).ConfigureAwait(false);
+                    }
+                    catch { /* fire-and-forget */ }
+                });
+            }
+
+            FetchAllFlagsAsync().GetAwaiter().GetResult();
+            _connected = true;
+            _cache.Clear();
+
+            _wsManager = _ensureWs();
+            _wsManager.On("flag_changed", HandleFlagChanged);
+            _wsManager.On("flag_deleted", HandleFlagDeleted);
+        }
     }
+
+    // ------------------------------------------------------------------
+    // Runtime: refresh
+    // ------------------------------------------------------------------
 
     /// <summary>
     /// Re-fetch all flag definitions and clear cache. Fires change listeners
@@ -398,13 +413,26 @@ public sealed class FlagsClient
         _globalListeners.Add(callback);
     }
 
+    /// <summary>
+    /// Register a change listener scoped to a specific flag key.
+    /// </summary>
+    /// <param name="flagKey">The flag key to listen for.</param>
+    /// <param name="callback">Called with a <see cref="FlagChangeEvent"/> when this flag changes.</param>
+    public void OnChange(string flagKey, Action<FlagChangeEvent> callback)
+    {
+        var list = _scopedListeners.GetOrAdd(flagKey, _ => new List<Action<FlagChangeEvent>>());
+        lock (list)
+        {
+            list.Add(callback);
+        }
+    }
+
     // ------------------------------------------------------------------
     // Runtime: context registration
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Explicitly register context(s) for background batch registration.
-    /// Fire-and-forget; works before <see cref="SmplClient.ConnectAsync"/>.
+    /// Explicitly register a context for background batch registration.
     /// </summary>
     /// <param name="context">A single context to register.</param>
     public void Register(Context context)
@@ -413,8 +441,7 @@ public sealed class FlagsClient
     }
 
     /// <summary>
-    /// Explicitly register context(s) for background batch registration.
-    /// Fire-and-forget; works before <see cref="SmplClient.ConnectAsync"/>.
+    /// Explicitly register contexts for background batch registration.
     /// </summary>
     /// <param name="contexts">Contexts to register.</param>
     public void Register(IEnumerable<Context> contexts)
@@ -451,56 +478,12 @@ public sealed class FlagsClient
     }
 
     // ------------------------------------------------------------------
-    // Runtime: Tier 1 evaluate
-    // ------------------------------------------------------------------
-
-    /// <summary>
-    /// Tier 1 explicit evaluation — stateless, no provider or cache.
-    /// </summary>
-    /// <param name="key">The flag key.</param>
-    /// <param name="environment">The environment to evaluate in.</param>
-    /// <param name="context">The contexts to evaluate against.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The evaluated value.</returns>
-    public async Task<object?> EvaluateAsync(
-        string key,
-        string environment,
-        IReadOnlyList<Context> context,
-        CancellationToken ct = default)
-    {
-        var evalDict = ContextsToEvalDict(context);
-
-        // Auto-inject service context from parent SmplClient
-        if (_parent?.Service is { Length: > 0 } svc && !evalDict.ContainsKey("service"))
-            evalDict["service"] = new Dictionary<string, object?> { ["key"] = svc };
-
-        if (_connected && _flagStore.TryGetValue(key, out var flagDef))
-            return EvaluateFlag(flagDef, environment, evalDict);
-
-        // Fetch all flags via generated client to find the one we need
-        var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genFlagsClient.List_flagsAsync(cancellationToken: ct)).ConfigureAwait(false);
-        if (response.Data is not null)
-        {
-            foreach (var resource in response.Data)
-            {
-                var flag = ParseFlagDef(resource);
-                if (flag is not null && flag.TryGetValue("key", out var k) && k is string ks && ks == key)
-                    return EvaluateFlag(flag, environment, evalDict);
-            }
-        }
-
-        return null;
-    }
-
-    // ------------------------------------------------------------------
     // Internal: evaluation
     // ------------------------------------------------------------------
 
     internal object? EvaluateHandle(string key, object? defaultValue, IReadOnlyList<Context>? context)
     {
-        if (!_connected)
-            throw new SmplNotConnectedException();
+        EnsureInitialized();
 
         Dictionary<string, object?> evalDict;
         if (context is not null)
@@ -550,7 +533,6 @@ public sealed class FlagsClient
     private void HandleFlagChanged(Dictionary<string, object?> data)
     {
         var flagKey = data.TryGetValue("key", out var k) ? k as string : null;
-        // Re-fetch all flags synchronously (called from WS background thread)
         try
         {
             var response = _genFlagsClient.List_flagsAsync().GetAwaiter().GetResult();
@@ -607,9 +589,14 @@ public sealed class FlagsClient
             try { cb(evt); }
             catch { /* Ignore listener exceptions */ }
         }
-        if (_handles.TryGetValue(flagKey, out var handle))
+        if (_scopedListeners.TryGetValue(flagKey, out var scopedList))
         {
-            foreach (var cb in handle.Listeners)
+            List<Action<FlagChangeEvent>> snapshot;
+            lock (scopedList)
+            {
+                snapshot = new List<Action<FlagChangeEvent>>(scopedList);
+            }
+            foreach (var cb in snapshot)
             {
                 try { cb(evt); }
                 catch { /* Ignore listener exceptions */ }
@@ -639,7 +626,6 @@ public sealed class FlagsClient
         if (environment is null || !flagDef.TryGetValue("environments", out var envsObj) || envsObj is null)
             return flagDefault;
 
-        // Environments can be Dictionary<string, Dictionary<string, object?>> or Dictionary<string, object?>
         Dictionary<string, object?>? envConfig = null;
         if (envsObj is Dictionary<string, Dictionary<string, object?>> typedEnvs)
         {
@@ -788,6 +774,12 @@ public sealed class FlagsClient
 
         var environments = ExtractEnvironments(attrs.Environments);
 
+        DateTime? createdAt = null;
+        if (attrs.Created_at is DateTimeOffset createdDto) createdAt = createdDto.DateTime;
+
+        DateTime? updatedAt = null;
+        if (attrs.Updated_at is DateTimeOffset updatedDto) updatedAt = updatedDto.DateTime;
+
         return new Flag(
             client: this,
             id: resource.Id ?? string.Empty,
@@ -798,8 +790,8 @@ public sealed class FlagsClient
             values: values,
             description: attrs.Description,
             environments: environments,
-            createdAt: attrs.Created_at,
-            updatedAt: attrs.Updated_at);
+            createdAt: createdAt,
+            updatedAt: updatedAt);
     }
 
     private static Dictionary<string, object?>? ParseFlagDef(GenFlags.FlagResource? resource)
@@ -858,29 +850,6 @@ public sealed class FlagsClient
             result[envName] = normalized;
         }
         return result;
-    }
-
-    private static ContextType ParseContextType(GenApp.ContextTypeResource? resource)
-    {
-        var attrs = resource?.Attributes;
-        return new ContextType(
-            id: resource?.Id ?? string.Empty,
-            key: attrs?.Key ?? string.Empty,
-            name: attrs?.Name ?? string.Empty,
-            attributes: NormalizeAttributes(attrs?.Attributes));
-    }
-
-    private static Dictionary<string, object?> NormalizeAttributes(object? attributes)
-    {
-        if (attributes is null) return new Dictionary<string, object?>();
-        if (attributes is JsonElement je && je.ValueKind == JsonValueKind.Object)
-        {
-            var result = new Dictionary<string, object?>();
-            foreach (var prop in je.EnumerateObject())
-                result[prop.Name] = Config.Resolver.Normalize(prop.Value);
-            return result;
-        }
-        return new Dictionary<string, object?>();
     }
 
     // ------------------------------------------------------------------
@@ -970,130 +939,6 @@ public sealed class FlagsClient
                 },
             }
         };
-    }
-}
-
-// ------------------------------------------------------------------
-// Flag handles
-// ------------------------------------------------------------------
-
-/// <summary>
-/// Base class for typed flag handles.
-/// </summary>
-public abstract class FlagHandleBase
-{
-    private readonly FlagsClient _client;
-    internal readonly List<Action<FlagChangeEvent>> Listeners = new();
-
-    /// <summary>Gets the flag key.</summary>
-    public string Key { get; }
-
-    /// <summary>Gets the code-level default value.</summary>
-    public object? Default { get; }
-
-    internal FlagHandleBase(FlagsClient client, string key, object? defaultValue)
-    {
-        _client = client;
-        Key = key;
-        Default = defaultValue;
-    }
-
-    /// <summary>
-    /// Evaluate the flag. Returns the typed value from the server
-    /// or the code-level default if unavailable.
-    /// </summary>
-    /// <param name="context">Optional explicit context override.</param>
-    /// <returns>The raw evaluated value.</returns>
-    protected object? GetRaw(IReadOnlyList<Context>? context = null)
-    {
-        return _client.EvaluateHandle(Key, Default, context);
-    }
-
-    /// <summary>
-    /// Register a flag-specific change listener.
-    /// </summary>
-    /// <param name="callback">Called with a <see cref="FlagChangeEvent"/> when this flag changes.</param>
-    public void OnChange(Action<FlagChangeEvent> callback)
-    {
-        Listeners.Add(callback);
-    }
-}
-
-/// <summary>Typed handle for a boolean flag.</summary>
-public sealed class BoolFlagHandle : FlagHandleBase
-{
-    internal BoolFlagHandle(FlagsClient client, string key, bool defaultValue)
-        : base(client, key, defaultValue) { }
-
-    /// <summary>Evaluate the flag and return a bool.</summary>
-    /// <param name="context">Optional explicit context override.</param>
-    /// <returns>The evaluated boolean value.</returns>
-    public bool Get(IReadOnlyList<Context>? context = null)
-    {
-        var value = GetRaw(context);
-        if (value is bool b) return b;
-        if (value is JsonElement je && je.ValueKind is JsonValueKind.True or JsonValueKind.False)
-            return je.GetBoolean();
-        return (bool)Default!;
-    }
-}
-
-/// <summary>Typed handle for a string flag.</summary>
-public sealed class StringFlagHandle : FlagHandleBase
-{
-    internal StringFlagHandle(FlagsClient client, string key, string defaultValue)
-        : base(client, key, defaultValue) { }
-
-    /// <summary>Evaluate the flag and return a string.</summary>
-    /// <param name="context">Optional explicit context override.</param>
-    /// <returns>The evaluated string value.</returns>
-    public string Get(IReadOnlyList<Context>? context = null)
-    {
-        var value = GetRaw(context);
-        if (value is string s) return s;
-        if (value is JsonElement je && je.ValueKind == JsonValueKind.String)
-            return je.GetString()!;
-        return (string)Default!;
-    }
-}
-
-/// <summary>Typed handle for a numeric flag.</summary>
-public sealed class NumberFlagHandle : FlagHandleBase
-{
-    internal NumberFlagHandle(FlagsClient client, string key, double defaultValue)
-        : base(client, key, defaultValue) { }
-
-    /// <summary>Evaluate the flag and return a number.</summary>
-    /// <param name="context">Optional explicit context override.</param>
-    /// <returns>The evaluated numeric value.</returns>
-    public double Get(IReadOnlyList<Context>? context = null)
-    {
-        var value = GetRaw(context);
-        if (value is double d) return d;
-        if (value is int i) return i;
-        if (value is long l) return l;
-        if (value is float f) return f;
-        if (value is decimal dec) return (double)dec;
-        if (value is JsonElement je && je.ValueKind == JsonValueKind.Number)
-            return je.TryGetInt64(out var jl) ? jl : je.GetDouble();
-        return (double)Default!;
-    }
-}
-
-/// <summary>Typed handle for a JSON flag.</summary>
-public sealed class JsonFlagHandle : FlagHandleBase
-{
-    internal JsonFlagHandle(FlagsClient client, string key, Dictionary<string, object?> defaultValue)
-        : base(client, key, defaultValue) { }
-
-    /// <summary>Evaluate the flag and return a dictionary.</summary>
-    /// <param name="context">Optional explicit context override.</param>
-    /// <returns>The evaluated dictionary value.</returns>
-    public Dictionary<string, object?> Get(IReadOnlyList<Context>? context = null)
-    {
-        var value = GetRaw(context);
-        if (value is Dictionary<string, object?> dict) return dict;
-        return (Dictionary<string, object?>)Default!;
     }
 }
 

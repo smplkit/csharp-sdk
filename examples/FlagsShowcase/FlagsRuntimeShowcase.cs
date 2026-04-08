@@ -12,15 +12,13 @@ namespace FlagsShowcase;
 ///   1. Typed flag declarations (bool, string, number)
 ///   2. Context provider setup
 ///   3. Explicit context registration
-///   4. Connect to an environment
-///   5. Evaluate flags for different users
-///   6. Explicit context override
-///   7. Caching statistics
-///   8. Context registration flush
-///   9. Real-time updates (change listeners + management API change)
-///  10. Environment comparison
-///  11. Tier 1 explicit evaluate
-///  12. Cleanup
+///   4. Evaluate flags for different users (lazy init on first .Get())
+///   5. Explicit context override
+///   6. Caching statistics
+///   7. Context registration flush
+///   8. Real-time updates (change listeners + management API change)
+///   9. Environment comparison
+///  10. Cleanup
 ///
 /// This script creates, modifies, and deletes real flags.
 ///
@@ -60,7 +58,7 @@ public static class FlagsRuntimeShowcase
         // ==============================================================
         // 0. SET UP DEMO FLAGS
         // ==============================================================
-        var demoFlags = await FlagsDemoSetup.SetupDemoFlagsAsync(client);
+        var demoFlags = await FlagsRuntimeSetup.SetupDemoFlagsAsync(client);
 
         // ==============================================================
         // 1. TYPED FLAG DECLARATIONS
@@ -69,8 +67,9 @@ public static class FlagsRuntimeShowcase
 
         // Declare typed handles with code-level defaults. These are the
         // compile-time contract between your app and the flag service.
-        var checkoutV2 = client.Flags.BoolFlag("checkout-v2", defaultValue: false);
-        Step($"BoolFlag declared: key={checkoutV2.Key}, default={checkoutV2.Default}");
+        // No ConnectAsync needed — first .Get() triggers lazy init.
+        var checkoutV2 = client.Flags.BooleanFlag("checkout-v2", defaultValue: false);
+        Step($"BooleanFlag declared: key={checkoutV2.Key}, default={checkoutV2.Default}");
 
         var bannerColor = client.Flags.StringFlag("banner-color", defaultValue: "blue");
         Step($"StringFlag declared: key={bannerColor.Key}, default={bannerColor.Default}");
@@ -123,19 +122,12 @@ public static class FlagsRuntimeShowcase
         Step($"Registered second user: {secondUser}");
 
         // ==============================================================
-        // 4. CONNECT TO AN ENVIRONMENT
+        // 4. EVALUATE FLAGS FOR DIFFERENT USERS
         // ==============================================================
-        Section("4. Connect to Environment");
+        Section("4. Evaluate Flags for Different Users");
 
-        await client.ConnectAsync();
-        Step($"Connected to production — status: {client.Flags.ConnectionStatus}");
-
-        // ==============================================================
-        // 5. EVALUATE FLAGS FOR DIFFERENT USERS
-        // ==============================================================
-        Section("5. Evaluate Flags for Different Users");
-
-        // Evaluate with provider context (Alice — enterprise, not beta)
+        // First .Get() triggers lazy init (fetches flag definitions,
+        // opens WebSocket). No ConnectAsync needed.
         var aliceCheckout = checkoutV2.Get();
         var aliceBanner = bannerColor.Get();
         var aliceRetries = maxRetries.Get();
@@ -157,9 +149,9 @@ public static class FlagsRuntimeShowcase
         Step($"  max-retries  = {bobRetries}");
 
         // ==============================================================
-        // 6. EXPLICIT CONTEXT OVERRIDE
+        // 5. EXPLICIT CONTEXT OVERRIDE
         // ==============================================================
-        Section("6. Explicit Context Override");
+        Section("5. Explicit Context Override");
 
         // Override the provider with an explicit context for a single call.
         var premiumUser = new Context(
@@ -181,9 +173,9 @@ public static class FlagsRuntimeShowcase
         Step($"  max-retries  = {charlieRetries}");
 
         // ==============================================================
-        // 7. CACHING STATISTICS
+        // 6. CACHING STATISTICS
         // ==============================================================
-        Section("7. Caching Statistics");
+        Section("6. Caching Statistics");
 
         var stats = client.Flags.Stats;
         Step($"Cache hits:   {stats.CacheHits}");
@@ -204,29 +196,20 @@ public static class FlagsRuntimeShowcase
         Step("All repeated evaluations served from local cache");
 
         // ==============================================================
-        // 8. CONTEXT REGISTRATION FLUSH
+        // 7. CONTEXT REGISTRATION FLUSH
         // ==============================================================
-        Section("8. Context Registration Flush");
+        Section("7. Context Registration Flush");
 
         // Flush any pending context registrations to the server.
         await client.Flags.FlushContextsAsync();
         Step("Pending context registrations flushed to server");
 
-        // List registered contexts for the user type
-        var registeredContexts = await client.Flags.ListContextsAsync("user");
-        Step($"Registered user contexts: {registeredContexts.Count}");
-        foreach (var ctx in registeredContexts)
-        {
-            var key = ctx.TryGetValue("key", out var k) ? k?.ToString() : "?";
-            Console.WriteLine($"     - {key}");
-        }
-
         // ==============================================================
-        // 9. REAL-TIME UPDATES
+        // 8. REAL-TIME UPDATES
         // ==============================================================
-        Section("9. Real-Time Updates");
+        Section("8. Real-Time Updates");
 
-        // 9a. Register change listeners
+        // 8a. Register change listeners
         var globalChanges = new List<FlagChangeEvent>();
         client.Flags.OnChange(evt =>
         {
@@ -236,15 +219,13 @@ public static class FlagsRuntimeShowcase
         Step("Global change listener registered");
 
         var retryChanges = new List<FlagChangeEvent>();
-        maxRetries.OnChange(evt => retryChanges.Add(evt));
+        client.Flags.OnChange("max-retries", evt => retryChanges.Add(evt));
         Step("Flag-specific listener registered for max-retries");
 
-        // 9b. Trigger a change via the management API
+        // 8b. Trigger a change via the management API
         Step("Updating max-retries default in production via management API...");
-        await demoFlags.MaxRetries.UpdateAsync(environments: new Dictionary<string, Dictionary<string, object?>>
-        {
-            ["production"] = new() { ["enabled"] = true, ["default"] = 7.0 },
-        });
+        demoFlags.MaxRetries.SetEnvironmentDefault("production", 7.0);
+        await demoFlags.MaxRetries.SaveAsync();
 
         // Give the WebSocket a moment to deliver the update
         await Task.Delay(2000);
@@ -254,19 +235,15 @@ public static class FlagsRuntimeShowcase
         Step($"Global changes received: {globalChanges.Count}");
         Step($"max-retries specific changes: {retryChanges.Count}");
 
-        // 9c. Manual refresh
+        // 8c. Manual refresh
         await client.Flags.RefreshAsync();
         Step("Manual refresh completed");
         Step($"Connection status: {client.Flags.ConnectionStatus}");
 
         // ==============================================================
-        // 10. ENVIRONMENT COMPARISON
+        // 9. ENVIRONMENT COMPARISON
         // ==============================================================
-        Section("10. Environment Comparison");
-
-        // Disconnect from production to compare environments via separate clients
-        await client.Flags.DisconnectAsync();
-        Step("Disconnected from production");
+        Section("9. Environment Comparison");
 
         foreach (var env in new[] { "development", "staging", "production" })
         {
@@ -279,50 +256,18 @@ public static class FlagsRuntimeShowcase
             // Set context provider to Alice for consistent comparison
             envClient.Flags.SetContextProvider(() => new List<Context> { currentUser });
 
-            await envClient.ConnectAsync();
-
-            var envCheckout = envClient.Flags.BoolFlag("checkout-v2", defaultValue: false).Get();
+            // First .Get() triggers lazy init — no ConnectAsync needed
+            var envCheckout = envClient.Flags.BooleanFlag("checkout-v2", defaultValue: false).Get();
             var envBanner = envClient.Flags.StringFlag("banner-color", defaultValue: "blue").Get();
             var envRetries = envClient.Flags.NumberFlag("max-retries", defaultValue: 3).Get();
 
             Step($"[{env,-12}] checkout-v2={envCheckout}, banner-color={envBanner}, max-retries={envRetries}");
-
-            await envClient.Flags.DisconnectAsync();
         }
 
         // ==============================================================
-        // 11. TIER 1 EXPLICIT EVALUATE
+        // 10. CLEANUP
         // ==============================================================
-        Section("11. Tier 1 Explicit Evaluate");
-
-        // Tier 1 evaluate: stateless, no provider or cache. Useful for
-        // one-off server-side evaluations or edge functions.
-        var t1Context = new List<Context>
-        {
-            new("user", "user-42", new Dictionary<string, object?>
-            {
-                ["plan"] = "enterprise",
-                ["beta"] = false,
-            }),
-        };
-
-        var t1Checkout = await client.Flags.EvaluateAsync("checkout-v2", "staging", t1Context);
-        Step($"Tier 1 evaluate checkout-v2 (staging, enterprise): {t1Checkout}");
-
-        var t1Retries = await client.Flags.EvaluateAsync("max-retries", "production", t1Context);
-        Step($"Tier 1 evaluate max-retries (production, enterprise): {t1Retries}");
-
-        var t1Banner = await client.Flags.EvaluateAsync("banner-color", "production",
-            new List<Context>
-            {
-                new("user", "user-premium", new Dictionary<string, object?> { ["plan"] = "premium" }),
-            });
-        Step($"Tier 1 evaluate banner-color (production, premium): {t1Banner}");
-
-        // ==============================================================
-        // 12. CLEANUP
-        // ==============================================================
-        await FlagsDemoSetup.TeardownDemoFlagsAsync(client, demoFlags);
+        await FlagsRuntimeSetup.TeardownDemoFlagsAsync(client, demoFlags);
 
         // ==============================================================
         // DONE

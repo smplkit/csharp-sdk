@@ -1,11 +1,43 @@
+using System.Net;
+using System.Text;
 using System.Text.Json;
 using Smplkit.Config;
+using Smplkit.Tests.Helpers;
 using Xunit;
 
 namespace Smplkit.Tests.Config;
 
 public class ResolverTests
 {
+    private static HttpResponseMessage JsonResponse(string json, HttpStatusCode status = HttpStatusCode.OK)
+        => new(status)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/vnd.api+json"),
+        };
+
+    /// <summary>
+    /// Create a Config object for testing via ConfigClient.New, then set properties.
+    /// </summary>
+    private static Smplkit.Config.Config MakeConfig(
+        string? id,
+        string key,
+        string name,
+        string? description,
+        string? parent,
+        Dictionary<string, object?> items,
+        Dictionary<string, Dictionary<string, object?>> environments)
+    {
+        var handler = new MockHttpMessageHandler(_ => Task.FromResult(JsonResponse("{}")));
+        var httpClient = new HttpClient(handler);
+        var smplClient = new SmplClient(TestData.DefaultOptions(), httpClient);
+
+        var config = smplClient.Config.New(key, name, description, parent);
+        config.Items = items;
+        config.Environments = environments;
+        config.Id = id;
+        return config;
+    }
+
     // ------------------------------------------------------------------
     // DeepMerge
     // ------------------------------------------------------------------
@@ -187,7 +219,6 @@ public class ResolverTests
     [Fact]
     public void Resolve_ChildFirstChain_ChildOverridesParent()
     {
-        // Chain is child-first, root-last
         var chain = new List<ConfigChainEntry>
         {
             new()
@@ -205,9 +236,9 @@ public class ResolverTests
         };
 
         var result = Resolver.Resolve(chain, "production");
-        Assert.Equal(60, result["timeout"]);        // child wins
-        Assert.Equal("yes", result["child_only"]);   // child-only key
-        Assert.Equal("yes", result["parent_only"]);   // inherited from parent
+        Assert.Equal(60, result["timeout"]);
+        Assert.Equal("yes", result["child_only"]);
+        Assert.Equal("yes", result["parent_only"]);
     }
 
     [Fact]
@@ -239,7 +270,7 @@ public class ResolverTests
         };
 
         var result = Resolver.Resolve(chain, "prod");
-        Assert.Equal("gc_val", result["gc"]);      // grandchild wins over root
+        Assert.Equal("gc_val", result["gc"]);
         Assert.Equal("gc_env_val", result["gc_env"]);
         Assert.Equal("c_val", result["c"]);
         Assert.Equal("r_val", result["r"]);
@@ -381,16 +412,11 @@ public class ResolverTests
     [Fact]
     public void ToChainEntry_BasicConfig_ReturnsEntry()
     {
-        var config = new Smplkit.Config.Config(
-            Id: "id-1",
-            Key: "my_key",
-            Name: "My Config",
-            Description: null,
-            Parent: null,
-            Items: new() { ["timeout"] = 30 },
-            Environments: new(),
-            CreatedAt: null,
-            UpdatedAt: null);
+        var config = MakeConfig(
+            id: "id-1", key: "my_key", name: "My Config",
+            description: null, parent: null,
+            items: new() { ["timeout"] = 30 },
+            environments: new());
 
         var entry = Resolver.ToChainEntry(config);
 
@@ -402,25 +428,14 @@ public class ResolverTests
     [Fact]
     public void ToChainEntry_WithEnvironments_ExtractsEnvValues()
     {
-        // Environments now contain flat raw values (extracted by MapResource)
-        var envData = new Dictionary<string, object?>
-        {
-            ["retries"] = 5,
-        };
-
-        var config = new Smplkit.Config.Config(
-            Id: "id-1",
-            Key: "my_key",
-            Name: "My Config",
-            Description: null,
-            Parent: null,
-            Items: new() { ["timeout"] = 30 },
-            Environments: new()
+        var config = MakeConfig(
+            id: "id-1", key: "my_key", name: "My Config",
+            description: null, parent: null,
+            items: new() { ["timeout"] = 30 },
+            environments: new()
             {
-                ["production"] = envData,
-            },
-            CreatedAt: null,
-            UpdatedAt: null);
+                ["production"] = new() { ["retries"] = 5 },
+            });
 
         var entry = Resolver.ToChainEntry(config);
 
@@ -431,19 +446,11 @@ public class ResolverTests
     [Fact]
     public void ToChainEntry_EmptyEnvironment_IncludedInEntry()
     {
-        var config = new Smplkit.Config.Config(
-            Id: "id-1",
-            Key: "my_key",
-            Name: "My Config",
-            Description: null,
-            Parent: null,
-            Items: new(),
-            Environments: new()
-            {
-                ["staging"] = new(),
-            },
-            CreatedAt: null,
-            UpdatedAt: null);
+        var config = MakeConfig(
+            id: "id-1", key: "my_key", name: "My Config",
+            description: null, parent: null,
+            items: new(),
+            environments: new() { ["staging"] = new() });
 
         var entry = Resolver.ToChainEntry(config);
 
@@ -454,26 +461,12 @@ public class ResolverTests
     [Fact]
     public void ToChainEntry_EnvWithJsonElementValues_Normalizes()
     {
-        // Environment values may contain JsonElements that need normalization
         var je = JsonDocument.Parse("42").RootElement;
-        var envData = new Dictionary<string, object?>
-        {
-            ["count"] = je,
-        };
-
-        var config = new Smplkit.Config.Config(
-            Id: "id-1",
-            Key: "my_key",
-            Name: "My Config",
-            Description: null,
-            Parent: null,
-            Items: new(),
-            Environments: new()
-            {
-                ["staging"] = envData,
-            },
-            CreatedAt: null,
-            UpdatedAt: null);
+        var config = MakeConfig(
+            id: "id-1", key: "my_key", name: "My Config",
+            description: null, parent: null,
+            items: new(),
+            environments: new() { ["staging"] = new() { ["count"] = je } });
 
         var entry = Resolver.ToChainEntry(config);
 
@@ -485,37 +478,23 @@ public class ResolverTests
     public void ToChainEntry_WithJsonElementValues_Normalizes()
     {
         var je = JsonDocument.Parse("\"normalized\"").RootElement;
-        var config = new Smplkit.Config.Config(
-            Id: "id-1",
-            Key: "my_key",
-            Name: "My Config",
-            Description: null,
-            Parent: null,
-            Items: new() { ["field"] = je },
-            Environments: new(),
-            CreatedAt: null,
-            UpdatedAt: null);
+        var config = MakeConfig(
+            id: "id-1", key: "my_key", name: "My Config",
+            description: null, parent: null,
+            items: new() { ["field"] = je },
+            environments: new());
 
         var entry = Resolver.ToChainEntry(config);
         Assert.Equal("normalized", entry.Values["field"]);
     }
 
-    // ------------------------------------------------------------------
-    // NormalizeJsonElement — Undefined/null JsonElement
-    // ------------------------------------------------------------------
-
     [Fact]
     public void Normalize_JsonElement_UndefinedKind_ReturnsNull()
     {
-        // JsonValueKind.Undefined maps to the _ case in NormalizeJsonElement
-        var je = default(JsonElement); // ValueKind is Undefined
+        var je = default(JsonElement);
         var result = Resolver.Normalize(je);
         Assert.Null(result);
     }
-
-    // ------------------------------------------------------------------
-    // NormalizeJsonElement — nested array with mixed types
-    // ------------------------------------------------------------------
 
     [Fact]
     public void Normalize_JsonElement_MixedArray_NormalizesAll()
@@ -533,10 +512,6 @@ public class ResolverTests
         Assert.Equal(1L, nested["a"]);
     }
 
-    // ------------------------------------------------------------------
-    // Normalize — dict with nested JsonElements
-    // ------------------------------------------------------------------
-
     [Fact]
     public void NormalizeDict_WithNestedJsonElements_NormalizesRecursively()
     {
@@ -548,10 +523,6 @@ public class ResolverTests
         Assert.Equal(1L, arr[0]);
         Assert.Equal(2L, arr[1]);
     }
-
-    // ------------------------------------------------------------------
-    // Normalize — non-JsonElement, non-dict value passes through
-    // ------------------------------------------------------------------
 
     [Fact]
     public void Normalize_BoolValue_PassesThrough()
@@ -571,10 +542,6 @@ public class ResolverTests
     {
         Assert.Equal(3.14, Resolver.Normalize(3.14));
     }
-
-    // ------------------------------------------------------------------
-    // DeepMerge — three-level nested dicts
-    // ------------------------------------------------------------------
 
     [Fact]
     public void DeepMerge_ThreeLevelNestedDicts_MergesCorrectly()
@@ -610,10 +577,6 @@ public class ResolverTests
         Assert.Equal(3, l2["c"]);
     }
 
-    // ------------------------------------------------------------------
-    // Resolve — env overrides at multiple chain levels
-    // ------------------------------------------------------------------
-
     [Fact]
     public void Resolve_EnvOverridesAtMultipleLevels_ChildEnvWins()
     {
@@ -623,48 +586,32 @@ public class ResolverTests
             {
                 Id = "child",
                 Values = new() { ["timeout"] = 30 },
-                EnvValues = new()
-                {
-                    ["prod"] = new() { ["timeout"] = 100 }
-                },
+                EnvValues = new() { ["prod"] = new() { ["timeout"] = 100 } },
             },
             new()
             {
                 Id = "parent",
                 Values = new() { ["timeout"] = 10 },
-                EnvValues = new()
-                {
-                    ["prod"] = new() { ["timeout"] = 50 }
-                },
+                EnvValues = new() { ["prod"] = new() { ["timeout"] = 50 } },
             },
         };
 
         var result = Resolver.Resolve(chain, "prod");
-        // Child env override (100) should win over parent env override (50)
         Assert.Equal(100, result["timeout"]);
     }
-
-    // ------------------------------------------------------------------
-    // ToChainEntry — multiple environments
-    // ------------------------------------------------------------------
 
     [Fact]
     public void ToChainEntry_MultipleEnvironments_ExtractsAll()
     {
-        var config = new Smplkit.Config.Config(
-            Id: "id-1",
-            Key: "key",
-            Name: "Name",
-            Description: null,
-            Parent: null,
-            Items: new(),
-            Environments: new()
+        var config = MakeConfig(
+            id: "id-1", key: "key", name: "Name",
+            description: null, parent: null,
+            items: new(),
+            environments: new()
             {
                 ["production"] = new() { ["a"] = 1 },
                 ["staging"] = new() { ["b"] = 2 },
-            },
-            CreatedAt: null,
-            UpdatedAt: null);
+            });
 
         var entry = Resolver.ToChainEntry(config);
         Assert.Equal(2, entry.EnvValues.Count);
@@ -672,39 +619,22 @@ public class ResolverTests
         Assert.Equal(2, entry.EnvValues["staging"]["b"]);
     }
 
-    // ------------------------------------------------------------------
-    // ToChainEntry — env with null value preserves the key
-    // ------------------------------------------------------------------
-
     [Fact]
     public void ToChainEntry_EnvWithNullValue_IncludesEnvironment()
     {
-        var config = new Smplkit.Config.Config(
-            Id: "id-1",
-            Key: "key",
-            Name: "Name",
-            Description: null,
-            Parent: null,
-            Items: new(),
-            Environments: new()
+        var config = MakeConfig(
+            id: "id-1", key: "key", name: "Name",
+            description: null, parent: null,
+            items: new(),
+            environments: new()
             {
-                ["production"] = new()
-                {
-                    ["setting"] = null,
-                },
-            },
-            CreatedAt: null,
-            UpdatedAt: null);
+                ["production"] = new() { ["setting"] = null },
+            });
 
         var entry = Resolver.ToChainEntry(config);
-        // Environments are now flat raw values; null values are preserved
         Assert.Contains("production", entry.EnvValues.Keys);
         Assert.Null(entry.EnvValues["production"]["setting"]);
     }
-
-    // ------------------------------------------------------------------
-    // NormalizeJsonElement — large int64 value
-    // ------------------------------------------------------------------
 
     [Fact]
     public void Normalize_JsonElement_LargeInt64_ReturnsLong()
@@ -713,10 +643,6 @@ public class ResolverTests
         var result = Resolver.Normalize(je);
         Assert.Equal(9999999999L, result);
     }
-
-    // ------------------------------------------------------------------
-    // NormalizeJsonElement — empty object
-    // ------------------------------------------------------------------
 
     [Fact]
     public void Normalize_JsonElement_EmptyObject_ReturnsEmptyDict()
@@ -727,10 +653,6 @@ public class ResolverTests
         Assert.Empty(dict);
     }
 
-    // ------------------------------------------------------------------
-    // NormalizeJsonElement — empty array
-    // ------------------------------------------------------------------
-
     [Fact]
     public void Normalize_JsonElement_EmptyArray_ReturnsEmptyArray()
     {
@@ -739,10 +661,6 @@ public class ResolverTests
         var arr = Assert.IsType<object?[]>(result);
         Assert.Empty(arr);
     }
-
-    // ------------------------------------------------------------------
-    // Resolve — single entry with no matching env returns base only
-    // ------------------------------------------------------------------
 
     [Fact]
     public void Resolve_NoMatchingEnv_ReturnsBaseValuesOnly()
@@ -753,10 +671,7 @@ public class ResolverTests
             {
                 Id = "c1",
                 Values = new() { ["timeout"] = 30 },
-                EnvValues = new()
-                {
-                    ["staging"] = new() { ["timeout"] = 45 }
-                },
+                EnvValues = new() { ["staging"] = new() { ["timeout"] = 45 } },
             },
         };
 

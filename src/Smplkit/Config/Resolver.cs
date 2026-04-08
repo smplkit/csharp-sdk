@@ -95,7 +95,7 @@ internal static class Resolver
 
         return new ConfigChainEntry
         {
-            Id = config.Id,
+            Id = config.Id ?? string.Empty,
             Values = values,
             EnvValues = envValues,
         };

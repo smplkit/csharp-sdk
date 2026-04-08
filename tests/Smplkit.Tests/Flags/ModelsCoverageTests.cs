@@ -7,8 +7,8 @@ using Xunit;
 namespace Smplkit.Tests.Flags;
 
 /// <summary>
-/// Coverage tests for Flag model methods: ToString, UpdateAsync, AddRuleAsync,
-/// FlagChangeEvent, ContextType.ToString.
+/// Coverage tests for Flag model methods: ToString, SaveAsync (update), AddRule,
+/// FlagChangeEvent.
 /// </summary>
 public class ModelsCoverageTests
 {
@@ -30,9 +30,38 @@ public class ModelsCoverageTests
         };
     }
 
-    private static string SingleFlagJson(
+    /// <summary>Flag list response for GetAsync(key).</summary>
+    private static string FlagListJson(
         string id = "faa00001-faa0-faa0-faa0-faa000000001",
         string key = "my-flag",
+        string envJson = "{}") =>
+        $$"""
+        {
+            "data": [
+                {
+                    "id": "{{id}}",
+                    "type": "flag",
+                    "attributes": {
+                        "key": "{{key}}",
+                        "name": "My Flag",
+                        "type": "BOOLEAN",
+                        "default": false,
+                        "values": [{"name": "True", "value": true}, {"name": "False", "value": false}],
+                        "description": "Test flag",
+                        "environments": {{envJson}},
+                        "created_at": "2024-01-15T10:30:00Z",
+                        "updated_at": "2024-01-15T10:30:00Z"
+                    }
+                }
+            ]
+        }
+        """;
+
+    /// <summary>Single-item response for SaveAsync (POST/PUT).</summary>
+    private static string SingleFlagResponseJson(
+        string id = "faa00001-faa0-faa0-faa0-faa000000001",
+        string key = "my-flag",
+        string name = "My Flag",
         string envJson = "{}") =>
         $$"""
         {
@@ -41,7 +70,7 @@ public class ModelsCoverageTests
                 "type": "flag",
                 "attributes": {
                     "key": "{{key}}",
-                    "name": "My Flag",
+                    "name": "{{name}}",
                     "type": "BOOLEAN",
                     "default": false,
                     "values": [{"name": "True", "value": true}, {"name": "False", "value": false}],
@@ -61,9 +90,9 @@ public class ModelsCoverageTests
     [Fact]
     public async Task Flag_ToString_IncludesKeyTypeDefault()
     {
-        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(SingleFlagJson())));
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(FlagListJson())));
 
-        var flag = await client.Flags.GetAsync("faa00001-faa0-faa0-faa0-faa000000001");
+        var flag = await client.Flags.GetAsync("my-flag");
         var str = flag.ToString();
 
         Assert.Contains("Key=my-flag", str);
@@ -72,32 +101,43 @@ public class ModelsCoverageTests
     }
 
     // ---------------------------------------------------------------
-    // Flag.UpdateAsync
+    // Flag.SaveAsync (update — mutate properties then save)
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task Flag_UpdateAsync_UpdatesSelf()
+    public async Task Flag_SaveAsync_Update_UpdatesSelf()
     {
-        var updatedJson = SingleFlagJson(id: "faa00001-faa0-faa0-faa0-faa000000001", key: "my-flag")
-            .Replace("My Flag", "Updated Flag");
+        int requestCount = 0;
+        var (client, handler) = CreateClient(_ =>
+        {
+            requestCount++;
+            if (requestCount == 1)
+            {
+                // GetAsync (list)
+                return Task.FromResult(JsonResponse(
+                    FlagListJson().Replace("My Flag", "Updated Flag")));
+            }
+            // SaveAsync (PUT) response
+            return Task.FromResult(JsonResponse(
+                SingleFlagResponseJson(name: "Updated Flag")));
+        });
 
-        var (client, handler) = CreateClient(_ => Task.FromResult(JsonResponse(updatedJson)));
-
-        var flag = await client.Flags.GetAsync("faa00001-faa0-faa0-faa0-faa000000001");
+        var flag = await client.Flags.GetAsync("my-flag");
         Assert.Equal("Updated Flag", flag.Name);
 
-        await flag.UpdateAsync(name: "Updated Flag");
+        flag.Name = "Updated Flag";
+        await flag.SaveAsync();
 
         var putReq = handler.Requests.LastOrDefault(r => r.Method == HttpMethod.Put);
         Assert.NotNull(putReq);
     }
 
     // ---------------------------------------------------------------
-    // Flag.AddRuleAsync
+    // Flag.AddRule (synchronous, local mutation)
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task Flag_AddRuleAsync_AddsRuleToEnvironment()
+    public async Task Flag_AddRule_AddsRuleToEnvironment()
     {
         var envJson = """
         {
@@ -108,10 +148,10 @@ public class ModelsCoverageTests
             }
         }
         """;
-        var flagJsonWithEnv = SingleFlagJson(envJson: envJson);
-        var (client, handler) = CreateClient(_ => Task.FromResult(JsonResponse(flagJsonWithEnv)));
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(FlagListJson(envJson: envJson))));
 
-        var flag = await client.Flags.GetAsync("faa00001-faa0-faa0-faa0-faa000000001");
+        var flag = await client.Flags.GetAsync("my-flag");
 
         var rule = new Rule("Test Rule")
             .Environment("staging")
@@ -119,18 +159,21 @@ public class ModelsCoverageTests
             .Serve(true)
             .Build();
 
-        await flag.AddRuleAsync(rule);
+        var returned = flag.AddRule(rule);
 
-        var putReq = handler.Requests.LastOrDefault(r => r.Method == HttpMethod.Put);
-        Assert.NotNull(putReq);
+        // AddRule returns this for chaining
+        Assert.Same(flag, returned);
+        // Rule was added to the staging environment
+        Assert.True(flag.Environments.ContainsKey("staging"));
     }
 
     [Fact]
-    public async Task Flag_AddRuleAsync_CreatesNewEnvironment_WhenNotExists()
+    public async Task Flag_AddRule_CreatesNewEnvironment_WhenNotExists()
     {
-        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(SingleFlagJson())));
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(FlagListJson())));
 
-        var flag = await client.Flags.GetAsync("faa00001-faa0-faa0-faa0-faa000000001");
+        var flag = await client.Flags.GetAsync("my-flag");
 
         var rule = new Rule("New Env Rule")
             .Environment("production")
@@ -138,26 +181,29 @@ public class ModelsCoverageTests
             .Serve(true)
             .Build();
 
-        await flag.AddRuleAsync(rule);
+        flag.AddRule(rule);
+
+        Assert.True(flag.Environments.ContainsKey("production"));
     }
 
     [Fact]
-    public async Task Flag_AddRuleAsync_ThrowsWithoutEnvironmentKey()
+    public async Task Flag_AddRule_ThrowsWithoutEnvironmentKey()
     {
-        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(SingleFlagJson())));
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(FlagListJson())));
 
-        var flag = await client.Flags.GetAsync("faa00001-faa0-faa0-faa0-faa000000001");
+        var flag = await client.Flags.GetAsync("my-flag");
 
         var rule = new Rule("No Env")
             .When("user.plan", "==", "pro")
             .Serve(true)
             .Build();
 
-        await Assert.ThrowsAsync<ArgumentException>(() => flag.AddRuleAsync(rule));
+        Assert.Throws<ArgumentException>(() => flag.AddRule(rule));
     }
 
     [Fact]
-    public async Task Flag_AddRuleAsync_ExistingRulesPreserved()
+    public async Task Flag_AddRule_ExistingRulesPreserved()
     {
         var envJson = """
         {
@@ -168,10 +214,10 @@ public class ModelsCoverageTests
             }
         }
         """;
-        var (client, handler) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(SingleFlagJson(envJson: envJson))));
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(FlagListJson(envJson: envJson))));
 
-        var flag = await client.Flags.GetAsync("faa00001-faa0-faa0-faa0-faa000000001");
+        var flag = await client.Flags.GetAsync("my-flag");
 
         var rule = new Rule("New Rule")
             .Environment("staging")
@@ -179,7 +225,10 @@ public class ModelsCoverageTests
             .Serve(true)
             .Build();
 
-        await flag.AddRuleAsync(rule);
+        flag.AddRule(rule);
+
+        // Environment still has staging
+        Assert.True(flag.Environments.ContainsKey("staging"));
     }
 
     // ---------------------------------------------------------------
@@ -193,38 +242,5 @@ public class ModelsCoverageTests
 
         Assert.Equal("my-flag", evt.Key);
         Assert.Equal("websocket", evt.Source);
-    }
-
-    // ---------------------------------------------------------------
-    // ContextType.ToString
-    // ---------------------------------------------------------------
-
-    [Fact]
-    public async Task ContextType_ToString_IncludesKeyAndName()
-    {
-        var ctJson = """
-        {
-            "data": {
-                "id": "c0000001-c000-c000-c000-c00000000001",
-                "type": "context_type",
-                "attributes": {
-                    "key": "user",
-                    "name": "User",
-                    "attributes": {}
-                }
-            }
-        }
-        """;
-        var (client, _) = CreateClient(_ => Task.FromResult(
-            new HttpResponseMessage(HttpStatusCode.Created)
-            {
-                Content = new StringContent(ctJson, Encoding.UTF8, "application/vnd.api+json"),
-            }));
-
-        var ct = await client.Flags.CreateContextTypeAsync("user", "User");
-        var str = ct.ToString();
-
-        Assert.Contains("Key=user", str);
-        Assert.Contains("Name=User", str);
     }
 }

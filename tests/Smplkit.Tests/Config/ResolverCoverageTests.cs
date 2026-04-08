@@ -1,5 +1,8 @@
+using System.Net;
+using System.Text;
 using System.Text.Json;
 using Smplkit.Config;
+using Smplkit.Tests.Helpers;
 using Xunit;
 
 namespace Smplkit.Tests.Config;
@@ -10,21 +13,46 @@ namespace Smplkit.Tests.Config;
 /// </summary>
 public class ResolverCoverageTests
 {
+    private static HttpResponseMessage JsonResponse(string json, HttpStatusCode status = HttpStatusCode.OK)
+        => new(status)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/vnd.api+json"),
+        };
+
+    private static Smplkit.Config.Config MakeConfig(
+        string? id,
+        string key,
+        string name,
+        string? description,
+        string? parent,
+        Dictionary<string, object?> items,
+        Dictionary<string, Dictionary<string, object?>> environments)
+    {
+        var handler = new MockHttpMessageHandler(_ => Task.FromResult(JsonResponse("{}")));
+        var httpClient = new HttpClient(handler);
+        var smplClient = new SmplClient(TestData.DefaultOptions(), httpClient);
+
+        var config = smplClient.Config.New(key, name, description, parent);
+        config.Items = items;
+        config.Environments = environments;
+        config.Id = id;
+        return config;
+    }
+
     // ------------------------------------------------------------------
-    // NormalizeJsonElement — number that doesn't fit in Int64 (returns double)
+    // NormalizeJsonElement -- number that doesn't fit in Int64 (returns double)
     // ------------------------------------------------------------------
 
     [Fact]
     public void Normalize_JsonElement_LargeDouble_ReturnsDouble()
     {
-        // A number larger than Int64.MaxValue that can't be represented as Int64
         var je = JsonDocument.Parse("1.7976931348623157E+308").RootElement;
         var result = Resolver.Normalize(je);
         Assert.IsType<double>(result);
     }
 
     // ------------------------------------------------------------------
-    // NormalizeJsonElement — negative double returns double
+    // NormalizeJsonElement -- negative double returns double
     // ------------------------------------------------------------------
 
     [Fact]
@@ -36,7 +64,7 @@ public class ResolverCoverageTests
     }
 
     // ------------------------------------------------------------------
-    // NormalizeJsonElement — zero returns long
+    // NormalizeJsonElement -- zero returns long
     // ------------------------------------------------------------------
 
     [Fact]
@@ -48,7 +76,7 @@ public class ResolverCoverageTests
     }
 
     // ------------------------------------------------------------------
-    // NormalizeJsonElement — negative int returns long
+    // NormalizeJsonElement -- negative int returns long
     // ------------------------------------------------------------------
 
     [Fact]
@@ -60,7 +88,7 @@ public class ResolverCoverageTests
     }
 
     // ------------------------------------------------------------------
-    // NormalizeDict — dict with null values
+    // NormalizeDict -- dict with null values
     // ------------------------------------------------------------------
 
     [Fact]
@@ -73,7 +101,7 @@ public class ResolverCoverageTests
     }
 
     // ------------------------------------------------------------------
-    // NormalizeDict — dict with nested dict
+    // NormalizeDict -- dict with nested dict
     // ------------------------------------------------------------------
 
     [Fact]
@@ -88,7 +116,7 @@ public class ResolverCoverageTests
     }
 
     // ------------------------------------------------------------------
-    // Normalize — already-normalized dict passes through
+    // Normalize -- already-normalized dict passes through
     // ------------------------------------------------------------------
 
     [Fact]
@@ -102,7 +130,7 @@ public class ResolverCoverageTests
     }
 
     // ------------------------------------------------------------------
-    // Normalize — non-dict non-JsonElement values pass through
+    // Normalize -- non-dict non-JsonElement values pass through
     // ------------------------------------------------------------------
 
     [Fact]
@@ -116,12 +144,11 @@ public class ResolverCoverageTests
     {
         var arr = new object?[] { 1, "two", true };
         var result = Resolver.Normalize(arr);
-        // Non-JsonElement, non-dict passes through unchanged
         Assert.Same(arr, result);
     }
 
     // ------------------------------------------------------------------
-    // DeepMerge — null values in override replace non-null base
+    // DeepMerge -- null values in override replace non-null base
     // ------------------------------------------------------------------
 
     [Fact]
@@ -138,7 +165,7 @@ public class ResolverCoverageTests
     }
 
     // ------------------------------------------------------------------
-    // Resolve — single entry with multiple env values
+    // Resolve -- single entry with multiple env values
     // ------------------------------------------------------------------
 
     [Fact]
@@ -164,22 +191,17 @@ public class ResolverCoverageTests
     }
 
     // ------------------------------------------------------------------
-    // ToChainEntry — config with empty values and empty environments
+    // ToChainEntry -- config with empty values and empty environments
     // ------------------------------------------------------------------
 
     [Fact]
     public void ToChainEntry_EmptyConfig_ReturnsEmptyEntry()
     {
-        var config = new Smplkit.Config.Config(
-            Id: "id-1",
-            Key: "key",
-            Name: "Name",
-            Description: null,
-            Parent: null,
-            Items: new(),
-            Environments: new(),
-            CreatedAt: null,
-            UpdatedAt: null);
+        var config = MakeConfig(
+            id: "id-1", key: "key", name: "Name",
+            description: null, parent: null,
+            items: new(),
+            environments: new());
 
         var entry = Resolver.ToChainEntry(config);
         Assert.Equal("id-1", entry.Id);
@@ -188,23 +210,18 @@ public class ResolverCoverageTests
     }
 
     // ------------------------------------------------------------------
-    // ToChainEntry — config with JsonElement values in base
+    // ToChainEntry -- config with JsonElement values in base
     // ------------------------------------------------------------------
 
     [Fact]
     public void ToChainEntry_JsonElementBaseValues_AreNormalized()
     {
         var je = JsonDocument.Parse("""{"nested": {"key": 42}}""").RootElement;
-        var config = new Smplkit.Config.Config(
-            Id: "id-1",
-            Key: "key",
-            Name: "Name",
-            Description: null,
-            Parent: null,
-            Items: new() { ["complex"] = je },
-            Environments: new(),
-            CreatedAt: null,
-            UpdatedAt: null);
+        var config = MakeConfig(
+            id: "id-1", key: "key", name: "Name",
+            description: null, parent: null,
+            items: new() { ["complex"] = je },
+            environments: new());
 
         var entry = Resolver.ToChainEntry(config);
         var complex = Assert.IsType<Dictionary<string, object?>>(entry.Values["complex"]);
@@ -213,7 +230,7 @@ public class ResolverCoverageTests
     }
 
     // ------------------------------------------------------------------
-    // Resolve — deep merge across chain levels with nested dicts
+    // Resolve -- deep merge across chain levels with nested dicts
     // ------------------------------------------------------------------
 
     [Fact]
@@ -255,7 +272,7 @@ public class ResolverCoverageTests
     }
 
     // ------------------------------------------------------------------
-    // NormalizeJsonElement — nested array inside object
+    // NormalizeJsonElement -- nested array inside object
     // ------------------------------------------------------------------
 
     [Fact]
@@ -271,7 +288,7 @@ public class ResolverCoverageTests
     }
 
     // ------------------------------------------------------------------
-    // DeepMerge — disjoint keys
+    // DeepMerge -- disjoint keys
     // ------------------------------------------------------------------
 
     [Fact]
@@ -288,7 +305,7 @@ public class ResolverCoverageTests
     }
 
     // ------------------------------------------------------------------
-    // Resolve — env values with nested dict override
+    // Resolve -- env values with nested dict override
     // ------------------------------------------------------------------
 
     [Fact]
@@ -327,33 +344,23 @@ public class ResolverCoverageTests
     }
 
     // ------------------------------------------------------------------
-    // ToChainEntry — env with JsonElement array value
+    // ToChainEntry -- env with JsonElement array value
     // ------------------------------------------------------------------
 
     [Fact]
     public void ToChainEntry_EnvWithJsonElementValues_Normalizes()
     {
-        // Environments now contain flat raw values (extracted by MapResource)
-        // but may still have JsonElement values that need normalization
         var je = JsonDocument.Parse("""["a", "b"]""").RootElement;
         var envData = new Dictionary<string, object?>
         {
             ["tags"] = je,
         };
 
-        var config = new Smplkit.Config.Config(
-            Id: "id-1",
-            Key: "key",
-            Name: "Name",
-            Description: null,
-            Parent: null,
-            Items: new(),
-            Environments: new()
-            {
-                ["production"] = envData,
-            },
-            CreatedAt: null,
-            UpdatedAt: null);
+        var config = MakeConfig(
+            id: "id-1", key: "key", name: "Name",
+            description: null, parent: null,
+            items: new(),
+            environments: new() { ["production"] = envData });
 
         var entry = Resolver.ToChainEntry(config);
         Assert.True(entry.EnvValues.ContainsKey("production"));

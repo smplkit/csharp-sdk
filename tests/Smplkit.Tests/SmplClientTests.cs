@@ -1,6 +1,7 @@
 using System.Net;
 using Smplkit.Config;
 using Smplkit.Errors;
+using Smplkit.Logging;
 using Smplkit.Tests.Helpers;
 using Xunit;
 
@@ -165,6 +166,19 @@ public class SmplClientTests : IDisposable
     }
 
     [Fact]
+    public void Logging_ReturnsLoggingClient()
+    {
+        using var client = new SmplClient(new SmplClientOptions
+        {
+            ApiKey = "sk_api_test_key",
+            Environment = "test",
+            Service = "test-service",
+        });
+
+        Assert.IsType<LoggingClient>(client.Logging);
+    }
+
+    [Fact]
     public void Dispose_WithOwnedHttpClient_DoesNotThrow()
     {
         var client = new SmplClient(new SmplClientOptions
@@ -246,41 +260,6 @@ public class SmplClientTests : IDisposable
         });
 
         Assert.NotNull(client.Config);
-    }
-
-    [Fact]
-    public async Task ConnectAsync_IsIdempotent()
-    {
-        var flagJson = """{"data":[]}""";
-        var configJson = """{"data":[]}""";
-        var handler = new MockHttpMessageHandler(req =>
-        {
-            var url = req.RequestUri!.AbsoluteUri;
-            if (url.Contains("flags"))
-                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent(flagJson, System.Text.Encoding.UTF8, "application/vnd.api+json"),
-                });
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(configJson, System.Text.Encoding.UTF8, "application/vnd.api+json"),
-            });
-        });
-        var httpClient = new HttpClient(handler);
-        var client = new SmplClient(
-            new SmplClientOptions { ApiKey = "sk_api_test_key", Environment = "test", Service = "test-service" },
-            httpClient);
-
-        // ConnectAsync may throw due to WebSocket, but the _connected flag should be set
-        // after the internal connects succeed. We wrap in try/catch since WS has no server.
-        try { await client.ConnectAsync(); } catch { }
-        var requestCount = handler.Requests.Count;
-        try { await client.ConnectAsync(); } catch { }
-        // Second call should be a no-op (same request count)
-        Assert.Equal(requestCount, handler.Requests.Count);
-
-        client.Dispose();
-        httpClient.Dispose();
     }
 
     // ------------------------------------------------------------------

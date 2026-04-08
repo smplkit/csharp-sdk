@@ -2,57 +2,89 @@ namespace Smplkit.Config;
 
 /// <summary>
 /// Represents a configuration resource from the smplkit Config service.
+/// Mutable active record — modify properties and call <see cref="SaveAsync"/> to persist.
 /// </summary>
-/// <param name="Id">Unique identifier (UUID).</param>
-/// <param name="Key">Human-readable config key.</param>
-/// <param name="Name">Display name.</param>
-/// <param name="Description">Optional description.</param>
-/// <param name="Parent">Parent config UUID, or null for root configs.</param>
-/// <param name="Items">Base items dictionary (raw values extracted from typed wrappers).</param>
-/// <param name="Environments">Dictionary mapping environment names to their override values (raw values extracted from wrappers).</param>
-/// <param name="CreatedAt">Creation timestamp.</param>
-/// <param name="UpdatedAt">Last-modified timestamp.</param>
-public sealed record Config(
-    string Id,
-    string Key,
-    string Name,
-    string? Description,
-    string? Parent,
-    Dictionary<string, object?> Items,
-    Dictionary<string, Dictionary<string, object?>> Environments,
-    DateTime? CreatedAt,
-    DateTime? UpdatedAt
-);
-
-/// <summary>
-/// Options for creating or updating a configuration.
-/// </summary>
-public sealed record CreateConfigOptions
+public sealed class Config
 {
-    /// <summary>Gets the display name for the config.</summary>
-    public required string Name { get; init; }
+    private readonly ConfigClient _client;
 
-    /// <summary>Gets the human-readable key. Auto-generated if omitted.</summary>
-    public string? Key { get; init; }
+    /// <summary>Gets the config UUID. Null for unsaved configs.</summary>
+    public string? Id { get; internal set; }
 
-    /// <summary>Gets the optional description.</summary>
-    public string? Description { get; init; }
+    /// <summary>Gets or sets the human-readable config key.</summary>
+    public string Key { get; internal set; }
 
-    /// <summary>Gets the parent config UUID.</summary>
-    public string? Parent { get; init; }
+    /// <summary>Gets or sets the display name.</summary>
+    public string Name { get; set; }
 
-    /// <summary>Gets the initial base items (raw key-value pairs).</summary>
-    public Dictionary<string, object?>? Items { get; init; }
+    /// <summary>Gets or sets the optional description.</summary>
+    public string? Description { get; set; }
+
+    /// <summary>Gets or sets the parent config UUID.</summary>
+    public string? Parent { get; set; }
+
+    /// <summary>Gets or sets the base items dictionary (raw key-value pairs).</summary>
+    public Dictionary<string, object?> Items { get; set; }
+
+    /// <summary>Gets or sets the environment-specific override values.</summary>
+    public Dictionary<string, Dictionary<string, object?>> Environments { get; set; }
+
+    /// <summary>Gets the creation timestamp.</summary>
+    public DateTime? CreatedAt { get; internal set; }
+
+    /// <summary>Gets the last-modified timestamp.</summary>
+    public DateTime? UpdatedAt { get; internal set; }
+
+    internal Config(
+        ConfigClient client,
+        string? id,
+        string key,
+        string name,
+        string? description,
+        string? parent,
+        Dictionary<string, object?> items,
+        Dictionary<string, Dictionary<string, object?>> environments,
+        DateTime? createdAt,
+        DateTime? updatedAt)
+    {
+        _client = client;
+        Id = id;
+        Key = key;
+        Name = name;
+        Description = description;
+        Parent = parent;
+        Items = items;
+        Environments = environments;
+        CreatedAt = createdAt;
+        UpdatedAt = updatedAt;
+    }
 
     /// <summary>
-    /// Gets the environment-specific overrides. Each key is an environment name;
-    /// each value is a dict of override key-value pairs.
+    /// Persist this config to the server. Creates (POST) if <see cref="Id"/> is null,
+    /// updates (PUT) if it already exists.
     /// </summary>
-    public Dictionary<string, object?>? Environments { get; init; }
+    /// <param name="ct">Cancellation token.</param>
+    public async Task SaveAsync(CancellationToken ct = default)
+    {
+        var saved = await _client.SaveConfigInternalAsync(this, ct).ConfigureAwait(false);
+        Id = saved.Id;
+        Key = saved.Key;
+        Name = saved.Name;
+        Description = saved.Description;
+        Parent = saved.Parent;
+        Items = saved.Items;
+        Environments = saved.Environments;
+        CreatedAt = saved.CreatedAt;
+        UpdatedAt = saved.UpdatedAt;
+    }
+
+    /// <inheritdoc />
+    public override string ToString() =>
+        $"Config(Key={Key}, Name={Name})";
 }
 
 /// <summary>
-/// Describes a single config value change detected during refresh.
+/// Describes a single config value change detected during refresh or WebSocket update.
 /// </summary>
 /// <param name="ConfigKey">The config key (e.g. <c>"user_service"</c>).</param>
 /// <param name="ItemKey">The item key within the config (e.g. <c>"timeout"</c>).</param>
@@ -66,4 +98,3 @@ public sealed record ConfigChangeEvent(
     object? NewValue,
     string Source
 );
-

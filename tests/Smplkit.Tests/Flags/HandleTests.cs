@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text;
-using Smplkit.Errors;
 using Smplkit.Flags;
 using Smplkit.Tests.Helpers;
 using Xunit;
@@ -44,7 +43,13 @@ public class HandleTests
                         "default": {{defaultVal}},
                         "values": [],
                         "description": null,
-                        "environments": {},
+                        "environments": {
+                            "test": {
+                                "enabled": true,
+                                "default": null,
+                                "rules": []
+                            }
+                        },
                         "created_at": "2024-01-15T10:30:00Z",
                         "updated_at": "2024-01-15T10:30:00Z"
                     }
@@ -54,41 +59,19 @@ public class HandleTests
         """;
 
     // ---------------------------------------------------------------
-    // BoolFlagHandle
+    // BooleanFlag
     // ---------------------------------------------------------------
 
     [Fact]
-    public void BoolFlag_ThrowsSmplNotConnected_WhenNotConnected()
-    {
-        var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse("{}")));
-
-        var handle = client.Flags.BoolFlag("my-flag", true);
-
-        Assert.Throws<SmplNotConnectedException>(() => handle.Get());
-    }
-
-    [Fact]
-    public void BoolFlag_ThrowsSmplNotConnected_WhenNotConnected_False()
-    {
-        var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse("{}")));
-
-        var handle = client.Flags.BoolFlag("my-flag", false);
-
-        Assert.Throws<SmplNotConnectedException>(() => handle.Get());
-    }
-
-    [Fact]
-    public async Task BoolFlag_ReturnsFlagDefault_WhenConnected_NoRuleMatch()
+    public void BooleanFlag_ReturnsFlagDefault_WhenConnected_NoRuleMatch()
     {
         var flagJson = SimpleFlagListJson("my-bool", "BOOLEAN", "true");
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(flagJson)));
 
-        var handle = client.Flags.BoolFlag("my-bool", false);
-        await client.Flags.ConnectInternalAsync("production");
+        var handle = client.Flags.BooleanFlag("my-bool", false);
 
+        // Get() triggers lazy EnsureInitialized
         // Flag exists in store, so EvaluateHandle evaluates it.
         // No environment rules match, returns flag default (true from JSON).
         var result = handle.Get();
@@ -96,51 +79,38 @@ public class HandleTests
     }
 
     [Fact]
-    public async Task BoolFlag_ReturnsCodeDefault_WhenFlagNotInStore()
+    public void BooleanFlag_ReturnsCodeDefault_WhenFlagNotInStore()
     {
         // Flag list has a different key than what the handle is looking for
         var flagJson = SimpleFlagListJson("other-flag", "BOOLEAN", "true");
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(flagJson)));
 
-        var handle = client.Flags.BoolFlag("my-bool", false);
-        await client.Flags.ConnectInternalAsync("production");
+        var handle = client.Flags.BooleanFlag("my-bool", false);
 
-        // Flag key not found in store, returns code default
+        // Get() triggers lazy init, flag key not found in store, returns code default
         Assert.False(handle.Get());
     }
 
     // ---------------------------------------------------------------
-    // StringFlagHandle
+    // StringFlag
     // ---------------------------------------------------------------
 
     [Fact]
-    public void StringFlag_ThrowsSmplNotConnected_WhenNotConnected()
-    {
-        var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse("{}")));
-
-        var handle = client.Flags.StringFlag("my-str", "fallback");
-
-        Assert.Throws<SmplNotConnectedException>(() => handle.Get());
-    }
-
-    [Fact]
-    public async Task StringFlag_ReturnsFlagDefault_WhenConnected()
+    public void StringFlag_ReturnsFlagDefault_WhenConnected()
     {
         var flagJson = SimpleFlagListJson("my-str", "STRING", "\"server-default\"");
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.StringFlag("my-str", "code-default");
-        await client.Flags.ConnectInternalAsync("production");
 
         var result = handle.Get();
         Assert.Equal("server-default", result);
     }
 
     [Fact]
-    public async Task StringFlag_ReturnsCodeDefault_WhenWrongType()
+    public void StringFlag_ReturnsCodeDefault_WhenWrongType()
     {
         // Flag default is a number, not a string
         var flagJson = SimpleFlagListJson("my-str", "STRING", "42");
@@ -148,46 +118,33 @@ public class HandleTests
             Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.StringFlag("my-str", "code-default");
-        await client.Flags.ConnectInternalAsync("production");
 
         // EvaluateFlag returns 42 (long), which is not a string
-        // StringFlagHandle.Get falls back to code default
+        // StringFlag.Get falls back to code default
         var result = handle.Get();
         Assert.Equal("code-default", result);
     }
 
     // ---------------------------------------------------------------
-    // NumberFlagHandle
+    // NumberFlag
     // ---------------------------------------------------------------
 
     [Fact]
-    public void NumberFlag_ThrowsSmplNotConnected_WhenNotConnected()
-    {
-        var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse("{}")));
-
-        var handle = client.Flags.NumberFlag("my-num", 3.14);
-
-        Assert.Throws<SmplNotConnectedException>(() => handle.Get());
-    }
-
-    [Fact]
-    public async Task NumberFlag_ReturnsFlagDefault_WhenConnected()
+    public void NumberFlag_ReturnsFlagDefault_WhenConnected()
     {
         var flagJson = SimpleFlagListJson("my-num", "NUMERIC", "99");
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.NumberFlag("my-num", 0.0);
-        await client.Flags.ConnectInternalAsync("production");
 
-        // Flag default from server is 99 (parsed as long), NumberFlagHandle converts to double
+        // Flag default from server is 99 (parsed as long), NumberFlag converts to double
         var result = handle.Get();
         Assert.Equal(99.0, result);
     }
 
     [Fact]
-    public async Task NumberFlag_ReturnsCodeDefault_WhenWrongType()
+    public void NumberFlag_ReturnsCodeDefault_WhenWrongType()
     {
         // Flag default is a string
         var flagJson = SimpleFlagListJson("my-num", "NUMERIC", "\"not-a-number\"");
@@ -195,44 +152,30 @@ public class HandleTests
             Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.NumberFlag("my-num", 5.5);
-        await client.Flags.ConnectInternalAsync("production");
 
         var result = handle.Get();
         Assert.Equal(5.5, result);
     }
 
     [Fact]
-    public async Task NumberFlag_HandlesDouble()
+    public void NumberFlag_HandlesDouble()
     {
         var flagJson = SimpleFlagListJson("my-num", "NUMERIC", "3.14");
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.NumberFlag("my-num", 0.0);
-        await client.Flags.ConnectInternalAsync("production");
 
         var result = handle.Get();
         Assert.Equal(3.14, result);
     }
 
     // ---------------------------------------------------------------
-    // JsonFlagHandle
+    // JsonFlag
     // ---------------------------------------------------------------
 
     [Fact]
-    public void JsonFlag_ThrowsSmplNotConnected_WhenNotConnected()
-    {
-        var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse("{}")));
-
-        var defaultDict = new Dictionary<string, object?> { ["theme"] = "light" };
-        var handle = client.Flags.JsonFlag("my-json", defaultDict);
-
-        Assert.Throws<SmplNotConnectedException>(() => handle.Get());
-    }
-
-    [Fact]
-    public async Task JsonFlag_ReturnsFlagDefault_WhenConnected()
+    public void JsonFlag_ReturnsFlagDefault_WhenConnected()
     {
         var flagJson = SimpleFlagListJson("my-json", "JSON", """{"theme": "dark"}""");
         var (client, _) = CreateClient(_ =>
@@ -240,14 +183,13 @@ public class HandleTests
 
         var defaultDict = new Dictionary<string, object?> { ["theme"] = "light" };
         var handle = client.Flags.JsonFlag("my-json", defaultDict);
-        await client.Flags.ConnectInternalAsync("production");
 
         var result = handle.Get();
         Assert.Equal("dark", result["theme"]?.ToString());
     }
 
     [Fact]
-    public async Task JsonFlag_ReturnsCodeDefault_WhenWrongType()
+    public void JsonFlag_ReturnsCodeDefault_WhenWrongType()
     {
         // Flag default is a string, not a dict
         var flagJson = SimpleFlagListJson("my-json", "JSON", "\"not-a-dict\"");
@@ -256,43 +198,43 @@ public class HandleTests
 
         var defaultDict = new Dictionary<string, object?> { ["a"] = 1 };
         var handle = client.Flags.JsonFlag("my-json", defaultDict);
-        await client.Flags.ConnectInternalAsync("production");
 
         var result = handle.Get();
         Assert.Equal(1, result["a"]);
     }
 
     // ---------------------------------------------------------------
-    // OnChange
+    // OnChange (scoped via FlagsClient)
     // ---------------------------------------------------------------
 
     [Fact]
-    public void OnChange_RegistersListener()
+    public void OnChange_RegistersScopedListener()
     {
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse("{}")));
 
-        var handle = client.Flags.BoolFlag("my-flag", false);
+        client.Flags.BooleanFlag("my-flag", false);
         var events = new List<FlagChangeEvent>();
 
-        handle.OnChange(evt => events.Add(evt));
+        client.Flags.OnChange("my-flag", evt => events.Add(evt));
 
-        Assert.Single(handle.Listeners);
+        // Listener registered, no events yet
+        Assert.Empty(events);
     }
 
     [Fact]
-    public void OnChange_MultipleListeners()
+    public void OnChange_MultipleScopedListeners()
     {
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse("{}")));
 
-        var handle = client.Flags.StringFlag("my-flag", "default");
+        client.Flags.StringFlag("my-flag", "default");
 
-        handle.OnChange(_ => { });
-        handle.OnChange(_ => { });
-        handle.OnChange(_ => { });
+        client.Flags.OnChange("my-flag", _ => { });
+        client.Flags.OnChange("my-flag", _ => { });
+        client.Flags.OnChange("my-flag", _ => { });
 
-        Assert.Equal(3, handle.Listeners.Count);
+        // No crash; 3 listeners registered
     }
 
     // ---------------------------------------------------------------
@@ -300,39 +242,23 @@ public class HandleTests
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task Handle_GetWithContext_PassesContextToEvaluation()
+    public void Handle_GetWithContext_PassesContextToEvaluation()
     {
         var flagJson = SimpleFlagListJson("ctx-flag", "BOOLEAN", "false");
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(flagJson)));
 
-        var handle = client.Flags.BoolFlag("ctx-flag", true);
-        await client.Flags.ConnectInternalAsync("production");
+        var handle = client.Flags.BooleanFlag("ctx-flag", true);
 
         // Pass an explicit context -- the flag has no environment rules so returns flag default (false)
         var contexts = new List<Context>
         {
             new("user", "u1", new Dictionary<string, object?> { ["plan"] = "enterprise" }),
         };
+        // Get() triggers lazy init
         var result = handle.Get(contexts);
 
         Assert.False(result); // flag default is false
-    }
-
-    [Fact]
-    public void Handle_GetWithContext_ThrowsSmplNotConnected_WhenNotConnected()
-    {
-        var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse("{}")));
-
-        var handle = client.Flags.BoolFlag("ctx-flag", true);
-
-        var contexts = new List<Context>
-        {
-            new("user", "u1", new Dictionary<string, object?> { ["plan"] = "enterprise" }),
-        };
-
-        Assert.Throws<SmplNotConnectedException>(() => handle.Get(contexts));
     }
 
     // ---------------------------------------------------------------
@@ -345,7 +271,7 @@ public class HandleTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse("{}")));
 
-        var boolHandle = client.Flags.BoolFlag("bool-key", true);
+        var boolHandle = client.Flags.BooleanFlag("bool-key", true);
         Assert.Equal("bool-key", boolHandle.Key);
         Assert.Equal(true, boolHandle.Default);
 
@@ -368,16 +294,15 @@ public class HandleTests
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task Handle_UsesCache_OnRepeatedGet()
+    public void Handle_UsesCache_OnRepeatedGet()
     {
         var flagJson = SimpleFlagListJson("cached-flag", "BOOLEAN", "true");
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(flagJson)));
 
-        var handle = client.Flags.BoolFlag("cached-flag", false);
-        await client.Flags.ConnectInternalAsync("production");
+        var handle = client.Flags.BooleanFlag("cached-flag", false);
 
-        // First call evaluates and caches
+        // First call evaluates and caches (triggers lazy init)
         var result1 = handle.Get();
         // Second call should hit cache
         var result2 = handle.Get();

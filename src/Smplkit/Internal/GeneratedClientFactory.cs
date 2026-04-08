@@ -1,6 +1,7 @@
 using GenApp = Smplkit.Internal.Generated.App;
 using GenConfig = Smplkit.Internal.Generated.Config;
 using GenFlags = Smplkit.Internal.Generated.Flags;
+using GenLogging = Smplkit.Internal.Generated.Logging;
 
 namespace Smplkit.Internal;
 
@@ -13,6 +14,7 @@ internal sealed class GeneratedClientFactory
     private const string ConfigBaseUrl = "https://config.smplkit.com";
     private const string FlagsBaseUrl = "https://flags.smplkit.com";
     private const string AppBaseUrl = "https://app.smplkit.com";
+    private const string LoggingBaseUrl = "https://logging.smplkit.com";
 
     private const string JsonApiMediaType = "application/vnd.api+json";
     private const string UserAgent = "smplkit-dotnet-sdk/0.0.0";
@@ -25,6 +27,9 @@ internal sealed class GeneratedClientFactory
 
     /// <summary>Gets the generated App/Platform API client.</summary>
     internal GenApp.AppClient App { get; }
+
+    /// <summary>Gets the generated Logging API client.</summary>
+    internal GenLogging.LoggingClient Logging { get; }
 
     /// <summary>
     /// Configures the shared <see cref="HttpClient"/> and creates generated client instances.
@@ -46,5 +51,6 @@ internal sealed class GeneratedClientFactory
         Config = new GenConfig.ConfigClient(ConfigBaseUrl, httpClient) { ReadResponseAsString = true };
         Flags = new GenFlags.FlagsClient(FlagsBaseUrl, httpClient) { ReadResponseAsString = true };
         App = new GenApp.AppClient(AppBaseUrl, httpClient) { ReadResponseAsString = true };
+        Logging = new GenLogging.LoggingClient(LoggingBaseUrl, httpClient) { ReadResponseAsString = true };
     }
 }

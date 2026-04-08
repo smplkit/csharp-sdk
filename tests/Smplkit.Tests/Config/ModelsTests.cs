@@ -1,104 +1,175 @@
+using System.Net;
+using System.Text;
 using Smplkit.Config;
+using Smplkit.Tests.Helpers;
 using Xunit;
 
 namespace Smplkit.Tests.Config;
 
 public class ModelsTests
 {
+    private static HttpResponseMessage JsonResponse(string json, HttpStatusCode status = HttpStatusCode.OK)
+        => new(status)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/vnd.api+json"),
+        };
+
+    private static SmplClient CreateSmplClient()
+    {
+        var handler = new MockHttpMessageHandler(_ => Task.FromResult(JsonResponse("{}")));
+        var httpClient = new HttpClient(handler);
+        return new SmplClient(TestData.DefaultOptions(), httpClient);
+    }
+
     // ------------------------------------------------------------------
-    // Config record
+    // Config class — created via ConfigClient.New
     // ------------------------------------------------------------------
 
     [Fact]
-    public void Config_Record_HasCorrectProperties()
+    public void Config_New_HasCorrectProperties()
     {
-        var config = new Smplkit.Config.Config(
-            Id: "id-1",
-            Key: "my_key",
-            Name: "My Config",
-            Description: "A description",
-            Parent: "parent-id",
-            Items: new() { ["timeout"] = 30 },
-            Environments: new()
-            {
-                ["production"] = new() { ["timeout"] = 60 },
-            },
-            CreatedAt: new DateTime(2024, 1, 15),
-            UpdatedAt: new DateTime(2024, 1, 16));
+        var smplClient = CreateSmplClient();
 
-        Assert.Equal("id-1", config.Id);
+        var config = smplClient.Config.New(
+            key: "my_key",
+            name: "My Config",
+            description: "A description",
+            parent: "parent-id");
+
+        Assert.Null(config.Id);
         Assert.Equal("my_key", config.Key);
         Assert.Equal("My Config", config.Name);
         Assert.Equal("A description", config.Description);
         Assert.Equal("parent-id", config.Parent);
-        Assert.Equal(30, config.Items["timeout"]);
-        Assert.True(config.Environments.ContainsKey("production"));
-        Assert.Equal(new DateTime(2024, 1, 15), config.CreatedAt);
-        Assert.Equal(new DateTime(2024, 1, 16), config.UpdatedAt);
+        Assert.NotNull(config.Items);
+        Assert.Empty(config.Items);
+        Assert.NotNull(config.Environments);
+        Assert.Empty(config.Environments);
+        Assert.Null(config.CreatedAt);
+        Assert.Null(config.UpdatedAt);
     }
 
     [Fact]
-    public void Config_Record_NullableFieldsCanBeNull()
+    public void Config_New_NullableFieldsCanBeNull()
     {
-        var config = new Smplkit.Config.Config(
-            Id: "id-1",
-            Key: "key",
-            Name: "name",
-            Description: null,
-            Parent: null,
-            Items: new(),
-            Environments: new(),
-            CreatedAt: null,
-            UpdatedAt: null);
+        var smplClient = CreateSmplClient();
 
+        var config = smplClient.Config.New("key");
+
+        Assert.Null(config.Id);
         Assert.Null(config.Description);
         Assert.Null(config.Parent);
         Assert.Null(config.CreatedAt);
         Assert.Null(config.UpdatedAt);
     }
 
-    // ------------------------------------------------------------------
-    // CreateConfigOptions record
-    // ------------------------------------------------------------------
-
     [Fact]
-    public void CreateConfigOptions_RequiredAndOptionalFields()
+    public void Config_Properties_AreMutable()
     {
-        var opts = new CreateConfigOptions
+        var smplClient = CreateSmplClient();
+
+        var config = smplClient.Config.New("key", "Name");
+        config.Name = "Updated Name";
+        config.Description = "Updated Description";
+        config.Parent = "new-parent";
+        config.Items = new() { ["timeout"] = 30 };
+        config.Environments = new()
         {
-            Name = "Test Config",
+            ["production"] = new() { ["timeout"] = 60 },
         };
 
-        Assert.Equal("Test Config", opts.Name);
-        Assert.Null(opts.Key);
-        Assert.Null(opts.Description);
-        Assert.Null(opts.Parent);
-        Assert.Null(opts.Items);
-        Assert.Null(opts.Environments);
+        Assert.Equal("Updated Name", config.Name);
+        Assert.Equal("Updated Description", config.Description);
+        Assert.Equal("new-parent", config.Parent);
+        Assert.Equal(30, config.Items["timeout"]);
+        Assert.True(config.Environments.ContainsKey("production"));
     }
 
     [Fact]
-    public void CreateConfigOptions_AllFields()
+    public void Config_Items_CanBeMutatedDirectly()
     {
-        var vals = new Dictionary<string, object?> { ["a"] = 1 };
-        var envs = new Dictionary<string, object?> { ["prod"] = new Dictionary<string, object?> { ["b"] = 2 } };
+        var smplClient = CreateSmplClient();
 
-        var opts = new CreateConfigOptions
+        var config = smplClient.Config.New("key");
+        config.Items["a"] = 1;
+        config.Items["b"] = "two";
+        config.Items["c"] = true;
+
+        Assert.Equal(3, config.Items.Count);
+        Assert.Equal(1, config.Items["a"]);
+        Assert.Equal("two", config.Items["b"]);
+        Assert.Equal(true, config.Items["c"]);
+    }
+
+    [Fact]
+    public void Config_Environments_CanBeMutatedDirectly()
+    {
+        var smplClient = CreateSmplClient();
+
+        var config = smplClient.Config.New("key");
+        config.Environments["prod"] = new() { ["timeout"] = 60 };
+        config.Environments["staging"] = new() { ["debug"] = true };
+
+        Assert.Equal(2, config.Environments.Count);
+        Assert.Equal(60, config.Environments["prod"]["timeout"]);
+        Assert.Equal(true, config.Environments["staging"]["debug"]);
+    }
+
+    [Fact]
+    public void Config_ToString_ReturnsFormattedString()
+    {
+        var smplClient = CreateSmplClient();
+        var config = smplClient.Config.New("my_key", "My Config");
+
+        Assert.Equal("Config(Key=my_key, Name=My Config)", config.ToString());
+    }
+
+    // ------------------------------------------------------------------
+    // Config populated via GetAsync
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task Config_FromGetAsync_HasAllFieldsPopulated()
+    {
+        var listJson = """
         {
-            Name = "Test",
-            Key = "test_key",
-            Description = "desc",
-            Parent = "parent-id",
-            Items = vals,
-            Environments = envs,
-        };
+            "data": [
+                {
+                    "id": "id-1",
+                    "type": "config",
+                    "attributes": {
+                        "key": "my_key",
+                        "name": "My Config",
+                        "description": "A description",
+                        "parent": "parent-id",
+                        "items": {"timeout": {"value": 30, "type": "NUMBER"}},
+                        "environments": {
+                            "production": {"timeout": {"value": 60}}
+                        },
+                        "created_at": "2024-01-15T00:00:00Z",
+                        "updated_at": "2024-01-16T00:00:00Z"
+                    }
+                }
+            ]
+        }
+        """;
 
-        Assert.Equal("Test", opts.Name);
-        Assert.Equal("test_key", opts.Key);
-        Assert.Equal("desc", opts.Description);
-        Assert.Equal("parent-id", opts.Parent);
-        Assert.Same(vals, opts.Items);
-        Assert.Same(envs, opts.Environments);
+        var handler = new MockHttpMessageHandler(_ =>
+            Task.FromResult(JsonResponse(listJson)));
+        var httpClient = new HttpClient(handler);
+        var smplClient = new SmplClient(TestData.DefaultOptions(), httpClient);
+
+        var config = await smplClient.Config.GetAsync("my_key");
+
+        Assert.Equal("id-1", config.Id);
+        Assert.Equal("my_key", config.Key);
+        Assert.Equal("My Config", config.Name);
+        Assert.Equal("A description", config.Description);
+        Assert.Equal("parent-id", config.Parent);
+        Assert.Equal(30L, config.Items["timeout"]);
+        Assert.True(config.Environments.ContainsKey("production"));
+        Assert.NotNull(config.CreatedAt);
+        Assert.NotNull(config.UpdatedAt);
     }
 
     // ------------------------------------------------------------------
@@ -127,49 +198,5 @@ public class ModelsTests
         Assert.Null(evt.OldValue);
         Assert.Null(evt.NewValue);
         Assert.Equal("manual", evt.Source);
-    }
-
-    // ------------------------------------------------------------------
-    // ConfigChainEntry
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public void ConfigChainEntry_DefaultValues()
-    {
-        var entry = new ConfigChainEntry { Id = "test-id" };
-
-        Assert.Equal("test-id", entry.Id);
-        Assert.NotNull(entry.Values);
-        Assert.Empty(entry.Values);
-        Assert.NotNull(entry.EnvValues);
-        Assert.Empty(entry.EnvValues);
-    }
-
-    [Fact]
-    public void ConfigChainEntry_CanSetValues()
-    {
-        var entry = new ConfigChainEntry
-        {
-            Id = "test-id",
-            Values = new() { ["key"] = "value" },
-            EnvValues = new()
-            {
-                ["prod"] = new() { ["key"] = "prod-value" },
-            },
-        };
-
-        Assert.Equal("value", entry.Values["key"]);
-        Assert.Equal("prod-value", entry.EnvValues["prod"]["key"]);
-    }
-
-    [Fact]
-    public void ConfigChainEntry_ValuesAreMutable()
-    {
-        var entry = new ConfigChainEntry { Id = "id" };
-        entry.Values = new() { ["a"] = 1 };
-        entry.EnvValues = new() { ["env"] = new() { ["b"] = 2 } };
-
-        Assert.Equal(1, entry.Values["a"]);
-        Assert.Equal(2, entry.EnvValues["env"]["b"]);
     }
 }

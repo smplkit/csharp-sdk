@@ -74,6 +74,39 @@ public class FlagsClientCoverageTests
         string name = "My Flag") =>
         $$"""
         {
+            "data": [
+                {
+                    "id": "{{id}}",
+                    "type": "flag",
+                    "attributes": {
+                        "key": "{{key}}",
+                        "name": "{{name}}",
+                        "type": "BOOLEAN",
+                        "default": false,
+                        "values": [{"name": "True", "value": true}, {"name": "False", "value": false}],
+                        "description": "Test flag",
+                        "environments": {
+                            "production": {
+                                "enabled": true,
+                                "default": null,
+                                "rules": []
+                            }
+                        },
+                        "created_at": "2024-01-15T10:30:00Z",
+                        "updated_at": "2024-01-15T10:30:00Z"
+                    }
+                }
+            ]
+        }
+        """;
+
+    /// <summary>Single-item response for SaveAsync (POST/PUT returns single resource).</summary>
+    private static string SingleFlagResponseJson(
+        string id = FlagId,
+        string key = "my-flag",
+        string name = "My Flag") =>
+        $$"""
+        {
             "data": {
                 "id": "{{id}}",
                 "type": "flag",
@@ -103,19 +136,18 @@ public class FlagsClientCoverageTests
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task SetContextProvider_IsUsedDuringEvaluation()
+    public void SetContextProvider_IsUsedDuringEvaluation()
     {
         var flagJson = FlagListWithEnvJson(key: "ctx-flag", enabled: true, defaultVal: "false");
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
-        var handle = client.Flags.BoolFlag("ctx-flag", true);
+        var handle = client.Flags.BooleanFlag("ctx-flag", true);
         client.Flags.SetContextProvider(() => new List<Context>
         {
             new("user", "u1", new Dictionary<string, object?> { ["plan"] = "free" }),
         });
-        await client.Flags.ConnectInternalAsync("production");
 
-        // Calls EvaluateHandle with context provider path
+        // Get() triggers lazy EnsureInitialized
         var result = handle.Get();
         // Flag default is false, no rules match
         Assert.False(result);
@@ -144,6 +176,22 @@ public class FlagsClientCoverageTests
         var events = new List<FlagChangeEvent>();
 
         client.Flags.OnChange(evt => events.Add(evt));
+
+        // No crash; listener registered
+        Assert.Empty(events);
+    }
+
+    // ---------------------------------------------------------------
+    // OnChange (scoped listener)
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void OnChange_Scoped_RegistersListener()
+    {
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
+        var events = new List<FlagChangeEvent>();
+
+        client.Flags.OnChange("my-flag", evt => events.Add(evt));
 
         // No crash; listener registered
         Assert.Empty(events);
@@ -220,68 +268,11 @@ public class FlagsClientCoverageTests
     }
 
     // ---------------------------------------------------------------
-    // EvaluateAsync (Tier 1 explicit)
-    // ---------------------------------------------------------------
-
-    [Fact]
-    public async Task EvaluateAsync_WhenNotConnected_FetchesAndEvaluates()
-    {
-        var flagJson = FlagListWithEnvJson(
-            key: "eval-flag",
-            envKey: "staging",
-            enabled: true,
-            defaultVal: "\"off\"",
-            envDefault: "\"off\"");
-        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
-
-        var result = await client.Flags.EvaluateAsync(
-            "eval-flag",
-            "staging",
-            new List<Context>());
-
-        Assert.Equal("off", result);
-    }
-
-    [Fact]
-    public async Task EvaluateAsync_WhenNotConnected_ReturnsNull_WhenFlagNotFound()
-    {
-        var flagJson = FlagListWithEnvJson(key: "other-flag");
-        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
-
-        var result = await client.Flags.EvaluateAsync(
-            "missing-flag",
-            "production",
-            new List<Context>());
-
-        Assert.Null(result);
-    }
-
-    [Fact]
-    public async Task EvaluateAsync_WhenConnected_UsesLocalStore()
-    {
-        var flagJson = FlagListWithEnvJson(
-            key: "eval-flag",
-            envKey: "production",
-            enabled: true,
-            defaultVal: "true");
-        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
-
-        await client.Flags.ConnectInternalAsync("production");
-
-        var result = await client.Flags.EvaluateAsync(
-            "eval-flag",
-            "production",
-            new List<Context>());
-
-        Assert.Equal(true, result);
-    }
-
-    // ---------------------------------------------------------------
     // EvaluateHandle with context provider triggering flush
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task EvaluateHandle_WithContextProvider_FlushesWhenBufferFull()
+    public void EvaluateHandle_WithContextProvider_FlushesWhenBufferFull()
     {
         var flagJson = FlagListWithEnvJson(key: "flush-flag", defaultVal: "false");
         int requestCount = 0;
@@ -297,14 +288,12 @@ public class FlagsClientCoverageTests
             contexts.Add(new Context("user", $"user-{i}", new Dictionary<string, object?> { ["plan"] = "free" }));
 
         client.Flags.SetContextProvider(() => contexts);
-        var handle = client.Flags.BoolFlag("flush-flag", true);
-        await client.Flags.ConnectInternalAsync("production");
 
-        handle.Get(); // triggers context provider path
-        // Give background flush a moment
-        await Task.Delay(100);
+        var handle = client.Flags.BooleanFlag("flush-flag", true);
 
-        // At least ConnectAsync + flush request
+        handle.Get(); // triggers EnsureInitialized + context provider path
+
+        // At least the list-flags request was made
         Assert.True(requestCount >= 1);
     }
 
@@ -313,56 +302,16 @@ public class FlagsClientCoverageTests
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task EvaluateHandle_NoContextProvider_NoContext_UsesEmptyDict()
+    public void EvaluateHandle_NoContextProvider_NoContext_UsesEmptyDict()
     {
         var flagJson = FlagListWithEnvJson(key: "empty-ctx", defaultVal: "true", enabled: true);
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
-        var handle = client.Flags.BoolFlag("empty-ctx", false);
-        await client.Flags.ConnectInternalAsync("production");
+        var handle = client.Flags.BooleanFlag("empty-ctx", false);
 
+        // Get() triggers lazy initialization
         var result = handle.Get();
         Assert.True(result);
-    }
-
-    // ---------------------------------------------------------------
-    // ConnectAsync timeout
-    // ---------------------------------------------------------------
-
-    [Fact]
-    public async Task ConnectInternalAsync_Cancelled_ThrowsOperationCancelled()
-    {
-        var (client, _) = CreateClient(async _ =>
-        {
-            await Task.Delay(TimeSpan.FromSeconds(30));
-            return JsonResponse("{}");
-        });
-
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            client.Flags.ConnectInternalAsync("production", cts.Token));
-    }
-
-    // ---------------------------------------------------------------
-    // DisconnectAsync
-    // ---------------------------------------------------------------
-
-    [Fact]
-    public async Task DisconnectAsync_ClearsStateAndFlushes()
-    {
-        var flagJson = FlagListWithEnvJson(key: "disc-flag", defaultVal: "true");
-        var (client, handler) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
-
-        await client.Flags.ConnectInternalAsync("production");
-
-        // Register a context so FlushContextsAsync has something
-        client.Flags.Register(new Context("user", "u1"));
-
-        await client.Flags.DisconnectAsync();
-
-        // After disconnect, handle should throw SmplNotConnectedException
-        var handle = client.Flags.BoolFlag("disc-flag", false);
-        Assert.Throws<SmplNotConnectedException>(() => handle.Get());
     }
 
     // ---------------------------------------------------------------
@@ -377,7 +326,10 @@ public class FlagsClientCoverageTests
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         client.Flags.OnChange(evt => events.Add(evt));
-        await client.Flags.ConnectInternalAsync("production");
+
+        // Trigger initialization via Get()
+        var handle = client.Flags.BooleanFlag("refresh-flag", false);
+        handle.Get();
 
         await client.Flags.RefreshAsync();
 
@@ -386,21 +338,26 @@ public class FlagsClientCoverageTests
     }
 
     // ---------------------------------------------------------------
-    // UpdateFlagInternalAsync
+    // SaveFlagInternalAsync (update — Id is not null → PUT)
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task UpdateFlagInternalAsync_PutsFlagToApi()
+    public async Task SaveAsync_Update_PutsFlagToApi()
     {
-        var (client, handler) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(SingleFlagJson())));
+        var (client, handler) = CreateClient(req =>
+        {
+            if (req.Method == HttpMethod.Put)
+                return Task.FromResult(JsonResponse(SingleFlagResponseJson()));
+            return Task.FromResult(JsonResponse(SingleFlagJson()));
+        });
 
-        var flag = await client.Flags.GetAsync(FlagId);
+        var flag = await client.Flags.GetAsync("my-flag");
 
-        // Now update
-        await flag.UpdateAsync(name: "Updated Name");
+        // Now update via SaveAsync (Id is not null → PUT)
+        flag.Name = "Updated Name";
+        await flag.SaveAsync();
 
-        // At least 2 requests: GET + PUT
+        // At least 2 requests: GET (list) + PUT
         Assert.True(handler.Requests.Count >= 2);
         var putReq = handler.Requests.Last(r => r.Method == HttpMethod.Put);
         Assert.Contains($"/api/v1/flags/{FlagId}", putReq.RequestUri!.ToString());
@@ -411,16 +368,18 @@ public class FlagsClientCoverageTests
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task HandleFlagChanged_RefetchesAndFiresListeners()
+    public void HandleFlagChanged_RefetchesAndFiresListeners()
     {
         var flagJson = FlagListWithEnvJson(key: "ws-flag", defaultVal: "true");
         var events = new List<FlagChangeEvent>();
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         client.Flags.OnChange(evt => events.Add(evt));
-        var handle = client.Flags.BoolFlag("ws-flag", false);
-        handle.OnChange(evt => events.Add(evt));
-        await client.Flags.ConnectInternalAsync("production");
+        client.Flags.OnChange("ws-flag", evt => events.Add(evt));
+
+        // Trigger initialization
+        var handle = client.Flags.BooleanFlag("ws-flag", false);
+        handle.Get();
 
         // Simulate HandleFlagChanged via reflection (it's private)
         var method = typeof(FlagsClient).GetMethod("HandleFlagChanged",
@@ -430,20 +389,23 @@ public class FlagsClientCoverageTests
             new Dictionary<string, object?> { ["key"] = "ws-flag" }
         });
 
-        // Should have fired both global and handle listeners
+        // Should have fired both global and scoped listeners
         Assert.True(events.Count >= 2);
         Assert.All(events, e => Assert.Equal("ws-flag", e.Key));
     }
 
     [Fact]
-    public async Task HandleFlagDeleted_RefetchesAndFiresListeners()
+    public void HandleFlagDeleted_RefetchesAndFiresListeners()
     {
         var flagJson = FlagListWithEnvJson(key: "del-flag", defaultVal: "true");
         var events = new List<FlagChangeEvent>();
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         client.Flags.OnChange(evt => events.Add(evt));
-        await client.Flags.ConnectInternalAsync("production");
+
+        // Trigger initialization
+        var handle = client.Flags.BooleanFlag("del-flag", false);
+        handle.Get();
 
         var method = typeof(FlagsClient).GetMethod("HandleFlagDeleted",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
@@ -456,14 +418,17 @@ public class FlagsClientCoverageTests
     }
 
     [Fact]
-    public async Task HandleFlagChanged_NullKey_DoesNotFireListeners()
+    public void HandleFlagChanged_NullKey_DoesNotFireListeners()
     {
         var flagJson = FlagListWithEnvJson(key: "ws-flag", defaultVal: "true");
         var events = new List<FlagChangeEvent>();
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         client.Flags.OnChange(evt => events.Add(evt));
-        await client.Flags.ConnectInternalAsync("production");
+
+        // Trigger initialization
+        var handle = client.Flags.BooleanFlag("ws-flag", false);
+        handle.Get();
 
         var method = typeof(FlagsClient).GetMethod("HandleFlagChanged",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
@@ -477,13 +442,16 @@ public class FlagsClientCoverageTests
     }
 
     [Fact]
-    public async Task HandleFlagChanged_ListenerThrows_DoesNotPropagate()
+    public void HandleFlagChanged_ListenerThrows_DoesNotPropagate()
     {
         var flagJson = FlagListWithEnvJson(key: "throw-flag", defaultVal: "true");
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         client.Flags.OnChange(_ => throw new InvalidOperationException("boom"));
-        await client.Flags.ConnectInternalAsync("production");
+
+        // Trigger initialization
+        var handle = client.Flags.BooleanFlag("throw-flag", false);
+        handle.Get();
 
         var method = typeof(FlagsClient).GetMethod("HandleFlagChanged",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
@@ -496,14 +464,16 @@ public class FlagsClientCoverageTests
     }
 
     [Fact]
-    public async Task HandleFlagChanged_HandleListenerThrows_DoesNotPropagate()
+    public void HandleFlagChanged_ScopedListenerThrows_DoesNotPropagate()
     {
         var flagJson = FlagListWithEnvJson(key: "handle-throw", defaultVal: "true");
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
-        var handle = client.Flags.BoolFlag("handle-throw", false);
-        handle.OnChange(_ => throw new InvalidOperationException("boom"));
-        await client.Flags.ConnectInternalAsync("production");
+        client.Flags.OnChange("handle-throw", _ => throw new InvalidOperationException("boom"));
+
+        // Trigger initialization
+        var handle = client.Flags.BooleanFlag("handle-throw", false);
+        handle.Get();
 
         var method = typeof(FlagsClient).GetMethod("HandleFlagChanged",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
@@ -516,20 +486,22 @@ public class FlagsClientCoverageTests
     }
 
     [Fact]
-    public async Task HandleFlagChanged_TransportFailure_DoesNotThrow()
+    public void HandleFlagChanged_TransportFailure_DoesNotThrow()
     {
         int callCount = 0;
         var flagJson = FlagListWithEnvJson(key: "fail-flag", defaultVal: "true");
         var (client, _) = CreateClient(_ =>
         {
             callCount++;
-            // First call succeeds (ConnectAsync), subsequent ones fail
+            // First call succeeds (EnsureInitialized), subsequent ones fail
             if (callCount <= 1)
                 return Task.FromResult(JsonResponse(flagJson));
             throw new HttpRequestException("Network error");
         });
 
-        await client.Flags.ConnectInternalAsync("production");
+        // Trigger initialization
+        var handle = client.Flags.BooleanFlag("fail-flag", false);
+        handle.Get();
 
         var method = typeof(FlagsClient).GetMethod("HandleFlagChanged",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
@@ -1281,15 +1253,19 @@ public class FlagsClientCoverageTests
         var (client, _) = CreateClient(async req =>
         {
             if (req.Method == HttpMethod.Put)
+            {
                 capturedBody = await req.Content!.ReadAsStringAsync();
+                return JsonResponse(SingleFlagResponseJson());
+            }
             return JsonResponse(SingleFlagJson());
         });
 
-        var flag = await client.Flags.GetAsync(FlagId);
-        await flag.UpdateAsync(
-            description: "updated desc",
-            name: "Updated Name",
-            @default: true);
+        var flag = await client.Flags.GetAsync("my-flag");
+        // Mutate properties then SaveAsync
+        flag.Description = "updated desc";
+        flag.Name = "Updated Name";
+        flag.Default = true;
+        await flag.SaveAsync();
 
         Assert.NotNull(capturedBody);
         Assert.Contains("Updated Name", capturedBody);
@@ -1297,33 +1273,33 @@ public class FlagsClientCoverageTests
     }
 
     // ---------------------------------------------------------------
-    // BoolFlagHandle.Get with explicit context
+    // BooleanFlag.Get with explicit context
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task BoolFlagHandle_GetWithContext_EvaluatesCorrectly()
+    public void BooleanFlag_GetWithContext_EvaluatesCorrectly()
     {
         var flagJson = FlagListWithEnvJson(key: "ctx-bool", defaultVal: "false", enabled: true);
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
-        var handle = client.Flags.BoolFlag("ctx-bool", true);
-        await client.Flags.ConnectInternalAsync("production");
+        var handle = client.Flags.BooleanFlag("ctx-bool", true);
 
         var contexts = new List<Context>
         {
             new("user", "u1", new Dictionary<string, object?> { ["plan"] = "free" }),
         };
+        // Get triggers lazy init
         var result = handle.Get(contexts);
         // flag default is false, no matching rules
         Assert.False(result);
     }
 
     // ---------------------------------------------------------------
-    // StringFlagHandle.Get with explicit context
+    // StringFlag.Get with explicit context
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task StringFlagHandle_GetWithContext_EvaluatesCorrectly()
+    public void StringFlag_GetWithContext_EvaluatesCorrectly()
     {
         var flagJson = """
         {
@@ -1339,7 +1315,7 @@ public class FlagsClientCoverageTests
                         "values": [],
                         "description": null,
                         "environments": {
-                            "production": {
+                            "test": {
                                 "enabled": true,
                                 "default": null,
                                 "rules": []
@@ -1355,7 +1331,6 @@ public class FlagsClientCoverageTests
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.StringFlag("ctx-str", "code-default");
-        await client.Flags.ConnectInternalAsync("production");
 
         var contexts = new List<Context>
         {
@@ -1366,11 +1341,11 @@ public class FlagsClientCoverageTests
     }
 
     // ---------------------------------------------------------------
-    // NumberFlagHandle.Get with explicit context
+    // NumberFlag.Get with explicit context
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task NumberFlagHandle_GetWithContext_EvaluatesCorrectly()
+    public void NumberFlag_GetWithContext_EvaluatesCorrectly()
     {
         var flagJson = """
         {
@@ -1386,7 +1361,7 @@ public class FlagsClientCoverageTests
                         "values": [],
                         "description": null,
                         "environments": {
-                            "production": {
+                            "test": {
                                 "enabled": true,
                                 "default": null,
                                 "rules": []
@@ -1402,7 +1377,6 @@ public class FlagsClientCoverageTests
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.NumberFlag("ctx-num", 0.0);
-        await client.Flags.ConnectInternalAsync("production");
 
         var contexts = new List<Context>
         {
@@ -1413,11 +1387,11 @@ public class FlagsClientCoverageTests
     }
 
     // ---------------------------------------------------------------
-    // NumberFlagHandle type coercion edge cases
+    // NumberFlag type coercion edge cases
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task NumberFlagHandle_HandlesFloat()
+    public void NumberFlag_HandlesFloat()
     {
         var flagJson = """
         {
@@ -1432,7 +1406,13 @@ public class FlagsClientCoverageTests
                         "default": 1.5,
                         "values": [],
                         "description": null,
-                        "environments": {},
+                        "environments": {
+                            "test": {
+                                "enabled": true,
+                                "default": null,
+                                "rules": []
+                            }
+                        },
                         "created_at": null,
                         "updated_at": null
                     }
@@ -1443,8 +1423,8 @@ public class FlagsClientCoverageTests
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.NumberFlag("float-num", 0.0);
-        await client.Flags.ConnectInternalAsync("production");
 
+        // Get triggers lazy init
         var result = handle.Get();
         Assert.Equal(1.5, result);
     }
@@ -1464,58 +1444,50 @@ public class FlagsClientCoverageTests
     }
 
     // ---------------------------------------------------------------
-    // NormalizeAttributes — non-object attributes fallback
+    // BuildUpdateFlagBody -- env without rules key
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task CreateContextType_NonObjectAttributes_ReturnsEmptyDict()
-    {
-        // Context type whose "attributes" field is a number, not an object.
-        // NormalizeAttributes should fall through to the empty-dict fallback.
-        var ctJson = """
-        {
-            "data": {
-                "id": "c0000001-c000-c000-c000-c00000000001",
-                "type": "context_type",
-                "attributes": {
-                    "key": "device",
-                    "name": "Device",
-                    "attributes": 42
-                }
-            }
-        }
-        """;
-        var (client, _) = CreateClient(_ => Task.FromResult(
-            new HttpResponseMessage(HttpStatusCode.Created)
-            {
-                Content = new StringContent(ctJson, Encoding.UTF8, "application/vnd.api+json"),
-            }));
-
-        var ct = await client.Flags.CreateContextTypeAsync("device", "Device");
-
-        Assert.Equal("device", ct.Key);
-        Assert.NotNull(ct.Attributes);
-        Assert.Empty(ct.Attributes);
-    }
-
-    // ---------------------------------------------------------------
-    // BuildUpdateFlagBody — env without rules key
-    // ---------------------------------------------------------------
-
-    [Fact]
-    public async Task UpdateAsync_EnvWithoutRules_SetsEmptyRulesList()
+    public async Task SaveAsync_EnvWithoutRules_SetsEmptyRulesList()
     {
         // Flag whose environment has enabled + default but NO rules key.
-        // After MapFlagResource → ExtractEnvironments, the env dict will
+        // After MapFlagResource -> ExtractEnvironments, the env dict will
         // not have a "rules" key, triggering the else branch in BuildUpdateFlagBody.
         var flagJson = $$"""
+        {
+            "data": [
+                {
+                    "id": "{{FlagId}}",
+                    "type": "flag",
+                    "attributes": {
+                        "key": "no-rules-flag",
+                        "name": "No Rules",
+                        "type": "BOOLEAN",
+                        "default": false,
+                        "values": [{"name": "True", "value": true}, {"name": "False", "value": false}],
+                        "description": "Flag with env that has null rules",
+                        "environments": {
+                            "staging": {
+                                "enabled": true,
+                                "default": null
+                            }
+                        },
+                        "created_at": "2024-01-15T10:30:00Z",
+                        "updated_at": "2024-01-15T10:30:00Z"
+                    }
+                }
+            ]
+        }
+        """;
+
+        var singleFlagJson = $$"""
         {
             "data": {
                 "id": "{{FlagId}}",
                 "type": "flag",
                 "attributes": {
                     "key": "no-rules-flag",
-                    "name": "No Rules",
+                    "name": "No Rules Updated",
                     "type": "BOOLEAN",
                     "default": false,
                     "values": [{"name": "True", "value": true}, {"name": "False", "value": false}],
@@ -1537,12 +1509,16 @@ public class FlagsClientCoverageTests
         var (client, _) = CreateClient(async req =>
         {
             if (req.Method == HttpMethod.Put)
+            {
                 capturedBody = await req.Content!.ReadAsStringAsync();
+                return JsonResponse(singleFlagJson);
+            }
             return JsonResponse(flagJson);
         });
 
-        var flag = await client.Flags.GetAsync(FlagId);
-        await flag.UpdateAsync(name: "No Rules Updated");
+        var flag = await client.Flags.GetAsync("no-rules-flag");
+        flag.Name = "No Rules Updated";
+        await flag.SaveAsync();
 
         Assert.NotNull(capturedBody);
         // The rules list should be present (as an empty array) in the PUT body

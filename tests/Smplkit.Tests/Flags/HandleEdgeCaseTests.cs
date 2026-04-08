@@ -55,7 +55,7 @@ public class HandleEdgeCaseTests
                         "values": [],
                         "description": null,
                         "environments": {
-                            "production": {
+                            "test": {
                                 "enabled": true,
                                 "default": null,
                                 "rules": [
@@ -77,32 +77,31 @@ public class HandleEdgeCaseTests
     }
 
     // ---------------------------------------------------------------
-    // BoolFlagHandle - JsonElement true/false
+    // BooleanFlag - JsonElement true/false
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task BoolFlagHandle_JsonElementTrue_ReturnsBool()
+    public void BooleanFlag_JsonElementTrue_ReturnsBool()
     {
         // Rule returns true as a JsonElement (from the JSON deserialization)
         var flagJson = FlagListWithRuleJson("je-bool", "BOOLEAN", "false", "true");
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
-        var handle = client.Flags.BoolFlag("je-bool", false);
-        await client.Flags.ConnectInternalAsync("production");
+        var handle = client.Flags.BooleanFlag("je-bool", false);
 
+        // Get() triggers lazy init
         var result = handle.Get();
         Assert.True(result);
     }
 
     [Fact]
-    public async Task BoolFlagHandle_NonBoolValue_ReturnsDefault()
+    public void BooleanFlag_NonBoolValue_ReturnsDefault()
     {
         // Rule returns a string value for a bool flag
         var flagJson = FlagListWithRuleJson("je-bool-str", "BOOLEAN", "false", "\"not-a-bool\"");
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
-        var handle = client.Flags.BoolFlag("je-bool-str", true);
-        await client.Flags.ConnectInternalAsync("production");
+        var handle = client.Flags.BooleanFlag("je-bool-str", true);
 
         // Value is "not-a-bool" which is not bool or JsonElement bool => returns code default
         var result = handle.Get();
@@ -110,74 +109,69 @@ public class HandleEdgeCaseTests
     }
 
     // ---------------------------------------------------------------
-    // StringFlagHandle - JsonElement string
+    // StringFlag - JsonElement string
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task StringFlagHandle_JsonElementString_ReturnsString()
+    public void StringFlag_JsonElementString_ReturnsString()
     {
         var flagJson = FlagListWithRuleJson("je-str", "STRING", "\"default\"", "\"matched-val\"");
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.StringFlag("je-str", "code-default");
-        await client.Flags.ConnectInternalAsync("production");
 
         var result = handle.Get();
         Assert.Equal("matched-val", result);
     }
 
     [Fact]
-    public async Task StringFlagHandle_NonStringValue_ReturnsDefault()
+    public void StringFlag_NonStringValue_ReturnsDefault()
     {
         // Rule returns a number for a string flag
         var flagJson = FlagListWithRuleJson("je-str-num", "STRING", "\"default\"", "42");
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.StringFlag("je-str-num", "code-default");
-        await client.Flags.ConnectInternalAsync("production");
 
         var result = handle.Get();
         Assert.Equal("code-default", result);
     }
 
     // ---------------------------------------------------------------
-    // NumberFlagHandle - JsonElement numeric
+    // NumberFlag - JsonElement numeric
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task NumberFlagHandle_JsonElementInteger_ReturnsNumber()
+    public void NumberFlag_JsonElementInteger_ReturnsNumber()
     {
         var flagJson = FlagListWithRuleJson("je-num", "NUMERIC", "0", "99");
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.NumberFlag("je-num", 0.0);
-        await client.Flags.ConnectInternalAsync("production");
 
         var result = handle.Get();
         Assert.Equal(99.0, result);
     }
 
     [Fact]
-    public async Task NumberFlagHandle_JsonElementDouble_ReturnsNumber()
+    public void NumberFlag_JsonElementDouble_ReturnsNumber()
     {
         var flagJson = FlagListWithRuleJson("je-num-dbl", "NUMERIC", "0", "3.14");
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.NumberFlag("je-num-dbl", 0.0);
-        await client.Flags.ConnectInternalAsync("production");
 
         var result = handle.Get();
         Assert.Equal(3.14, result);
     }
 
     [Fact]
-    public async Task NumberFlagHandle_NonNumericValue_ReturnsDefault()
+    public void NumberFlag_NonNumericValue_ReturnsDefault()
     {
         var flagJson = FlagListWithRuleJson("je-num-str", "NUMERIC", "0", "\"not-a-number\"");
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.NumberFlag("je-num-str", 5.5);
-        await client.Flags.ConnectInternalAsync("production");
 
         var result = handle.Get();
         Assert.Equal(5.5, result);
@@ -185,7 +179,7 @@ public class HandleEdgeCaseTests
 
     // ---------------------------------------------------------------
     // Direct JsonElement injection via reflection to cover defensive
-    // branches in handle Get methods (lines 948-949, 968, 990-994).
+    // branches in handle Get methods.
     // These paths are defensive: NormalizeValue converts JsonElements
     // to native types, but the handles guard against raw JsonElements
     // in case evaluation bypasses normalization.
@@ -240,22 +234,22 @@ public class HandleEdgeCaseTests
     }
 
     [Fact]
-    public void BoolFlagHandle_JsonElementValue_ReturnsBoolean()
+    public void BooleanFlag_JsonElementValue_ReturnsBoolean()
     {
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
 
-        var handle = client.Flags.BoolFlag("je-inject-bool", false);
+        var handle = client.Flags.BooleanFlag("je-inject-bool", false);
 
         // Inject a raw JsonElement boolean
         var je = JsonSerializer.Deserialize<JsonElement>("true");
-        InjectRawFlagDef(client, "je-inject-bool", "production", je);
+        InjectRawFlagDef(client, "je-inject-bool", "test", je);
 
         var result = handle.Get();
         Assert.True(result);
     }
 
     [Fact]
-    public void StringFlagHandle_JsonElementValue_ReturnsString()
+    public void StringFlag_JsonElementValue_ReturnsString()
     {
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
 
@@ -263,14 +257,14 @@ public class HandleEdgeCaseTests
 
         // Inject a raw JsonElement string
         var je = JsonSerializer.Deserialize<JsonElement>("\"injected-value\"");
-        InjectRawFlagDef(client, "je-inject-str", "production", je);
+        InjectRawFlagDef(client, "je-inject-str", "test", je);
 
         var result = handle.Get();
         Assert.Equal("injected-value", result);
     }
 
     [Fact]
-    public void NumberFlagHandle_JsonElementInteger_ReturnsLong()
+    public void NumberFlag_JsonElementInteger_ReturnsLong()
     {
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
 
@@ -278,14 +272,14 @@ public class HandleEdgeCaseTests
 
         // Inject a raw JsonElement integer
         var je = JsonSerializer.Deserialize<JsonElement>("42");
-        InjectRawFlagDef(client, "je-inject-int", "production", je);
+        InjectRawFlagDef(client, "je-inject-int", "test", je);
 
         var result = handle.Get();
         Assert.Equal(42.0, result);
     }
 
     [Fact]
-    public void NumberFlagHandle_JsonElementDouble_ReturnsDouble()
+    public void NumberFlag_JsonElementDouble_ReturnsDouble()
     {
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
 
@@ -293,22 +287,22 @@ public class HandleEdgeCaseTests
 
         // Inject a raw JsonElement double
         var je = JsonSerializer.Deserialize<JsonElement>("3.14");
-        InjectRawFlagDef(client, "je-inject-dbl", "production", je);
+        InjectRawFlagDef(client, "je-inject-dbl", "test", je);
 
         var result = handle.Get();
         Assert.Equal(3.14, result);
     }
 
     [Fact]
-    public void BoolFlagHandle_JsonElementNonBool_ReturnsDefault()
+    public void BooleanFlag_JsonElementNonBool_ReturnsDefault()
     {
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
 
-        var handle = client.Flags.BoolFlag("je-inject-nonbool", true);
+        var handle = client.Flags.BooleanFlag("je-inject-nonbool", true);
 
         // Inject a raw JsonElement that is NOT a boolean (number)
         var je = JsonSerializer.Deserialize<JsonElement>("42");
-        InjectRawFlagDef(client, "je-inject-nonbool", "production", je);
+        InjectRawFlagDef(client, "je-inject-nonbool", "test", je);
 
         // JsonElement number is not bool, and not JsonElement True/False => fall to Default
         var result = handle.Get();
@@ -316,7 +310,7 @@ public class HandleEdgeCaseTests
     }
 
     [Fact]
-    public void StringFlagHandle_JsonElementNonString_ReturnsDefault()
+    public void StringFlag_JsonElementNonString_ReturnsDefault()
     {
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
 
@@ -324,7 +318,7 @@ public class HandleEdgeCaseTests
 
         // Inject a raw JsonElement that is NOT a string (number)
         var je = JsonSerializer.Deserialize<JsonElement>("42");
-        InjectRawFlagDef(client, "je-inject-nonstr", "production", je);
+        InjectRawFlagDef(client, "je-inject-nonstr", "test", je);
 
         // JsonElement number is not string => fall to Default
         var result = handle.Get();
@@ -332,7 +326,7 @@ public class HandleEdgeCaseTests
     }
 
     [Fact]
-    public void NumberFlagHandle_JsonElementIntegerViaInjection_ReturnsNumber()
+    public void NumberFlag_JsonElementIntegerViaInjection_ReturnsNumber()
     {
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
 
@@ -340,14 +334,14 @@ public class HandleEdgeCaseTests
 
         // Inject a raw JsonElement integer
         var je = JsonSerializer.Deserialize<JsonElement>("55");
-        InjectRawFlagDef(client, "je-inject-num-int", "production", je);
+        InjectRawFlagDef(client, "je-inject-num-int", "test", je);
 
         var result = handle.Get();
         Assert.Equal(55.0, result);
     }
 
     [Fact]
-    public void NumberFlagHandle_JsonElementDoubleViaInjection_ReturnsNumber()
+    public void NumberFlag_JsonElementDoubleViaInjection_ReturnsNumber()
     {
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
 
@@ -355,22 +349,22 @@ public class HandleEdgeCaseTests
 
         // Inject a raw JsonElement double (has decimal point)
         var je = JsonSerializer.Deserialize<JsonElement>("7.77");
-        InjectRawFlagDef(client, "je-inject-num-dbl", "production", je);
+        InjectRawFlagDef(client, "je-inject-num-dbl", "test", je);
 
         var result = handle.Get();
         Assert.Equal(7.77, result);
     }
 
     [Fact]
-    public void NumberFlagHandle_JsonElementNull_ReturnsDefault()
+    public void NumberFlag_JsonElementNull_ReturnsDefault()
     {
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
 
         var handle = client.Flags.NumberFlag("je-inject-num-null", 9.9);
 
-        // Inject a raw JsonElement of type Null — neither TryGetInt64 nor TryGetDouble succeeds
+        // Inject a raw JsonElement of type Null -- neither TryGetInt64 nor TryGetDouble succeeds
         var je = JsonSerializer.Deserialize<JsonElement>("null");
-        InjectRawFlagDef(client, "je-inject-num-null", "production", je);
+        InjectRawFlagDef(client, "je-inject-num-null", "test", je);
 
         var result = handle.Get();
         Assert.Equal(9.9, result);

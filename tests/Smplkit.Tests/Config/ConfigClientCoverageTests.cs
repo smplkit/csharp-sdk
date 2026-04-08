@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text;
-using System.Text.Json;
 using Smplkit.Config;
 using Smplkit.Errors;
 using Smplkit.Tests.Helpers;
@@ -32,7 +31,40 @@ public class ConfigClientCoverageTests
         };
     }
 
-    private static string ConfigJsonWithValuesAndEnvs(
+    private static string SingleConfigListJson(
+        string id = "11111111-1111-1111-1111-111111111111",
+        string key = "my_key",
+        string name = "My Config",
+        string? parent = null,
+        string? description = null,
+        string valuesJson = "{}",
+        string environmentsJson = "{}")
+    {
+        var parentStr = parent is null ? "null" : $"\"{parent}\"";
+        var descStr = description is null ? "null" : $"\"{description}\"";
+        return $$"""
+        {
+            "data": [
+                {
+                    "id": "{{id}}",
+                    "type": "config",
+                    "attributes": {
+                        "key": "{{key}}",
+                        "name": "{{name}}",
+                        "description": {{descStr}},
+                        "parent": {{parentStr}},
+                        "items": {{valuesJson}},
+                        "environments": {{environmentsJson}},
+                        "created_at": "2024-01-15T10:30:00Z",
+                        "updated_at": "2024-01-15T10:30:00Z"
+                    }
+                }
+            ]
+        }
+        """;
+    }
+
+    private static string SingleConfigJson(
         string id = "11111111-1111-1111-1111-111111111111",
         string key = "my_key",
         string name = "My Config",
@@ -64,140 +96,70 @@ public class ConfigClientCoverageTests
     }
 
     // ------------------------------------------------------------------
-    // SetValuesAsync — error during GET phase
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public async Task SetValuesAsync_GetFails_ThrowsSmplException()
-    {
-        var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(
-                """{"errors":[{"detail":"Server error"}]}""",
-                HttpStatusCode.InternalServerError)));
-
-        await Assert.ThrowsAsync<SmplException>(
-            () => client.Config.SetValuesAsync("11111111-1111-1111-1111-111111111111",
-                new Dictionary<string, object?> { ["key"] = "val" }));
-    }
-
-    // ------------------------------------------------------------------
-    // SetValuesAsync — error during PUT phase
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public async Task SetValuesAsync_PutFails_ThrowsSmplException()
-    {
-        int requestCount = 0;
-        var (client, _) = CreateClient(_ =>
-        {
-            requestCount++;
-            if (requestCount == 1)
-            {
-                return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""")));
-            }
-            return Task.FromResult(JsonResponse(
-                """{"errors":[{"detail":"Validation failed"}]}""",
-                (HttpStatusCode)422));
-        });
-
-        await Assert.ThrowsAsync<SmplValidationException>(
-            () => client.Config.SetValuesAsync("11111111-1111-1111-1111-111111111111",
-                new Dictionary<string, object?> { ["key"] = "val" }));
-    }
-
-    // ------------------------------------------------------------------
-    // SetValueAsync — error during GET phase
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public async Task SetValueAsync_GetFails_ThrowsSmplException()
-    {
-        var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(
-                """{"errors":[{"detail":"Not found"}]}""",
-                HttpStatusCode.NotFound)));
-
-        await Assert.ThrowsAsync<SmplNotFoundException>(
-            () => client.Config.SetValueAsync("11111111-1111-1111-1111-111111111111", "key", "val"));
-    }
-
-    // ------------------------------------------------------------------
-    // SetValueAsync — env path with error during PUT
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public async Task SetValueAsync_EnvPutFails_ThrowsSmplException()
-    {
-        int requestCount = 0;
-        var (client, _) = CreateClient(_ =>
-        {
-            requestCount++;
-            if (requestCount == 1)
-            {
-                return Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
-                    environmentsJson: """{"production": {"values": {"timeout": {"value": 60}}}}""")));
-            }
-            return Task.FromResult(JsonResponse(
-                """{"errors":[{"detail":"Server error"}]}""",
-                HttpStatusCode.InternalServerError));
-        });
-
-        await Assert.ThrowsAsync<SmplException>(
-            () => client.Config.SetValueAsync("11111111-1111-1111-1111-111111111111", "debug", true, environment: "production"));
-    }
-
-    // ------------------------------------------------------------------
     // DeleteAsync — 409 Conflict through ConfigClient
     // ------------------------------------------------------------------
 
     [Fact]
     public async Task DeleteAsync_Conflict_ThrowsSmplConflictException()
     {
+        int requestCount = 0;
         var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(
+        {
+            requestCount++;
+            if (requestCount == 1)
+                return Task.FromResult(JsonResponse(SingleConfigListJson()));
+            return Task.FromResult(JsonResponse(
                 """{"errors":[{"detail":"Has children"}]}""",
-                HttpStatusCode.Conflict)));
+                HttpStatusCode.Conflict));
+        });
 
         var ex = await Assert.ThrowsAsync<SmplConflictException>(
-            () => client.Config.DeleteAsync(TestData.ConfigId));
+            () => client.Config.DeleteAsync("my_key"));
         Assert.Equal(409, ex.StatusCode);
         Assert.Contains("Has children", ex.ResponseBody!);
     }
 
     // ------------------------------------------------------------------
-    // UpdateAsync — 409 Conflict
+    // SaveAsync (update) — 409 Conflict
     // ------------------------------------------------------------------
 
     [Fact]
-    public async Task UpdateAsync_409_ThrowsSmplConflictException()
+    public async Task SaveAsync_Update_409_ThrowsSmplConflictException()
     {
+        int requestCount = 0;
         var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(
+        {
+            requestCount++;
+            if (requestCount == 1)
+                return Task.FromResult(JsonResponse(SingleConfigListJson()));
+            return Task.FromResult(JsonResponse(
                 """{"errors":[{"detail":"Conflict"}]}""",
-                HttpStatusCode.Conflict)));
+                HttpStatusCode.Conflict));
+        });
+
+        var config = await client.Config.GetAsync("my_key");
+        config.Name = "Updated";
 
         var ex = await Assert.ThrowsAsync<SmplConflictException>(
-            () => client.Config.UpdateAsync(TestData.ConfigId,
-                new CreateConfigOptions { Name = "Test" }));
+            () => config.SaveAsync());
         Assert.Equal(409, ex.StatusCode);
     }
 
     // ------------------------------------------------------------------
-    // CreateAsync — 409 Conflict
+    // SaveAsync (create) — 409 Conflict
     // ------------------------------------------------------------------
 
     [Fact]
-    public async Task CreateAsync_409_ThrowsSmplConflictException()
+    public async Task SaveAsync_Create_409_ThrowsSmplConflictException()
     {
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(
                 """{"errors":[{"detail":"Already exists"}]}""",
                 HttpStatusCode.Conflict)));
 
+        var config = client.Config.New("test_key", "Test");
         var ex = await Assert.ThrowsAsync<SmplConflictException>(
-            () => client.Config.CreateAsync(new CreateConfigOptions { Name = "Test" }));
+            () => config.SaveAsync());
         Assert.Equal(409, ex.StatusCode);
     }
 
@@ -209,16 +171,16 @@ public class ConfigClientCoverageTests
     public async Task GetAsync_AllFieldsPopulated_MapsCorrectly()
     {
         var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(ConfigJsonWithValuesAndEnvs(
+            Task.FromResult(JsonResponse(SingleConfigListJson(
                 id: "11111111-1111-1111-1111-111111111111",
                 key: "svc_key",
                 name: "Service",
                 description: "A description",
                 parent: "parent-id",
                 valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}, "retries": {"value": 3, "type": "NUMBER"}}""",
-                environmentsJson: """{"production": {"values": {"timeout": {"value": 60}}}}"""))));
+                environmentsJson: """{"production": {"timeout": {"value": 60}}}"""))));
 
-        var config = await client.Config.GetAsync("11111111-1111-1111-1111-111111111111");
+        var config = await client.Config.GetAsync("svc_key");
 
         Assert.Equal("11111111-1111-1111-1111-111111111111", config.Id);
         Assert.Equal("svc_key", config.Key);
@@ -230,66 +192,16 @@ public class ConfigClientCoverageTests
     }
 
     // ------------------------------------------------------------------
-    // SetValuesAsync — env path preserves base values
+    // GetAsync — URL uses filter[key] query param
     // ------------------------------------------------------------------
 
     [Fact]
-    public async Task SetValuesAsync_EnvPath_PreservesBaseValues()
-    {
-        string? putBody = null;
-
-        var (client, _) = CreateClient(async req =>
-        {
-            if (req.Method == HttpMethod.Get)
-            {
-                return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}, "retries": {"value": 3, "type": "NUMBER"}}""",
-                    environmentsJson: """{"production": {"values": {"timeout": {"value": 60}}}}"""));
-            }
-            else if (req.Method == HttpMethod.Put)
-            {
-                putBody = await req.Content!.ReadAsStringAsync();
-                return JsonResponse(ConfigJsonWithValuesAndEnvs());
-            }
-            return JsonResponse("{}", HttpStatusCode.InternalServerError);
-        });
-
-        await client.Config.SetValuesAsync(
-            "11111111-1111-1111-1111-111111111111",
-            new Dictionary<string, object?> { ["timeout"] = 120 },
-            environment: "production");
-
-        Assert.NotNull(putBody);
-        // Base values should be preserved (timeout: 30, retries: 3)
-        Assert.Contains("retries", putBody);
-    }
-
-    // ------------------------------------------------------------------
-    // GetByKeyAsync — URL uses AbsoluteUri
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public async Task GetByKeyAsync_VerifyUrlFormat()
+    public async Task GetAsync_VerifyUrlFormat()
     {
         var (client, handler) = CreateClient(_ =>
-        {
-            var listJson = """
-            {
-                "data": [{
-                    "id": "11111111-1111-1111-1111-111111111111", "type": "config",
-                    "attributes": {
-                        "key": "test_key", "name": "Test",
-                        "description": null, "parent": null,
-                        "values": {}, "environments": {},
-                        "created_at": null, "updated_at": null
-                    }
-                }]
-            }
-            """;
-            return Task.FromResult(JsonResponse(listJson));
-        });
+            Task.FromResult(JsonResponse(SingleConfigListJson(key: "test_key"))));
 
-        await client.Config.GetByKeyAsync("test_key");
+        await client.Config.GetAsync("test_key");
 
         Assert.NotNull(handler.LastRequest);
         var url = handler.LastRequest.RequestUri!.AbsoluteUri;
@@ -314,16 +226,24 @@ public class ConfigClientCoverageTests
     }
 
     // ------------------------------------------------------------------
-    // DeleteAsync — verifies URL
+    // DeleteAsync — verifies correct UUID used for delete
     // ------------------------------------------------------------------
 
     [Fact]
     public async Task DeleteAsync_CorrectUrl()
     {
+        int requestCount = 0;
         var (client, handler) = CreateClient(_ =>
-            Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent)));
+        {
+            requestCount++;
+            if (requestCount == 1)
+                return Task.FromResult(JsonResponse(SingleConfigListJson(
+                    id: "12312312-1231-1231-1231-123123123123",
+                    key: "target_key")));
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
+        });
 
-        await client.Config.DeleteAsync("12312312-1231-1231-1231-123123123123");
+        await client.Config.DeleteAsync("target_key");
 
         Assert.NotNull(handler.LastRequest);
         var url = handler.LastRequest.RequestUri!.AbsoluteUri;
@@ -331,131 +251,167 @@ public class ConfigClientCoverageTests
     }
 
     // ------------------------------------------------------------------
-    // BuildEnvsForRequest — empty environments
+    // SaveAsync (create) — with null optional fields
     // ------------------------------------------------------------------
 
     [Fact]
-    public async Task SetValuesAsync_EmptyEnvironments_SetsEmptyEnvsInRequest()
+    public async Task SaveAsync_Create_NullOptionalFields_SerializesCorrectly()
     {
-        string? putBody = null;
+        string? postBody = null;
 
         var (client, _) = CreateClient(async req =>
         {
-            if (req.Method == HttpMethod.Get)
+            if (req.Method == HttpMethod.Post)
             {
-                return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    valuesJson: """{"a": {"value": 1, "type": "NUMBER"}}""",
-                    environmentsJson: """{}"""));
+                postBody = await req.Content!.ReadAsStringAsync();
             }
-            else if (req.Method == HttpMethod.Put)
-            {
-                putBody = await req.Content!.ReadAsStringAsync();
-                return JsonResponse(ConfigJsonWithValuesAndEnvs());
-            }
-            return JsonResponse("{}", HttpStatusCode.InternalServerError);
+            return JsonResponse(SingleConfigJson(), HttpStatusCode.Created);
         });
 
-        await client.Config.SetValuesAsync("11111111-1111-1111-1111-111111111111",
-            new Dictionary<string, object?> { ["b"] = 2 });
+        var config = client.Config.New("minimal");
+        await config.SaveAsync();
 
-        Assert.NotNull(putBody);
-        Assert.Contains("\"b\"", putBody);
+        Assert.NotNull(postBody);
+        Assert.Contains("minimal", postBody);
     }
 
     // ------------------------------------------------------------------
-    // SetValueAsync — base path, config with description and parent
+    // SaveAsync (create) — null attributes in response
     // ------------------------------------------------------------------
 
     [Fact]
-    public async Task SetValueAsync_BaseValue_PreservesDescriptionAndParent()
+    public async Task SaveAsync_Create_NullAttributesInResponse_ThrowsSmplValidationException()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(
+                """{"data": {"id": "abcabc00-abc0-abc0-abc0-abcabc000000", "type": "config", "attributes": null}}""",
+                HttpStatusCode.Created)));
+
+        var config = client.Config.New("test_key", "Test");
+        await Assert.ThrowsAsync<SmplValidationException>(
+            () => config.SaveAsync());
+    }
+
+    // ------------------------------------------------------------------
+    // SaveAsync (update) — null attributes in response
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task SaveAsync_Update_NullAttributesInResponse_ThrowsSmplValidationException()
+    {
+        int requestCount = 0;
+        var (client, _) = CreateClient(_ =>
+        {
+            requestCount++;
+            if (requestCount == 1)
+                return Task.FromResult(JsonResponse(SingleConfigListJson()));
+            return Task.FromResult(JsonResponse(
+                """{"data": {"id": "abcabc00-abc0-abc0-abc0-abcabc000000", "type": "config", "attributes": null}}"""));
+        });
+
+        var config = await client.Config.GetAsync("my_key");
+        config.Name = "Updated";
+
+        await Assert.ThrowsAsync<SmplValidationException>(
+            () => config.SaveAsync());
+    }
+
+    // ------------------------------------------------------------------
+    // SaveAsync (update) — sets content type
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task SaveAsync_Update_SetsJsonApiContentType()
+    {
+        int requestCount = 0;
+        var (client, handler) = CreateClient(_ =>
+        {
+            requestCount++;
+            if (requestCount == 1)
+                return Task.FromResult(JsonResponse(SingleConfigListJson()));
+            return Task.FromResult(JsonResponse(SingleConfigJson()));
+        });
+
+        var config = await client.Config.GetAsync("my_key");
+        config.Name = "Updated";
+        await config.SaveAsync();
+
+        Assert.NotNull(handler.LastRequest);
+        var contentType = handler.LastRequest.Content!.Headers.ContentType!.MediaType;
+        Assert.Equal("application/json", contentType);
+    }
+
+    // ------------------------------------------------------------------
+    // Config.ToString
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Config_ToString_ReturnsFormattedString()
+    {
+        var handler = new MockHttpMessageHandler(_ => Task.FromResult(JsonResponse("{}")));
+        var httpClient = new HttpClient(handler);
+        var client = new SmplClient(TestData.DefaultOptions(), httpClient);
+
+        var config = client.Config.New("my_key", "My Config");
+
+        Assert.Equal("Config(Key=my_key, Name=My Config)", config.ToString());
+    }
+
+    // ------------------------------------------------------------------
+    // Items mutation and SaveAsync
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task Items_Mutation_ThenSaveAsync_IncludesItemsInBody()
     {
         string? putBody = null;
-
+        int requestCount = 0;
         var (client, _) = CreateClient(async req =>
         {
-            if (req.Method == HttpMethod.Get)
-            {
-                return JsonResponse(ConfigJsonWithValuesAndEnvs(
-                    description: "My config desc",
-                    parent: "parent-uuid",
+            requestCount++;
+            if (requestCount == 1)
+                return JsonResponse(SingleConfigListJson(
                     valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}"""));
-            }
-            else if (req.Method == HttpMethod.Put)
-            {
+            if (req.Method == HttpMethod.Put)
                 putBody = await req.Content!.ReadAsStringAsync();
-                return JsonResponse(ConfigJsonWithValuesAndEnvs());
-            }
-            return JsonResponse("{}", HttpStatusCode.InternalServerError);
+            return JsonResponse(SingleConfigJson());
         });
 
-        await client.Config.SetValueAsync("11111111-1111-1111-1111-111111111111", "debug", true);
+        var config = await client.Config.GetAsync("my_key");
+        config.Items["new_key"] = "new_value";
+
+        await config.SaveAsync();
 
         Assert.NotNull(putBody);
-        Assert.Contains("My config desc", putBody);
-        Assert.Contains("parent-uuid", putBody);
+        Assert.Contains("new_key", putBody);
+        Assert.Contains("new_value", putBody);
     }
 
     // ------------------------------------------------------------------
-    // CreateAsync — with null optional fields
+    // Environments mutation and SaveAsync
     // ------------------------------------------------------------------
 
     [Fact]
-    public async Task CreateAsync_NullOptionalFields_SerializesWithoutNulls()
+    public async Task Environments_Mutation_ThenSaveAsync_IncludesEnvsInBody()
     {
-        string? postBody = null;
-
+        string? putBody = null;
+        int requestCount = 0;
         var (client, _) = CreateClient(async req =>
         {
-            if (req.Method == HttpMethod.Post)
-            {
-                postBody = await req.Content!.ReadAsStringAsync();
-            }
-            return JsonResponse(ConfigJsonWithValuesAndEnvs(), HttpStatusCode.Created);
+            requestCount++;
+            if (requestCount == 1)
+                return JsonResponse(SingleConfigListJson());
+            if (req.Method == HttpMethod.Put)
+                putBody = await req.Content!.ReadAsStringAsync();
+            return JsonResponse(SingleConfigJson());
         });
 
-        await client.Config.CreateAsync(new CreateConfigOptions
-        {
-            Name = "Minimal",
-            // Key, Description, Parent, Values, Environments are all null
-        });
+        var config = await client.Config.GetAsync("my_key");
+        config.Environments["production"] = new Dictionary<string, object?> { ["timeout"] = 60 };
 
-        Assert.NotNull(postBody);
-        Assert.Contains("Minimal", postBody);
-        // Generated client serializes all fields (including nulls)
-        Assert.Contains("\"name\":\"Minimal\"", postBody);
-    }
+        await config.SaveAsync();
 
-    // ------------------------------------------------------------------
-    // WrapEnvsForRequest — non-dict env value passes through unchanged
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public async Task CreateAsync_NonDictEnvValue_PassesThroughInBody()
-    {
-        string? postBody = null;
-
-        var (client, _) = CreateClient(async req =>
-        {
-            if (req.Method == HttpMethod.Post)
-            {
-                postBody = await req.Content!.ReadAsStringAsync();
-            }
-            return JsonResponse(ConfigJsonWithValuesAndEnvs(), HttpStatusCode.Created);
-        });
-
-        // Pass an env value that is NOT a Dictionary<string, object?> — triggers the
-        // else branch in WrapEnvsForRequest so the value passes through as-is.
-        await client.Config.CreateAsync(new CreateConfigOptions
-        {
-            Name = "Test",
-            Environments = new Dictionary<string, object?>
-            {
-                ["production"] = "not-a-dict",
-            },
-        });
-
-        Assert.NotNull(postBody);
-        // Non-dict env values are skipped by WrapEnvsForRequest — verify body was still sent
-        Assert.Contains("\"name\":\"Test\"", postBody);
+        Assert.NotNull(putBody);
+        Assert.Contains("production", putBody);
     }
 }

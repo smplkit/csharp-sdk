@@ -56,33 +56,32 @@ public static class ConfigManagementShowcase
         // ==============================================================
         Section("1. Update the Common Config");
 
-        var common = await client.Config.GetByKeyAsync("common");
+        var common = await client.Config.GetAsync("common");
         Step($"Fetched common config: id={common.Id}, key={common.Key}");
 
-        common = await client.Config.UpdateAsync(common.Id, new CreateConfigOptions
+        // Mutate items directly + SaveAsync
+        common.Name = "Common";
+        common.Description = "Organization-wide shared configuration";
+        common.Items = new Dictionary<string, object?>
         {
-            Name = "Common",
-            Description = "Organization-wide shared configuration",
-            Items = new Dictionary<string, object?>
-            {
-                ["app_name"] = "Acme SaaS Platform",
-                ["support_email"] = "support@acme.dev",
-                ["max_retries"] = 3,
-                ["request_timeout_ms"] = 5000,
-                ["log_level"] = "info",
-            },
-            Environments = new Dictionary<string, object?>(),
-        });
+            ["app_name"] = "Acme SaaS Platform",
+            ["support_email"] = "support@acme.dev",
+            ["max_retries"] = 3,
+            ["request_timeout_ms"] = 5000,
+            ["log_level"] = "info",
+        };
+        common.Environments = new Dictionary<string, Dictionary<string, object?>>();
+        await common.SaveAsync();
         Step("Common config base values set");
 
-        common = await client.Config.SetValuesAsync(common.Id,
-            new Dictionary<string, object?>
-            {
-                ["max_retries"] = 5,
-                ["request_timeout_ms"] = 10000,
-                ["log_level"] = "warn",
-            },
-            environment: "production");
+        // Add production overrides
+        common.Environments["production"] = new Dictionary<string, object?>
+        {
+            ["max_retries"] = 5,
+            ["request_timeout_ms"] = 10000,
+            ["log_level"] = "warn",
+        };
+        await common.SaveAsync();
         Step("Common config production overrides set");
 
         // ==============================================================
@@ -90,29 +89,28 @@ public static class ConfigManagementShowcase
         // ==============================================================
         Section("2. Create User Service Config");
 
-        var userService = await client.Config.CreateAsync(new CreateConfigOptions
+        var userService = client.Config.New(
+            key: "user_service",
+            name: "User Service",
+            description: "Configuration for the user management service");
+        userService.Items = new Dictionary<string, object?>
         {
-            Name = "User Service",
-            Key = "user_service",
-            Description = "Configuration for the user management service",
-            Items = new Dictionary<string, object?>
-            {
-                ["cache_ttl_seconds"] = 300,
-                ["enable_signup"] = true,
-                ["pagination_default_page_size"] = 50,
-                ["password_min_length"] = 8,
-            },
-        });
+            ["cache_ttl_seconds"] = 300,
+            ["enable_signup"] = true,
+            ["pagination_default_page_size"] = 50,
+            ["password_min_length"] = 8,
+        };
+        await userService.SaveAsync();
         Step($"Created user_service config: id={userService.Id}");
 
-        userService = await client.Config.SetValuesAsync(userService.Id,
-            new Dictionary<string, object?>
-            {
-                ["cache_ttl_seconds"] = 600,
-                ["enable_signup"] = false,
-                ["password_min_length"] = 12,
-            },
-            environment: "production");
+        // Add production overrides
+        userService.Environments["production"] = new Dictionary<string, object?>
+        {
+            ["cache_ttl_seconds"] = 600,
+            ["enable_signup"] = false,
+            ["password_min_length"] = 12,
+        };
+        await userService.SaveAsync();
         Step("User service production overrides set");
 
         // ==============================================================
@@ -120,30 +118,29 @@ public static class ConfigManagementShowcase
         // ==============================================================
         Section("3. Create Auth Module (Child of User Service)");
 
-        var authModule = await client.Config.CreateAsync(new CreateConfigOptions
+        var authModule = client.Config.New(
+            key: "auth_module",
+            name: "Auth Module",
+            description: "Authentication module config — inherits from user_service",
+            parent: userService.Id);
+        authModule.Items = new Dictionary<string, object?>
         {
-            Name = "Auth Module",
-            Key = "auth_module",
-            Description = "Authentication module config — inherits from user_service",
-            Parent = userService.Id,
-            Items = new Dictionary<string, object?>
-            {
-                ["token_ttl_seconds"] = 3600,
-                ["mfa_enabled"] = false,
-                ["session_max_age_hours"] = 24,
-                ["allowed_origins"] = "*",
-            },
-        });
+            ["token_ttl_seconds"] = 3600,
+            ["mfa_enabled"] = false,
+            ["session_max_age_hours"] = 24,
+            ["allowed_origins"] = "*",
+        };
+        await authModule.SaveAsync();
         Step($"Created auth_module config: id={authModule.Id}, parent={authModule.Parent}");
 
-        authModule = await client.Config.SetValuesAsync(authModule.Id,
-            new Dictionary<string, object?>
-            {
-                ["mfa_enabled"] = true,
-                ["session_max_age_hours"] = 8,
-                ["allowed_origins"] = "https://app.acme.dev",
-            },
-            environment: "production");
+        // Add production overrides
+        authModule.Environments["production"] = new Dictionary<string, object?>
+        {
+            ["mfa_enabled"] = true,
+            ["session_max_age_hours"] = 8,
+            ["allowed_origins"] = "https://app.acme.dev",
+        };
+        await authModule.SaveAsync();
         Step("Auth module production overrides set");
 
         // ==============================================================
@@ -160,9 +157,9 @@ public static class ConfigManagementShowcase
             Console.WriteLine($"     - {c.Key} (id={c.Id}{parentLabel})");
         }
 
-        // Fetch a single config by ID to show the full payload
-        var fetched = await client.Config.GetAsync(userService.Id);
-        Step($"Fetched user_service by ID: key={fetched.Key}");
+        // Fetch a single config by key to show the full payload
+        var fetched = await client.Config.GetAsync("user_service");
+        Step($"Fetched user_service by key: key={fetched.Key}");
         Step($"  Description: {fetched.Description}");
         Step($"  Items: [{string.Join(", ", fetched.Items.Keys)}]");
         Step($"  Environments: [{string.Join(", ", fetched.Environments.Keys)}]");
@@ -172,21 +169,15 @@ public static class ConfigManagementShowcase
         // ==============================================================
         Section("5. Update a Config");
 
-        userService = await client.Config.UpdateAsync(userService.Id, new CreateConfigOptions
-        {
-            Name = "User Service",
-            Description = "User management service config — updated via SDK",
-            Items = userService.Items,
-            Environments = new Dictionary<string, object?>(
-                userService.Environments.Select(kv =>
-                    new KeyValuePair<string, object?>(kv.Key, kv.Value))),
-        });
+        // Mutate properties directly + SaveAsync
+        userService.Description = "User management service config — updated via SDK";
+        await userService.SaveAsync();
         Step($"user_service description updated: \"{userService.Description}\"");
 
-        // Update a single value via SetValueAsync
-        common = await client.Config.SetValueAsync(
-            common.Id, "max_retries", 7, environment: "production");
-        Step($"common/max_retries updated to 7 in production via SetValueAsync");
+        // Update a single item in an environment override
+        common.Environments["production"]["max_retries"] = 7;
+        await common.SaveAsync();
+        Step("common/max_retries updated to 7 in production");
 
         // ==============================================================
         // 6. CLEANUP
@@ -194,19 +185,16 @@ public static class ConfigManagementShowcase
         Section("6. Cleanup");
 
         // Delete child first, then parent
-        await client.Config.DeleteAsync(authModule.Id);
-        Step($"Deleted auth_module ({authModule.Id})");
+        await client.Config.DeleteAsync("auth_module");
+        Step("Deleted auth_module");
 
-        await client.Config.DeleteAsync(userService.Id);
-        Step($"Deleted user_service ({userService.Id})");
+        await client.Config.DeleteAsync("user_service");
+        Step("Deleted user_service");
 
         // Reset common to empty (it's a built-in, not deletable)
-        await client.Config.UpdateAsync(common.Id, new CreateConfigOptions
-        {
-            Name = common.Name,
-            Items = new Dictionary<string, object?>(),
-            Environments = new Dictionary<string, object?>(),
-        });
+        common.Items = new Dictionary<string, object?>();
+        common.Environments = new Dictionary<string, Dictionary<string, object?>>();
+        await common.SaveAsync();
         Step("Common config reset to empty");
 
         // ==============================================================

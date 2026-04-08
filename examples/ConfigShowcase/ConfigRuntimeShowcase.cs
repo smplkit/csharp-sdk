@@ -10,12 +10,11 @@ namespace ConfigShowcase;
 /// Demonstrates the runtime (prescriptive access) plane of the smplkit Config C# SDK:
 ///
 ///   1. Demo config setup (common, user_service, auth_module hierarchy)
-///   2. Connect and prescriptive access
-///   3. Typed accessors (GetString, GetInt, GetBool)
-///   4. Raw value access
-///   5. Multi-level inheritance
-///   6. Real-time updates (OnChange + RefreshAsync)
-///   7. Cleanup
+///   2. Prescriptive access via Resolve (lazy init on first call)
+///   3. Typed deserialization via Resolve&lt;T&gt;
+///   4. Multi-level inheritance
+///   5. Real-time updates (OnChange + RefreshAsync)
+///   6. Cleanup
 ///
 /// This script creates, modifies, and deletes real configs.
 ///
@@ -58,63 +57,75 @@ public static class ConfigRuntimeShowcase
         var demoConfigs = await ConfigRuntimeSetup.SetupDemoConfigsAsync(client);
 
         // ==============================================================
-        // 1. CONNECT — PRESCRIPTIVE ACCESS
+        // 1. PRESCRIPTIVE ACCESS VIA RESOLVE
         // ==============================================================
-        Section("1. Connect and Prescriptive Access");
+        Section("1. Prescriptive Access via Resolve");
 
-        await client.ConnectAsync();
-        Step("client.ConnectAsync() — all configs loaded and resolved");
+        // First Resolve() call triggers lazy init (fetches all configs,
+        // resolves environment overrides, opens WebSocket). No ConnectAsync needed.
+        var commonValues = client.Config.Resolve("common");
+        Step($"common resolved keys: [{string.Join(", ", commonValues.Keys)}]");
 
-        // ==============================================================
-        // 2. TYPED ACCESSORS
-        // ==============================================================
-        Section("2. Typed Accessors");
+        var appName = commonValues.TryGetValue("app_name", out var nameVal) ? nameVal?.ToString() : "Unknown";
+        Step($"common/app_name = {appName}");
 
-        var appName = client.Config.GetString("common", "app_name", "Unknown");
-        Step($"common/app_name (string) = {appName}");
-
-        var retries = client.Config.GetInt("common", "max_retries", 1);
-        Step($"common/max_retries (int) = {retries}");
+        var retries = commonValues.TryGetValue("max_retries", out var retriesVal) ? retriesVal : 1;
+        Step($"common/max_retries = {retries}");
         // Expected: 5 (production override)
 
-        var signup = client.Config.GetBool("user_service", "enable_signup", true);
-        Step($"user_service/enable_signup (bool) = {signup}");
+        var userServiceValues = client.Config.Resolve("user_service");
+        var signup = userServiceValues.TryGetValue("enable_signup", out var signupVal) ? signupVal : true;
+        Step($"user_service/enable_signup = {signup}");
         // Expected: false (production override)
 
-        var cacheTtl = client.Config.GetInt("user_service", "cache_ttl_seconds", 0);
-        Step($"user_service/cache_ttl_seconds (int) = {cacheTtl}");
+        var cacheTtl = userServiceValues.TryGetValue("cache_ttl_seconds", out var ttlVal) ? ttlVal : 0;
+        Step($"user_service/cache_ttl_seconds = {cacheTtl}");
         // Expected: 600 (production override)
 
         // ==============================================================
-        // 3. RAW VALUE ACCESS
+        // 2. TYPED DESERIALIZATION VIA RESOLVE<T>
         // ==============================================================
-        Section("3. Raw Value Access");
+        Section("2. Typed Deserialization via Resolve<T>");
 
-        var allValues = client.Config.GetValue("user_service") as Dictionary<string, object?>;
-        Step($"user_service total keys: {allValues?.Count}");
-
-        var missing = client.Config.GetValue("user_service", "nonexistent_item");
-        Step($"nonexistent item = {missing ?? "null"}");
+        var commonConfig = client.Config.Resolve<CommonConfig>("common");
+        Step($"Resolve<CommonConfig>(\"common\"):");
+        Step($"  app_name = {commonConfig.AppName}");
+        Step($"  support_email = {commonConfig.SupportEmail}");
+        Step($"  max_retries = {commonConfig.MaxRetries}");
+        Step($"  request_timeout_ms = {commonConfig.RequestTimeoutMs}");
 
         // ==============================================================
-        // 4. MULTI-LEVEL INHERITANCE
+        // 3. MULTI-LEVEL INHERITANCE
         // ==============================================================
-        Section("4. Multi-Level Inheritance");
+        Section("3. Multi-Level Inheritance");
 
         // auth_module inherits from user_service.
         // Its own items override, but parent items are still accessible
         // through the resolved hierarchy.
-        var tokenTtl = client.Config.GetInt("auth_module", "token_ttl_seconds", 0);
-        Step($"auth_module/token_ttl_seconds (int) = {tokenTtl}");
+        var authValues = client.Config.Resolve("auth_module");
+
+        var tokenTtl = authValues.TryGetValue("token_ttl_seconds", out var tokenVal) ? tokenVal : 0;
+        Step($"auth_module/token_ttl_seconds = {tokenTtl}");
         // Expected: 3600 (base value, no production override)
 
-        var mfaEnabled = client.Config.GetBool("auth_module", "mfa_enabled", false);
-        Step($"auth_module/mfa_enabled (bool) = {mfaEnabled}");
+        var mfaEnabled = authValues.TryGetValue("mfa_enabled", out var mfaVal) ? mfaVal : false;
+        Step($"auth_module/mfa_enabled = {mfaEnabled}");
         // Expected: true (production override)
 
-        var sessionMaxAge = client.Config.GetInt("auth_module", "session_max_age_hours", 0);
-        Step($"auth_module/session_max_age_hours (int) = {sessionMaxAge}");
+        var sessionMaxAge = authValues.TryGetValue("session_max_age_hours", out var sessionVal) ? sessionVal : 0;
+        Step($"auth_module/session_max_age_hours = {sessionMaxAge}");
         // Expected: 8 (production override)
+
+        // ==============================================================
+        // 4. RAW VALUE ACCESS
+        // ==============================================================
+        Section("4. Raw Value Access");
+
+        var allUserServiceValues = client.Config.Resolve("user_service");
+        Step($"user_service total keys: {allUserServiceValues.Count}");
+
+        var hasMissing = allUserServiceValues.TryGetValue("nonexistent_item", out var missingVal);
+        Step($"nonexistent item = {(hasMissing ? missingVal?.ToString() ?? "null" : "null")}");
 
         // ==============================================================
         // 5. REAL-TIME UPDATES — OnChange + RefreshAsync
@@ -130,21 +141,19 @@ public static class ConfigRuntimeShowcase
         Step("Global change listener registered");
 
         var retryChanges = new List<ConfigChangeEvent>();
-        client.Config.OnChange(
-            evt => retryChanges.Add(evt),
-            configKey: "common",
-            itemKey: "max_retries");
+        client.Config.OnChange("common", "max_retries", evt => retryChanges.Add(evt));
         Step("Key-specific listener registered for common/max_retries");
 
-        // Update via management API, then refresh
-        await client.Config.SetValueAsync(
-            demoConfigs.Common.Id, "max_retries", 7, environment: "production");
+        // Update via management API (mutate + SaveAsync), then refresh
+        demoConfigs.Common.Environments["production"]["max_retries"] = 7;
+        await demoConfigs.Common.SaveAsync();
         Step("Updated max_retries to 7 via management API");
 
         await client.Config.RefreshAsync();
         Step("Manual refresh completed");
 
-        var newRetries = client.Config.GetInt("common", "max_retries", 1);
+        var refreshedCommon = client.Config.Resolve("common");
+        var newRetries = refreshedCommon.TryGetValue("max_retries", out var newRetriesVal) ? newRetriesVal : 1;
         Step($"max_retries after refresh = {newRetries}");
         // Expected: 7
 
@@ -163,5 +172,17 @@ public static class ConfigRuntimeShowcase
         Console.WriteLine("  If you got here, Smpl Config runtime is ready to ship.\n");
 
         return 0;
+    }
+
+    // ------------------------------------------------------------------
+    // Typed config model for Resolve<T> demo
+    // ------------------------------------------------------------------
+
+    private class CommonConfig
+    {
+        public string? AppName { get; set; }
+        public string? SupportEmail { get; set; }
+        public int MaxRetries { get; set; }
+        public int RequestTimeoutMs { get; set; }
     }
 }
