@@ -6247,6 +6247,9 @@ namespace Smplkit.Internal.Generated.App
         [System.Text.Json.Serialization.JsonPropertyName("deleted_at")]
         public System.DateTimeOffset? Deleted_at { get; set; } = default!;
 
+        [System.Text.Json.Serialization.JsonPropertyName("product_subscriptions")]
+        public object? Product_subscriptions { get; set; } = default!;
+
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
         [System.Text.Json.Serialization.JsonExtensionData]
