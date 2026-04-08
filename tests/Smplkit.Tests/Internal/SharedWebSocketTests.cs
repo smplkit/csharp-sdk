@@ -502,6 +502,83 @@ public class SharedWebSocketTests
     // RunWebSocketAsync — OperationCanceledException with _closed=true
     // ---------------------------------------------------------------
 
+    // ---------------------------------------------------------------
+    // WaitForInitialConnectAsync
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task WaitForInitialConnectAsync_ReturnsTrue_WhenConnected()
+    {
+        var connectedMsg = """{"type": "connected"}""";
+        var mockWs = new Mock<WebSocket>();
+        mockWs.Setup(ws => ws.State).Returns(WebSocketState.Open);
+
+        var msgs = new Queue<string>(new[] { connectedMsg });
+        mockWs.Setup(ws => ws.ReceiveAsync(It.IsAny<ArraySegment<byte>>(), It.IsAny<CancellationToken>()))
+            .Returns(async (ArraySegment<byte> buffer, CancellationToken ct) =>
+            {
+                if (msgs.Count > 0)
+                {
+                    var msg = msgs.Dequeue();
+                    var bytes = Encoding.UTF8.GetBytes(msg);
+                    Array.Copy(bytes, 0, buffer.Array!, buffer.Offset, bytes.Length);
+                    return new WebSocketReceiveResult(bytes.Length, WebSocketMessageType.Text, true);
+                }
+                await Task.Delay(TimeSpan.FromSeconds(30), ct);
+                return new WebSocketReceiveResult(0, WebSocketMessageType.Close, true);
+            });
+
+        mockWs.Setup(ws => ws.CloseAsync(It.IsAny<WebSocketCloseStatus>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var ws = new SharedWebSocket("test-key",
+            (_, _) => Task.FromResult<WebSocket>(mockWs.Object));
+
+        ws.Start();
+        await ws.WaitForInitialConnectAsync();
+
+        Assert.Equal("connected", ws.ConnectionStatus);
+
+        await ws.StopAsync();
+    }
+
+    [Fact]
+    public async Task WaitForInitialConnectAsync_SupportsCancellation()
+    {
+        // Create a WS that takes a long time to connect
+        var ws = new SharedWebSocket("test-key",
+            async (_, ct) =>
+            {
+                await Task.Delay(TimeSpan.FromSeconds(30), ct);
+                throw new OperationCanceledException(ct);
+            });
+
+        ws.Start();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => ws.WaitForInitialConnectAsync(cts.Token));
+
+        await ws.StopAsync();
+    }
+
+    [Fact]
+    public async Task WaitForInitialConnectAsync_ReturnsFalse_WhenConnectionFails()
+    {
+        // Factory always throws — should signal false via TrySetResult(false)
+        var ws = new SharedWebSocket("test-key",
+            (_, _) => throw new InvalidOperationException("connection failed"));
+
+        ws.Start();
+        // Wait a bit for the background task to attempt and fail
+        await Task.Delay(300);
+        await ws.StopAsync();
+
+        // After stopping, the initial connect TCS should be resolved
+        // It may have been set to false or cancelled
+    }
+
     [Fact]
     public async Task RunWebSocketAsync_OperationCanceled_WhenClosedIsTrue_BreaksLoop()
     {

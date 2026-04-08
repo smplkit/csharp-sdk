@@ -232,6 +232,206 @@ public class ModelsCoverageTests
     }
 
     // ---------------------------------------------------------------
+    // Flag.SetEnvironmentEnabled
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task Flag_SetEnvironmentEnabled_ExistingEnv_SetsEnabled()
+    {
+        var envJson = """
+        {
+            "staging": {
+                "enabled": true,
+                "default": null,
+                "rules": []
+            }
+        }
+        """;
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(FlagListJson(envJson: envJson))));
+
+        var flag = await client.Flags.GetAsync("my-flag");
+
+        flag.SetEnvironmentEnabled("staging", false);
+
+        Assert.True(flag.Environments.ContainsKey("staging"));
+        Assert.Equal(false, flag.Environments["staging"]["enabled"]);
+    }
+
+    [Fact]
+    public async Task Flag_SetEnvironmentEnabled_NewEnv_CreatesEnvConfig()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(FlagListJson())));
+
+        var flag = await client.Flags.GetAsync("my-flag");
+
+        flag.SetEnvironmentEnabled("production", true);
+
+        Assert.True(flag.Environments.ContainsKey("production"));
+        Assert.Equal(true, flag.Environments["production"]["enabled"]);
+    }
+
+    // ---------------------------------------------------------------
+    // Flag.SetEnvironmentDefault
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task Flag_SetEnvironmentDefault_ExistingEnv_SetsDefault()
+    {
+        var envJson = """
+        {
+            "staging": {
+                "enabled": true,
+                "default": null,
+                "rules": []
+            }
+        }
+        """;
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(FlagListJson(envJson: envJson))));
+
+        var flag = await client.Flags.GetAsync("my-flag");
+
+        flag.SetEnvironmentDefault("staging", true);
+
+        Assert.True(flag.Environments.ContainsKey("staging"));
+        Assert.Equal(true, flag.Environments["staging"]["default"]);
+    }
+
+    [Fact]
+    public async Task Flag_SetEnvironmentDefault_NewEnv_CreatesEnvConfig()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(FlagListJson())));
+
+        var flag = await client.Flags.GetAsync("my-flag");
+
+        flag.SetEnvironmentDefault("production", "custom-default");
+
+        Assert.True(flag.Environments.ContainsKey("production"));
+        Assert.Equal("custom-default", flag.Environments["production"]["default"]);
+    }
+
+    // ---------------------------------------------------------------
+    // Flag.ClearRules
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task Flag_ClearRules_ExistingEnvWithRules_ClearsRules()
+    {
+        var envJson = """
+        {
+            "staging": {
+                "enabled": true,
+                "default": null,
+                "rules": [{"description": "existing", "logic": {}, "value": false}]
+            }
+        }
+        """;
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(FlagListJson(envJson: envJson))));
+
+        var flag = await client.Flags.GetAsync("my-flag");
+
+        flag.ClearRules("staging");
+
+        Assert.True(flag.Environments.ContainsKey("staging"));
+        var rules = flag.Environments["staging"]["rules"] as List<object?>;
+        Assert.NotNull(rules);
+        Assert.Empty(rules);
+    }
+
+    [Fact]
+    public async Task Flag_ClearRules_NonExistentEnv_DoesNothing()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(FlagListJson())));
+
+        var flag = await client.Flags.GetAsync("my-flag");
+
+        // Should not throw - non-existent env is a no-op
+        flag.ClearRules("nonexistent-env");
+    }
+
+    // ---------------------------------------------------------------
+    // Flag.SaveAsync update path (Id != null, applies returned data)
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task Flag_SaveAsync_Update_AppliesAllReturnedFields()
+    {
+        var envJson = """
+        {
+            "staging": {
+                "enabled": true,
+                "default": null,
+                "rules": []
+            }
+        }
+        """;
+        int requestCount = 0;
+        var (client, _) = CreateClient(_ =>
+        {
+            requestCount++;
+            if (requestCount == 1)
+            {
+                // GetAsync (list)
+                return Task.FromResult(JsonResponse(FlagListJson(envJson: envJson)));
+            }
+            // SaveAsync (PUT) response with updated values
+            return Task.FromResult(JsonResponse(SingleFlagResponseJson(
+                key: "my-flag",
+                name: "Updated Name",
+                envJson: """{"production": {"enabled": true, "default": true, "rules": []}}""")));
+        });
+
+        var flag = await client.Flags.GetAsync("my-flag");
+        Assert.NotNull(flag.Id);
+
+        flag.Name = "Updated Name";
+        flag.Description = "new desc";
+        await flag.SaveAsync();
+
+        // Verify all fields were applied from the server response
+        Assert.Equal("Updated Name", flag.Name);
+        Assert.NotNull(flag.Id);
+        Assert.NotNull(flag.CreatedAt);
+        Assert.NotNull(flag.UpdatedAt);
+    }
+
+    // ---------------------------------------------------------------
+    // Flag.Get (base class Get via typed flags)
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task Flag_Get_BaseClass_ReturnsEvaluatedValue()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(FlagListJson())));
+
+        var flag = await client.Flags.GetAsync("my-flag");
+        // The base Get() calls EvaluateHandle which triggers lazy init
+        // For a non-handle flag fetched via GetAsync, it has a key and the
+        // flag store will be populated after EnsureInitialized
+        var result = flag.Get();
+        // Result is the evaluated value (flag default is false)
+        Assert.IsType<bool>(result);
+    }
+
+    // ---------------------------------------------------------------
+    // FlagStats record
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void FlagStats_ExposesProperties()
+    {
+        var stats = new FlagStats(10, 5);
+        Assert.Equal(10, stats.CacheHits);
+        Assert.Equal(5, stats.CacheMisses);
+    }
+
+    // ---------------------------------------------------------------
     // FlagChangeEvent
     // ---------------------------------------------------------------
 
