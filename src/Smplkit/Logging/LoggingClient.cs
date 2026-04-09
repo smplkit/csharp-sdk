@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Smplkit.Errors;
 using Smplkit.Internal;
+using Smplkit.Logging.Adapters;
 using GenLogging = Smplkit.Internal.Generated.Logging;
 
 namespace Smplkit.Logging;
@@ -17,6 +18,8 @@ public sealed class LoggingClient
     private readonly SmplClient? _parent;
     private volatile bool _started;
     private SharedWebSocket? _wsManager;
+    private readonly List<ILoggingAdapter> _adapters = new();
+    private bool _explicitAdapters;
     private readonly List<Action<LoggerChangeEvent>> _globalListeners = new();
     private readonly Dictionary<string, List<Action<LoggerChangeEvent>>> _scopedListeners = new();
     private readonly object _listenerLock = new();
@@ -30,6 +33,24 @@ public sealed class LoggingClient
         _apiKey = apiKey;
         _ensureWs = ensureWs;
         _parent = parent;
+    }
+
+    // ------------------------------------------------------------------
+    // Adapter registration
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Register a logging adapter explicitly. Must be called before <see cref="StartAsync"/>.
+    /// Disables auto-loading of built-in adapters.
+    /// </summary>
+    /// <param name="adapter">The adapter to register.</param>
+    /// <exception cref="InvalidOperationException">If called after <see cref="StartAsync"/>.</exception>
+    public void RegisterAdapter(ILoggingAdapter adapter)
+    {
+        if (_started)
+            throw new InvalidOperationException("Cannot register adapters after StartAsync()");
+        _explicitAdapters = true;
+        _adapters.Add(adapter);
     }
 
     // ------------------------------------------------------------------
@@ -213,17 +234,40 @@ public sealed class LoggingClient
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Explicitly start the logging runtime. Idempotent. Fetches all loggers/groups,
-    /// opens the shared WebSocket, and applies levels.
+    /// Explicitly start the logging runtime. Idempotent.
+    /// Pipeline: auto-load adapters → discover → install hooks → fetch loggers/groups → apply levels → WebSocket.
     /// </summary>
     /// <param name="ct">Cancellation token.</param>
     public async Task StartAsync(CancellationToken ct = default)
     {
         if (_started) return;
 
-        await ListAsync(ct).ConfigureAwait(false);
+        // 1. Auto-load adapters if none registered explicitly
+        if (!_explicitAdapters)
+            AutoLoadAdapters();
+
+        // 2. Discover existing loggers from each adapter
+        foreach (var adapter in _adapters)
+        {
+            try { adapter.Discover(); }
+            catch { /* Adapter discovery failure is non-fatal */ }
+        }
+
+        // 3. Install hooks on each adapter
+        foreach (var adapter in _adapters)
+        {
+            try { adapter.InstallHook(HandleAdapterNewLogger); }
+            catch { /* Hook installation failure is non-fatal */ }
+        }
+
+        // 4. Fetch all loggers and groups from the server
+        var loggers = await ListAsync(ct).ConfigureAwait(false);
         await ListGroupsAsync(ct).ConfigureAwait(false);
 
+        // 5. Apply levels from server-managed loggers to adapters
+        ApplyLevels(loggers);
+
+        // 6. Wire WebSocket
         _wsManager = _ensureWs();
         _wsManager.On("logger_changed", HandleLoggerChanged);
         _started = true;
@@ -268,16 +312,75 @@ public sealed class LoggingClient
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Stop the logging runtime — unregister WebSocket listeners.
+    /// Stop the logging runtime — unregister WebSocket listeners and adapter hooks.
     /// </summary>
     internal void Close()
     {
+        foreach (var adapter in _adapters)
+        {
+            try { adapter.UninstallHook(); }
+            catch { /* Best effort */ }
+        }
+
         if (_wsManager is not null)
         {
             _wsManager.Off("logger_changed", HandleLoggerChanged);
             _wsManager = null;
         }
         _started = false;
+    }
+
+    // ------------------------------------------------------------------
+    // Internal: adapter helpers
+    // ------------------------------------------------------------------
+
+    private void AutoLoadAdapters()
+    {
+        var builtins = new[]
+        {
+            ("Smplkit.Logging.Adapters.MicrosoftLoggingAdapter", "Microsoft.Extensions.Logging"),
+            ("Smplkit.Logging.Adapters.SerilogAdapter", "Serilog"),
+        };
+        foreach (var (adapterType, probeAssembly) in builtins)
+        {
+            try
+            {
+                System.Reflection.Assembly.Load(probeAssembly);
+                var type = Type.GetType(adapterType + ", Smplkit");
+                if (type != null)
+                {
+                    var adapter = (ILoggingAdapter)Activator.CreateInstance(type)!;
+                    _adapters.Add(adapter);
+                }
+            }
+            catch
+            {
+                // Framework not available — skip
+            }
+        }
+    }
+
+    private void ApplyLevels(List<Logger> loggers)
+    {
+        if (_adapters.Count == 0) return;
+
+        foreach (var logger in loggers)
+        {
+            if (logger.Level is null) continue;
+
+            foreach (var adapter in _adapters)
+            {
+                try { adapter.ApplyLevel(logger.Key, logger.Level.Value); }
+                catch { /* Adapter failure is non-fatal */ }
+            }
+        }
+    }
+
+    private void HandleAdapterNewLogger(string loggerName, LogLevel level)
+    {
+        // When an adapter detects a new logger, fire change listeners
+        var evt = new LoggerChangeEvent(loggerName, level, "adapter");
+        FireListeners(loggerName, evt);
     }
 
     // ------------------------------------------------------------------
