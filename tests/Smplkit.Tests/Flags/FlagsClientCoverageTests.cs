@@ -1171,7 +1171,7 @@ public class FlagsClientCoverageTests
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task ParseFlagDef_NullValues_CreatesEmptyList()
+    public async Task ParseFlagDef_NullValues_PreservesNull()
     {
         var flagJson = """
         {
@@ -1198,7 +1198,7 @@ public class FlagsClientCoverageTests
 
         var flags = await client.Flags.ListAsync();
         Assert.Single(flags);
-        Assert.Empty(flags[0].Values);
+        Assert.Null(flags[0].Values);
     }
 
     // ---------------------------------------------------------------
@@ -1460,7 +1460,7 @@ public class FlagsClientCoverageTests
         Assert.Equal("STRING", flag.Type);
         Assert.Equal("hello", flag.Default);
         Assert.Equal("desc", flag.Description);
-        Assert.Empty(flag.Values);
+        Assert.Null(flag.Values);
         Assert.Empty(flag.Environments);
     }
 
@@ -1476,7 +1476,7 @@ public class FlagsClientCoverageTests
         };
         var flag = client.Flags.NewStringFlag("val-flag", "a", values: values);
 
-        Assert.Equal(2, flag.Values.Count);
+        Assert.Equal(2, flag.Values!.Count);
     }
 
     [Fact]
@@ -1502,7 +1502,7 @@ public class FlagsClientCoverageTests
         Assert.Equal("NUMERIC", flag.Type);
         Assert.Equal(42.5, flag.Default);
         Assert.Equal("numeric desc", flag.Description);
-        Assert.Empty(flag.Values);
+        Assert.Null(flag.Values);
         Assert.Empty(flag.Environments);
     }
 
@@ -1518,7 +1518,7 @@ public class FlagsClientCoverageTests
         };
         var flag = client.Flags.NewNumberFlag("rate-limit", 50.0, values: values);
 
-        Assert.Equal(2, flag.Values.Count);
+        Assert.Equal(2, flag.Values!.Count);
     }
 
     [Fact]
@@ -1545,7 +1545,7 @@ public class FlagsClientCoverageTests
         Assert.Equal("JSON", flag.Type);
         Assert.Same(defaultVal, flag.Default);
         Assert.Equal("json desc", flag.Description);
-        Assert.Empty(flag.Values);
+        Assert.Null(flag.Values);
         Assert.Empty(flag.Environments);
     }
 
@@ -1560,7 +1560,7 @@ public class FlagsClientCoverageTests
         };
         var flag = client.Flags.NewJsonFlag("json-flag", new Dictionary<string, object?>(), values: values);
 
-        Assert.Single(flag.Values);
+        Assert.Single(flag.Values!);
     }
 
     [Fact]
@@ -1850,5 +1850,113 @@ public class FlagsClientCoverageTests
         Assert.NotNull(capturedBody);
         // The rules list should be present (as an empty array) in the PUT body
         Assert.Contains("\"rules\"", capturedBody);
+    }
+
+    // ---------------------------------------------------------------
+    // Unconstrained flags (null values) -- create and update
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task CreateFlag_Unconstrained_SendsNullValues()
+    {
+        var responseJson = """
+        {
+            "data": {
+                "id": "flag-unc-001",
+                "type": "flag",
+                "attributes": {
+                    "key": "unc-string",
+                    "name": "Unc String",
+                    "type": "STRING",
+                    "default": "hello",
+                    "values": null,
+                    "description": null,
+                    "environments": {},
+                    "created_at": "2024-01-15T10:30:00Z",
+                    "updated_at": "2024-01-15T10:30:00Z"
+                }
+            }
+        }
+        """;
+        string? capturedBody = null;
+        var (client, _) = CreateClient(async req =>
+        {
+            capturedBody = await req.Content!.ReadAsStringAsync();
+            return JsonResponse(responseJson, HttpStatusCode.Created);
+        });
+
+        var flag = client.Flags.NewStringFlag("unc-string", "hello");
+        Assert.Null(flag.Values);
+        await flag.SaveAsync();
+
+        Assert.NotNull(capturedBody);
+        Assert.Contains("\"values\":null", capturedBody.Replace(" ", ""));
+        Assert.Equal("flag-unc-001", flag.Id);
+        Assert.Null(flag.Values);
+    }
+
+    [Fact]
+    public async Task UpdateFlag_Unconstrained_SendsNullValues()
+    {
+        var listJson = """
+        {
+            "data": [
+                {
+                    "id": "00000000-0000-0000-0000-000000000002",
+                    "type": "flag",
+                    "attributes": {
+                        "key": "unc-num",
+                        "name": "Unc Num",
+                        "type": "NUMERIC",
+                        "default": 42,
+                        "values": null,
+                        "description": null,
+                        "environments": {},
+                        "created_at": "2024-01-15T10:30:00Z",
+                        "updated_at": "2024-01-15T10:30:00Z"
+                    }
+                }
+            ]
+        }
+        """;
+        var putJson = """
+        {
+            "data": {
+                "id": "00000000-0000-0000-0000-000000000002",
+                "type": "flag",
+                "attributes": {
+                    "key": "unc-num",
+                    "name": "Updated Num",
+                    "type": "NUMERIC",
+                    "default": 42,
+                    "values": null,
+                    "description": "updated",
+                    "environments": {},
+                    "created_at": "2024-01-15T10:30:00Z",
+                    "updated_at": "2024-01-15T11:00:00Z"
+                }
+            }
+        }
+        """;
+        string? capturedBody = null;
+        var (client, _) = CreateClient(async req =>
+        {
+            if (req.Method == HttpMethod.Put)
+            {
+                capturedBody = await req.Content!.ReadAsStringAsync();
+                return JsonResponse(putJson);
+            }
+            return JsonResponse(listJson);
+        });
+
+        var flag = await client.Flags.GetAsync("unc-num");
+        Assert.Null(flag.Values);
+        flag.Description = "updated";
+        flag.Name = "Updated Num";
+        await flag.SaveAsync();
+
+        Assert.NotNull(capturedBody);
+        Assert.Contains("\"values\":null", capturedBody.Replace(" ", ""));
+        Assert.Null(flag.Values);
     }
 }

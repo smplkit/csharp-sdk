@@ -26,8 +26,8 @@ public class Flag
     /// <summary>Gets or sets the flag-level default value.</summary>
     public object? Default { get; set; }
 
-    /// <summary>Gets or sets the closed set of legal values.</summary>
-    public List<Dictionary<string, object?>> Values { get; set; }
+    /// <summary>Gets or sets the closed set of legal values (constrained), or null (unconstrained).</summary>
+    public List<Dictionary<string, object?>>? Values { get; set; }
 
     /// <summary>Gets or sets the optional description.</summary>
     public string? Description { get; set; }
@@ -48,7 +48,7 @@ public class Flag
         string name,
         string type,
         object? @default,
-        List<Dictionary<string, object?>> values,
+        List<Dictionary<string, object?>>? values,
         string? description,
         Dictionary<string, Dictionary<string, object?>> environments,
         DateTime? createdAt,
@@ -202,7 +202,7 @@ public sealed class StringFlag : Flag
 {
     internal StringFlag(
         FlagsClient client, string? id, string key, string name,
-        object? @default, List<Dictionary<string, object?>> values,
+        object? @default, List<Dictionary<string, object?>>? values,
         string? description, Dictionary<string, Dictionary<string, object?>> environments,
         DateTime? createdAt, DateTime? updatedAt)
         : base(client, id, key, name, "STRING", @default, values, description, environments, createdAt, updatedAt)
@@ -227,7 +227,7 @@ public sealed class NumberFlag : Flag
 {
     internal NumberFlag(
         FlagsClient client, string? id, string key, string name,
-        object? @default, List<Dictionary<string, object?>> values,
+        object? @default, List<Dictionary<string, object?>>? values,
         string? description, Dictionary<string, Dictionary<string, object?>> environments,
         DateTime? createdAt, DateTime? updatedAt)
         : base(client, id, key, name, "NUMERIC", @default, values, description, environments, createdAt, updatedAt)
@@ -256,7 +256,7 @@ public sealed class JsonFlag : Flag
 {
     internal JsonFlag(
         FlagsClient client, string? id, string key, string name,
-        object? @default, List<Dictionary<string, object?>> values,
+        object? @default, List<Dictionary<string, object?>>? values,
         string? description, Dictionary<string, Dictionary<string, object?>> environments,
         DateTime? createdAt, DateTime? updatedAt)
         : base(client, id, key, name, "JSON", @default, values, description, environments, createdAt, updatedAt)

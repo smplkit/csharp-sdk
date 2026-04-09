@@ -99,7 +99,7 @@ public sealed class FlagsClient
             key: key,
             name: name ?? Helpers.KeyToDisplayName(key),
             @default: defaultValue,
-            values: values ?? new List<Dictionary<string, object?>>(),
+            values: values,
             description: description,
             environments: new Dictionary<string, Dictionary<string, object?>>(),
             createdAt: null,
@@ -123,7 +123,7 @@ public sealed class FlagsClient
             key: key,
             name: name ?? Helpers.KeyToDisplayName(key),
             @default: defaultValue,
-            values: values ?? new List<Dictionary<string, object?>>(),
+            values: values,
             description: description,
             environments: new Dictionary<string, Dictionary<string, object?>>(),
             createdAt: null,
@@ -147,7 +147,7 @@ public sealed class FlagsClient
             key: key,
             name: name ?? Helpers.KeyToDisplayName(key),
             @default: defaultValue,
-            values: values ?? new List<Dictionary<string, object?>>(),
+            values: values,
             description: description,
             environments: new Dictionary<string, Dictionary<string, object?>>(),
             createdAt: null,
@@ -765,9 +765,10 @@ public sealed class FlagsClient
         if (resource?.Attributes is null) return null;
         var attrs = resource.Attributes;
 
-        var values = new List<Dictionary<string, object?>>();
+        List<Dictionary<string, object?>>? values = null;
         if (attrs.Values is not null)
         {
+            values = new List<Dictionary<string, object?>>();
             foreach (var v in attrs.Values)
                 values.Add(new Dictionary<string, object?> { ["name"] = v.Name, ["value"] = NormalizeValue(v.Value) });
         }
@@ -799,9 +800,10 @@ public sealed class FlagsClient
         if (resource?.Attributes is null) return null;
         var attrs = resource.Attributes;
 
-        var values = new List<Dictionary<string, object?>>();
+        List<Dictionary<string, object?>>? values = null;
         if (attrs.Values is not null)
         {
+            values = new List<Dictionary<string, object?>>();
             foreach (var v in attrs.Values)
                 values.Add(new Dictionary<string, object?> { ["name"] = v.Name, ["value"] = NormalizeValue(v.Value) });
         }
@@ -864,7 +866,7 @@ public sealed class FlagsClient
         {
             Name = v.TryGetValue("name", out var n) ? n?.ToString() ?? "" : "",
             Value = v.TryGetValue("value", out var val) ? val! : new object(),
-        }).ToList() ?? new List<GenFlags.FlagValue>();
+        }).ToList();
 
         return new GenFlags.Response_Flag_
         {
@@ -878,7 +880,7 @@ public sealed class FlagsClient
                     Type = type,
                     Default = @default ?? new object(),
                     Description = description ?? "",
-                    Values = flagValues,
+                    Values = flagValues!,
                     Environments = new Dictionary<string, GenFlags.FlagEnvironment>(),
                 },
             }
@@ -887,10 +889,10 @@ public sealed class FlagsClient
 
     private static GenFlags.Response_Flag_ BuildUpdateFlagBody(
         string key, string name, string type, object? @default,
-        List<Dictionary<string, object?>> values, string? description,
+        List<Dictionary<string, object?>>? values, string? description,
         Dictionary<string, Dictionary<string, object?>> environments)
     {
-        var flagValues = values.Select(v => new GenFlags.FlagValue
+        var flagValues = values?.Select(v => new GenFlags.FlagValue
         {
             Name = v.TryGetValue("name", out var n) ? n?.ToString() ?? "" : "",
             Value = v.TryGetValue("value", out var val) ? val! : new object(),
@@ -934,7 +936,7 @@ public sealed class FlagsClient
                     Type = type,
                     Default = @default ?? new object(),
                     Description = description ?? "",
-                    Values = flagValues,
+                    Values = flagValues!,
                     Environments = flagEnvs,
                 },
             }

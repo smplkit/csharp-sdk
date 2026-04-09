@@ -218,7 +218,7 @@ public static class FlagsManagementShowcase
         Step($"Fetched ui-theme by key: key={fetched.Key}, type={fetched.Type}");
         Step($"  Description: {fetched.Description}");
         Step($"  Default: {fetched.Default}");
-        Step($"  Values: [{string.Join(", ", fetched.Values.Select(v => v.TryGetValue("value", out var val) ? val?.ToString() ?? "null" : "?"))}]");
+        Step($"  Values: [{(fetched.Values is not null ? string.Join(", ", fetched.Values.Select(v => v.TryGetValue("value", out var val) ? val?.ToString() ?? "null" : "?")) : "unconstrained")}]");
         Step($"  Environments: [{string.Join(", ", fetched.Environments.Keys)}]");
 
         // ==============================================================
