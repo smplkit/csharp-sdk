@@ -154,4 +154,20 @@ public class SerilogAdapterTests
         // Reverse mapping from above-Fatal back to Silent
         Assert.Equal(LogLevel.Silent, SerilogAdapter.ToSmplLevel(serilogLevel));
     }
+
+    [Fact]
+    public void ToSerilogLevel_DefaultCase_ReturnsInformation()
+    {
+        var result = SerilogAdapter.ToSerilogLevel((LogLevel)999);
+        Assert.Equal(LogEventLevel.Information, result);
+    }
+
+    [Fact]
+    public void ToSmplLevel_DefaultCase_ReturnsInfo()
+    {
+        // Use a negative value that doesn't match any standard level
+        // and is not above Fatal
+        var result = SerilogAdapter.ToSmplLevel((LogEventLevel)(-1));
+        Assert.Equal(LogLevel.Info, result);
+    }
 }

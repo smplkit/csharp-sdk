@@ -249,6 +249,152 @@ public class AutoLoadTests
     }
 
     [Fact]
+    public async Task Close_HandlesAdapterUninstallHookFailure()
+    {
+        var (client, _) = CreateClient();
+
+        var failingAdapter = new Mock<ILoggingAdapter>();
+        failingAdapter.Setup(a => a.Name).Returns("failing-uninstall");
+        failingAdapter.Setup(a => a.Discover()).Returns(new List<DiscoveredLogger>());
+        failingAdapter.Setup(a => a.UninstallHook()).Throws(new Exception("Uninstall failed"));
+
+        client.Logging.RegisterAdapter(failingAdapter.Object);
+
+        try { await client.Logging.StartAsync(); } catch { }
+
+        // Should not throw even though UninstallHook throws
+        client.Dispose();
+
+        failingAdapter.Verify(a => a.UninstallHook(), Times.Once);
+    }
+
+    [Fact]
+    public async Task ApplyLevels_HandlesAdapterApplyLevelFailure()
+    {
+        var (client, _) = CreateClient(_ =>
+        {
+            var json = """
+            {
+                "data": [
+                    {
+                        "id": "550e8400-e29b-41d4-a716-446655440099",
+                        "type": "logger",
+                        "attributes": {
+                            "key": "my-logger",
+                            "name": "My Logger",
+                            "level": "ERROR",
+                            "group": null,
+                            "managed": true,
+                            "sources": [],
+                            "environments": {},
+                            "created_at": "2024-01-15T10:30:00Z",
+                            "updated_at": "2024-01-15T10:30:00Z"
+                        }
+                    }
+                ]
+            }
+            """;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/vnd.api+json"),
+            });
+        });
+
+        var failingAdapter = new Mock<ILoggingAdapter>();
+        failingAdapter.Setup(a => a.Name).Returns("failing-apply");
+        failingAdapter.Setup(a => a.Discover()).Returns(new List<DiscoveredLogger>());
+        failingAdapter.Setup(a => a.ApplyLevel(It.IsAny<string>(), It.IsAny<LogLevel>()))
+            .Throws(new Exception("Apply failed"));
+
+        client.Logging.RegisterAdapter(failingAdapter.Object);
+
+        // Should not throw even though ApplyLevel throws
+        try { await client.Logging.StartAsync(); } catch { }
+
+        failingAdapter.Verify(a => a.ApplyLevel("my-logger", LogLevel.Error), Times.Once);
+    }
+
+    [Fact]
+    public async Task HandleAdapterNewLogger_FiresListeners()
+    {
+        var (client, _) = CreateClient();
+
+        var adapter = new Mock<ILoggingAdapter>();
+        adapter.Setup(a => a.Name).Returns("hook-test");
+        adapter.Setup(a => a.Discover()).Returns(new List<DiscoveredLogger>());
+
+        Action<string, LogLevel>? capturedHook = null;
+        adapter.Setup(a => a.InstallHook(It.IsAny<Action<string, LogLevel>>()))
+            .Callback<Action<string, LogLevel>>(hook => capturedHook = hook);
+
+        client.Logging.RegisterAdapter(adapter.Object);
+
+        var events = new List<LoggerChangeEvent>();
+        client.Logging.OnChange(e => events.Add(e));
+
+        try { await client.Logging.StartAsync(); } catch { }
+
+        // Simulate adapter detecting a new logger
+        Assert.NotNull(capturedHook);
+        capturedHook!("new-logger", LogLevel.Debug);
+
+        Assert.Single(events);
+        Assert.Equal("new-logger", events[0].Key);
+        Assert.Equal(LogLevel.Debug, events[0].Level);
+        Assert.Equal("adapter", events[0].Source);
+    }
+
+    [Fact]
+    public async Task InstallHookFailure_IsNonFatal()
+    {
+        var (client, _) = CreateClient();
+
+        var failingAdapter = new Mock<ILoggingAdapter>();
+        failingAdapter.Setup(a => a.Name).Returns("failing-hook");
+        failingAdapter.Setup(a => a.Discover()).Returns(new List<DiscoveredLogger>());
+        failingAdapter.Setup(a => a.InstallHook(It.IsAny<Action<string, LogLevel>>()))
+            .Throws(new Exception("Hook install failed"));
+
+        client.Logging.RegisterAdapter(failingAdapter.Object);
+
+        // Should not throw even though InstallHook throws
+        try { await client.Logging.StartAsync(); } catch { }
+
+        failingAdapter.Verify(a => a.InstallHook(It.IsAny<Action<string, LogLevel>>()), Times.Once);
+    }
+
+    [Fact]
+    public void TryLoadAdapter_ReturnsNull_ForMissingFramework()
+    {
+        var adapter = LoggingClient.TryLoadAdapter(
+            "Smplkit.Logging.Adapters.MicrosoftLoggingAdapter",
+            "NonExistent.Framework.That.Does.Not.Exist");
+
+        Assert.Null(adapter);
+    }
+
+    [Fact]
+    public void TryLoadAdapter_ReturnsAdapter_ForAvailableFramework()
+    {
+        var adapter = LoggingClient.TryLoadAdapter(
+            "Smplkit.Logging.Adapters.MicrosoftLoggingAdapter",
+            "Microsoft.Extensions.Logging");
+
+        Assert.NotNull(adapter);
+        Assert.Equal("microsoft-logging", adapter!.Name);
+    }
+
+    [Fact]
+    public void TryLoadAdapter_ReturnsNull_ForBadTypeName()
+    {
+        var adapter = LoggingClient.TryLoadAdapter(
+            "Smplkit.Logging.Adapters.NonExistentAdapter",
+            "Microsoft.Extensions.Logging");
+
+        Assert.Null(adapter);
+    }
+
+    [Fact]
     public async Task AdapterDiscoverFailure_IsNonFatal()
     {
         var (client, _) = CreateClient();

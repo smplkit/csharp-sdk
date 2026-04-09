@@ -343,20 +343,26 @@ public sealed class LoggingClient
         };
         foreach (var (adapterType, probeAssembly) in builtins)
         {
-            try
-            {
-                System.Reflection.Assembly.Load(probeAssembly);
-                var type = Type.GetType(adapterType + ", Smplkit");
-                if (type != null)
-                {
-                    var adapter = (ILoggingAdapter)Activator.CreateInstance(type)!;
-                    _adapters.Add(adapter);
-                }
-            }
-            catch
-            {
-                // Framework not available — skip
-            }
+            var adapter = TryLoadAdapter(adapterType, probeAssembly);
+            if (adapter != null)
+                _adapters.Add(adapter);
+        }
+    }
+
+    internal static ILoggingAdapter? TryLoadAdapter(string adapterTypeName, string probeAssembly)
+    {
+        try
+        {
+            System.Reflection.Assembly.Load(probeAssembly);
+            var type = Type.GetType(adapterTypeName + ", Smplkit");
+            if (type != null)
+                return (ILoggingAdapter)Activator.CreateInstance(type)!;
+            return null;
+        }
+        catch
+        {
+            // Framework not available — skip
+            return null;
         }
     }
 

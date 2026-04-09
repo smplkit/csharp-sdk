@@ -170,9 +170,111 @@ public class MicrosoftLoggingAdapterTests
         // We can't reinstall after dispose, but the adapter should be in a clean state
     }
 
+    [Fact]
+    public void LevelGatingLogger_LogsWhenEnabled()
+    {
+        var loggedMessages = new List<string>();
+        var innerFactory = LoggerFactory.Create(builder =>
+        {
+            builder.SetMinimumLevel(MsLogLevel.Trace);
+            builder.AddProvider(new CollectingLoggerProvider(loggedMessages));
+        });
+        var adapter = new MicrosoftLoggingAdapter(innerFactory);
+        var logger = adapter.Factory.CreateLogger("App.TestLogging");
+
+        // With a provider registered and min level Trace, Information should be enabled
+        Assert.True(logger.IsEnabled(MsLogLevel.Information));
+
+        logger.Log(MsLogLevel.Information, "test message");
+        Assert.Single(loggedMessages);
+        Assert.Equal("test message", loggedMessages[0]);
+    }
+
+    [Fact]
+    public void LevelGatingLogger_SkipsWhenDisabled()
+    {
+        var loggedMessages = new List<string>();
+        var innerFactory = LoggerFactory.Create(builder =>
+        {
+            builder.SetMinimumLevel(MsLogLevel.Trace);
+            builder.AddProvider(new CollectingLoggerProvider(loggedMessages));
+        });
+        var adapter = new MicrosoftLoggingAdapter(innerFactory);
+        var logger = adapter.Factory.CreateLogger("App.GatedLogger");
+
+        // Set level to Error via the adapter
+        adapter.ApplyLevel("App.GatedLogger", LogLevel.Error);
+
+        // Debug should be disabled by the gating layer
+        Assert.False(logger.IsEnabled(MsLogLevel.Debug));
+
+        // Logging below the minimum should be a no-op
+        logger.Log(MsLogLevel.Debug, "should be skipped");
+        Assert.Empty(loggedMessages);
+    }
+
+    [Fact]
+    public void LevelGatingLogger_BeginScope_Delegates()
+    {
+        var innerFactory = LoggerFactory.Create(builder =>
+        {
+            builder.SetMinimumLevel(MsLogLevel.Trace);
+            builder.AddProvider(new CollectingLoggerProvider(new List<string>()));
+        });
+        var adapter = new MicrosoftLoggingAdapter(innerFactory);
+        var logger = adapter.Factory.CreateLogger("App.ScopeTest");
+
+        using var scope = logger.BeginScope("test-scope");
+        // Should not throw; scope may be null depending on inner factory
+    }
+
+    [Fact]
+    public void Factory_Dispose_DoesNotThrow()
+    {
+        var adapter = CreateAdapter();
+        // Dispose the factory (not the adapter)
+        (adapter.Factory as IDisposable)?.Dispose();
+    }
+
+    [Fact]
+    public void ToMsLevel_DefaultCase_ReturnsInformation()
+    {
+        // Cast an invalid value to hit the default case
+        var result = MicrosoftLoggingAdapter.ToMsLevel((LogLevel)999);
+        Assert.Equal(MsLogLevel.Information, result);
+    }
+
+    [Fact]
+    public void ToSmplLevel_DefaultCase_ReturnsInfo()
+    {
+        // Cast an invalid value to hit the default case
+        var result = MicrosoftLoggingAdapter.ToSmplLevel((MsLogLevel)999);
+        Assert.Equal(LogLevel.Info, result);
+    }
+
     private sealed class NullLoggerProvider : ILoggerProvider
     {
         public ILogger CreateLogger(string categoryName) => Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
         public void Dispose() { }
+    }
+
+    private sealed class CollectingLoggerProvider : ILoggerProvider
+    {
+        private readonly List<string> _messages;
+        public CollectingLoggerProvider(List<string> messages) => _messages = messages;
+        public ILogger CreateLogger(string categoryName) => new CollectingLogger(_messages);
+        public void Dispose() { }
+
+        private sealed class CollectingLogger : ILogger
+        {
+            private readonly List<string> _messages;
+            public CollectingLogger(List<string> messages) => _messages = messages;
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+            public bool IsEnabled(MsLogLevel logLevel) => true;
+            public void Log<TState>(MsLogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+            {
+                _messages.Add(formatter(state, exception));
+            }
+        }
     }
 }
