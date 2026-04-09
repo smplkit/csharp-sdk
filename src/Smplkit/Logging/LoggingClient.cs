@@ -247,18 +247,10 @@ public sealed class LoggingClient
             AutoLoadAdapters();
 
         // 2. Discover existing loggers from each adapter
-        foreach (var adapter in _adapters)
-        {
-            try { adapter.Discover(); }
-            catch { /* Adapter discovery failure is non-fatal */ }
-        }
+        DiscoverAll();
 
         // 3. Install hooks on each adapter
-        foreach (var adapter in _adapters)
-        {
-            try { adapter.InstallHook(HandleAdapterNewLogger); }
-            catch { /* Hook installation failure is non-fatal */ }
-        }
+        InstallAllHooks();
 
         // 4. Fetch all loggers and groups from the server
         var loggers = await ListAsync(ct).ConfigureAwait(false);
@@ -333,6 +325,24 @@ public sealed class LoggingClient
     // ------------------------------------------------------------------
     // Internal: adapter helpers
     // ------------------------------------------------------------------
+
+    private void DiscoverAll()
+    {
+        foreach (var adapter in _adapters)
+        {
+            try { adapter.Discover(); }
+            catch { /* Adapter discovery failure is non-fatal */ }
+        }
+    }
+
+    private void InstallAllHooks()
+    {
+        foreach (var adapter in _adapters)
+        {
+            try { adapter.InstallHook(HandleAdapterNewLogger); }
+            catch { /* Hook installation failure is non-fatal */ }
+        }
+    }
 
     private void AutoLoadAdapters()
     {
