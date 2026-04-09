@@ -71,6 +71,9 @@ public static class FlagsManagementShowcase
         Step($"Boolean flag created: key={maintenanceMode.Key}, id={maintenanceMode.Id}");
 
         // String flag
+        // The values parameter defines a closed set — this flag can only
+        // serve "light", "dark", or "auto". This makes it a constrained
+        // flag. The Console UI shows dropdowns for value selection.
         var theme = client.Flags.NewStringFlag(
             key: "ui-theme",
             defaultValue: "light",
@@ -85,23 +88,24 @@ public static class FlagsManagementShowcase
         await theme.SaveAsync();
         Step($"String flag created: key={theme.Key}, id={theme.Id}");
 
-        // Numeric flag
+        // Numeric flag — Unconstrained
+        // Unlike ui-theme above, this flag has no predefined values.
+        // Any number is valid as a default or rule serve-value. This is
+        // useful for tunables like thresholds, retry counts, and timeouts
+        // where the value space is open-ended.
+        //
+        // Omitting the values parameter creates an unconstrained flag.
         var rateLimit = client.Flags.NewNumberFlag(
             key: "rate-limit-rps",
             defaultValue: 100.0,
             name: "Rate Limit (RPS)",
-            description: "Per-user rate limit in requests per second",
-            values: new List<Dictionary<string, object?>>
-            {
-                new() { ["name"] = "Low", ["value"] = 10.0 },
-                new() { ["name"] = "Medium", ["value"] = 50.0 },
-                new() { ["name"] = "Default", ["value"] = 100.0 },
-                new() { ["name"] = "Enterprise", ["value"] = 500.0 },
-            });
+            description: "Per-user rate limit in requests per second");
         await rateLimit.SaveAsync();
         Step($"Numeric flag created: key={rateLimit.Key}, id={rateLimit.Id}");
 
         // JSON flag
+        // Like ui-theme, this JSON flag is constrained — only the
+        // declared configuration objects can be served.
         var experimentConfig = client.Flags.NewJsonFlag(
             key: "experiment-config",
             defaultValue: new Dictionary<string, object?>

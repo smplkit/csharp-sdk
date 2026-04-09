@@ -113,14 +113,7 @@ public static class FlagsRuntimeSetup
             key: "max-retries",
             defaultValue: 3.0,
             name: "Max Retries",
-            description: "Maximum API retry attempts",
-            values: new List<Dictionary<string, object?>>
-            {
-                new() { ["name"] = "Low", ["value"] = 1.0 },
-                new() { ["name"] = "Default", ["value"] = 3.0 },
-                new() { ["name"] = "High", ["value"] = 5.0 },
-                new() { ["name"] = "Extra", ["value"] = 10.0 },
-            });
+            description: "Maximum API retry attempts");
 
         maxRetries.SetEnvironmentEnabled("development", true);
         maxRetries.SetEnvironmentDefault("development", 1.0);
