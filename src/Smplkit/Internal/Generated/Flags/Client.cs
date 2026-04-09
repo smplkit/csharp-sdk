@@ -725,16 +725,16 @@ namespace Smplkit.Internal.Generated.Flags
         public string Type { get; set; } = default!;
 
         /// <summary>
-        /// Default value; must reference a value in the values array
+        /// Default value; must reference a value in the values array (constrained) or match the flag type (unconstrained)
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("default")]
         public object Default { get; set; } = default!;
 
         /// <summary>
-        /// Closed set of possible values
+        /// Ordered set of allowed values (constrained), or null (unconstrained)
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("values")]
-        public System.Collections.Generic.List<FlagValue> Values { get; set; } = new System.Collections.Generic.List<FlagValue>();
+        public System.Collections.Generic.List<FlagValue>? Values { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("environments")]
         public System.Collections.Generic.IDictionary<string, FlagEnvironment> Environments { get; set; } = default!;
