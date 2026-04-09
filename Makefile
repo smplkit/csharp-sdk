@@ -1,6 +1,7 @@
 .PHONY: install generate \
 	config_runtime_showcase config_management_showcase \
-	flags_runtime_showcase flags_management_showcase
+	flags_runtime_showcase flags_management_showcase \
+	logging_runtime_showcase logging_management_showcase
 
 install:
 	dotnet restore
@@ -20,3 +21,9 @@ flags_runtime_showcase:
 
 flags_management_showcase:
 	dotnet run --project examples/FlagsShowcase -- management
+
+logging_runtime_showcase:
+	dotnet run --project examples/LoggingShowcase
+
+logging_management_showcase:
+	dotnet run --project examples/LoggingShowcase -- management

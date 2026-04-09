@@ -21,6 +21,13 @@ public static class LoggingRuntimeSetup
         Console.WriteLine(new string('=', 60));
         Console.WriteLine();
 
+        // Clean up any leftover resources from a previous failed run
+        foreach (var key in new[] { "runtime-logger-1", "runtime-logger-2" })
+        {
+            try { await client.Logging.DeleteAsync(key); } catch { /* not found is fine */ }
+        }
+        try { await client.Logging.DeleteGroupAsync("runtime-group"); } catch { /* not found is fine */ }
+
         // ------------------------------------------------------------------
         // 1. Create a log group
         // ------------------------------------------------------------------
@@ -35,7 +42,7 @@ public static class LoggingRuntimeSetup
         // ------------------------------------------------------------------
         Console.WriteLine("  -> Creating runtime-logger-1...");
 
-        var logger1 = client.Logging.New("runtime-logger-1", name: "Runtime Logger 1");
+        var logger1 = client.Logging.New("runtime-logger-1", name: "Runtime Logger 1", managed: true);
         logger1.SetLevel(LogLevel.Info);
         await logger1.SaveAsync();
         Console.WriteLine($"     Created: id={logger1.Id}, key={logger1.Key}, level={logger1.Level}");
@@ -45,7 +52,7 @@ public static class LoggingRuntimeSetup
         // ------------------------------------------------------------------
         Console.WriteLine("  -> Creating runtime-logger-2...");
 
-        var logger2 = client.Logging.New("runtime-logger-2", name: "Runtime Logger 2");
+        var logger2 = client.Logging.New("runtime-logger-2", name: "Runtime Logger 2", managed: true);
         logger2.SetLevel(LogLevel.Warn);
         logger2.SetEnvironmentLevel("production", LogLevel.Error);
         await logger2.SaveAsync();

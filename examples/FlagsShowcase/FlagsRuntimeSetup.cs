@@ -25,6 +25,12 @@ public static class FlagsRuntimeSetup
         Console.WriteLine(new string('=', 60));
         Console.WriteLine();
 
+        // Clean up any leftover flags from a previous failed run
+        foreach (var key in new[] { "checkout-v2", "banner-color", "max-retries" })
+        {
+            try { await client.Flags.DeleteAsync(key); } catch { /* not found is fine */ }
+        }
+
         // ------------------------------------------------------------------
         // 1. checkout-v2 (boolean) — new checkout flow toggle
         // ------------------------------------------------------------------
@@ -107,7 +113,14 @@ public static class FlagsRuntimeSetup
             key: "max-retries",
             defaultValue: 3.0,
             name: "Max Retries",
-            description: "Maximum API retry attempts");
+            description: "Maximum API retry attempts",
+            values: new List<Dictionary<string, object?>>
+            {
+                new() { ["name"] = "Low", ["value"] = 1.0 },
+                new() { ["name"] = "Default", ["value"] = 3.0 },
+                new() { ["name"] = "High", ["value"] = 5.0 },
+                new() { ["name"] = "Extra", ["value"] = 10.0 },
+            });
 
         maxRetries.SetEnvironmentEnabled("development", true);
         maxRetries.SetEnvironmentDefault("development", 1.0);

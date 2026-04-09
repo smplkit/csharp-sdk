@@ -50,6 +50,12 @@ public static class FlagsManagementShowcase
 
     public static async Task<int> RunAsync(SmplClient client)
     {
+        // Clean up any leftover flags from a previous failed run
+        foreach (var key in new[] { "maintenance-mode", "ui-theme", "rate-limit-rps", "experiment-config" })
+        {
+            try { await client.Flags.DeleteAsync(key); } catch { /* not found is fine */ }
+        }
+
         // ==============================================================
         // 1. CREATE FLAGS OF EVERY TYPE
         // ==============================================================
@@ -84,7 +90,14 @@ public static class FlagsManagementShowcase
             key: "rate-limit-rps",
             defaultValue: 100.0,
             name: "Rate Limit (RPS)",
-            description: "Per-user rate limit in requests per second");
+            description: "Per-user rate limit in requests per second",
+            values: new List<Dictionary<string, object?>>
+            {
+                new() { ["name"] = "Low", ["value"] = 10.0 },
+                new() { ["name"] = "Medium", ["value"] = 50.0 },
+                new() { ["name"] = "Default", ["value"] = 100.0 },
+                new() { ["name"] = "Enterprise", ["value"] = 500.0 },
+            });
         await rateLimit.SaveAsync();
         Step($"Numeric flag created: key={rateLimit.Key}, id={rateLimit.Id}");
 
@@ -98,7 +111,12 @@ public static class FlagsManagementShowcase
                 ["enabled"] = false,
             },
             name: "Experiment Config",
-            description: "A/B experiment configuration blob");
+            description: "A/B experiment configuration blob",
+            values: new List<Dictionary<string, object?>>
+            {
+                new() { ["name"] = "Control", ["value"] = new Dictionary<string, object?> { ["variant"] = "control", ["sample_rate"] = 0.0, ["enabled"] = false } },
+                new() { ["name"] = "Treatment A", ["value"] = new Dictionary<string, object?> { ["variant"] = "treatment_a", ["sample_rate"] = 0.5, ["enabled"] = true } },
+            });
         await experimentConfig.SaveAsync();
         Step($"JSON flag created: key={experimentConfig.Key}, id={experimentConfig.Id}");
 
@@ -210,7 +228,7 @@ public static class FlagsManagementShowcase
 
         // Update the description and default of rate-limit-rps — mutate + SaveAsync
         rateLimit.Description = "Per-user rate limit (requests per second) — updated via SDK";
-        rateLimit.Default = 150.0;
+        rateLimit.Default = 50.0;
         await rateLimit.SaveAsync();
         Step($"rate-limit-rps updated: default={rateLimit.Default}, desc=\"{rateLimit.Description}\"");
 

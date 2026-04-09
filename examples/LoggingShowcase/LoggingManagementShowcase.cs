@@ -56,6 +56,10 @@ public static class LoggingManagementShowcase
             Service = "logging-showcase",
         });
 
+        // Clean up any leftover resources from a previous failed run
+        try { await client.Logging.DeleteAsync("showcase-logger"); } catch { /* not found is fine */ }
+        try { await client.Logging.DeleteGroupAsync("showcase-group"); } catch { /* not found is fine */ }
+
         // ==============================================================
         // 1. CREATE A LOG GROUP
         // ==============================================================
@@ -72,7 +76,7 @@ public static class LoggingManagementShowcase
         // ==============================================================
         Section("2. Create a Logger");
 
-        var logger = client.Logging.New("showcase-logger", name: "Showcase Logger");
+        var logger = client.Logging.New("showcase-logger", name: "Showcase Logger", managed: true);
         Step($"New logger created locally: key={logger.Key}, name={logger.Name}");
 
         await logger.SaveAsync();

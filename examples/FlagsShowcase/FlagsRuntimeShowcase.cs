@@ -224,7 +224,7 @@ public static class FlagsRuntimeShowcase
 
         // 8b. Trigger a change via the management API
         Step("Updating max-retries default in production via management API...");
-        demoFlags.MaxRetries.SetEnvironmentDefault("production", 7.0);
+        demoFlags.MaxRetries.SetEnvironmentDefault("production", 10.0);
         await demoFlags.MaxRetries.SaveAsync();
 
         // Give the WebSocket a moment to deliver the update
