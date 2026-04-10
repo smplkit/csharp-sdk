@@ -44,7 +44,7 @@ namespace Smplkit.Internal.Generated.Flags
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<FlagListResponse> List_flagsAsync(string? filterkey = null, string? filtertype = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<FlagListResponse> List_flagsAsync(string? filtertype = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -52,7 +52,7 @@ namespace Smplkit.Internal.Generated.Flags
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<FlagResponse> Get_flagAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<FlagResponse> Get_flagAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -60,7 +60,7 @@ namespace Smplkit.Internal.Generated.Flags
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<FlagResponse> Update_flagAsync(System.Guid id, Response_Flag_ body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<FlagResponse> Update_flagAsync(string id, Response_Flag_ body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -68,7 +68,7 @@ namespace Smplkit.Internal.Generated.Flags
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task Delete_flagAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task Delete_flagAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
     }
 
@@ -217,7 +217,7 @@ namespace Smplkit.Internal.Generated.Flags
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<FlagListResponse> List_flagsAsync(string? filterkey = null, string? filtertype = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<FlagListResponse> List_flagsAsync(string? filtertype = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -233,10 +233,6 @@ namespace Smplkit.Internal.Generated.Flags
                     // Operation Path: "api/v1/flags"
                     urlBuilder_.Append("api/v1/flags");
                     urlBuilder_.Append('?');
-                    if (filterkey != null)
-                    {
-                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[key]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterkey, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
-                    }
                     if (filtertype != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[type]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtertype, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
@@ -311,7 +307,7 @@ namespace Smplkit.Internal.Generated.Flags
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<FlagResponse> Get_flagAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<FlagResponse> Get_flagAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -399,7 +395,7 @@ namespace Smplkit.Internal.Generated.Flags
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<FlagResponse> Update_flagAsync(System.Guid id, Response_Flag_ body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<FlagResponse> Update_flagAsync(string id, Response_Flag_ body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -494,7 +490,7 @@ namespace Smplkit.Internal.Generated.Flags
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task Delete_flagAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task Delete_flagAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -703,11 +699,8 @@ namespace Smplkit.Internal.Generated.Flags
     public partial class Flag
     {
 
-        /// <summary>
-        /// Unique key within account
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("key")]
-        public string Key { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string? Id { get; set; } = default!;
 
         /// <summary>
         /// Human-readable display name
