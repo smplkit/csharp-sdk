@@ -1,7 +1,7 @@
 namespace Smplkit.Errors;
 
 /// <summary>
-/// Raised when a requested resource does not exist (HTTP 404).
+/// Raised when a requested resource does not exist.
 /// </summary>
 public class SmplNotFoundException : SmplException
 {
@@ -10,7 +10,7 @@ public class SmplNotFoundException : SmplException
     /// </summary>
     /// <param name="message">The error message.</param>
     /// <param name="responseBody">The raw response body, if available.</param>
-    /// <param name="errors">Parsed JSON:API error details, if available.</param>
+    /// <param name="errors">Parsed error details, if available.</param>
     public SmplNotFoundException(
         string message,
         string? responseBody = null,

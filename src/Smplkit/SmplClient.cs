@@ -135,7 +135,7 @@ public sealed class SmplClient : IDisposable
     }
 
     /// <summary>
-    /// Lazily creates and starts the shared WebSocket connection.
+    /// Ensures the real-time connection is available.
     /// </summary>
     internal SharedWebSocket EnsureSharedWebSocket()
     {

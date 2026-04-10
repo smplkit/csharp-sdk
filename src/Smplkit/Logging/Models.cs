@@ -4,7 +4,7 @@ namespace Smplkit.Logging;
 
 /// <summary>
 /// Represents a logger resource from the smplkit Logging service.
-/// Mutable active record — modify properties and call <see cref="SaveAsync"/> to persist.
+/// Modify properties and call <see cref="SaveAsync"/> to persist changes.
 /// </summary>
 public sealed class Logger
 {
@@ -67,7 +67,7 @@ public sealed class Logger
     }
 
     /// <summary>
-    /// Persist this logger to the server. Creates if new, updates if existing.
+    /// Saves this logger to the server.
     /// </summary>
     /// <param name="ct">Cancellation token.</param>
     public async Task SaveAsync(CancellationToken ct = default)
@@ -85,14 +85,14 @@ public sealed class Logger
         UpdatedAt = saved.UpdatedAt;
     }
 
-    /// <summary>Set the log level. Local mutation only.</summary>
+    /// <summary>Sets the log level. Call <see cref="SaveAsync"/> to persist.</summary>
     /// <param name="level">The log level to set.</param>
     public void SetLevel(LogLevel level) { Level = level; }
 
-    /// <summary>Clear the log level. Local mutation only.</summary>
+    /// <summary>Clears the log level. Call <see cref="SaveAsync"/> to persist.</summary>
     public void ClearLevel() { Level = null; }
 
-    /// <summary>Set the log level for a specific environment. Local mutation only.</summary>
+    /// <summary>Sets the log level for a specific environment. Call <see cref="SaveAsync"/> to persist.</summary>
     /// <param name="env">The environment key.</param>
     /// <param name="level">The log level to set.</param>
     public void SetEnvironmentLevel(string env, LogLevel level)
@@ -100,11 +100,11 @@ public sealed class Logger
         Environments[env] = new Dictionary<string, object?> { ["level"] = level.ToWireString() };
     }
 
-    /// <summary>Clear the log level for a specific environment. Local mutation only.</summary>
+    /// <summary>Clears the log level for a specific environment. Call <see cref="SaveAsync"/> to persist.</summary>
     /// <param name="env">The environment key.</param>
     public void ClearEnvironmentLevel(string env) { Environments.Remove(env); }
 
-    /// <summary>Clear all environment-specific level overrides. Local mutation only.</summary>
+    /// <summary>Clears all environment-specific level overrides. Call <see cref="SaveAsync"/> to persist.</summary>
     public void ClearAllEnvironmentLevels() { Environments.Clear(); }
 
     /// <inheritdoc />
@@ -114,7 +114,7 @@ public sealed class Logger
 
 /// <summary>
 /// Represents a log group resource from the smplkit Logging service.
-/// Mutable active record — modify properties and call <see cref="SaveAsync"/> to persist.
+/// Modify properties and call <see cref="SaveAsync"/> to persist changes.
 /// </summary>
 public sealed class LogGroup
 {
@@ -167,7 +167,7 @@ public sealed class LogGroup
     }
 
     /// <summary>
-    /// Persist this log group to the server. Creates if new, updates if existing.
+    /// Saves this log group to the server.
     /// </summary>
     /// <param name="ct">Cancellation token.</param>
     public async Task SaveAsync(CancellationToken ct = default)
@@ -183,14 +183,14 @@ public sealed class LogGroup
         UpdatedAt = saved.UpdatedAt;
     }
 
-    /// <summary>Set the log level. Local mutation only.</summary>
+    /// <summary>Sets the log level. Call <see cref="SaveAsync"/> to persist.</summary>
     /// <param name="level">The log level to set.</param>
     public void SetLevel(LogLevel level) { Level = level; }
 
-    /// <summary>Clear the log level. Local mutation only.</summary>
+    /// <summary>Clears the log level. Call <see cref="SaveAsync"/> to persist.</summary>
     public void ClearLevel() { Level = null; }
 
-    /// <summary>Set the log level for a specific environment. Local mutation only.</summary>
+    /// <summary>Sets the log level for a specific environment. Call <see cref="SaveAsync"/> to persist.</summary>
     /// <param name="env">The environment key.</param>
     /// <param name="level">The log level to set.</param>
     public void SetEnvironmentLevel(string env, LogLevel level)
@@ -198,11 +198,11 @@ public sealed class LogGroup
         Environments[env] = new Dictionary<string, object?> { ["level"] = level.ToWireString() };
     }
 
-    /// <summary>Clear the log level for a specific environment. Local mutation only.</summary>
+    /// <summary>Clears the log level for a specific environment. Call <see cref="SaveAsync"/> to persist.</summary>
     /// <param name="env">The environment key.</param>
     public void ClearEnvironmentLevel(string env) { Environments.Remove(env); }
 
-    /// <summary>Clear all environment-specific level overrides. Local mutation only.</summary>
+    /// <summary>Clears all environment-specific level overrides. Call <see cref="SaveAsync"/> to persist.</summary>
     public void ClearAllEnvironmentLevels() { Environments.Clear(); }
 
     /// <inheritdoc />
@@ -211,9 +211,9 @@ public sealed class LogGroup
 }
 
 /// <summary>
-/// Describes a logger change event.
+/// Describes a logger change.
 /// </summary>
 /// <param name="Key">The logger key that changed.</param>
 /// <param name="Level">The new log level, or null if cleared.</param>
-/// <param name="Source">How the change was delivered: "websocket" or "manual".</param>
+/// <param name="Source">The origin of the change.</param>
 public sealed record LoggerChangeEvent(string Key, LogLevel? Level, string Source);

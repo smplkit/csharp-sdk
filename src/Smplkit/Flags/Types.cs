@@ -24,7 +24,7 @@ public enum FlagType
 public static class FlagTypeExtensions
 {
     /// <summary>
-    /// Returns the wire-format string for a <see cref="FlagType"/>.
+    /// Returns the string representation of a <see cref="FlagType"/>.
     /// </summary>
     public static string ToWireString(this FlagType flagType) => flagType switch
     {
@@ -36,7 +36,7 @@ public static class FlagTypeExtensions
     };
 
     /// <summary>
-    /// Parses a wire-format string to a <see cref="FlagType"/>.
+    /// Parses a string representation to a <see cref="FlagType"/>.
     /// </summary>
     public static FlagType ParseFlagType(string wireString) => wireString switch
     {

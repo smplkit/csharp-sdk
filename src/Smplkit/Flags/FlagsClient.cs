@@ -12,8 +12,9 @@ using GenFlags = Smplkit.Internal.Generated.Flags;
 namespace Smplkit.Flags;
 
 /// <summary>
-/// Client for the smplkit Flags service. Provides management CRUD operations
-/// and prescriptive runtime evaluation via typed flag handles.
+/// Client for the smplkit Flags service. Provides operations for creating,
+/// reading, updating, and deleting flags, as well as evaluating flags via
+/// typed flag handles.
 /// </summary>
 public sealed class FlagsClient
 {
@@ -229,11 +230,10 @@ public sealed class FlagsClient
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Declare a boolean flag handle with a code-level default.
-    /// Evaluation is deferred until <see cref="Flag.Get"/> is called.
+    /// Declares a boolean flag handle with the specified default value.
     /// </summary>
     /// <param name="key">The flag key.</param>
-    /// <param name="defaultValue">The code-level default value.</param>
+    /// <param name="defaultValue">The default value used when no server-side value is available.</param>
     /// <returns>A typed flag handle.</returns>
     public BooleanFlag BooleanFlag(string key, bool defaultValue)
     {
@@ -249,11 +249,10 @@ public sealed class FlagsClient
     }
 
     /// <summary>
-    /// Declare a string flag handle with a code-level default.
-    /// Evaluation is deferred until <see cref="Flag.Get"/> is called.
+    /// Declares a string flag handle with the specified default value.
     /// </summary>
     /// <param name="key">The flag key.</param>
-    /// <param name="defaultValue">The code-level default value.</param>
+    /// <param name="defaultValue">The default value used when no server-side value is available.</param>
     /// <returns>A typed flag handle.</returns>
     public StringFlag StringFlag(string key, string defaultValue)
     {
@@ -269,11 +268,10 @@ public sealed class FlagsClient
     }
 
     /// <summary>
-    /// Declare a number flag handle with a code-level default.
-    /// Evaluation is deferred until <see cref="Flag.Get"/> is called.
+    /// Declares a number flag handle with the specified default value.
     /// </summary>
     /// <param name="key">The flag key.</param>
-    /// <param name="defaultValue">The code-level default value.</param>
+    /// <param name="defaultValue">The default value used when no server-side value is available.</param>
     /// <returns>A typed flag handle.</returns>
     public NumberFlag NumberFlag(string key, double defaultValue)
     {
@@ -289,11 +287,10 @@ public sealed class FlagsClient
     }
 
     /// <summary>
-    /// Declare a JSON flag handle with a code-level default.
-    /// Evaluation is deferred until <see cref="Flag.Get"/> is called.
+    /// Declares a JSON flag handle with the specified default value.
     /// </summary>
     /// <param name="key">The flag key.</param>
-    /// <param name="defaultValue">The code-level default value.</param>
+    /// <param name="defaultValue">The default value used when no server-side value is available.</param>
     /// <returns>A typed flag handle.</returns>
     public JsonFlag JsonFlag(string key, Dictionary<string, object?> defaultValue)
     {
@@ -313,8 +310,8 @@ public sealed class FlagsClient
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Register a context provider function. Called on every flag evaluation
-    /// to supply the current request context.
+    /// Registers a context provider function that supplies the current request
+    /// context for flag evaluation.
     /// </summary>
     /// <param name="provider">A function returning the current contexts.</param>
     public void SetContextProvider(Func<IReadOnlyList<Context>> provider)
@@ -327,8 +324,7 @@ public sealed class FlagsClient
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Ensures the flags runtime is initialized. Called on first <see cref="Flag.Get"/>.
-    /// Fetches all flag definitions and opens the shared WebSocket.
+    /// Ensures flag data is loaded before first use.
     /// </summary>
     internal void EnsureInitialized()
     {
@@ -379,8 +375,7 @@ public sealed class FlagsClient
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Re-fetch all flag definitions and clear evaluation results. Fires change
-    /// listeners for all flags.
+    /// Refreshes all flag definitions from the server and notifies change listeners.
     /// </summary>
     /// <param name="ct">Cancellation token.</param>
     public async Task RefreshAsync(CancellationToken ct = default)
@@ -391,12 +386,12 @@ public sealed class FlagsClient
     }
 
     /// <summary>
-    /// Gets the current WebSocket connection status.
+    /// Gets the current real-time connection status.
     /// </summary>
     public string ConnectionStatus => _wsManager?.ConnectionStatus ?? "disconnected";
 
     /// <summary>
-    /// Gets the cache statistics.
+    /// Gets evaluation statistics.
     /// </summary>
     public FlagStats Stats => new(_cache.CacheHits, _cache.CacheMisses);
 
@@ -450,7 +445,7 @@ public sealed class FlagsClient
     }
 
     /// <summary>
-    /// Send any buffered context registrations to the server.
+    /// Sends any pending context registrations to the server.
     /// </summary>
     /// <param name="ct">Cancellation token.</param>
     public async Task FlushContextsAsync(CancellationToken ct = default)

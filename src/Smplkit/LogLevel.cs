@@ -33,10 +33,10 @@ public enum LogLevel
 public static class LogLevelExtensions
 {
     /// <summary>
-    /// Returns the wire-format string for a <see cref="LogLevel"/>.
+    /// Returns the string representation of a <see cref="LogLevel"/>.
     /// </summary>
     /// <param name="level">The log level.</param>
-    /// <returns>The uppercase wire string (e.g., "INFO", "ERROR").</returns>
+    /// <returns>The uppercase string (e.g., "INFO", "ERROR").</returns>
     public static string ToWireString(this LogLevel level) => level switch
     {
         LogLevel.Trace => "TRACE",
@@ -50,9 +50,9 @@ public static class LogLevelExtensions
     };
 
     /// <summary>
-    /// Parses a wire-format string to a <see cref="LogLevel"/>.
+    /// Parses a string representation to a <see cref="LogLevel"/>.
     /// </summary>
-    /// <param name="wire">The uppercase wire string.</param>
+    /// <param name="wire">The uppercase string (e.g., "INFO", "ERROR").</param>
     /// <returns>The parsed <see cref="LogLevel"/>.</returns>
     public static LogLevel ParseLogLevel(string wire) => wire switch
     {

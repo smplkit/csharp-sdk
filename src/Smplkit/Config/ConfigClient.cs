@@ -6,8 +6,9 @@ using GenConfig = Smplkit.Internal.Generated.Config;
 namespace Smplkit.Config;
 
 /// <summary>
-/// Client for the smplkit Config service. Provides management CRUD operations
-/// and prescriptive runtime access via <see cref="Resolve(string)"/>.
+/// Client for the smplkit Config service. Provides operations for creating,
+/// reading, updating, and deleting configs, as well as resolving config values
+/// for the current environment via <see cref="Resolve(string)"/>.
 /// </summary>
 public sealed class ConfigClient
 {
@@ -145,11 +146,11 @@ public sealed class ConfigClient
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Returns fully resolved config values for the given key against the current environment.
+    /// Returns the resolved config values for the given key in the current environment.
     /// </summary>
     /// <param name="key">The config key.</param>
     /// <returns>A dictionary of resolved key-value pairs.</returns>
-    /// <exception cref="SmplNotFoundException">If no config with the given key exists in cache.</exception>
+    /// <exception cref="SmplNotFoundException">If no config with the given key exists.</exception>
     public Dictionary<string, object?> Resolve(string key)
     {
         EnsureInitialized();
@@ -161,8 +162,8 @@ public sealed class ConfigClient
     }
 
     /// <summary>
-    /// Resolve config values for the given key and deserialize to a typed object.
-    /// Dot-notation keys (e.g. <c>"db.host"</c>) are supported and map to nested properties.
+    /// Resolves config values for the given key and deserializes to a typed object.
+    /// Dot-notation keys (e.g. <c>"db.host"</c>) map to nested properties on the target type.
     /// </summary>
     /// <typeparam name="T">The target type.</typeparam>
     /// <param name="key">The config key.</param>
@@ -181,7 +182,7 @@ public sealed class ConfigClient
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Ensures the config runtime is initialized. Called on first <see cref="Resolve(string)"/>.
+    /// Ensures config data is loaded before first use.
     /// </summary>
     internal void EnsureInitialized()
     {
@@ -211,8 +212,8 @@ public sealed class ConfigClient
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Re-fetches all configs, re-resolves values for the current environment,
-    /// and fires change listeners for any values that differ.
+    /// Refreshes all config values from the server and notifies change listeners
+    /// for any values that differ from the previous state.
     /// </summary>
     /// <param name="ct">Cancellation token.</param>
     public async Task RefreshAsync(CancellationToken ct = default)
@@ -456,7 +457,7 @@ public sealed class ConfigClient
     };
 
     /// <summary>
-    /// Maps a generated JSON:API resource to a <see cref="Config"/>.
+    /// Maps a response resource to a <see cref="Config"/>.
     /// </summary>
     private Config? MapResource(GenConfig.ConfigResource? resource)
     {

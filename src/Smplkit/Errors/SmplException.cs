@@ -3,11 +3,11 @@ using System.Text.Json;
 namespace Smplkit.Errors;
 
 /// <summary>
-/// Represents a single error from a JSON:API error response.
+/// Represents a single error from an API error response.
 /// </summary>
 public sealed class ApiErrorDetail
 {
-    /// <summary>Gets the HTTP status code string from the error object.</summary>
+    /// <summary>Gets the status code string from the error object.</summary>
     public string? Status { get; }
 
     /// <summary>Gets the short title of the error.</summary>
@@ -16,7 +16,7 @@ public sealed class ApiErrorDetail
     /// <summary>Gets the detailed human-readable description of the error.</summary>
     public string? Detail { get; }
 
-    /// <summary>Gets the source location that caused the error.</summary>
+    /// <summary>Gets the source field that caused the error, if available.</summary>
     public ApiErrorSource? Source { get; }
 
     /// <summary>
@@ -31,7 +31,7 @@ public sealed class ApiErrorDetail
     }
 
     /// <summary>
-    /// Serializes this error detail to a JSON string for debugging.
+    /// Returns this error detail as a JSON string.
     /// </summary>
     public string ToJsonString()
     {
@@ -50,11 +50,11 @@ public sealed class ApiErrorDetail
 }
 
 /// <summary>
-/// Represents the source of a JSON:API error.
+/// Represents the source of an API error.
 /// </summary>
 public sealed class ApiErrorSource
 {
-    /// <summary>Gets the JSON pointer to the field that caused the error.</summary>
+    /// <summary>Gets the pointer to the field that caused the error.</summary>
     public string? Pointer { get; }
 
     /// <summary>
@@ -72,7 +72,7 @@ public sealed class ApiErrorSource
 public class SmplException : Exception
 {
     /// <summary>
-    /// Gets the HTTP status code from the response, if available.
+    /// Gets the status code from the response, if available.
     /// </summary>
     public int? StatusCode { get; }
 
@@ -82,7 +82,7 @@ public class SmplException : Exception
     public string? ResponseBody { get; }
 
     /// <summary>
-    /// Gets the parsed JSON:API error details from the response, if available.
+    /// Gets the parsed error details from the response, if available.
     /// </summary>
     public IReadOnlyList<ApiErrorDetail> Errors { get; }
 
@@ -90,10 +90,10 @@ public class SmplException : Exception
     /// Initializes a new instance of <see cref="SmplException"/>.
     /// </summary>
     /// <param name="message">The error message.</param>
-    /// <param name="statusCode">The HTTP status code, if applicable.</param>
+    /// <param name="statusCode">The status code, if applicable.</param>
     /// <param name="responseBody">The raw response body, if applicable.</param>
     /// <param name="innerException">The inner exception, if any.</param>
-    /// <param name="errors">Parsed JSON:API error details, if available.</param>
+    /// <param name="errors">Parsed error details, if available.</param>
     public SmplException(
         string message,
         int? statusCode = null,
@@ -108,7 +108,7 @@ public class SmplException : Exception
     }
 
     /// <summary>
-    /// Returns a string representation including all JSON:API error details.
+    /// Returns a string representation including all error details.
     /// </summary>
     public override string ToString()
     {
@@ -132,10 +132,10 @@ public class SmplException : Exception
     }
 
     /// <summary>
-    /// Derives a human-readable message from parsed JSON:API errors.
+    /// Derives a human-readable message from parsed errors.
     /// </summary>
     /// <param name="errors">The parsed error details.</param>
-    /// <param name="statusCode">The HTTP status code.</param>
+    /// <param name="statusCode">The status code.</param>
     /// <returns>A derived message string.</returns>
     internal static string DeriveMessage(IReadOnlyList<ApiErrorDetail> errors, int statusCode)
     {

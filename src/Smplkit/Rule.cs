@@ -1,7 +1,7 @@
 namespace Smplkit;
 
 /// <summary>
-/// Fluent builder for JSON Logic rule dicts.
+/// Builder for targeting rules.
 /// </summary>
 /// <example>
 /// <code>
@@ -28,7 +28,7 @@ public sealed class Rule
     }
 
     /// <summary>
-    /// Tag this rule with an environment key (used by <c>AddRule</c>).
+    /// Tags this rule with an environment key.
     /// </summary>
     /// <param name="envKey">The environment key.</param>
     /// <returns>This rule for chaining.</returns>
@@ -39,7 +39,7 @@ public sealed class Rule
     }
 
     /// <summary>
-    /// Add a condition. Multiple calls are AND'd.
+    /// Adds a condition. Multiple conditions are combined with AND.
     /// </summary>
     /// <param name="var">The variable path (e.g., "user.plan").</param>
     /// <param name="op">The operator (==, !=, &gt;, &lt;, &gt;=, &lt;=, in, contains).</param>
@@ -66,7 +66,7 @@ public sealed class Rule
     }
 
     /// <summary>
-    /// Set the value returned when this rule matches.
+    /// Sets the value returned when this rule matches.
     /// </summary>
     /// <param name="value">The value to serve.</param>
     /// <returns>This rule for chaining.</returns>
@@ -77,9 +77,9 @@ public sealed class Rule
     }
 
     /// <summary>
-    /// Finalize and return the rule as a plain dictionary.
+    /// Builds and returns the rule as a dictionary.
     /// </summary>
-    /// <returns>A dictionary representing the built rule.</returns>
+    /// <returns>A dictionary representing the rule.</returns>
     public Dictionary<string, object?> Build()
     {
         object? logic;

@@ -7,8 +7,9 @@ using GenLogging = Smplkit.Internal.Generated.Logging;
 namespace Smplkit.Logging;
 
 /// <summary>
-/// Client for the smplkit Logging service. Provides management CRUD for loggers
-/// and log groups, plus runtime level control via <see cref="StartAsync"/>.
+/// Client for the smplkit Logging service. Provides operations for creating,
+/// reading, updating, and deleting loggers and log groups, as well as dynamic
+/// level control via <see cref="StartAsync"/>.
 /// </summary>
 public sealed class LoggingClient
 {
@@ -40,8 +41,8 @@ public sealed class LoggingClient
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Register a logging adapter explicitly. Must be called before <see cref="StartAsync"/>.
-    /// Disables auto-loading of built-in adapters.
+    /// Registers a logging adapter. Must be called before <see cref="StartAsync"/>.
+    /// When called, only explicitly registered adapters are used.
     /// </summary>
     /// <param name="adapter">The adapter to register.</param>
     /// <exception cref="InvalidOperationException">If called after <see cref="StartAsync"/>.</exception>
@@ -234,8 +235,8 @@ public sealed class LoggingClient
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Start the logging runtime. Discovers existing loggers, fetches server-managed
-    /// levels, and subscribes to real-time updates. Idempotent.
+    /// Starts dynamic log level control. Applies server-defined levels to registered
+    /// adapters and subscribes to real-time level updates. Idempotent.
     /// </summary>
     /// <param name="ct">Cancellation token.</param>
     public async Task StartAsync(CancellationToken ct = default)
@@ -304,7 +305,7 @@ public sealed class LoggingClient
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Stop the logging runtime — unregister WebSocket listeners and adapter hooks.
+    /// Stops dynamic log level control and releases resources.
     /// </summary>
     internal void Close()
     {

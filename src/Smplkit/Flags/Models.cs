@@ -4,8 +4,8 @@ namespace Smplkit.Flags;
 
 /// <summary>
 /// Represents a flag resource from the smplkit Flags service.
-/// Supports both management (CRUD via <see cref="SaveAsync"/>) and
-/// runtime (evaluation via <see cref="Get"/>) operations.
+/// Modify properties and call <see cref="SaveAsync"/> to persist changes,
+/// or call <see cref="Get"/> to evaluate the flag's current value.
 /// </summary>
 public class Flag
 {
@@ -68,7 +68,7 @@ public class Flag
     }
 
     /// <summary>
-    /// Persist this flag to the server. Creates if new, updates if existing.
+    /// Saves this flag to the server.
     /// </summary>
     /// <param name="ct">Cancellation token.</param>
     public async Task SaveAsync(CancellationToken ct = default)
@@ -86,9 +86,8 @@ public class Flag
     }
 
     /// <summary>
-    /// Add a rule to an environment. This is a local mutation — call
-    /// <see cref="SaveAsync"/> to persist. The built rule must include an
-    /// "environment" key (set via <see cref="Rule.Environment"/>).
+    /// Adds a rule to an environment. Call <see cref="SaveAsync"/> to persist.
+    /// The built rule must include an "environment" key (set via <see cref="Rule.Environment"/>).
     /// </summary>
     /// <param name="builtRule">A rule dict from <see cref="Rule.Build"/>.</param>
     /// <returns>This flag for chaining.</returns>
@@ -116,7 +115,7 @@ public class Flag
     }
 
     /// <summary>
-    /// Set whether an environment is enabled for this flag. Local mutation only.
+    /// Sets whether an environment is enabled for this flag. Call <see cref="SaveAsync"/> to persist.
     /// </summary>
     /// <param name="envKey">The environment key.</param>
     /// <param name="enabled">Whether the environment is enabled.</param>
@@ -131,7 +130,7 @@ public class Flag
     }
 
     /// <summary>
-    /// Set the default value for a specific environment. Local mutation only.
+    /// Sets the default value for a specific environment. Call <see cref="SaveAsync"/> to persist.
     /// </summary>
     /// <param name="envKey">The environment key.</param>
     /// <param name="defaultValue">The default value for the environment.</param>
@@ -146,7 +145,7 @@ public class Flag
     }
 
     /// <summary>
-    /// Clear all rules for a specific environment. Local mutation only.
+    /// Clears all rules for a specific environment. Call <see cref="SaveAsync"/> to persist.
     /// </summary>
     /// <param name="envKey">The environment key.</param>
     public void ClearRules(string envKey)
@@ -273,15 +272,15 @@ public sealed class JsonFlag : Flag
 }
 
 /// <summary>
-/// Describes a flag definition change.
+/// Describes a flag change.
 /// </summary>
 /// <param name="Key">The flag key that changed.</param>
-/// <param name="Source">How the change was delivered: "websocket" or "manual".</param>
+/// <param name="Source">The origin of the change.</param>
 public sealed record FlagChangeEvent(string Key, string Source);
 
 /// <summary>
-/// Cache statistics for the flags runtime.
+/// Evaluation statistics for the flags service.
 /// </summary>
-/// <param name="CacheHits">Number of cache hits.</param>
-/// <param name="CacheMisses">Number of cache misses.</param>
+/// <param name="CacheHits">Number of evaluations served from cache.</param>
+/// <param name="CacheMisses">Number of evaluations that required computation.</param>
 public sealed record FlagStats(int CacheHits, int CacheMisses);

@@ -2,7 +2,7 @@ namespace Smplkit.Config;
 
 /// <summary>
 /// Represents a configuration resource from the smplkit Config service.
-/// Mutable active record — modify properties and call <see cref="SaveAsync"/> to persist.
+/// Modify properties and call <see cref="SaveAsync"/> to persist changes.
 /// </summary>
 public sealed class Config
 {
@@ -60,7 +60,7 @@ public sealed class Config
     }
 
     /// <summary>
-    /// Persist this config to the server. Creates if new, updates if existing.
+    /// Saves this config to the server.
     /// </summary>
     /// <param name="ct">Cancellation token.</param>
     public async Task SaveAsync(CancellationToken ct = default)
@@ -83,13 +83,13 @@ public sealed class Config
 }
 
 /// <summary>
-/// Describes a single config value change detected during refresh or WebSocket update.
+/// Describes a single config value change.
 /// </summary>
 /// <param name="ConfigKey">The config key (e.g. <c>"user_service"</c>).</param>
 /// <param name="ItemKey">The item key within the config (e.g. <c>"timeout"</c>).</param>
 /// <param name="OldValue">The previous value.</param>
 /// <param name="NewValue">The updated value.</param>
-/// <param name="Source">How the change was delivered: <c>"websocket"</c> or <c>"manual"</c>.</param>
+/// <param name="Source">The origin of the change.</param>
 public sealed record ConfigChangeEvent(
     string ConfigKey,
     string ItemKey,

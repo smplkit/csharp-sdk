@@ -6,9 +6,6 @@ namespace Smplkit.Logging.Adapters;
 /// <summary>
 /// Logging adapter for Microsoft.Extensions.Logging.
 ///
-/// Enables discovery and dynamic level control of Microsoft.Extensions.Logging
-/// loggers from the smplkit runtime.
-///
 /// Usage:
 /// <code>
 /// var adapter = new MicrosoftLoggingAdapter(innerFactory);
@@ -33,8 +30,7 @@ public sealed class MicrosoftLoggingAdapter : ILoggingAdapter, IDisposable
     }
 
     /// <summary>
-    /// Parameterless constructor for auto-loading. The adapter will not track loggers
-    /// until <see cref="Factory"/> is used by the application.
+    /// Parameterless constructor. Creates a default logger factory internally.
     /// </summary>
     public MicrosoftLoggingAdapter()
         : this(new LoggerFactory())
@@ -45,8 +41,7 @@ public sealed class MicrosoftLoggingAdapter : ILoggingAdapter, IDisposable
     public string Name => "microsoft-logging";
 
     /// <summary>
-    /// The wrapping <see cref="ILoggerFactory"/> that tracks logger creation.
-    /// Use this instead of the inner factory in your application.
+    /// Gets the <see cref="ILoggerFactory"/> to use in your application.
     /// </summary>
     public ILoggerFactory Factory { get; }
 
@@ -170,7 +165,7 @@ public sealed class MicrosoftLoggingAdapter : ILoggingAdapter, IDisposable
     }
 
     /// <summary>
-    /// An <see cref="ILogger"/> wrapper that gates log calls based on the tracked minimum level.
+    /// An <see cref="ILogger"/> wrapper that applies dynamic level filtering.
     /// </summary>
     private sealed class LevelGatingLogger : ILogger
     {
@@ -195,8 +190,7 @@ public sealed class MicrosoftLoggingAdapter : ILoggingAdapter, IDisposable
     }
 
     /// <summary>
-    /// An <see cref="ILoggerFactory"/> that delegates to the real factory but tracks every
-    /// <see cref="CreateLogger"/> call in the adapter's dictionary.
+    /// An <see cref="ILoggerFactory"/> that enables dynamic level control for loggers.
     /// </summary>
     private sealed class TrackingLoggerFactory : ILoggerFactory
     {

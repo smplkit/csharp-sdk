@@ -1,8 +1,8 @@
 namespace Smplkit;
 
 /// <summary>
-/// A typed evaluation context entity.
-/// Represents a single entity (user, account, device, etc.) in the evaluation context.
+/// Represents a single entity (user, account, device, etc.) used for targeting
+/// in flag evaluation and config resolution.
 /// </summary>
 /// <example>
 /// <code>
@@ -21,7 +21,7 @@ public sealed class Context
     /// <summary>Gets the optional display name.</summary>
     public string? Name { get; }
 
-    /// <summary>Gets the context attributes that JSON Logic rules target.</summary>
+    /// <summary>Gets the context attributes used for targeting rules.</summary>
     public Dictionary<string, object?> Attributes { get; }
 
     /// <summary>
