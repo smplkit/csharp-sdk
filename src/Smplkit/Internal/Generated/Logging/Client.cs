@@ -44,7 +44,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<LoggerListResponse> List_loggersAsync(string? filterkey = null, bool? filtermanaged = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<LoggerListResponse> List_loggersAsync(bool? filtermanaged = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -52,7 +52,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<LoggerResponse> Get_loggerAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<LoggerResponse> Get_loggerAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -60,7 +60,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<LoggerResponse> Update_loggerAsync(System.Guid id, Response_Logger_ body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<LoggerResponse> Update_loggerAsync(string id, Response_Logger_ body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -68,7 +68,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task Delete_loggerAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task Delete_loggerAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -100,7 +100,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<LogGroupResponse> Get_log_groupAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<LogGroupResponse> Get_log_groupAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -108,7 +108,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<LogGroupResponse> Update_log_groupAsync(System.Guid id, Response_LogGroup_ body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<LogGroupResponse> Update_log_groupAsync(string id, Response_LogGroup_ body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -116,7 +116,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task Delete_log_groupAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task Delete_log_groupAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
     }
 
@@ -305,7 +305,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<LoggerListResponse> List_loggersAsync(string? filterkey = null, bool? filtermanaged = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<LoggerListResponse> List_loggersAsync(bool? filtermanaged = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -321,10 +321,6 @@ namespace Smplkit.Internal.Generated.Logging
                     // Operation Path: "api/v1/loggers"
                     urlBuilder_.Append("api/v1/loggers");
                     urlBuilder_.Append('?');
-                    if (filterkey != null)
-                    {
-                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[key]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterkey, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
-                    }
                     if (filtermanaged != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[managed]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtermanaged, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
@@ -439,7 +435,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<LoggerResponse> Get_loggerAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<LoggerResponse> Get_loggerAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -567,7 +563,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<LoggerResponse> Update_loggerAsync(System.Guid id, Response_Logger_ body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<LoggerResponse> Update_loggerAsync(string id, Response_Logger_ body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -702,7 +698,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task Delete_loggerAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task Delete_loggerAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -1200,7 +1196,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<LogGroupResponse> Get_log_groupAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<LogGroupResponse> Get_log_groupAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -1328,7 +1324,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<LogGroupResponse> Update_log_groupAsync(System.Guid id, Response_LogGroup_ body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<LogGroupResponse> Update_log_groupAsync(string id, Response_LogGroup_ body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -1463,7 +1459,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task Delete_log_groupAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task Delete_log_groupAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -1781,8 +1777,8 @@ namespace Smplkit.Internal.Generated.Logging
     public partial class LogGroup
     {
 
-        [System.Text.Json.Serialization.JsonPropertyName("key")]
-        public string? Key { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string? Id { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = default!;
@@ -1877,8 +1873,8 @@ namespace Smplkit.Internal.Generated.Logging
     public partial class Logger
     {
 
-        [System.Text.Json.Serialization.JsonPropertyName("key")]
-        public string? Key { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string? Id { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = default!;
@@ -1922,8 +1918,8 @@ namespace Smplkit.Internal.Generated.Logging
         /// <summary>
         /// Normalized logger name
         /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("key")]
-        public string Key { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string Id { get; set; } = default!;
 
         /// <summary>
         /// Observed log level in smplkit canonical format
