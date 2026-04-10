@@ -6,8 +6,8 @@ namespace Smplkit.Logging.Adapters;
 /// <summary>
 /// Logging adapter for Microsoft.Extensions.Logging.
 ///
-/// Wraps an <see cref="ILoggerFactory"/> to track all loggers created through it,
-/// enabling discovery and dynamic level control from the smplkit runtime.
+/// Enables discovery and dynamic level control of Microsoft.Extensions.Logging
+/// loggers from the smplkit runtime.
 ///
 /// Usage:
 /// <code>

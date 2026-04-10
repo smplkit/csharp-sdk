@@ -230,7 +230,7 @@ public sealed class FlagsClient
 
     /// <summary>
     /// Declare a boolean flag handle with a code-level default.
-    /// No HTTP call. No lazy init trigger.
+    /// Evaluation is deferred until <see cref="Flag.Get"/> is called.
     /// </summary>
     /// <param name="key">The flag key.</param>
     /// <param name="defaultValue">The code-level default value.</param>
@@ -250,7 +250,7 @@ public sealed class FlagsClient
 
     /// <summary>
     /// Declare a string flag handle with a code-level default.
-    /// No HTTP call. No lazy init trigger.
+    /// Evaluation is deferred until <see cref="Flag.Get"/> is called.
     /// </summary>
     /// <param name="key">The flag key.</param>
     /// <param name="defaultValue">The code-level default value.</param>
@@ -270,7 +270,7 @@ public sealed class FlagsClient
 
     /// <summary>
     /// Declare a number flag handle with a code-level default.
-    /// No HTTP call. No lazy init trigger.
+    /// Evaluation is deferred until <see cref="Flag.Get"/> is called.
     /// </summary>
     /// <param name="key">The flag key.</param>
     /// <param name="defaultValue">The code-level default value.</param>
@@ -290,7 +290,7 @@ public sealed class FlagsClient
 
     /// <summary>
     /// Declare a JSON flag handle with a code-level default.
-    /// No HTTP call. No lazy init trigger.
+    /// Evaluation is deferred until <see cref="Flag.Get"/> is called.
     /// </summary>
     /// <param name="key">The flag key.</param>
     /// <param name="defaultValue">The code-level default value.</param>
@@ -379,8 +379,8 @@ public sealed class FlagsClient
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Re-fetch all flag definitions and clear cache. Fires change listeners
-    /// for all flags with source "manual".
+    /// Re-fetch all flag definitions and clear evaluation results. Fires change
+    /// listeners for all flags.
     /// </summary>
     /// <param name="ct">Cancellation token.</param>
     public async Task RefreshAsync(CancellationToken ct = default)
@@ -432,7 +432,7 @@ public sealed class FlagsClient
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Explicitly register a context for background batch registration.
+    /// Register a context for server-side targeting and analytics.
     /// </summary>
     /// <param name="context">A single context to register.</param>
     public void Register(Context context)
@@ -441,7 +441,7 @@ public sealed class FlagsClient
     }
 
     /// <summary>
-    /// Explicitly register contexts for background batch registration.
+    /// Register contexts for server-side targeting and analytics.
     /// </summary>
     /// <param name="contexts">Contexts to register.</param>
     public void Register(IEnumerable<Context> contexts)
@@ -450,7 +450,7 @@ public sealed class FlagsClient
     }
 
     /// <summary>
-    /// Flush pending context registrations to the server.
+    /// Send any buffered context registrations to the server.
     /// </summary>
     /// <param name="ct">Cancellation token.</param>
     public async Task FlushContextsAsync(CancellationToken ct = default)

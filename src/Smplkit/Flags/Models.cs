@@ -68,8 +68,7 @@ public class Flag
     }
 
     /// <summary>
-    /// Persist this flag to the server. Creates (POST) if <see cref="Id"/> is null,
-    /// updates (PUT) if it already exists.
+    /// Persist this flag to the server. Creates if new, updates if existing.
     /// </summary>
     /// <param name="ct">Cancellation token.</param>
     public async Task SaveAsync(CancellationToken ct = default)
@@ -157,8 +156,8 @@ public class Flag
     }
 
     /// <summary>
-    /// Evaluate this flag using the runtime engine. Triggers lazy initialization
-    /// on first call.
+    /// Evaluate this flag and return its current value. Connects automatically
+    /// if not already connected.
     /// </summary>
     /// <param name="context">Optional explicit context override.</param>
     /// <returns>The evaluated value.</returns>

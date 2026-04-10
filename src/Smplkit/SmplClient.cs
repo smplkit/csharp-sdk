@@ -21,7 +21,7 @@ namespace Smplkit;
 ///     Environment = "production",
 /// });
 /// var flag = client.Flags.BooleanFlag("my-flag", false);
-/// bool value = flag.Get(); // triggers lazy init on first call
+/// bool value = flag.Get(); // connects automatically if needed
 /// </code>
 /// </para>
 /// </remarks>
@@ -71,7 +71,6 @@ public sealed class SmplClient : IDisposable
 
     /// <summary>
     /// Initializes a new instance of <see cref="SmplClient"/> with the specified options.
-    /// Creates and owns a new <see cref="HttpClient"/>.
     /// </summary>
     /// <param name="options">Client configuration options.</param>
     public SmplClient(SmplClientOptions options)
@@ -151,7 +150,7 @@ public sealed class SmplClient : IDisposable
     }
 
     /// <summary>
-    /// Disposes the underlying HTTP client if it is owned by this instance.
+    /// Releases resources used by this client.
     /// </summary>
     public void Dispose()
     {

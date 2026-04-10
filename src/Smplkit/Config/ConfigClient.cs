@@ -146,7 +146,7 @@ public sealed class ConfigClient
 
     /// <summary>
     /// Returns fully resolved config values for the given key against the current environment.
-    /// Triggers lazy initialization on first call.
+    /// Connects automatically if not already connected.
     /// </summary>
     /// <param name="key">The config key.</param>
     /// <returns>A dictionary of resolved key-value pairs.</returns>
@@ -163,7 +163,7 @@ public sealed class ConfigClient
 
     /// <summary>
     /// Resolve config values for the given key and deserialize to a typed object.
-    /// Dot-notation keys are expanded into nested dictionaries before deserialization.
+    /// Dot-notation keys (e.g. <c>"db.host"</c>) are supported and map to nested properties.
     /// </summary>
     /// <typeparam name="T">The target type.</typeparam>
     /// <param name="key">The config key.</param>
@@ -213,7 +213,7 @@ public sealed class ConfigClient
 
     /// <summary>
     /// Re-fetches all configs, re-resolves values for the current environment,
-    /// and fires change listeners for any values that differ from the previous cache.
+    /// and fires change listeners for any values that differ.
     /// </summary>
     /// <param name="ct">Cancellation token.</param>
     public async Task RefreshAsync(CancellationToken ct = default)

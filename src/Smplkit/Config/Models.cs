@@ -60,8 +60,7 @@ public sealed class Config
     }
 
     /// <summary>
-    /// Persist this config to the server. Creates (POST) if <see cref="Id"/> is null,
-    /// updates (PUT) if it already exists.
+    /// Persist this config to the server. Creates if new, updates if existing.
     /// </summary>
     /// <param name="ct">Cancellation token.</param>
     public async Task SaveAsync(CancellationToken ct = default)

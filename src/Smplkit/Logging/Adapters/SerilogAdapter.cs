@@ -6,9 +6,8 @@ namespace Smplkit.Logging.Adapters;
 /// <summary>
 /// Logging adapter for Serilog.
 ///
-/// Maintains a dictionary of namespace → <see cref="LoggingLevelSwitch"/> for dynamic
-/// per-namespace level control. Use <see cref="GetOrCreateSwitch"/> to obtain level
-/// switches for Serilog's <c>.MinimumLevel.Override()</c> configuration.
+/// Provides dynamic per-namespace level control. Use <see cref="GetOrCreateSwitch"/>
+/// to obtain level switches for Serilog's <c>.MinimumLevel.Override()</c> configuration.
 ///
 /// Usage:
 /// <code>

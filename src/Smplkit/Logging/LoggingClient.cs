@@ -234,8 +234,8 @@ public sealed class LoggingClient
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Explicitly start the logging runtime. Idempotent.
-    /// Pipeline: auto-load adapters → discover → install hooks → fetch loggers/groups → apply levels → WebSocket.
+    /// Start the logging runtime. Discovers existing loggers, fetches server-managed
+    /// levels, and subscribes to real-time updates. Idempotent.
     /// </summary>
     /// <param name="ct">Cancellation token.</param>
     public async Task StartAsync(CancellationToken ct = default)
