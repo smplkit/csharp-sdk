@@ -146,7 +146,6 @@ public sealed class ConfigClient
 
     /// <summary>
     /// Returns fully resolved config values for the given key against the current environment.
-    /// Connects automatically if not already connected.
     /// </summary>
     /// <param name="key">The config key.</param>
     /// <returns>A dictionary of resolved key-value pairs.</returns>

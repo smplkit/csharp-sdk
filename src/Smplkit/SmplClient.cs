@@ -21,7 +21,7 @@ namespace Smplkit;
 ///     Environment = "production",
 /// });
 /// var flag = client.Flags.BooleanFlag("my-flag", false);
-/// bool value = flag.Get(); // connects automatically if needed
+/// bool value = flag.Get();
 /// </code>
 /// </para>
 /// </remarks>

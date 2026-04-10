@@ -156,8 +156,7 @@ public class Flag
     }
 
     /// <summary>
-    /// Evaluate this flag and return its current value. Connects automatically
-    /// if not already connected.
+    /// Evaluate this flag and return its current value.
     /// </summary>
     /// <param name="context">Optional explicit context override.</param>
     /// <returns>The evaluated value.</returns>
