@@ -1116,4 +1116,48 @@ public class LoggingClientTests
         Assert.Single(result!.Sources);
         Assert.Equal("file", result.Sources[0]["type"]);
     }
+
+    // --- Adapter discovery error logging ---
+
+    [Fact]
+    public async Task StartAsync_AdapterDiscoverFailure_EmitsTraceWarning()
+    {
+        var traceMessages = new List<string>();
+        var listener = new TestTraceListener(traceMessages);
+        System.Diagnostics.Trace.Listeners.Add(listener);
+
+        try
+        {
+            var (client, _) = CreateClient(req =>
+                Task.FromResult(JsonResponse("""{"data":[]}""")));
+
+            client.Logging.RegisterAdapter(new ThrowingAdapter());
+
+            try { await client.Logging.StartAsync(); } catch { }
+
+            Assert.Contains(traceMessages, m => m.Contains("[smplkit]") && m.Contains("boom"));
+        }
+        finally
+        {
+            System.Diagnostics.Trace.Listeners.Remove(listener);
+        }
+    }
+
+    private sealed class ThrowingAdapter : Smplkit.Logging.Adapters.ILoggingAdapter
+    {
+        public string Name => "throwing-adapter";
+        public IReadOnlyList<Smplkit.Logging.Adapters.DiscoveredLogger> Discover()
+            => throw new InvalidOperationException("boom");
+        public void ApplyLevel(string loggerName, LogLevel level) { }
+        public void InstallHook(Action<string, LogLevel> onNewLogger) { }
+        public void UninstallHook() { }
+    }
+
+    private sealed class TestTraceListener : System.Diagnostics.TraceListener
+    {
+        private readonly List<string> _messages;
+        public TestTraceListener(List<string> messages) => _messages = messages;
+        public override void Write(string? message) { if (message != null) _messages.Add(message); }
+        public override void WriteLine(string? message) { if (message != null) _messages.Add(message); }
+    }
 }

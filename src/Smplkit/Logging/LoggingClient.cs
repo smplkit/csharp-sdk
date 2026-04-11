@@ -338,7 +338,11 @@ public sealed class LoggingClient
                 var discovered = adapter.Discover();
                 totalDiscovered += discovered.Count;
             }
-            catch { /* Adapter discovery failure is non-fatal */ }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.TraceWarning(
+                    "[smplkit] Adapter {0} discovery failed: {1}", adapter.Name, ex.Message);
+            }
         }
         if (totalDiscovered > 0)
             _metrics?.Record("logging.loggers_discovered", value: totalDiscovered, unit: "loggers");
@@ -349,7 +353,11 @@ public sealed class LoggingClient
         foreach (var adapter in _adapters)
         {
             try { adapter.InstallHook(HandleAdapterNewLogger); }
-            catch { /* Hook installation failure is non-fatal */ }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.TraceWarning(
+                    "[smplkit] Adapter {0} hook installation failed: {1}", adapter.Name, ex.Message);
+            }
         }
     }
 
