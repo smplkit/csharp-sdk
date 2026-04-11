@@ -11,11 +11,8 @@ public class Flag
 {
     private readonly FlagsClient _client;
 
-    /// <summary>Gets the flag UUID. Null for unsaved flags.</summary>
+    /// <summary>Gets the flag identifier (slug). Null for unsaved flags.</summary>
     public string? Id { get; internal set; }
-
-    /// <summary>Gets or sets the flag key.</summary>
-    public string Key { get; internal set; }
 
     /// <summary>Gets or sets the display name.</summary>
     public string Name { get; set; }
@@ -44,7 +41,6 @@ public class Flag
     internal Flag(
         FlagsClient client,
         string? id,
-        string key,
         string name,
         string type,
         object? @default,
@@ -56,7 +52,6 @@ public class Flag
     {
         _client = client;
         Id = id;
-        Key = key;
         Name = name;
         Type = type;
         Default = @default;
@@ -75,7 +70,6 @@ public class Flag
     {
         var saved = await _client.SaveFlagInternalAsync(this, ct).ConfigureAwait(false);
         Id = saved.Id;
-        Key = saved.Key;
         Name = saved.Name;
         Default = saved.Default;
         Values = saved.Values;
@@ -161,23 +155,23 @@ public class Flag
     /// <returns>The evaluated value.</returns>
     public object? Get(IReadOnlyList<Context>? context = null)
     {
-        return _client.EvaluateHandle(Key, Default, context);
+        return _client.EvaluateHandle(Id!, Default, context);
     }
 
     /// <inheritdoc />
     public override string ToString() =>
-        $"Flag(Key={Key}, Type={Type}, Default={Default})";
+        $"Flag(Id={Id}, Type={Type}, Default={Default})";
 }
 
 /// <summary>Typed flag for boolean values.</summary>
 public sealed class BooleanFlag : Flag
 {
     internal BooleanFlag(
-        FlagsClient client, string? id, string key, string name,
+        FlagsClient client, string? id, string name,
         object? @default, List<Dictionary<string, object?>> values,
         string? description, Dictionary<string, Dictionary<string, object?>> environments,
         DateTime? createdAt, DateTime? updatedAt)
-        : base(client, id, key, name, "BOOLEAN", @default, values, description, environments, createdAt, updatedAt)
+        : base(client, id, name, "BOOLEAN", @default, values, description, environments, createdAt, updatedAt)
     {
     }
 
@@ -198,11 +192,11 @@ public sealed class BooleanFlag : Flag
 public sealed class StringFlag : Flag
 {
     internal StringFlag(
-        FlagsClient client, string? id, string key, string name,
+        FlagsClient client, string? id, string name,
         object? @default, List<Dictionary<string, object?>>? values,
         string? description, Dictionary<string, Dictionary<string, object?>> environments,
         DateTime? createdAt, DateTime? updatedAt)
-        : base(client, id, key, name, "STRING", @default, values, description, environments, createdAt, updatedAt)
+        : base(client, id, name, "STRING", @default, values, description, environments, createdAt, updatedAt)
     {
     }
 
@@ -223,11 +217,11 @@ public sealed class StringFlag : Flag
 public sealed class NumberFlag : Flag
 {
     internal NumberFlag(
-        FlagsClient client, string? id, string key, string name,
+        FlagsClient client, string? id, string name,
         object? @default, List<Dictionary<string, object?>>? values,
         string? description, Dictionary<string, Dictionary<string, object?>> environments,
         DateTime? createdAt, DateTime? updatedAt)
-        : base(client, id, key, name, "NUMERIC", @default, values, description, environments, createdAt, updatedAt)
+        : base(client, id, name, "NUMERIC", @default, values, description, environments, createdAt, updatedAt)
     {
     }
 
@@ -252,11 +246,11 @@ public sealed class NumberFlag : Flag
 public sealed class JsonFlag : Flag
 {
     internal JsonFlag(
-        FlagsClient client, string? id, string key, string name,
+        FlagsClient client, string? id, string name,
         object? @default, List<Dictionary<string, object?>>? values,
         string? description, Dictionary<string, Dictionary<string, object?>> environments,
         DateTime? createdAt, DateTime? updatedAt)
-        : base(client, id, key, name, "JSON", @default, values, description, environments, createdAt, updatedAt)
+        : base(client, id, name, "JSON", @default, values, description, environments, createdAt, updatedAt)
     {
     }
 
@@ -274,9 +268,9 @@ public sealed class JsonFlag : Flag
 /// <summary>
 /// Describes a flag change.
 /// </summary>
-/// <param name="Key">The flag key that changed.</param>
+/// <param name="Id">The flag id that changed.</param>
 /// <param name="Source">The origin of the change.</param>
-public sealed record FlagChangeEvent(string Key, string Source);
+public sealed record FlagChangeEvent(string Id, string Source);
 
 /// <summary>
 /// Evaluation statistics for the flags service.

@@ -8,11 +8,8 @@ public sealed class Config
 {
     private readonly ConfigClient _client;
 
-    /// <summary>Gets the config UUID. Null for unsaved configs.</summary>
+    /// <summary>Gets the config identifier (slug). Null for unsaved configs.</summary>
     public string? Id { get; internal set; }
-
-    /// <summary>Gets or sets the human-readable config key.</summary>
-    public string Key { get; internal set; }
 
     /// <summary>Gets or sets the display name.</summary>
     public string Name { get; set; }
@@ -20,7 +17,7 @@ public sealed class Config
     /// <summary>Gets or sets the optional description.</summary>
     public string? Description { get; set; }
 
-    /// <summary>Gets or sets the parent config UUID.</summary>
+    /// <summary>Gets or sets the parent config identifier (slug).</summary>
     public string? Parent { get; set; }
 
     /// <summary>Gets or sets the base items dictionary (raw key-value pairs).</summary>
@@ -38,7 +35,6 @@ public sealed class Config
     internal Config(
         ConfigClient client,
         string? id,
-        string key,
         string name,
         string? description,
         string? parent,
@@ -49,7 +45,6 @@ public sealed class Config
     {
         _client = client;
         Id = id;
-        Key = key;
         Name = name;
         Description = description;
         Parent = parent;
@@ -67,7 +62,6 @@ public sealed class Config
     {
         var saved = await _client.SaveConfigInternalAsync(this, ct).ConfigureAwait(false);
         Id = saved.Id;
-        Key = saved.Key;
         Name = saved.Name;
         Description = saved.Description;
         Parent = saved.Parent;
@@ -79,19 +73,19 @@ public sealed class Config
 
     /// <inheritdoc />
     public override string ToString() =>
-        $"Config(Key={Key}, Name={Name})";
+        $"Config(Id={Id}, Name={Name})";
 }
 
 /// <summary>
 /// Describes a single config value change.
 /// </summary>
-/// <param name="ConfigKey">The config key (e.g. <c>"user_service"</c>).</param>
+/// <param name="ConfigId">The config id (e.g. <c>"user_service"</c>).</param>
 /// <param name="ItemKey">The item key within the config (e.g. <c>"timeout"</c>).</param>
 /// <param name="OldValue">The previous value.</param>
 /// <param name="NewValue">The updated value.</param>
 /// <param name="Source">The origin of the change.</param>
 public sealed record ConfigChangeEvent(
-    string ConfigKey,
+    string ConfigId,
     string ItemKey,
     object? OldValue,
     object? NewValue,

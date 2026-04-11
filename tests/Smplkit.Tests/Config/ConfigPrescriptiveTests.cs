@@ -22,8 +22,7 @@ public class ConfigPrescriptiveTests
     private static string FlagListJson() => """{"data":[]}""";
 
     private static string ConfigListJson(
-        string id = "cfg-1",
-        string key = "app",
+        string id = "app",
         string itemsJson = """{"name": {"value": "Acme", "type": "STRING"}, "count": {"value": 42, "type": "NUMBER"}, "enabled": {"value": true, "type": "BOOLEAN"}}""",
         string envsJson = "{}") =>
         $$"""
@@ -33,8 +32,8 @@ public class ConfigPrescriptiveTests
                     "id": "{{id}}",
                     "type": "config",
                     "attributes": {
-                        "key": "{{key}}",
-                        "name": "{{key}}",
+                        "id": "{{id}}",
+                        "name": "{{id}}",
                         "description": null,
                         "parent": null,
                         "items": {{itemsJson}},
@@ -78,7 +77,7 @@ public class ConfigPrescriptiveTests
     }
 
     [Fact]
-    public void Resolve_MissingKey_ThrowsSmplNotFoundException()
+    public void Resolve_MissingId_ThrowsSmplNotFoundException()
     {
         var client = CreateClientWithHandler(req =>
         {
@@ -205,7 +204,7 @@ public class ConfigPrescriptiveTests
         await client.Config.RefreshAsync();
 
         Assert.Single(events);
-        Assert.Equal("app", events[0].ConfigKey);
+        Assert.Equal("app", events[0].ConfigId);
         Assert.Equal("retries", events[0].ItemKey);
         Assert.Equal("manual", events[0].Source);
     }
@@ -240,7 +239,7 @@ public class ConfigPrescriptiveTests
     }
 
     [Fact]
-    public async Task OnChange_FilteredByConfigKeyOnly()
+    public async Task OnChange_FilteredByConfigIdOnly()
     {
         var refreshed = false;
         var client = CreateClientWithHandler(req =>
@@ -344,17 +343,17 @@ public class ConfigPrescriptiveTests
             {
                 "data": [
                     {
-                        "id": "cfg-1", "type": "config",
+                        "id": "app", "type": "config",
                         "attributes": {
-                            "key": "app", "name": "app", "description": null, "parent": null,
+                            "id": "app", "name": "app", "description": null, "parent": null,
                             "items": {"a": {"value": 1, "type": "NUMBER"}},
                             "environments": {}, "created_at": null, "updated_at": null
                         }
                     },
                     {
-                        "id": "cfg-2", "type": "config",
+                        "id": "new_config", "type": "config",
                         "attributes": {
-                            "key": "new_config", "name": "new_config", "description": null, "parent": null,
+                            "id": "new_config", "name": "new_config", "description": null, "parent": null,
                             "items": {"b": {"value": 2, "type": "NUMBER"}},
                             "environments": {}, "created_at": null, "updated_at": null
                         }
@@ -374,7 +373,7 @@ public class ConfigPrescriptiveTests
         await client.Config.RefreshAsync();
 
         Assert.Single(events);
-        Assert.Equal("new_config", events[0].ConfigKey);
+        Assert.Equal("new_config", events[0].ConfigId);
         Assert.Equal("b", events[0].ItemKey);
         Assert.Null(events[0].OldValue);
     }
@@ -420,17 +419,17 @@ public class ConfigPrescriptiveTests
         {
             "data": [
                 {
-                    "id": "cfg-parent", "type": "config",
+                    "id": "common", "type": "config",
                     "attributes": {
-                        "key": "common", "name": "common", "description": null, "parent": null,
+                        "id": "common", "name": "common", "description": null, "parent": null,
                         "items": {"retries": {"value": 3, "type": "NUMBER"}, "timeout": {"value": 1000, "type": "NUMBER"}},
                         "environments": {}, "created_at": null, "updated_at": null
                     }
                 },
                 {
-                    "id": "cfg-child", "type": "config",
+                    "id": "service", "type": "config",
                     "attributes": {
-                        "key": "service", "name": "service", "description": null, "parent": "cfg-parent",
+                        "id": "service", "name": "service", "description": null, "parent": "common",
                         "items": {"retries": {"value": 5, "type": "NUMBER"}},
                         "environments": {}, "created_at": null, "updated_at": null
                     }
@@ -442,17 +441,17 @@ public class ConfigPrescriptiveTests
         {
             "data": [
                 {
-                    "id": "cfg-parent", "type": "config",
+                    "id": "common", "type": "config",
                     "attributes": {
-                        "key": "common", "name": "common", "description": null, "parent": null,
+                        "id": "common", "name": "common", "description": null, "parent": null,
                         "items": {"retries": {"value": 3, "type": "NUMBER"}, "timeout": {"value": 2000, "type": "NUMBER"}},
                         "environments": {}, "created_at": null, "updated_at": null
                     }
                 },
                 {
-                    "id": "cfg-child", "type": "config",
+                    "id": "service", "type": "config",
                     "attributes": {
-                        "key": "service", "name": "service", "description": null, "parent": "cfg-parent",
+                        "id": "service", "name": "service", "description": null, "parent": "common",
                         "items": {"retries": {"value": 5, "type": "NUMBER"}},
                         "environments": {}, "created_at": null, "updated_at": null
                     }

@@ -13,8 +13,6 @@ namespace Smplkit.Tests.Flags;
 /// </summary>
 public class FlagsClientCoverageTests
 {
-    private const string FlagId = "aaa11111-bbbb-cccc-dddd-eeeeeeee0001";
-
     private static (SmplClient client, MockHttpMessageHandler handler) CreateClient(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> handlerFn)
     {
@@ -34,7 +32,7 @@ public class FlagsClientCoverageTests
     }
 
     private static string FlagListWithEnvJson(
-        string key = "my-flag",
+        string id = "my-flag",
         string envKey = "production",
         bool enabled = true,
         string defaultVal = "false",
@@ -44,10 +42,10 @@ public class FlagsClientCoverageTests
         {
             "data": [
                 {
-                    "id": "{{FlagId}}",
+                    "id": "{{id}}",
                     "type": "flag",
                     "attributes": {
-                        "key": "{{key}}",
+                        "id": "{{id}}",
                         "name": "My Flag",
                         "type": "BOOLEAN",
                         "default": {{defaultVal}},
@@ -68,42 +66,8 @@ public class FlagsClientCoverageTests
         }
         """;
 
-    private static string SingleFlagJson(
-        string id = FlagId,
-        string key = "my-flag",
-        string name = "My Flag") =>
-        $$"""
-        {
-            "data": [
-                {
-                    "id": "{{id}}",
-                    "type": "flag",
-                    "attributes": {
-                        "key": "{{key}}",
-                        "name": "{{name}}",
-                        "type": "BOOLEAN",
-                        "default": false,
-                        "values": [{"name": "True", "value": true}, {"name": "False", "value": false}],
-                        "description": "Test flag",
-                        "environments": {
-                            "production": {
-                                "enabled": true,
-                                "default": null,
-                                "rules": []
-                            }
-                        },
-                        "created_at": "2024-01-15T10:30:00Z",
-                        "updated_at": "2024-01-15T10:30:00Z"
-                    }
-                }
-            ]
-        }
-        """;
-
-    /// <summary>Single-item response for SaveAsync (POST/PUT returns single resource).</summary>
-    private static string SingleFlagResponseJson(
-        string id = FlagId,
-        string key = "my-flag",
+    private static string SingleFlagGetJson(
+        string id = "my-flag",
         string name = "My Flag") =>
         $$"""
         {
@@ -111,7 +75,37 @@ public class FlagsClientCoverageTests
                 "id": "{{id}}",
                 "type": "flag",
                 "attributes": {
-                    "key": "{{key}}",
+                    "id": "{{id}}",
+                    "name": "{{name}}",
+                    "type": "BOOLEAN",
+                    "default": false,
+                    "values": [{"name": "True", "value": true}, {"name": "False", "value": false}],
+                    "description": "Test flag",
+                    "environments": {
+                        "production": {
+                            "enabled": true,
+                            "default": null,
+                            "rules": []
+                        }
+                    },
+                    "created_at": "2024-01-15T10:30:00Z",
+                    "updated_at": "2024-01-15T10:30:00Z"
+                }
+            }
+        }
+        """;
+
+    /// <summary>Single-item response for SaveAsync (POST/PUT returns single resource).</summary>
+    private static string SingleFlagResponseJson(
+        string id = "my-flag",
+        string name = "My Flag") =>
+        $$"""
+        {
+            "data": {
+                "id": "{{id}}",
+                "type": "flag",
+                "attributes": {
+                    "id": "{{id}}",
                     "name": "{{name}}",
                     "type": "BOOLEAN",
                     "default": false,
@@ -138,7 +132,7 @@ public class FlagsClientCoverageTests
     [Fact]
     public void SetContextProvider_IsUsedDuringEvaluation()
     {
-        var flagJson = FlagListWithEnvJson(key: "ctx-flag", enabled: true, defaultVal: "false");
+        var flagJson = FlagListWithEnvJson(id: "ctx-flag", enabled: true, defaultVal: "false");
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.BooleanFlag("ctx-flag", true);
@@ -274,7 +268,7 @@ public class FlagsClientCoverageTests
     [Fact]
     public void EvaluateHandle_WithContextProvider_FlushesWhenBufferFull()
     {
-        var flagJson = FlagListWithEnvJson(key: "flush-flag", defaultVal: "false");
+        var flagJson = FlagListWithEnvJson(id: "flush-flag", defaultVal: "false");
         int requestCount = 0;
         var (client, _) = CreateClient(_ =>
         {
@@ -304,7 +298,7 @@ public class FlagsClientCoverageTests
     [Fact]
     public void EvaluateHandle_NoContextProvider_NoContext_UsesEmptyDict()
     {
-        var flagJson = FlagListWithEnvJson(key: "empty-ctx", defaultVal: "true", enabled: true);
+        var flagJson = FlagListWithEnvJson(id: "empty-ctx", defaultVal: "true", enabled: true);
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.BooleanFlag("empty-ctx", false);
@@ -321,7 +315,7 @@ public class FlagsClientCoverageTests
     [Fact]
     public async Task RefreshAsync_RefetchesFlagsAndFiresListeners()
     {
-        var flagJson = FlagListWithEnvJson(key: "refresh-flag", defaultVal: "true");
+        var flagJson = FlagListWithEnvJson(id: "refresh-flag", defaultVal: "true");
         var events = new List<FlagChangeEvent>();
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
@@ -334,7 +328,7 @@ public class FlagsClientCoverageTests
         await client.Flags.RefreshAsync();
 
         // Should have fired change event for "refresh-flag" with source "manual"
-        Assert.Contains(events, e => e.Key == "refresh-flag" && e.Source == "manual");
+        Assert.Contains(events, e => e.Id == "refresh-flag" && e.Source == "manual");
     }
 
     // ---------------------------------------------------------------
@@ -348,7 +342,7 @@ public class FlagsClientCoverageTests
         {
             if (req.Method == HttpMethod.Put)
                 return Task.FromResult(JsonResponse(SingleFlagResponseJson()));
-            return Task.FromResult(JsonResponse(SingleFlagJson()));
+            return Task.FromResult(JsonResponse(SingleFlagGetJson()));
         });
 
         var flag = await client.Flags.GetAsync("my-flag");
@@ -357,10 +351,10 @@ public class FlagsClientCoverageTests
         flag.Name = "Updated Name";
         await flag.SaveAsync();
 
-        // At least 2 requests: GET (list) + PUT
+        // At least 2 requests: GET + PUT
         Assert.True(handler.Requests.Count >= 2);
         var putReq = handler.Requests.Last(r => r.Method == HttpMethod.Put);
-        Assert.Contains($"/api/v1/flags/{FlagId}", putReq.RequestUri!.ToString());
+        Assert.Contains("/api/v1/flags/my-flag", putReq.RequestUri!.ToString());
     }
 
     // ---------------------------------------------------------------
@@ -370,7 +364,7 @@ public class FlagsClientCoverageTests
     [Fact]
     public void HandleFlagChanged_RefetchesAndFiresListeners()
     {
-        var flagJson = FlagListWithEnvJson(key: "ws-flag", defaultVal: "true");
+        var flagJson = FlagListWithEnvJson(id: "ws-flag", defaultVal: "true");
         var events = new List<FlagChangeEvent>();
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
@@ -386,18 +380,18 @@ public class FlagsClientCoverageTests
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         method!.Invoke(client.Flags, new object[]
         {
-            new Dictionary<string, object?> { ["key"] = "ws-flag" }
+            new Dictionary<string, object?> { ["id"] = "ws-flag" }
         });
 
         // Should have fired both global and scoped listeners
         Assert.True(events.Count >= 2);
-        Assert.All(events, e => Assert.Equal("ws-flag", e.Key));
+        Assert.All(events, e => Assert.Equal("ws-flag", e.Id));
     }
 
     [Fact]
     public void HandleFlagDeleted_RefetchesAndFiresListeners()
     {
-        var flagJson = FlagListWithEnvJson(key: "del-flag", defaultVal: "true");
+        var flagJson = FlagListWithEnvJson(id: "del-flag", defaultVal: "true");
         var events = new List<FlagChangeEvent>();
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
@@ -411,16 +405,16 @@ public class FlagsClientCoverageTests
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         method!.Invoke(client.Flags, new object[]
         {
-            new Dictionary<string, object?> { ["key"] = "del-flag" }
+            new Dictionary<string, object?> { ["id"] = "del-flag" }
         });
 
-        Assert.Contains(events, e => e.Key == "del-flag" && e.Source == "websocket");
+        Assert.Contains(events, e => e.Id == "del-flag" && e.Source == "websocket");
     }
 
     [Fact]
-    public void HandleFlagChanged_NullKey_DoesNotFireListeners()
+    public void HandleFlagChanged_NullId_DoesNotFireListeners()
     {
-        var flagJson = FlagListWithEnvJson(key: "ws-flag", defaultVal: "true");
+        var flagJson = FlagListWithEnvJson(id: "ws-flag", defaultVal: "true");
         var events = new List<FlagChangeEvent>();
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
@@ -434,17 +428,17 @@ public class FlagsClientCoverageTests
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         method!.Invoke(client.Flags, new object[]
         {
-            new Dictionary<string, object?> { ["something"] = "else" } // no "key"
+            new Dictionary<string, object?> { ["something"] = "else" } // no "id"
         });
 
-        // FireChangeListeners should skip when key is null
+        // FireChangeListeners should skip when id is null
         Assert.DoesNotContain(events, e => e.Source == "websocket");
     }
 
     [Fact]
     public void HandleFlagChanged_ListenerThrows_DoesNotPropagate()
     {
-        var flagJson = FlagListWithEnvJson(key: "throw-flag", defaultVal: "true");
+        var flagJson = FlagListWithEnvJson(id: "throw-flag", defaultVal: "true");
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         client.Flags.OnChange(_ => throw new InvalidOperationException("boom"));
@@ -459,14 +453,14 @@ public class FlagsClientCoverageTests
         // Should not throw despite listener exception
         method!.Invoke(client.Flags, new object[]
         {
-            new Dictionary<string, object?> { ["key"] = "throw-flag" }
+            new Dictionary<string, object?> { ["id"] = "throw-flag" }
         });
     }
 
     [Fact]
     public void HandleFlagChanged_ScopedListenerThrows_DoesNotPropagate()
     {
-        var flagJson = FlagListWithEnvJson(key: "handle-throw", defaultVal: "true");
+        var flagJson = FlagListWithEnvJson(id: "handle-throw", defaultVal: "true");
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         client.Flags.OnChange("handle-throw", _ => throw new InvalidOperationException("boom"));
@@ -481,7 +475,7 @@ public class FlagsClientCoverageTests
         // Should not throw
         method!.Invoke(client.Flags, new object[]
         {
-            new Dictionary<string, object?> { ["key"] = "handle-throw" }
+            new Dictionary<string, object?> { ["id"] = "handle-throw" }
         });
     }
 
@@ -489,7 +483,7 @@ public class FlagsClientCoverageTests
     public void HandleFlagChanged_TransportFailure_DoesNotThrow()
     {
         int callCount = 0;
-        var flagJson = FlagListWithEnvJson(key: "fail-flag", defaultVal: "true");
+        var flagJson = FlagListWithEnvJson(id: "fail-flag", defaultVal: "true");
         var (client, _) = CreateClient(_ =>
         {
             callCount++;
@@ -509,7 +503,7 @@ public class FlagsClientCoverageTests
         // Should swallow transport errors
         method!.Invoke(client.Flags, new object[]
         {
-            new Dictionary<string, object?> { ["key"] = "fail-flag" }
+            new Dictionary<string, object?> { ["id"] = "fail-flag" }
         });
     }
 
@@ -529,7 +523,7 @@ public class FlagsClientCoverageTests
         };
         var flagDef = new Dictionary<string, object?>
         {
-            ["key"] = "test",
+            ["id"] = "test",
             ["default"] = "flag-default",
             ["environments"] = new Dictionary<string, object?>
             {
@@ -546,7 +540,7 @@ public class FlagsClientCoverageTests
     {
         var flagDef = new Dictionary<string, object?>
         {
-            ["key"] = "test",
+            ["id"] = "test",
             ["default"] = "flag-default",
             ["environments"] = new Dictionary<string, object?>
             {
@@ -563,7 +557,7 @@ public class FlagsClientCoverageTests
     {
         var flagDef = new Dictionary<string, object?>
         {
-            ["key"] = "test",
+            ["id"] = "test",
             ["default"] = "flag-default",
             ["environments"] = new Dictionary<string, object?>
             {
@@ -587,7 +581,7 @@ public class FlagsClientCoverageTests
         };
         var flagDef = new Dictionary<string, object?>
         {
-            ["key"] = "test",
+            ["id"] = "test",
             ["default"] = "flag-default",
             ["environments"] = new Dictionary<string, Dictionary<string, object?>>
             {
@@ -611,7 +605,7 @@ public class FlagsClientCoverageTests
         };
         var flagDef = new Dictionary<string, object?>
         {
-            ["key"] = "test",
+            ["id"] = "test",
             ["default"] = "flag-default",
             ["environments"] = new Dictionary<string, Dictionary<string, object?>>
             {
@@ -634,7 +628,7 @@ public class FlagsClientCoverageTests
         };
         var flagDef = new Dictionary<string, object?>
         {
-            ["key"] = "test",
+            ["id"] = "test",
             ["default"] = "flag-default",
             ["environments"] = new Dictionary<string, Dictionary<string, object?>>
             {
@@ -667,7 +661,7 @@ public class FlagsClientCoverageTests
         };
         var flagDef = new Dictionary<string, object?>
         {
-            ["key"] = "test",
+            ["id"] = "test",
             ["default"] = "default",
             ["environments"] = new Dictionary<string, Dictionary<string, object?>>
             {
@@ -709,7 +703,7 @@ public class FlagsClientCoverageTests
         };
         var flagDef = new Dictionary<string, object?>
         {
-            ["key"] = "test",
+            ["id"] = "test",
             ["default"] = "default",
             ["environments"] = new Dictionary<string, Dictionary<string, object?>>
             {
@@ -736,7 +730,7 @@ public class FlagsClientCoverageTests
         };
         var flagDef = new Dictionary<string, object?>
         {
-            ["key"] = "test",
+            ["id"] = "test",
             ["default"] = "default",
             ["environments"] = new Dictionary<string, Dictionary<string, object?>>
             {
@@ -774,7 +768,7 @@ public class FlagsClientCoverageTests
         };
         var flagDef = new Dictionary<string, object?>
         {
-            ["key"] = "test",
+            ["id"] = "test",
             ["default"] = "default",
             ["environments"] = new Dictionary<string, Dictionary<string, object?>>
             {
@@ -808,7 +802,7 @@ public class FlagsClientCoverageTests
         };
         var flagDef = new Dictionary<string, object?>
         {
-            ["key"] = "test",
+            ["id"] = "test",
             ["default"] = "default",
             ["environments"] = new Dictionary<string, Dictionary<string, object?>>
             {
@@ -854,7 +848,7 @@ public class FlagsClientCoverageTests
         };
         var flagDef = new Dictionary<string, object?>
         {
-            ["key"] = "test",
+            ["id"] = "test",
             ["default"] = "default",
             ["environments"] = new Dictionary<string, Dictionary<string, object?>>
             {
@@ -897,7 +891,7 @@ public class FlagsClientCoverageTests
         };
         var flagDef = new Dictionary<string, object?>
         {
-            ["key"] = "test",
+            ["id"] = "test",
             ["default"] = "default",
             ["environments"] = new Dictionary<string, Dictionary<string, object?>>
             {
@@ -944,7 +938,7 @@ public class FlagsClientCoverageTests
         };
         var flagDef = new Dictionary<string, object?>
         {
-            ["key"] = "test",
+            ["id"] = "test",
             ["default"] = "default",
             ["environments"] = new Dictionary<string, Dictionary<string, object?>>
             {
@@ -986,7 +980,7 @@ public class FlagsClientCoverageTests
         };
         var flagDef = new Dictionary<string, object?>
         {
-            ["key"] = "test",
+            ["id"] = "test",
             ["default"] = "default",
             ["environments"] = new Dictionary<string, Dictionary<string, object?>>
             {
@@ -1028,7 +1022,7 @@ public class FlagsClientCoverageTests
         };
         var flagDef = new Dictionary<string, object?>
         {
-            ["key"] = "test",
+            ["id"] = "test",
             ["default"] = "default",
             ["environments"] = new Dictionary<string, Dictionary<string, object?>>
             {
@@ -1070,7 +1064,7 @@ public class FlagsClientCoverageTests
         };
         var flagDef = new Dictionary<string, object?>
         {
-            ["key"] = "test",
+            ["id"] = "test",
             ["default"] = "default",
             ["environments"] = new Dictionary<string, Dictionary<string, object?>>
             {
@@ -1177,10 +1171,10 @@ public class FlagsClientCoverageTests
         {
             "data": [
                 {
-                    "id": "flag-001",
+                    "id": "no-values-flag",
                     "type": "flag",
                     "attributes": {
-                        "key": "no-values-flag",
+                        "id": "no-values-flag",
                         "name": "No Values",
                         "type": "BOOLEAN",
                         "default": false,
@@ -1212,10 +1206,10 @@ public class FlagsClientCoverageTests
         {
             "data": [
                 {
-                    "id": "flag-001",
+                    "id": "env-flag",
                     "type": "flag",
                     "attributes": {
-                        "key": "env-flag",
+                        "id": "env-flag",
                         "name": "Env Flag",
                         "type": "BOOLEAN",
                         "default": false,
@@ -1257,7 +1251,7 @@ public class FlagsClientCoverageTests
                 capturedBody = await req.Content!.ReadAsStringAsync();
                 return JsonResponse(SingleFlagResponseJson());
             }
-            return JsonResponse(SingleFlagJson());
+            return JsonResponse(SingleFlagGetJson());
         });
 
         var flag = await client.Flags.GetAsync("my-flag");
@@ -1279,7 +1273,7 @@ public class FlagsClientCoverageTests
     [Fact]
     public void BooleanFlag_GetWithContext_EvaluatesCorrectly()
     {
-        var flagJson = FlagListWithEnvJson(key: "ctx-bool", defaultVal: "false", enabled: true);
+        var flagJson = FlagListWithEnvJson(id: "ctx-bool", defaultVal: "false", enabled: true);
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.BooleanFlag("ctx-bool", true);
@@ -1305,10 +1299,10 @@ public class FlagsClientCoverageTests
         {
             "data": [
                 {
-                    "id": "flag-001",
+                    "id": "ctx-str",
                     "type": "flag",
                     "attributes": {
-                        "key": "ctx-str",
+                        "id": "ctx-str",
                         "name": "Ctx String",
                         "type": "STRING",
                         "default": "server-val",
@@ -1351,10 +1345,10 @@ public class FlagsClientCoverageTests
         {
             "data": [
                 {
-                    "id": "flag-001",
+                    "id": "ctx-num",
                     "type": "flag",
                     "attributes": {
-                        "key": "ctx-num",
+                        "id": "ctx-num",
                         "name": "Ctx Number",
                         "type": "NUMERIC",
                         "default": 42,
@@ -1397,10 +1391,10 @@ public class FlagsClientCoverageTests
         {
             "data": [
                 {
-                    "id": "flag-001",
+                    "id": "float-num",
                     "type": "flag",
                     "attributes": {
-                        "key": "float-num",
+                        "id": "float-num",
                         "name": "Float Number",
                         "type": "NUMERIC",
                         "default": 1.5,
@@ -1454,8 +1448,7 @@ public class FlagsClientCoverageTests
 
         var flag = client.Flags.NewStringFlag("my-string-flag", "hello", name: "My String", description: "desc");
 
-        Assert.Null(flag.Id);
-        Assert.Equal("my-string-flag", flag.Key);
+        Assert.Equal("my-string-flag", flag.Id);
         Assert.Equal("My String", flag.Name);
         Assert.Equal("STRING", flag.Type);
         Assert.Equal("hello", flag.Default);
@@ -1496,8 +1489,7 @@ public class FlagsClientCoverageTests
 
         var flag = client.Flags.NewNumberFlag("my-num-flag", 42.5, name: "My Number", description: "numeric desc");
 
-        Assert.Null(flag.Id);
-        Assert.Equal("my-num-flag", flag.Key);
+        Assert.Equal("my-num-flag", flag.Id);
         Assert.Equal("My Number", flag.Name);
         Assert.Equal("NUMERIC", flag.Type);
         Assert.Equal(42.5, flag.Default);
@@ -1539,8 +1531,7 @@ public class FlagsClientCoverageTests
         var defaultVal = new Dictionary<string, object?> { ["theme"] = "dark", ["fontSize"] = 14 };
         var flag = client.Flags.NewJsonFlag("ui-config", defaultVal, name: "UI Config", description: "json desc");
 
-        Assert.Null(flag.Id);
-        Assert.Equal("ui-config", flag.Key);
+        Assert.Equal("ui-config", flag.Id);
         Assert.Equal("UI Config", flag.Name);
         Assert.Equal("JSON", flag.Type);
         Assert.Same(defaultVal, flag.Default);
@@ -1583,10 +1574,10 @@ public class FlagsClientCoverageTests
         var responseJson = """
         {
             "data": {
-                "id": "flag-str-001",
+                "id": "str-flag",
                 "type": "flag",
                 "attributes": {
-                    "key": "str-flag",
+                    "id": "str-flag",
                     "name": "Str Flag",
                     "type": "STRING",
                     "default": "hello",
@@ -1605,8 +1596,7 @@ public class FlagsClientCoverageTests
         var flag = client.Flags.NewStringFlag("str-flag", "hello");
         await flag.SaveAsync();
 
-        Assert.Equal("flag-str-001", flag.Id);
-        Assert.Equal("str-flag", flag.Key);
+        Assert.Equal("str-flag", flag.Id);
         Assert.Equal(HttpMethod.Post, handler.LastRequest!.Method);
     }
 
@@ -1616,10 +1606,10 @@ public class FlagsClientCoverageTests
         var responseJson = """
         {
             "data": {
-                "id": "flag-num-001",
+                "id": "num-flag",
                 "type": "flag",
                 "attributes": {
-                    "key": "num-flag",
+                    "id": "num-flag",
                     "name": "Num Flag",
                     "type": "NUMERIC",
                     "default": 42,
@@ -1638,7 +1628,7 @@ public class FlagsClientCoverageTests
         var flag = client.Flags.NewNumberFlag("num-flag", 42.0);
         await flag.SaveAsync();
 
-        Assert.Equal("flag-num-001", flag.Id);
+        Assert.Equal("num-flag", flag.Id);
         Assert.Equal(HttpMethod.Post, handler.LastRequest!.Method);
     }
 
@@ -1648,10 +1638,10 @@ public class FlagsClientCoverageTests
         var responseJson = """
         {
             "data": {
-                "id": "flag-json-001",
+                "id": "json-flag",
                 "type": "flag",
                 "attributes": {
-                    "key": "json-flag",
+                    "id": "json-flag",
                     "name": "Json Flag",
                     "type": "JSON",
                     "default": {"theme": "dark"},
@@ -1670,7 +1660,7 @@ public class FlagsClientCoverageTests
         var flag = client.Flags.NewJsonFlag("json-flag", new Dictionary<string, object?> { ["theme"] = "dark" });
         await flag.SaveAsync();
 
-        Assert.Equal("flag-json-001", flag.Id);
+        Assert.Equal("json-flag", flag.Id);
         Assert.Equal(HttpMethod.Post, handler.LastRequest!.Method);
     }
 
@@ -1685,7 +1675,7 @@ public class FlagsClientCoverageTests
 
         var handle = client.Flags.StringFlag("str-handle", "default-val");
 
-        Assert.Equal("str-handle", handle.Key);
+        Assert.Equal("str-handle", handle.Id);
         Assert.Equal("default-val", handle.Default);
         Assert.Equal("STRING", handle.Type);
     }
@@ -1697,7 +1687,7 @@ public class FlagsClientCoverageTests
 
         var handle = client.Flags.NumberFlag("num-handle", 99.9);
 
-        Assert.Equal("num-handle", handle.Key);
+        Assert.Equal("num-handle", handle.Id);
         Assert.Equal(99.9, handle.Default);
         Assert.Equal("NUMERIC", handle.Type);
     }
@@ -1710,7 +1700,7 @@ public class FlagsClientCoverageTests
         var defaultVal = new Dictionary<string, object?> { ["x"] = 1 };
         var handle = client.Flags.JsonFlag("json-handle", defaultVal);
 
-        Assert.Equal("json-handle", handle.Key);
+        Assert.Equal("json-handle", handle.Id);
         Assert.Same(defaultVal, handle.Default);
         Assert.Equal("JSON", handle.Type);
     }
@@ -1723,7 +1713,7 @@ public class FlagsClientCoverageTests
     public void EnsureInitialized_WithService_TriggersContextRegistration()
     {
         var requestUrls = new List<string>();
-        var flagJson = FlagListWithEnvJson(key: "svc-flag", defaultVal: "true");
+        var flagJson = FlagListWithEnvJson(id: "svc-flag", defaultVal: "true");
         var handler = new MockHttpMessageHandler(req =>
         {
             requestUrls.Add(req.RequestUri!.AbsoluteUri);
@@ -1748,7 +1738,7 @@ public class FlagsClientCoverageTests
     [Fact]
     public void EnsureInitialized_WithoutService_DoesNotRegisterContext()
     {
-        var flagJson = FlagListWithEnvJson(key: "no-svc-flag", defaultVal: "true");
+        var flagJson = FlagListWithEnvJson(id: "no-svc-flag", defaultVal: "true");
         var requestUrls = new List<string>();
         var handler = new MockHttpMessageHandler(req =>
         {
@@ -1782,38 +1772,36 @@ public class FlagsClientCoverageTests
         // not have a "rules" key, triggering the else branch in BuildUpdateFlagBody.
         var flagJson = $$"""
         {
-            "data": [
-                {
-                    "id": "{{FlagId}}",
-                    "type": "flag",
-                    "attributes": {
-                        "key": "no-rules-flag",
-                        "name": "No Rules",
-                        "type": "BOOLEAN",
-                        "default": false,
-                        "values": [{"name": "True", "value": true}, {"name": "False", "value": false}],
-                        "description": "Flag with env that has null rules",
-                        "environments": {
-                            "staging": {
-                                "enabled": true,
-                                "default": null
-                            }
-                        },
-                        "created_at": "2024-01-15T10:30:00Z",
-                        "updated_at": "2024-01-15T10:30:00Z"
-                    }
+            "data": {
+                "id": "no-rules-flag",
+                "type": "flag",
+                "attributes": {
+                    "id": "no-rules-flag",
+                    "name": "No Rules",
+                    "type": "BOOLEAN",
+                    "default": false,
+                    "values": [{"name": "True", "value": true}, {"name": "False", "value": false}],
+                    "description": "Flag with env that has null rules",
+                    "environments": {
+                        "staging": {
+                            "enabled": true,
+                            "default": null
+                        }
+                    },
+                    "created_at": "2024-01-15T10:30:00Z",
+                    "updated_at": "2024-01-15T10:30:00Z"
                 }
-            ]
+            }
         }
         """;
 
         var singleFlagJson = $$"""
         {
             "data": {
-                "id": "{{FlagId}}",
+                "id": "no-rules-flag",
                 "type": "flag",
                 "attributes": {
-                    "key": "no-rules-flag",
+                    "id": "no-rules-flag",
                     "name": "No Rules Updated",
                     "type": "BOOLEAN",
                     "default": false,
@@ -1862,10 +1850,10 @@ public class FlagsClientCoverageTests
         var responseJson = """
         {
             "data": {
-                "id": "flag-unc-001",
+                "id": "unc-string",
                 "type": "flag",
                 "attributes": {
-                    "key": "unc-string",
+                    "id": "unc-string",
                     "name": "Unc String",
                     "type": "STRING",
                     "default": "hello",
@@ -1891,41 +1879,39 @@ public class FlagsClientCoverageTests
 
         Assert.NotNull(capturedBody);
         Assert.Contains("\"values\":null", capturedBody.Replace(" ", ""));
-        Assert.Equal("flag-unc-001", flag.Id);
+        Assert.Equal("unc-string", flag.Id);
         Assert.Null(flag.Values);
     }
 
     [Fact]
     public async Task UpdateFlag_Unconstrained_SendsNullValues()
     {
-        var listJson = """
+        var getJson = """
         {
-            "data": [
-                {
-                    "id": "00000000-0000-0000-0000-000000000002",
-                    "type": "flag",
-                    "attributes": {
-                        "key": "unc-num",
-                        "name": "Unc Num",
-                        "type": "NUMERIC",
-                        "default": 42,
-                        "values": null,
-                        "description": null,
-                        "environments": {},
-                        "created_at": "2024-01-15T10:30:00Z",
-                        "updated_at": "2024-01-15T10:30:00Z"
-                    }
+            "data": {
+                "id": "unc-num",
+                "type": "flag",
+                "attributes": {
+                    "id": "unc-num",
+                    "name": "Unc Num",
+                    "type": "NUMERIC",
+                    "default": 42,
+                    "values": null,
+                    "description": null,
+                    "environments": {},
+                    "created_at": "2024-01-15T10:30:00Z",
+                    "updated_at": "2024-01-15T10:30:00Z"
                 }
-            ]
+            }
         }
         """;
         var putJson = """
         {
             "data": {
-                "id": "00000000-0000-0000-0000-000000000002",
+                "id": "unc-num",
                 "type": "flag",
                 "attributes": {
-                    "key": "unc-num",
+                    "id": "unc-num",
                     "name": "Updated Num",
                     "type": "NUMERIC",
                     "default": 42,
@@ -1946,7 +1932,7 @@ public class FlagsClientCoverageTests
                 capturedBody = await req.Content!.ReadAsStringAsync();
                 return JsonResponse(putJson);
             }
-            return JsonResponse(listJson);
+            return JsonResponse(getJson);
         });
 
         var flag = await client.Flags.GetAsync("unc-num");

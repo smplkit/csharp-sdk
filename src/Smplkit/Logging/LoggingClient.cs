@@ -64,17 +64,16 @@ public sealed class LoggingClient
     /// <summary>
     /// Create an unsaved logger. Call <see cref="Logger.SaveAsync"/> to persist.
     /// </summary>
-    /// <param name="key">The logger key.</param>
-    /// <param name="name">Display name. Auto-generated from key if null.</param>
+    /// <param name="id">The logger identifier (slug).</param>
+    /// <param name="name">Display name. Auto-generated from id if null.</param>
     /// <param name="managed">Whether this logger is managed.</param>
     /// <returns>An unsaved <see cref="Logger"/>.</returns>
-    public Logger New(string key, string? name = null, bool managed = false)
+    public Logger New(string id, string? name = null, bool managed = false)
     {
         return new Logger(
             client: this,
-            id: null,
-            key: key,
-            name: name ?? Helpers.KeyToDisplayName(key),
+            id: id,
+            name: name ?? Helpers.KeyToDisplayName(id),
             level: null,
             group: null,
             managed: managed,
@@ -85,20 +84,18 @@ public sealed class LoggingClient
     }
 
     /// <summary>
-    /// Fetches a logger by its human-readable key.
+    /// Fetches a logger by its identifier.
     /// </summary>
-    /// <param name="key">The logger key.</param>
+    /// <param name="id">The logger identifier.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The matching <see cref="Logger"/>.</returns>
     /// <exception cref="SmplNotFoundException">If no matching logger exists.</exception>
-    public async Task<Logger> GetAsync(string key, CancellationToken ct = default)
+    public async Task<Logger> GetAsync(string id, CancellationToken ct = default)
     {
         var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genClient.List_loggersAsync(filterkey: key, cancellationToken: ct)).ConfigureAwait(false);
-        if (response.Data is null || response.Data.Count == 0)
-            throw new SmplNotFoundException($"Logger with key '{key}' not found");
-        return MapLoggerResource(response.Data[0])
-            ?? throw new SmplNotFoundException($"Logger with key '{key}' not found");
+            () => _genClient.Get_loggerAsync(id: id, cancellationToken: ct)).ConfigureAwait(false);
+        return MapLoggerResource(response.Data)
+            ?? throw new SmplNotFoundException($"Logger with id '{id}' not found");
     }
 
     /// <summary>
@@ -115,24 +112,24 @@ public sealed class LoggingClient
     }
 
     /// <summary>
-    /// Deletes a logger by its human-readable key.
+    /// Deletes a logger by its identifier.
     /// </summary>
-    /// <param name="key">The logger key.</param>
+    /// <param name="id">The logger identifier.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <exception cref="SmplNotFoundException">If no matching logger exists.</exception>
-    public async Task DeleteAsync(string key, CancellationToken ct = default)
+    public async Task DeleteAsync(string id, CancellationToken ct = default)
     {
-        var logger = await GetAsync(key, ct).ConfigureAwait(false);
         await ApiExceptionMapper.ExecuteAsync(
-            () => _genClient.Delete_loggerAsync(Guid.Parse(logger.Id!), ct)).ConfigureAwait(false);
+            () => _genClient.Delete_loggerAsync(id, ct)).ConfigureAwait(false);
     }
 
     /// <summary>Internal: save a logger (create or update).</summary>
     internal async Task<Logger> SaveLoggerInternalAsync(Logger logger, CancellationToken ct = default)
     {
         var body = BuildLoggerRequestBody(logger);
-        if (logger.Id is null)
+        if (logger.CreatedAt is null)
         {
+            // Create (unsaved logger — CreatedAt is null until first server round-trip)
             var response = await ApiExceptionMapper.ExecuteAsync(
                 () => _genClient.Create_loggerAsync(body, ct)).ConfigureAwait(false);
             return MapLoggerResource(response.Data)
@@ -140,8 +137,9 @@ public sealed class LoggingClient
         }
         else
         {
+            var loggerId = logger.Id ?? throw new SmplValidationException("Cannot update a logger without an id");
             var response = await ApiExceptionMapper.ExecuteAsync(
-                () => _genClient.Update_loggerAsync(Guid.Parse(logger.Id), body, ct)).ConfigureAwait(false);
+                () => _genClient.Update_loggerAsync(loggerId, body, ct)).ConfigureAwait(false);
             return MapLoggerResource(response.Data)
                 ?? throw new SmplValidationException("Failed to update logger");
         }
@@ -154,17 +152,16 @@ public sealed class LoggingClient
     /// <summary>
     /// Create an unsaved log group. Call <see cref="LogGroup.SaveAsync"/> to persist.
     /// </summary>
-    /// <param name="key">The group key.</param>
-    /// <param name="name">Display name. Auto-generated from key if null.</param>
-    /// <param name="group">Optional parent group UUID.</param>
+    /// <param name="id">The group identifier (slug).</param>
+    /// <param name="name">Display name. Auto-generated from id if null.</param>
+    /// <param name="group">Optional parent group identifier.</param>
     /// <returns>An unsaved <see cref="LogGroup"/>.</returns>
-    public LogGroup NewGroup(string key, string? name = null, string? group = null)
+    public LogGroup NewGroup(string id, string? name = null, string? group = null)
     {
         return new LogGroup(
             client: this,
-            id: null,
-            key: key,
-            name: name ?? Helpers.KeyToDisplayName(key),
+            id: id,
+            name: name ?? Helpers.KeyToDisplayName(id),
             level: null,
             group: group,
             environments: new Dictionary<string, Dictionary<string, object?>>(),
@@ -173,18 +170,18 @@ public sealed class LoggingClient
     }
 
     /// <summary>
-    /// Fetches a log group by its human-readable key.
+    /// Fetches a log group by its identifier.
     /// </summary>
-    /// <param name="key">The group key.</param>
+    /// <param name="id">The group identifier.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The matching <see cref="LogGroup"/>.</returns>
     /// <exception cref="SmplNotFoundException">If no matching group exists.</exception>
-    public async Task<LogGroup> GetGroupAsync(string key, CancellationToken ct = default)
+    public async Task<LogGroup> GetGroupAsync(string id, CancellationToken ct = default)
     {
-        // LogGroup list endpoint doesn't support filterkey, so we list all and filter locally
-        var all = await ListGroupsAsync(ct).ConfigureAwait(false);
-        var match = all.FirstOrDefault(g => g.Key == key);
-        return match ?? throw new SmplNotFoundException($"LogGroup with key '{key}' not found");
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genClient.Get_log_groupAsync(id: id, cancellationToken: ct)).ConfigureAwait(false);
+        return MapLogGroupResource(response.Data)
+            ?? throw new SmplNotFoundException($"LogGroup with id '{id}' not found");
     }
 
     /// <summary>
@@ -201,24 +198,24 @@ public sealed class LoggingClient
     }
 
     /// <summary>
-    /// Deletes a log group by its human-readable key.
+    /// Deletes a log group by its identifier.
     /// </summary>
-    /// <param name="key">The group key.</param>
+    /// <param name="id">The group identifier.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <exception cref="SmplNotFoundException">If no matching group exists.</exception>
-    public async Task DeleteGroupAsync(string key, CancellationToken ct = default)
+    public async Task DeleteGroupAsync(string id, CancellationToken ct = default)
     {
-        var group = await GetGroupAsync(key, ct).ConfigureAwait(false);
         await ApiExceptionMapper.ExecuteAsync(
-            () => _genClient.Delete_log_groupAsync(Guid.Parse(group.Id!), ct)).ConfigureAwait(false);
+            () => _genClient.Delete_log_groupAsync(id, ct)).ConfigureAwait(false);
     }
 
     /// <summary>Internal: save a log group (create or update).</summary>
     internal async Task<LogGroup> SaveLogGroupInternalAsync(LogGroup logGroup, CancellationToken ct = default)
     {
         var body = BuildLogGroupRequestBody(logGroup);
-        if (logGroup.Id is null)
+        if (logGroup.CreatedAt is null)
         {
+            // Create (unsaved log group — CreatedAt is null until first server round-trip)
             var response = await ApiExceptionMapper.ExecuteAsync(
                 () => _genClient.Create_log_groupAsync(body, ct)).ConfigureAwait(false);
             return MapLogGroupResource(response.Data)
@@ -226,8 +223,9 @@ public sealed class LoggingClient
         }
         else
         {
+            var groupId = logGroup.Id ?? throw new SmplValidationException("Cannot update a log group without an id");
             var response = await ApiExceptionMapper.ExecuteAsync(
-                () => _genClient.Update_log_groupAsync(Guid.Parse(logGroup.Id), body, ct)).ConfigureAwait(false);
+                () => _genClient.Update_log_groupAsync(groupId, body, ct)).ConfigureAwait(false);
             return MapLogGroupResource(response.Data)
                 ?? throw new SmplValidationException("Failed to update log group");
         }
@@ -286,18 +284,18 @@ public sealed class LoggingClient
     }
 
     /// <summary>
-    /// Register a change listener scoped to a specific logger key.
+    /// Register a change listener scoped to a specific logger id.
     /// </summary>
-    /// <param name="loggerKey">The logger key to listen for.</param>
+    /// <param name="loggerId">The logger identifier to listen for.</param>
     /// <param name="callback">Called with a <see cref="LoggerChangeEvent"/> when this logger changes.</param>
-    public void OnChange(string loggerKey, Action<LoggerChangeEvent> callback)
+    public void OnChange(string loggerId, Action<LoggerChangeEvent> callback)
     {
         lock (_listenerLock)
         {
-            if (!_scopedListeners.TryGetValue(loggerKey, out var list))
+            if (!_scopedListeners.TryGetValue(loggerId, out var list))
             {
                 list = new List<Action<LoggerChangeEvent>>();
-                _scopedListeners[loggerKey] = list;
+                _scopedListeners[loggerId] = list;
             }
             list.Add(callback);
         }
@@ -397,12 +395,12 @@ public sealed class LoggingClient
 
             foreach (var adapter in _adapters)
             {
-                try { adapter.ApplyLevel(logger.Key, logger.Level.Value); }
+                try { adapter.ApplyLevel(logger.Id!, logger.Level.Value); }
                 catch { /* Adapter failure is non-fatal */ }
             }
 
             _metrics?.Record("logging.level_changes", unit: "changes",
-                dimensions: new Dictionary<string, string> { ["logger_id"] = logger.Key });
+                dimensions: new Dictionary<string, string> { ["logger_id"] = logger.Id! });
         }
     }
 
@@ -419,8 +417,9 @@ public sealed class LoggingClient
 
     private void HandleLoggerChanged(Dictionary<string, object?> data)
     {
-        var loggerKey = data.TryGetValue("key", out var k) ? k as string : null;
-        if (loggerKey is null) return;
+        var loggerId = data.TryGetValue("id", out var k) ? k as string
+            : data.TryGetValue("key", out var k2) ? k2 as string : null;
+        if (loggerId is null) return;
 
         LogLevel? newLevel = null;
         if (data.TryGetValue("level", out var levelObj) && levelObj is string levelStr)
@@ -429,11 +428,11 @@ public sealed class LoggingClient
             catch { /* Unknown level */ }
         }
 
-        var evt = new LoggerChangeEvent(loggerKey, newLevel, "websocket");
-        FireListeners(loggerKey, evt);
+        var evt = new LoggerChangeEvent(loggerId, newLevel, "websocket");
+        FireListeners(loggerId, evt);
     }
 
-    private void FireListeners(string loggerKey, LoggerChangeEvent evt)
+    private void FireListeners(string loggerId, LoggerChangeEvent evt)
     {
         List<Action<LoggerChangeEvent>> globalCopy;
         List<Action<LoggerChangeEvent>>? scopedCopy = null;
@@ -441,7 +440,7 @@ public sealed class LoggingClient
         lock (_listenerLock)
         {
             globalCopy = new List<Action<LoggerChangeEvent>>(_globalListeners);
-            if (_scopedListeners.TryGetValue(loggerKey, out var scoped))
+            if (_scopedListeners.TryGetValue(loggerId, out var scoped))
                 scopedCopy = new List<Action<LoggerChangeEvent>>(scoped);
         }
 
@@ -493,7 +492,6 @@ public sealed class LoggingClient
         return new Logger(
             client: this,
             id: resource.Id ?? string.Empty,
-            key: attrs.Key ?? string.Empty,
             name: attrs.Name ?? string.Empty,
             level: level,
             group: attrs.Group,
@@ -521,7 +519,6 @@ public sealed class LoggingClient
         return new LogGroup(
             client: this,
             id: resource.Id ?? string.Empty,
-            key: attrs.Key ?? string.Empty,
             name: attrs.Name ?? string.Empty,
             level: level,
             group: attrs.Group,
@@ -566,7 +563,7 @@ public sealed class LoggingClient
                 Type = "logger",
                 Attributes = new GenLogging.Logger
                 {
-                    Key = logger.Key,
+                    Id = logger.Id,
                     Name = logger.Name,
                     Level = logger.Level?.ToWireString(),
                     Group = logger.Group,
@@ -584,7 +581,7 @@ public sealed class LoggingClient
                 Type = "log_group",
                 Attributes = new GenLogging.LogGroup
                 {
-                    Key = logGroup.Key,
+                    Id = logGroup.Id,
                     Name = logGroup.Name,
                     Level = logGroup.Level?.ToWireString(),
                     Group = logGroup.Group,

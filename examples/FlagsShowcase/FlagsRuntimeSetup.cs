@@ -37,7 +37,7 @@ public static class FlagsRuntimeSetup
         Console.WriteLine("  -> Creating checkout-v2 (boolean)...");
 
         var checkoutV2 = client.Flags.NewBooleanFlag(
-            key: "checkout-v2",
+            id: "checkout-v2",
             defaultValue: false,
             name: "Checkout V2",
             description: "Enables the redesigned checkout flow");
@@ -75,7 +75,7 @@ public static class FlagsRuntimeSetup
         Console.WriteLine("  -> Creating banner-color (string)...");
 
         var bannerColor = client.Flags.NewStringFlag(
-            key: "banner-color",
+            id: "banner-color",
             defaultValue: "blue",
             name: "Banner Color",
             description: "Hero banner background colour",
@@ -110,7 +110,7 @@ public static class FlagsRuntimeSetup
         Console.WriteLine("  -> Creating max-retries (numeric)...");
 
         var maxRetries = client.Flags.NewNumberFlag(
-            key: "max-retries",
+            id: "max-retries",
             defaultValue: 3.0,
             name: "Max Retries",
             description: "Maximum API retry attempts");

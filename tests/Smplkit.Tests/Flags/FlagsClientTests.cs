@@ -9,8 +9,7 @@ namespace Smplkit.Tests.Flags;
 
 public class FlagsClientTests
 {
-    private const string FlagId = "aaa11111-bbbb-cccc-dddd-eeeeeeee0001";
-    private const string FlagKey = "my-flag";
+    private const string FlagSlug = "my-flag";
     private const string FlagName = "My Flag";
 
     private static (SmplClient client, MockHttpMessageHandler handler) CreateClient(
@@ -32,8 +31,7 @@ public class FlagsClientTests
     }
 
     private static string SingleFlagJson(
-        string id = FlagId,
-        string key = FlagKey,
+        string id = FlagSlug,
         string name = FlagName,
         string type = "BOOLEAN",
         string defaultVal = "false") =>
@@ -43,7 +41,7 @@ public class FlagsClientTests
                 "id": "{{id}}",
                 "type": "flag",
                 "attributes": {
-                    "key": "{{key}}",
+                    "id": "{{id}}",
                     "name": "{{name}}",
                     "type": "{{type}}",
                     "default": {{defaultVal}},
@@ -62,10 +60,10 @@ public class FlagsClientTests
         {
             "data": [
                 {
-                    "id": "{{FlagId}}",
+                    "id": "{{FlagSlug}}",
                     "type": "flag",
                     "attributes": {
-                        "key": "{{FlagKey}}",
+                        "id": "{{FlagSlug}}",
                         "name": "{{FlagName}}",
                         "type": "BOOLEAN",
                         "default": false,
@@ -77,10 +75,10 @@ public class FlagsClientTests
                     }
                 },
                 {
-                    "id": "aaa11111-bbbb-cccc-dddd-eeeeeeee0002",
+                    "id": "another-flag",
                     "type": "flag",
                     "attributes": {
-                        "key": "another-flag",
+                        "id": "another-flag",
                         "name": "Another Flag",
                         "type": "STRING",
                         "default": "hello",
@@ -95,30 +93,27 @@ public class FlagsClientTests
         }
         """;
 
-    /// <summary>List response with a single flag matching the given key, used for GetAsync(key).</summary>
-    private static string FlagListForGetJson(
-        string id = FlagId,
-        string key = FlagKey,
+    /// <summary>Single resource response for GetAsync(id).</summary>
+    private static string SingleFlagForGetJson(
+        string id = FlagSlug,
         string name = FlagName) =>
         $$"""
         {
-            "data": [
-                {
+            "data": {
+                "id": "{{id}}",
+                "type": "flag",
+                "attributes": {
                     "id": "{{id}}",
-                    "type": "flag",
-                    "attributes": {
-                        "key": "{{key}}",
-                        "name": "{{name}}",
-                        "type": "BOOLEAN",
-                        "default": false,
-                        "values": [{"name": "True", "value": true}, {"name": "False", "value": false}],
-                        "description": "Test flag",
-                        "environments": {},
-                        "created_at": "2024-01-15T10:30:00Z",
-                        "updated_at": "2024-01-15T10:30:00Z"
-                    }
+                    "name": "{{name}}",
+                    "type": "BOOLEAN",
+                    "default": false,
+                    "values": [{"name": "True", "value": true}, {"name": "False", "value": false}],
+                    "description": "Test flag",
+                    "environments": {},
+                    "created_at": "2024-01-15T10:30:00Z",
+                    "updated_at": "2024-01-15T10:30:00Z"
                 }
-            ]
+            }
         }
         """;
 
@@ -132,11 +127,10 @@ public class FlagsClientTests
         var (client, handler) = CreateClient(_ =>
             Task.FromResult(JsonResponse(SingleFlagJson(), HttpStatusCode.Created)));
 
-        var flag = client.Flags.NewBooleanFlag(FlagKey, false, name: FlagName, description: "Test flag");
+        var flag = client.Flags.NewBooleanFlag(FlagSlug, false, name: FlagName, description: "Test flag");
         await flag.SaveAsync();
 
-        Assert.Equal(FlagId, flag.Id);
-        Assert.Equal(FlagKey, flag.Key);
+        Assert.Equal(FlagSlug, flag.Id);
         Assert.Equal(FlagName, flag.Name);
         Assert.Equal("BOOLEAN", flag.Type);
         Assert.Equal("Test flag", flag.Description);
@@ -156,7 +150,7 @@ public class FlagsClientTests
             return JsonResponse(SingleFlagJson(), HttpStatusCode.Created);
         });
 
-        var flag = client.Flags.NewBooleanFlag(FlagKey, false, name: FlagName);
+        var flag = client.Flags.NewBooleanFlag(FlagSlug, false, name: FlagName);
         await flag.SaveAsync();
 
         Assert.NotNull(capturedBody);
@@ -165,19 +159,18 @@ public class FlagsClientTests
     }
 
     // ---------------------------------------------------------------
-    // GetAsync (by key — uses list with filter)
+    // GetAsync (by id — direct GET)
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task GetAsync_ByKey_ReturnsFlag()
+    public async Task GetAsync_ById_ReturnsFlag()
     {
         var (client, handler) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(FlagListForGetJson())));
+            Task.FromResult(JsonResponse(SingleFlagForGetJson())));
 
-        var flag = await client.Flags.GetAsync(FlagKey);
+        var flag = await client.Flags.GetAsync(FlagSlug);
 
-        Assert.Equal(FlagId, flag.Id);
-        Assert.Equal(FlagKey, flag.Key);
+        Assert.Equal(FlagSlug, flag.Id);
         Assert.NotNull(handler.LastRequest);
         Assert.Contains("/api/v1/flags", handler.LastRequest.RequestUri!.ToString());
         Assert.Equal(HttpMethod.Get, handler.LastRequest.Method);
@@ -187,10 +180,14 @@ public class FlagsClientTests
     public async Task GetAsync_NotFound_ThrowsSmplNotFoundException()
     {
         var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse("""{"data": []}""")));
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)
+            {
+                Content = new StringContent("""{"errors":[{"status":"404","detail":"Not found"}]}""",
+                    Encoding.UTF8, "application/vnd.api+json"),
+            }));
 
         await Assert.ThrowsAsync<SmplNotFoundException>(() =>
-            client.Flags.GetAsync("nonexistent-key"));
+            client.Flags.GetAsync("nonexistent-id"));
     }
 
     // ---------------------------------------------------------------
@@ -206,8 +203,8 @@ public class FlagsClientTests
         var flags = await client.Flags.ListAsync();
 
         Assert.Equal(2, flags.Count);
-        Assert.Equal(FlagKey, flags[0].Key);
-        Assert.Equal("another-flag", flags[1].Key);
+        Assert.Equal(FlagSlug, flags[0].Id);
+        Assert.Equal("another-flag", flags[1].Id);
         Assert.Contains("/api/v1/flags", handler.LastRequest!.RequestUri!.ToString());
     }
 
@@ -223,32 +220,20 @@ public class FlagsClientTests
     }
 
     // ---------------------------------------------------------------
-    // DeleteAsync (by key — internally calls GetAsync then DELETE by UUID)
+    // DeleteAsync (by id — directly calls DELETE)
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task DeleteAsync_ByKey_CallsCorrectUrls()
+    public async Task DeleteAsync_ById_CallsCorrectUrl()
     {
-        int requestCount = 0;
         var (client, handler) = CreateClient(_ =>
-        {
-            requestCount++;
-            if (requestCount == 1)
-            {
-                // First request: list with filter[key] for GetAsync(key)
-                return Task.FromResult(JsonResponse(FlagListForGetJson()));
-            }
-            // Second request: DELETE by UUID
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
-        });
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent)));
 
-        await client.Flags.DeleteAsync(FlagKey);
+        await client.Flags.DeleteAsync(FlagSlug);
 
-        Assert.True(handler.Requests.Count >= 2);
-        // First request is the list/filter
-        Assert.Equal(HttpMethod.Get, handler.Requests[0].Method);
-        // Second request is the DELETE by UUID
-        var deleteReq = handler.Requests.Last(r => r.Method == HttpMethod.Delete);
-        Assert.Contains($"/api/v1/flags/{FlagId}", deleteReq.RequestUri!.ToString());
+        Assert.Single(handler.Requests);
+        var deleteReq = handler.Requests[0];
+        Assert.Equal(HttpMethod.Delete, deleteReq.Method);
+        Assert.Contains($"/api/v1/flags/{FlagSlug}", deleteReq.RequestUri!.ToString());
     }
 }

@@ -31,42 +31,8 @@ public class ConfigClientCoverageTests
         };
     }
 
-    private static string SingleConfigListJson(
-        string id = "11111111-1111-1111-1111-111111111111",
-        string key = "my_key",
-        string name = "My Config",
-        string? parent = null,
-        string? description = null,
-        string valuesJson = "{}",
-        string environmentsJson = "{}")
-    {
-        var parentStr = parent is null ? "null" : $"\"{parent}\"";
-        var descStr = description is null ? "null" : $"\"{description}\"";
-        return $$"""
-        {
-            "data": [
-                {
-                    "id": "{{id}}",
-                    "type": "config",
-                    "attributes": {
-                        "key": "{{key}}",
-                        "name": "{{name}}",
-                        "description": {{descStr}},
-                        "parent": {{parentStr}},
-                        "items": {{valuesJson}},
-                        "environments": {{environmentsJson}},
-                        "created_at": "2024-01-15T10:30:00Z",
-                        "updated_at": "2024-01-15T10:30:00Z"
-                    }
-                }
-            ]
-        }
-        """;
-    }
-
     private static string SingleConfigJson(
-        string id = "11111111-1111-1111-1111-111111111111",
-        string key = "my_key",
+        string id = "my_id",
         string name = "My Config",
         string? parent = null,
         string? description = null,
@@ -81,7 +47,7 @@ public class ConfigClientCoverageTests
                 "id": "{{id}}",
                 "type": "config",
                 "attributes": {
-                    "key": "{{key}}",
+                    "id": "{{id}}",
                     "name": "{{name}}",
                     "description": {{descStr}},
                     "parent": {{parentStr}},
@@ -102,19 +68,13 @@ public class ConfigClientCoverageTests
     [Fact]
     public async Task DeleteAsync_Conflict_ThrowsSmplConflictException()
     {
-        int requestCount = 0;
         var (client, _) = CreateClient(_ =>
-        {
-            requestCount++;
-            if (requestCount == 1)
-                return Task.FromResult(JsonResponse(SingleConfigListJson()));
-            return Task.FromResult(JsonResponse(
+            Task.FromResult(JsonResponse(
                 """{"errors":[{"detail":"Has children"}]}""",
-                HttpStatusCode.Conflict));
-        });
+                HttpStatusCode.Conflict)));
 
         var ex = await Assert.ThrowsAsync<SmplConflictException>(
-            () => client.Config.DeleteAsync("my_key"));
+            () => client.Config.DeleteAsync("my_id"));
         Assert.Equal(409, ex.StatusCode);
         Assert.Contains("Has children", ex.ResponseBody!);
     }
@@ -131,13 +91,13 @@ public class ConfigClientCoverageTests
         {
             requestCount++;
             if (requestCount == 1)
-                return Task.FromResult(JsonResponse(SingleConfigListJson()));
+                return Task.FromResult(JsonResponse(SingleConfigJson()));
             return Task.FromResult(JsonResponse(
                 """{"errors":[{"detail":"Conflict"}]}""",
                 HttpStatusCode.Conflict));
         });
 
-        var config = await client.Config.GetAsync("my_key");
+        var config = await client.Config.GetAsync("my_id");
         config.Name = "Updated";
 
         var ex = await Assert.ThrowsAsync<SmplConflictException>(
@@ -157,7 +117,7 @@ public class ConfigClientCoverageTests
                 """{"errors":[{"detail":"Already exists"}]}""",
                 HttpStatusCode.Conflict)));
 
-        var config = client.Config.New("test_key", "Test");
+        var config = client.Config.New("test_id", "Test");
         var ex = await Assert.ThrowsAsync<SmplConflictException>(
             () => config.SaveAsync());
         Assert.Equal(409, ex.StatusCode);
@@ -171,19 +131,17 @@ public class ConfigClientCoverageTests
     public async Task GetAsync_AllFieldsPopulated_MapsCorrectly()
     {
         var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(SingleConfigListJson(
-                id: "11111111-1111-1111-1111-111111111111",
-                key: "svc_key",
+            Task.FromResult(JsonResponse(SingleConfigJson(
+                id: "svc_id",
                 name: "Service",
                 description: "A description",
                 parent: "parent-id",
                 valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}, "retries": {"value": 3, "type": "NUMBER"}}""",
                 environmentsJson: """{"production": {"timeout": {"value": 60}}}"""))));
 
-        var config = await client.Config.GetAsync("svc_key");
+        var config = await client.Config.GetAsync("svc_id");
 
-        Assert.Equal("11111111-1111-1111-1111-111111111111", config.Id);
-        Assert.Equal("svc_key", config.Key);
+        Assert.Equal("svc_id", config.Id);
         Assert.Equal("Service", config.Name);
         Assert.Equal("A description", config.Description);
         Assert.Equal("parent-id", config.Parent);
@@ -192,20 +150,20 @@ public class ConfigClientCoverageTests
     }
 
     // ------------------------------------------------------------------
-    // GetAsync — URL uses filter[key] query param
+    // GetAsync — URL uses direct GET endpoint
     // ------------------------------------------------------------------
 
     [Fact]
     public async Task GetAsync_VerifyUrlFormat()
     {
         var (client, handler) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(SingleConfigListJson(key: "test_key"))));
+            Task.FromResult(JsonResponse(SingleConfigJson(id: "test_id"))));
 
-        await client.Config.GetAsync("test_key");
+        await client.Config.GetAsync("test_id");
 
         Assert.NotNull(handler.LastRequest);
         var url = handler.LastRequest.RequestUri!.AbsoluteUri;
-        Assert.Contains("filter%5Bkey%5D=test_key", url);
+        Assert.Contains("/api/v1/configs/test_id", url);
     }
 
     // ------------------------------------------------------------------
@@ -226,28 +184,20 @@ public class ConfigClientCoverageTests
     }
 
     // ------------------------------------------------------------------
-    // DeleteAsync — verifies correct UUID used for delete
+    // DeleteAsync — verifies correct id used for delete
     // ------------------------------------------------------------------
 
     [Fact]
     public async Task DeleteAsync_CorrectUrl()
     {
-        int requestCount = 0;
         var (client, handler) = CreateClient(_ =>
-        {
-            requestCount++;
-            if (requestCount == 1)
-                return Task.FromResult(JsonResponse(SingleConfigListJson(
-                    id: "12312312-1231-1231-1231-123123123123",
-                    key: "target_key")));
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
-        });
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent)));
 
-        await client.Config.DeleteAsync("target_key");
+        await client.Config.DeleteAsync("target_id");
 
         Assert.NotNull(handler.LastRequest);
         var url = handler.LastRequest.RequestUri!.AbsoluteUri;
-        Assert.Contains("/api/v1/configs/12312312-1231-1231-1231-123123123123", url);
+        Assert.Contains("/api/v1/configs/target_id", url);
     }
 
     // ------------------------------------------------------------------
@@ -284,10 +234,10 @@ public class ConfigClientCoverageTests
     {
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(
-                """{"data": {"id": "abcabc00-abc0-abc0-abc0-abcabc000000", "type": "config", "attributes": null}}""",
+                """{"data": {"id": "test_id", "type": "config", "attributes": null}}""",
                 HttpStatusCode.Created)));
 
-        var config = client.Config.New("test_key", "Test");
+        var config = client.Config.New("test_id", "Test");
         await Assert.ThrowsAsync<SmplValidationException>(
             () => config.SaveAsync());
     }
@@ -304,12 +254,12 @@ public class ConfigClientCoverageTests
         {
             requestCount++;
             if (requestCount == 1)
-                return Task.FromResult(JsonResponse(SingleConfigListJson()));
+                return Task.FromResult(JsonResponse(SingleConfigJson()));
             return Task.FromResult(JsonResponse(
-                """{"data": {"id": "abcabc00-abc0-abc0-abc0-abcabc000000", "type": "config", "attributes": null}}"""));
+                """{"data": {"id": "test_id", "type": "config", "attributes": null}}"""));
         });
 
-        var config = await client.Config.GetAsync("my_key");
+        var config = await client.Config.GetAsync("my_id");
         config.Name = "Updated";
 
         await Assert.ThrowsAsync<SmplValidationException>(
@@ -328,11 +278,11 @@ public class ConfigClientCoverageTests
         {
             requestCount++;
             if (requestCount == 1)
-                return Task.FromResult(JsonResponse(SingleConfigListJson()));
+                return Task.FromResult(JsonResponse(SingleConfigJson()));
             return Task.FromResult(JsonResponse(SingleConfigJson()));
         });
 
-        var config = await client.Config.GetAsync("my_key");
+        var config = await client.Config.GetAsync("my_id");
         config.Name = "Updated";
         await config.SaveAsync();
 
@@ -352,9 +302,9 @@ public class ConfigClientCoverageTests
         var httpClient = new HttpClient(handler);
         var client = new SmplClient(TestData.DefaultOptions(), httpClient);
 
-        var config = client.Config.New("my_key", "My Config");
+        var config = client.Config.New("my_id", "My Config");
 
-        Assert.Equal("Config(Key=my_key, Name=My Config)", config.ToString());
+        Assert.Equal("Config(Id=my_id, Name=My Config)", config.ToString());
     }
 
     // ------------------------------------------------------------------
@@ -370,14 +320,14 @@ public class ConfigClientCoverageTests
         {
             requestCount++;
             if (requestCount == 1)
-                return JsonResponse(SingleConfigListJson(
+                return JsonResponse(SingleConfigJson(
                     valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}"""));
             if (req.Method == HttpMethod.Put)
                 putBody = await req.Content!.ReadAsStringAsync();
             return JsonResponse(SingleConfigJson());
         });
 
-        var config = await client.Config.GetAsync("my_key");
+        var config = await client.Config.GetAsync("my_id");
         config.Items["new_key"] = "new_value";
 
         await config.SaveAsync();
@@ -400,13 +350,13 @@ public class ConfigClientCoverageTests
         {
             requestCount++;
             if (requestCount == 1)
-                return JsonResponse(SingleConfigListJson());
+                return JsonResponse(SingleConfigJson());
             if (req.Method == HttpMethod.Put)
                 putBody = await req.Content!.ReadAsStringAsync();
             return JsonResponse(SingleConfigJson());
         });
 
-        var config = await client.Config.GetAsync("my_key");
+        var config = await client.Config.GetAsync("my_id");
         config.Environments["production"] = new Dictionary<string, object?> { ["timeout"] = 60 };
 
         await config.SaveAsync();
@@ -426,10 +376,10 @@ public class ConfigClientCoverageTests
         {
             "data": [
                 {
-                    "id": "cfg-dot-1",
+                    "id": "dot_config",
                     "type": "config",
                     "attributes": {
-                        "key": "dot_config",
+                        "id": "dot_config",
                         "name": "Dot Config",
                         "description": null,
                         "parent": null,
@@ -470,10 +420,10 @@ public class ConfigClientCoverageTests
         {
             "data": [
                 {
-                    "id": "cfg-multi-1",
+                    "id": "multi_config",
                     "type": "config",
                     "attributes": {
-                        "key": "multi_config",
+                        "id": "multi_config",
                         "name": "Multi Config",
                         "description": null,
                         "parent": null,
@@ -566,10 +516,10 @@ public class ConfigClientCoverageTests
         {
             "data": [
                 {
-                    "id": "cfg-ws-1",
+                    "id": "ws_config",
                     "type": "config",
                     "attributes": {
-                        "key": "ws_config",
+                        "id": "ws_config",
                         "name": "WS Config",
                         "description": null,
                         "parent": null,
@@ -639,10 +589,10 @@ public class ConfigClientCoverageTests
         {
             "data": [
                 {
-                    "id": "cfg-err-1",
+                    "id": "err_config",
                     "type": "config",
                     "attributes": {
-                        "key": "err_config",
+                        "id": "err_config",
                         "name": "Err Config",
                         "description": null,
                         "parent": null,

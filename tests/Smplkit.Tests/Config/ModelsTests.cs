@@ -31,13 +31,12 @@ public class ModelsTests
         var smplClient = CreateSmplClient();
 
         var config = smplClient.Config.New(
-            key: "my_key",
+            id: "my_id",
             name: "My Config",
             description: "A description",
             parent: "parent-id");
 
-        Assert.Null(config.Id);
-        Assert.Equal("my_key", config.Key);
+        Assert.Equal("my_id", config.Id);
         Assert.Equal("My Config", config.Name);
         Assert.Equal("A description", config.Description);
         Assert.Equal("parent-id", config.Parent);
@@ -54,9 +53,9 @@ public class ModelsTests
     {
         var smplClient = CreateSmplClient();
 
-        var config = smplClient.Config.New("key");
+        var config = smplClient.Config.New("id");
 
-        Assert.Null(config.Id);
+        Assert.Equal("id", config.Id);
         Assert.Null(config.Description);
         Assert.Null(config.Parent);
         Assert.Null(config.CreatedAt);
@@ -68,7 +67,7 @@ public class ModelsTests
     {
         var smplClient = CreateSmplClient();
 
-        var config = smplClient.Config.New("key", "Name");
+        var config = smplClient.Config.New("id", "Name");
         config.Name = "Updated Name";
         config.Description = "Updated Description";
         config.Parent = "new-parent";
@@ -90,7 +89,7 @@ public class ModelsTests
     {
         var smplClient = CreateSmplClient();
 
-        var config = smplClient.Config.New("key");
+        var config = smplClient.Config.New("id");
         config.Items["a"] = 1;
         config.Items["b"] = "two";
         config.Items["c"] = true;
@@ -106,7 +105,7 @@ public class ModelsTests
     {
         var smplClient = CreateSmplClient();
 
-        var config = smplClient.Config.New("key");
+        var config = smplClient.Config.New("id");
         config.Environments["prod"] = new() { ["timeout"] = 60 };
         config.Environments["staging"] = new() { ["debug"] = true };
 
@@ -119,9 +118,9 @@ public class ModelsTests
     public void Config_ToString_ReturnsFormattedString()
     {
         var smplClient = CreateSmplClient();
-        var config = smplClient.Config.New("my_key", "My Config");
+        var config = smplClient.Config.New("my_id", "My Config");
 
-        Assert.Equal("Config(Key=my_key, Name=My Config)", config.ToString());
+        Assert.Equal("Config(Id=my_id, Name=My Config)", config.ToString());
     }
 
     // ------------------------------------------------------------------
@@ -131,38 +130,35 @@ public class ModelsTests
     [Fact]
     public async Task Config_FromGetAsync_HasAllFieldsPopulated()
     {
-        var listJson = """
+        var getJson = """
         {
-            "data": [
-                {
-                    "id": "id-1",
-                    "type": "config",
-                    "attributes": {
-                        "key": "my_key",
-                        "name": "My Config",
-                        "description": "A description",
-                        "parent": "parent-id",
-                        "items": {"timeout": {"value": 30, "type": "NUMBER"}},
-                        "environments": {
-                            "production": {"timeout": {"value": 60}}
-                        },
-                        "created_at": "2024-01-15T00:00:00Z",
-                        "updated_at": "2024-01-16T00:00:00Z"
-                    }
+            "data": {
+                "id": "my_id",
+                "type": "config",
+                "attributes": {
+                    "id": "my_id",
+                    "name": "My Config",
+                    "description": "A description",
+                    "parent": "parent-id",
+                    "items": {"timeout": {"value": 30, "type": "NUMBER"}},
+                    "environments": {
+                        "production": {"timeout": {"value": 60}}
+                    },
+                    "created_at": "2024-01-15T00:00:00Z",
+                    "updated_at": "2024-01-16T00:00:00Z"
                 }
-            ]
+            }
         }
         """;
 
         var handler = new MockHttpMessageHandler(_ =>
-            Task.FromResult(JsonResponse(listJson)));
+            Task.FromResult(JsonResponse(getJson)));
         var httpClient = new HttpClient(handler);
         var smplClient = new SmplClient(TestData.DefaultOptions(), httpClient);
 
-        var config = await smplClient.Config.GetAsync("my_key");
+        var config = await smplClient.Config.GetAsync("my_id");
 
-        Assert.Equal("id-1", config.Id);
-        Assert.Equal("my_key", config.Key);
+        Assert.Equal("my_id", config.Id);
         Assert.Equal("My Config", config.Name);
         Assert.Equal("A description", config.Description);
         Assert.Equal("parent-id", config.Parent);
@@ -181,7 +177,7 @@ public class ModelsTests
     {
         var evt = new ConfigChangeEvent("my_config", "timeout", 30, 60, "websocket");
 
-        Assert.Equal("my_config", evt.ConfigKey);
+        Assert.Equal("my_config", evt.ConfigId);
         Assert.Equal("timeout", evt.ItemKey);
         Assert.Equal(30, evt.OldValue);
         Assert.Equal(60, evt.NewValue);
@@ -193,7 +189,7 @@ public class ModelsTests
     {
         var evt = new ConfigChangeEvent("cfg", "key", null, null, "manual");
 
-        Assert.Equal("cfg", evt.ConfigKey);
+        Assert.Equal("cfg", evt.ConfigId);
         Assert.Equal("key", evt.ItemKey);
         Assert.Null(evt.OldValue);
         Assert.Null(evt.NewValue);

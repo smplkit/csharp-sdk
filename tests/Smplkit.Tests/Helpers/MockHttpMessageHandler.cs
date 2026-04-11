@@ -27,6 +27,7 @@ public class MockHttpMessageHandler : HttpMessageHandler
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         LastRequest = request;
         Requests.Add(request);
         return await _handler(request);

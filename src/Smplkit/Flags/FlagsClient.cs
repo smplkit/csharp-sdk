@@ -62,18 +62,17 @@ public sealed class FlagsClient
     /// <summary>
     /// Create an unsaved boolean flag. Call <see cref="Flag.SaveAsync"/> to persist.
     /// </summary>
-    /// <param name="key">The flag key.</param>
+    /// <param name="id">The flag identifier (slug).</param>
     /// <param name="defaultValue">Default boolean value.</param>
-    /// <param name="name">Display name. Auto-generated from key if null.</param>
+    /// <param name="name">Display name. Auto-generated from id if null.</param>
     /// <param name="description">Optional description.</param>
     /// <returns>An unsaved <see cref="BooleanFlag"/>.</returns>
-    public BooleanFlag NewBooleanFlag(string key, bool defaultValue, string? name = null, string? description = null)
+    public BooleanFlag NewBooleanFlag(string id, bool defaultValue, string? name = null, string? description = null)
     {
         return new BooleanFlag(
             client: this,
-            id: null,
-            key: key,
-            name: name ?? Helpers.KeyToDisplayName(key),
+            id: id,
+            name: name ?? Helpers.KeyToDisplayName(id),
             @default: defaultValue,
             values: new List<Dictionary<string, object?>>
             {
@@ -89,19 +88,18 @@ public sealed class FlagsClient
     /// <summary>
     /// Create an unsaved string flag. Call <see cref="Flag.SaveAsync"/> to persist.
     /// </summary>
-    /// <param name="key">The flag key.</param>
+    /// <param name="id">The flag identifier (slug).</param>
     /// <param name="defaultValue">Default string value.</param>
-    /// <param name="name">Display name. Auto-generated from key if null.</param>
+    /// <param name="name">Display name. Auto-generated from id if null.</param>
     /// <param name="description">Optional description.</param>
     /// <param name="values">Optional closed set of allowed values.</param>
     /// <returns>An unsaved <see cref="StringFlag"/>.</returns>
-    public StringFlag NewStringFlag(string key, string defaultValue, string? name = null, string? description = null, List<Dictionary<string, object?>>? values = null)
+    public StringFlag NewStringFlag(string id, string defaultValue, string? name = null, string? description = null, List<Dictionary<string, object?>>? values = null)
     {
         return new StringFlag(
             client: this,
-            id: null,
-            key: key,
-            name: name ?? Helpers.KeyToDisplayName(key),
+            id: id,
+            name: name ?? Helpers.KeyToDisplayName(id),
             @default: defaultValue,
             values: values,
             description: description,
@@ -113,19 +111,18 @@ public sealed class FlagsClient
     /// <summary>
     /// Create an unsaved number flag. Call <see cref="Flag.SaveAsync"/> to persist.
     /// </summary>
-    /// <param name="key">The flag key.</param>
+    /// <param name="id">The flag identifier (slug).</param>
     /// <param name="defaultValue">Default numeric value.</param>
-    /// <param name="name">Display name. Auto-generated from key if null.</param>
+    /// <param name="name">Display name. Auto-generated from id if null.</param>
     /// <param name="description">Optional description.</param>
     /// <param name="values">Optional closed set of allowed values.</param>
     /// <returns>An unsaved <see cref="NumberFlag"/>.</returns>
-    public NumberFlag NewNumberFlag(string key, double defaultValue, string? name = null, string? description = null, List<Dictionary<string, object?>>? values = null)
+    public NumberFlag NewNumberFlag(string id, double defaultValue, string? name = null, string? description = null, List<Dictionary<string, object?>>? values = null)
     {
         return new NumberFlag(
             client: this,
-            id: null,
-            key: key,
-            name: name ?? Helpers.KeyToDisplayName(key),
+            id: id,
+            name: name ?? Helpers.KeyToDisplayName(id),
             @default: defaultValue,
             values: values,
             description: description,
@@ -137,19 +134,18 @@ public sealed class FlagsClient
     /// <summary>
     /// Create an unsaved JSON flag. Call <see cref="Flag.SaveAsync"/> to persist.
     /// </summary>
-    /// <param name="key">The flag key.</param>
+    /// <param name="id">The flag identifier (slug).</param>
     /// <param name="defaultValue">Default JSON value.</param>
-    /// <param name="name">Display name. Auto-generated from key if null.</param>
+    /// <param name="name">Display name. Auto-generated from id if null.</param>
     /// <param name="description">Optional description.</param>
     /// <param name="values">Optional closed set of allowed values.</param>
     /// <returns>An unsaved <see cref="JsonFlag"/>.</returns>
-    public JsonFlag NewJsonFlag(string key, Dictionary<string, object?> defaultValue, string? name = null, string? description = null, List<Dictionary<string, object?>>? values = null)
+    public JsonFlag NewJsonFlag(string id, Dictionary<string, object?> defaultValue, string? name = null, string? description = null, List<Dictionary<string, object?>>? values = null)
     {
         return new JsonFlag(
             client: this,
-            id: null,
-            key: key,
-            name: name ?? Helpers.KeyToDisplayName(key),
+            id: id,
+            name: name ?? Helpers.KeyToDisplayName(id),
             @default: defaultValue,
             values: values,
             description: description,
@@ -159,24 +155,22 @@ public sealed class FlagsClient
     }
 
     // ------------------------------------------------------------------
-    // Management: CRUD by key
+    // Management: CRUD by id
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Fetches a flag by its human-readable key.
+    /// Fetches a flag by its identifier.
     /// </summary>
-    /// <param name="key">The flag key.</param>
+    /// <param name="id">The flag identifier.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The matching <see cref="Flag"/>.</returns>
     /// <exception cref="SmplNotFoundException">If no matching flag exists.</exception>
-    public async Task<Flag> GetAsync(string key, CancellationToken ct = default)
+    public async Task<Flag> GetAsync(string id, CancellationToken ct = default)
     {
         var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genFlagsClient.List_flagsAsync(filterkey: key, cancellationToken: ct)).ConfigureAwait(false);
-        if (response.Data is null || response.Data.Count == 0)
-            throw new SmplNotFoundException($"Flag with key '{key}' not found");
-        return MapFlagResource(response.Data[0])
-            ?? throw new SmplNotFoundException($"Flag with key '{key}' not found");
+            () => _genFlagsClient.Get_flagAsync(id: id, cancellationToken: ct)).ConfigureAwait(false);
+        return MapFlagResource(response.Data)
+            ?? throw new SmplNotFoundException($"Flag with id '{id}' not found");
     }
 
     /// <summary>
@@ -193,25 +187,24 @@ public sealed class FlagsClient
     }
 
     /// <summary>
-    /// Deletes a flag by its human-readable key.
+    /// Deletes a flag by its identifier.
     /// </summary>
-    /// <param name="key">The flag key.</param>
+    /// <param name="id">The flag identifier.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <exception cref="SmplNotFoundException">If no matching flag exists.</exception>
-    public async Task DeleteAsync(string key, CancellationToken ct = default)
+    public async Task DeleteAsync(string id, CancellationToken ct = default)
     {
-        var flag = await GetAsync(key, ct).ConfigureAwait(false);
         await ApiExceptionMapper.ExecuteAsync(
-            () => _genFlagsClient.Delete_flagAsync(Guid.Parse(flag.Id!), ct)).ConfigureAwait(false);
+            () => _genFlagsClient.Delete_flagAsync(id, ct)).ConfigureAwait(false);
     }
 
     /// <summary>Internal: save a flag (create or update).</summary>
     internal async Task<Flag> SaveFlagInternalAsync(Flag flag, CancellationToken ct = default)
     {
-        if (flag.Id is null)
+        if (flag.CreatedAt is null)
         {
-            // Create
-            var body = BuildCreateFlagBody(flag.Key, flag.Name, flag.Type, flag.Default, flag.Description, flag.Values);
+            // Create (unsaved flag — CreatedAt is null until first server round-trip)
+            var body = BuildCreateFlagBody(flag.Id, flag.Name, flag.Type, flag.Default, flag.Description, flag.Values);
             var response = await ApiExceptionMapper.ExecuteAsync(
                 () => _genFlagsClient.Create_flagAsync(body, ct)).ConfigureAwait(false);
             return MapFlagResource(response.Data)
@@ -220,9 +213,10 @@ public sealed class FlagsClient
         else
         {
             // Update
-            var body = BuildUpdateFlagBody(flag.Key, flag.Name, flag.Type, flag.Default, flag.Values, flag.Description, flag.Environments);
+            var flagId = flag.Id ?? throw new SmplValidationException("Cannot update a flag without an id");
+            var body = BuildUpdateFlagBody(flagId, flag.Name, flag.Type, flag.Default, flag.Values, flag.Description, flag.Environments);
             var response = await ApiExceptionMapper.ExecuteAsync(
-                () => _genFlagsClient.Update_flagAsync(Guid.Parse(flag.Id), body, ct)).ConfigureAwait(false);
+                () => _genFlagsClient.Update_flagAsync(flagId, body, ct)).ConfigureAwait(false);
             return MapFlagResource(response.Data)
                 ?? throw new SmplValidationException("Failed to update flag");
         }
@@ -235,76 +229,76 @@ public sealed class FlagsClient
     /// <summary>
     /// Declares a boolean flag handle with the specified default value.
     /// </summary>
-    /// <param name="key">The flag key.</param>
+    /// <param name="id">The flag identifier.</param>
     /// <param name="defaultValue">The default value used when no server-side value is available.</param>
     /// <returns>A typed flag handle.</returns>
-    public BooleanFlag BooleanFlag(string key, bool defaultValue)
+    public BooleanFlag BooleanFlag(string id, bool defaultValue)
     {
         var handle = new BooleanFlag(
-            client: this, id: null, key: key, name: key,
+            client: this, id: id, name: id,
             @default: defaultValue,
             values: new List<Dictionary<string, object?>>(),
             description: null,
             environments: new Dictionary<string, Dictionary<string, object?>>(),
             createdAt: null, updatedAt: null);
-        _handles[key] = handle;
+        _handles[id] = handle;
         return handle;
     }
 
     /// <summary>
     /// Declares a string flag handle with the specified default value.
     /// </summary>
-    /// <param name="key">The flag key.</param>
+    /// <param name="id">The flag identifier.</param>
     /// <param name="defaultValue">The default value used when no server-side value is available.</param>
     /// <returns>A typed flag handle.</returns>
-    public StringFlag StringFlag(string key, string defaultValue)
+    public StringFlag StringFlag(string id, string defaultValue)
     {
         var handle = new StringFlag(
-            client: this, id: null, key: key, name: key,
+            client: this, id: id, name: id,
             @default: defaultValue,
             values: new List<Dictionary<string, object?>>(),
             description: null,
             environments: new Dictionary<string, Dictionary<string, object?>>(),
             createdAt: null, updatedAt: null);
-        _handles[key] = handle;
+        _handles[id] = handle;
         return handle;
     }
 
     /// <summary>
     /// Declares a number flag handle with the specified default value.
     /// </summary>
-    /// <param name="key">The flag key.</param>
+    /// <param name="id">The flag identifier.</param>
     /// <param name="defaultValue">The default value used when no server-side value is available.</param>
     /// <returns>A typed flag handle.</returns>
-    public NumberFlag NumberFlag(string key, double defaultValue)
+    public NumberFlag NumberFlag(string id, double defaultValue)
     {
         var handle = new NumberFlag(
-            client: this, id: null, key: key, name: key,
+            client: this, id: id, name: id,
             @default: defaultValue,
             values: new List<Dictionary<string, object?>>(),
             description: null,
             environments: new Dictionary<string, Dictionary<string, object?>>(),
             createdAt: null, updatedAt: null);
-        _handles[key] = handle;
+        _handles[id] = handle;
         return handle;
     }
 
     /// <summary>
     /// Declares a JSON flag handle with the specified default value.
     /// </summary>
-    /// <param name="key">The flag key.</param>
+    /// <param name="id">The flag identifier.</param>
     /// <param name="defaultValue">The default value used when no server-side value is available.</param>
     /// <returns>A typed flag handle.</returns>
-    public JsonFlag JsonFlag(string key, Dictionary<string, object?> defaultValue)
+    public JsonFlag JsonFlag(string id, Dictionary<string, object?> defaultValue)
     {
         var handle = new JsonFlag(
-            client: this, id: null, key: key, name: key,
+            client: this, id: id, name: id,
             @default: defaultValue,
             values: new List<Dictionary<string, object?>>(),
             description: null,
             environments: new Dictionary<string, Dictionary<string, object?>>(),
             createdAt: null, updatedAt: null);
-        _handles[key] = handle;
+        _handles[id] = handle;
         return handle;
     }
 
@@ -412,13 +406,13 @@ public sealed class FlagsClient
     }
 
     /// <summary>
-    /// Register a change listener scoped to a specific flag key.
+    /// Register a change listener scoped to a specific flag id.
     /// </summary>
-    /// <param name="flagKey">The flag key to listen for.</param>
+    /// <param name="flagId">The flag identifier to listen for.</param>
     /// <param name="callback">Called with a <see cref="FlagChangeEvent"/> when this flag changes.</param>
-    public void OnChange(string flagKey, Action<FlagChangeEvent> callback)
+    public void OnChange(string flagId, Action<FlagChangeEvent> callback)
     {
-        var list = _scopedListeners.GetOrAdd(flagKey, _ => new List<Action<FlagChangeEvent>>());
+        var list = _scopedListeners.GetOrAdd(flagId, _ => new List<Action<FlagChangeEvent>>());
         lock (list)
         {
             list.Add(callback);
@@ -479,7 +473,7 @@ public sealed class FlagsClient
     // Internal: evaluation
     // ------------------------------------------------------------------
 
-    internal object? EvaluateHandle(string key, object? defaultValue, IReadOnlyList<Context>? context)
+    internal object? EvaluateHandle(string id, object? defaultValue, IReadOnlyList<Context>? context)
     {
         EnsureInitialized();
 
@@ -506,18 +500,18 @@ public sealed class FlagsClient
             evalDict["service"] = new Dictionary<string, object?> { ["key"] = svc };
 
         var ctxHash = HashContext(evalDict);
-        var cacheKey = $"{key}:{ctxHash}";
+        var cacheKey = $"{id}:{ctxHash}";
 
         var (hit, cachedValue) = _cache.Get(cacheKey);
         if (hit)
         {
             _metrics?.Record("flags.cache_hits", unit: "hits");
             _metrics?.Record("flags.evaluations", unit: "evaluations",
-                dimensions: new Dictionary<string, string> { ["flag_id"] = key });
+                dimensions: new Dictionary<string, string> { ["flag_id"] = id });
             return cachedValue;
         }
 
-        if (!_flagStore.TryGetValue(key, out var flagDef))
+        if (!_flagStore.TryGetValue(id, out var flagDef))
         {
             _cache.Put(cacheKey, defaultValue);
             return defaultValue;
@@ -530,7 +524,7 @@ public sealed class FlagsClient
 
         _metrics?.Record("flags.cache_misses", unit: "misses");
         _metrics?.Record("flags.evaluations", unit: "evaluations",
-            dimensions: new Dictionary<string, string> { ["flag_id"] = key });
+            dimensions: new Dictionary<string, string> { ["flag_id"] = id });
 
         return value;
     }
@@ -541,7 +535,8 @@ public sealed class FlagsClient
 
     private void HandleFlagChanged(Dictionary<string, object?> data)
     {
-        var flagKey = data.TryGetValue("key", out var k) ? k as string : null;
+        var flagId = data.TryGetValue("id", out var k) ? k as string
+            : data.TryGetValue("key", out var k2) ? k2 as string : null;
         try
         {
             var response = _genFlagsClient.List_flagsAsync().GetAwaiter().GetResult();
@@ -551,7 +546,7 @@ public sealed class FlagsClient
                 foreach (var resource in response.Data)
                 {
                     var flag = ParseFlagDef(resource);
-                    if (flag is not null && flag.TryGetValue("key", out var fk) && fk is string fks)
+                    if (flag is not null && flag.TryGetValue("id", out var fk) && fk is string fks)
                         _flagStore[fks] = flag;
                 }
             }
@@ -559,7 +554,7 @@ public sealed class FlagsClient
         catch { /* Ignore refresh errors */ }
 
         _cache.Clear();
-        FireChangeListeners(flagKey, "websocket");
+        FireChangeListeners(flagId, "websocket");
     }
 
     private void HandleFlagDeleted(Dictionary<string, object?> data)
@@ -580,7 +575,7 @@ public sealed class FlagsClient
         foreach (var resource in response.Data)
         {
             var flag = ParseFlagDef(resource);
-            if (flag is not null && flag.TryGetValue("key", out var k) && k is string ks)
+            if (flag is not null && flag.TryGetValue("id", out var k) && k is string ks)
                 _flagStore[ks] = flag;
         }
     }
@@ -589,16 +584,16 @@ public sealed class FlagsClient
     // Internal: change listeners
     // ------------------------------------------------------------------
 
-    private void FireChangeListeners(string? flagKey, string source)
+    private void FireChangeListeners(string? flagId, string source)
     {
-        if (flagKey is null) return;
-        var evt = new FlagChangeEvent(flagKey, source);
+        if (flagId is null) return;
+        var evt = new FlagChangeEvent(flagId, source);
         foreach (var cb in _globalListeners)
         {
             try { cb(evt); }
             catch { /* Ignore listener exceptions */ }
         }
-        if (_scopedListeners.TryGetValue(flagKey, out var scopedList))
+        if (_scopedListeners.TryGetValue(flagId, out var scopedList))
         {
             List<Action<FlagChangeEvent>> snapshot;
             lock (scopedList)
@@ -615,8 +610,8 @@ public sealed class FlagsClient
 
     private void FireChangeListenersAll(string source)
     {
-        foreach (var key in _flagStore.Keys)
-            FireChangeListeners(key, source);
+        foreach (var id in _flagStore.Keys)
+            FireChangeListeners(id, source);
     }
 
     // ------------------------------------------------------------------
@@ -793,7 +788,6 @@ public sealed class FlagsClient
         return new Flag(
             client: this,
             id: resource.Id ?? string.Empty,
-            key: attrs.Key ?? string.Empty,
             name: attrs.Name ?? string.Empty,
             type: attrs.Type ?? "BOOLEAN",
             @default: NormalizeValue(attrs.Default),
@@ -821,7 +815,7 @@ public sealed class FlagsClient
 
         return new Dictionary<string, object?>
         {
-            ["key"] = attrs.Key,
+            ["id"] = resource.Id,
             ["name"] = attrs.Name,
             ["type"] = attrs.Type,
             ["default"] = NormalizeValue(attrs.Default),
@@ -868,7 +862,7 @@ public sealed class FlagsClient
     // ------------------------------------------------------------------
 
     private static GenFlags.Response_Flag_ BuildCreateFlagBody(
-        string key, string name, string type, object? @default,
+        string? id, string name, string type, object? @default,
         string? description, List<Dictionary<string, object?>>? values)
     {
         var flagValues = values?.Select(v => new GenFlags.FlagValue
@@ -884,7 +878,7 @@ public sealed class FlagsClient
                 Type = "flag",
                 Attributes = new GenFlags.Flag
                 {
-                    Key = key,
+                    Id = id,
                     Name = name,
                     Type = type,
                     Default = @default ?? new object(),
@@ -897,7 +891,7 @@ public sealed class FlagsClient
     }
 
     private static GenFlags.Response_Flag_ BuildUpdateFlagBody(
-        string key, string name, string type, object? @default,
+        string? id, string name, string type, object? @default,
         List<Dictionary<string, object?>>? values, string? description,
         Dictionary<string, Dictionary<string, object?>> environments)
     {
@@ -940,7 +934,7 @@ public sealed class FlagsClient
                 Type = "flag",
                 Attributes = new GenFlags.Flag
                 {
-                    Key = key,
+                    Id = id,
                     Name = name,
                     Type = type,
                     Default = @default ?? new object(),

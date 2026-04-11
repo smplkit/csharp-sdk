@@ -26,10 +26,10 @@ public class CoverageGapTests
         {
             "data": [
                 {
-                    "id": "flag-001",
+                    "id": "{{key}}",
                     "type": "flag",
                     "attributes": {
-                        "key": "{{key}}",
+                        "id": "{{key}}",
                         "name": "My Flag",
                         "type": "BOOLEAN",
                         "default": false,
@@ -55,13 +55,13 @@ public class CoverageGapTests
         {
             "data": [
                 {
-                    "id": "child-id",
+                    "id": "child_config",
                     "type": "config",
                     "attributes": {
-                        "key": "child_config",
+                        "id": "child_config",
                         "name": "Child Config",
                         "description": null,
-                        "parent": "parent-id",
+                        "parent": "parent_config",
                         "items": { "child_key": {"value": "child_val", "type": "STRING"} },
                         "environments": {
                             "production": {
@@ -73,10 +73,10 @@ public class CoverageGapTests
                     }
                 },
                 {
-                    "id": "parent-id",
+                    "id": "parent_config",
                     "type": "config",
                     "attributes": {
-                        "key": "parent_config",
+                        "id": "parent_config",
                         "name": "Parent Config",
                         "description": null,
                         "parent": null,
@@ -95,10 +95,10 @@ public class CoverageGapTests
         {
             "data": [
                 {
-                    "id": "11111111-1111-1111-1111-111111111111",
+                    "id": "my_config",
                     "type": "config",
                     "attributes": {
-                        "key": "my_config",
+                        "id": "my_config",
                         "name": "My Config",
                         "description": null,
                         "parent": null,

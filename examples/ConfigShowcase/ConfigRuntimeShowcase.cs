@@ -136,13 +136,13 @@ public static class ConfigRuntimeShowcase
         client.Config.OnChange(evt =>
         {
             globalChanges.Add(evt);
-            Console.WriteLine($"    [CHANGE] {evt.ConfigKey}/{evt.ItemKey}: {evt.OldValue} -> {evt.NewValue}");
+            Console.WriteLine($"    [CHANGE] {evt.ConfigId}/{evt.ItemKey}: {evt.OldValue} -> {evt.NewValue}");
         });
         Step("Global change listener registered");
 
         var retryChanges = new List<ConfigChangeEvent>();
         client.Config.OnChange("common", "max_retries", evt => retryChanges.Add(evt));
-        Step("Key-specific listener registered for common/max_retries");
+        Step("Item-specific listener registered for common/max_retries");
 
         // Update via management API (mutate + SaveAsync), then refresh
         demoConfigs.Common.Environments["production"]["max_retries"] = 7;

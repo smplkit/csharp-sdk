@@ -31,40 +31,8 @@ public class ConfigClientSetValuesTests
         };
     }
 
-    private static string SingleConfigListJson(
-        string id = "11111111-1111-1111-1111-111111111111",
-        string key = "my_key",
-        string name = "My Config",
-        string? parent = null,
-        string valuesJson = "{}",
-        string environmentsJson = "{}")
-    {
-        var parentStr = parent is null ? "null" : $"\"{parent}\"";
-        return $$"""
-        {
-            "data": [
-                {
-                    "id": "{{id}}",
-                    "type": "config",
-                    "attributes": {
-                        "key": "{{key}}",
-                        "name": "{{name}}",
-                        "description": null,
-                        "parent": {{parentStr}},
-                        "items": {{valuesJson}},
-                        "environments": {{environmentsJson}},
-                        "created_at": "2024-01-15T10:30:00Z",
-                        "updated_at": "2024-01-15T10:30:00Z"
-                    }
-                }
-            ]
-        }
-        """;
-    }
-
     private static string SingleConfigJson(
-        string id = "11111111-1111-1111-1111-111111111111",
-        string key = "my_key",
+        string id = "my_id",
         string name = "My Config",
         string? parent = null,
         string valuesJson = "{}",
@@ -77,7 +45,7 @@ public class ConfigClientSetValuesTests
                 "id": "{{id}}",
                 "type": "config",
                 "attributes": {
-                    "key": "{{key}}",
+                    "id": "{{id}}",
                     "name": "{{name}}",
                     "description": null,
                     "parent": {{parentStr}},
@@ -106,7 +74,7 @@ public class ConfigClientSetValuesTests
             requestCount++;
             if (requestCount == 1)
             {
-                return JsonResponse(SingleConfigListJson(
+                return JsonResponse(SingleConfigJson(
                     valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}, "retries": {"value": 3, "type": "NUMBER"}}""",
                     environmentsJson: """{"production": {"timeout": {"value": 60}}}"""));
             }
@@ -119,7 +87,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_key");
+        var config = await client.Config.GetAsync("my_id");
         config.Items["new_key"] = "new_value";
         await config.SaveAsync();
 
@@ -140,7 +108,7 @@ public class ConfigClientSetValuesTests
             requestCount++;
             if (requestCount == 1)
             {
-                return JsonResponse(SingleConfigListJson(
+                return JsonResponse(SingleConfigJson(
                     environmentsJson: """{"staging": {"debug": {"value": true}}}"""));
             }
             if (req.Method == HttpMethod.Put)
@@ -151,7 +119,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_key");
+        var config = await client.Config.GetAsync("my_id");
         config.Items["key"] = "val";
         await config.SaveAsync();
 
@@ -174,7 +142,7 @@ public class ConfigClientSetValuesTests
             requestCount++;
             if (requestCount == 1)
             {
-                return JsonResponse(SingleConfigListJson(
+                return JsonResponse(SingleConfigJson(
                     valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
                     environmentsJson: """{"production": {"timeout": {"value": 60}}}"""));
             }
@@ -186,7 +154,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_key");
+        var config = await client.Config.GetAsync("my_id");
         config.Environments["production"] = new Dictionary<string, object?> { ["timeout"] = 120 };
         await config.SaveAsync();
 
@@ -205,7 +173,7 @@ public class ConfigClientSetValuesTests
             requestCount++;
             if (requestCount == 1)
             {
-                return JsonResponse(SingleConfigListJson(
+                return JsonResponse(SingleConfigJson(
                     valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}"""));
             }
             if (req.Method == HttpMethod.Put)
@@ -216,7 +184,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_key");
+        var config = await client.Config.GetAsync("my_id");
         config.Environments["staging"] = new Dictionary<string, object?> { ["timeout"] = 90 };
         await config.SaveAsync();
 
@@ -239,7 +207,7 @@ public class ConfigClientSetValuesTests
             requestCount++;
             if (requestCount == 1)
             {
-                return JsonResponse(SingleConfigListJson(
+                return JsonResponse(SingleConfigJson(
                     valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}"""));
             }
             if (req.Method == HttpMethod.Put)
@@ -251,7 +219,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_key");
+        var config = await client.Config.GetAsync("my_id");
         config.Items["timeout"] = 60;
         await config.SaveAsync();
 
@@ -273,7 +241,7 @@ public class ConfigClientSetValuesTests
             requestCount++;
             if (requestCount == 1)
             {
-                return JsonResponse(SingleConfigListJson(
+                return JsonResponse(SingleConfigJson(
                     valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}"""));
             }
             if (req.Method == HttpMethod.Put)
@@ -284,7 +252,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_key");
+        var config = await client.Config.GetAsync("my_id");
         config.Items["timeout"] = null;
         await config.SaveAsync();
 
@@ -306,7 +274,7 @@ public class ConfigClientSetValuesTests
             requestCount++;
             if (requestCount == 1)
             {
-                return JsonResponse(SingleConfigListJson(
+                return JsonResponse(SingleConfigJson(
                     valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}, "retries": {"value": 3, "type": "NUMBER"}}"""));
             }
             if (req.Method == HttpMethod.Put)
@@ -318,7 +286,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_key");
+        var config = await client.Config.GetAsync("my_id");
         config.Items["debug"] = true;
         await config.SaveAsync();
 
@@ -344,7 +312,7 @@ public class ConfigClientSetValuesTests
             requestCount++;
             if (requestCount == 1)
             {
-                return JsonResponse(SingleConfigListJson(
+                return JsonResponse(SingleConfigJson(
                     valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""",
                     environmentsJson: """{"production": {"timeout": {"value": 60}}, "staging": {"debug": {"value": true}}}"""));
             }
@@ -356,7 +324,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_key");
+        var config = await client.Config.GetAsync("my_id");
         config.Environments["production"] = new Dictionary<string, object?> { ["timeout"] = 120 };
         await config.SaveAsync();
 
@@ -380,7 +348,7 @@ public class ConfigClientSetValuesTests
             requestCount++;
             if (requestCount == 1)
             {
-                return JsonResponse(SingleConfigListJson(
+                return JsonResponse(SingleConfigJson(
                     parent: "parent-uuid",
                     valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}"""));
             }
@@ -392,7 +360,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_key");
+        var config = await client.Config.GetAsync("my_id");
         config.Items["new_key"] = "val";
         await config.SaveAsync();
 
@@ -415,27 +383,25 @@ public class ConfigClientSetValuesTests
             requestCount++;
             if (requestCount == 1)
             {
-                var listJson = """
+                var getJson = """
                 {
-                    "data": [
-                        {
-                            "id": "11111111-1111-1111-1111-111111111111",
-                            "type": "config",
-                            "attributes": {
-                                "key": "my_key",
-                                "name": "My Config",
-                                "description": "My config desc",
-                                "parent": "parent-uuid",
-                                "items": {"timeout": {"value": 30, "type": "NUMBER"}},
-                                "environments": {},
-                                "created_at": "2024-01-15T10:30:00Z",
-                                "updated_at": "2024-01-15T10:30:00Z"
-                            }
+                    "data": {
+                        "id": "my_id",
+                        "type": "config",
+                        "attributes": {
+                            "id": "my_id",
+                            "name": "My Config",
+                            "description": "My config desc",
+                            "parent": "parent-uuid",
+                            "items": {"timeout": {"value": 30, "type": "NUMBER"}},
+                            "environments": {},
+                            "created_at": "2024-01-15T10:30:00Z",
+                            "updated_at": "2024-01-15T10:30:00Z"
                         }
-                    ]
+                    }
                 }
                 """;
-                return JsonResponse(listJson);
+                return JsonResponse(getJson);
             }
             if (req.Method == HttpMethod.Put)
             {
@@ -445,7 +411,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_key");
+        var config = await client.Config.GetAsync("my_id");
         config.Items["debug"] = true;
         await config.SaveAsync();
 
@@ -473,13 +439,13 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = client.Config.New("svc_key", "Service Name");
+        var config = client.Config.New("svc_id", "Service Name");
         config.Items["new"] = "val";
         await config.SaveAsync();
 
         Assert.NotNull(postBody);
         Assert.Contains("Service Name", postBody);
-        Assert.Contains("svc_key", postBody);
+        Assert.Contains("svc_id", postBody);
     }
 
     // ------------------------------------------------------------------
@@ -501,14 +467,14 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = client.Config.New("full_key", "Full Config", "A full description", "parent-uuid");
+        var config = client.Config.New("full_id", "Full Config", "A full description", "parent-uuid");
         config.Items = new() { ["a"] = 1 };
         config.Environments = new() { ["prod"] = new Dictionary<string, object?> { ["b"] = 2 } };
         await config.SaveAsync();
 
         Assert.NotNull(postBody);
         Assert.Contains("Full Config", postBody);
-        Assert.Contains("full_key", postBody);
+        Assert.Contains("full_id", postBody);
         Assert.Contains("A full description", postBody);
         Assert.Contains("parent-uuid", postBody);
     }
@@ -528,7 +494,7 @@ public class ConfigClientSetValuesTests
             requestCount++;
             if (requestCount == 1)
             {
-                return JsonResponse(SingleConfigListJson(
+                return JsonResponse(SingleConfigJson(
                     valuesJson: """{"old": {"value": "val", "type": "STRING"}}""",
                     environmentsJson: """{}"""));
             }
@@ -540,7 +506,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_key");
+        var config = await client.Config.GetAsync("my_id");
         config.Items["new"] = "val";
         await config.SaveAsync();
 
@@ -561,7 +527,7 @@ public class ConfigClientSetValuesTests
             requestCount++;
             if (requestCount == 1)
             {
-                return Task.FromResult(JsonResponse(SingleConfigListJson(
+                return Task.FromResult(JsonResponse(SingleConfigJson(
                     valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}}""")));
             }
             return Task.FromResult(JsonResponse(
@@ -569,7 +535,7 @@ public class ConfigClientSetValuesTests
                 (HttpStatusCode)422));
         });
 
-        var config = await client.Config.GetAsync("my_key");
+        var config = await client.Config.GetAsync("my_id");
         config.Items["key"] = "val";
 
         await Assert.ThrowsAsync<SmplValidationException>(
@@ -577,19 +543,21 @@ public class ConfigClientSetValuesTests
     }
 
     // ------------------------------------------------------------------
-    // Special characters in key for GetAsync
+    // Special characters in id for GetAsync
     // ------------------------------------------------------------------
 
     [Fact]
     public async Task GetAsync_SpecialCharacters_AreUrlEncoded()
     {
         var (client, handler) = CreateClient(_ =>
-            Task.FromResult(JsonResponse("""{"data": []}""")));
+            Task.FromResult(JsonResponse(
+                """{"errors":[{"detail":"Not found"}]}""",
+                HttpStatusCode.NotFound)));
 
         // This will throw NotFound, but we want to check the URL encoding
         try
         {
-            await client.Config.GetAsync("my key&value=test");
+            await client.Config.GetAsync("my id&value=test");
         }
         catch (SmplNotFoundException) { }
 
@@ -614,7 +582,7 @@ public class ConfigClientSetValuesTests
             requestCount++;
             if (requestCount == 1)
             {
-                return JsonResponse(SingleConfigListJson(
+                return JsonResponse(SingleConfigJson(
                     valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}, "retries": {"value": 3, "type": "NUMBER"}}"""));
             }
             if (req.Method == HttpMethod.Put)
@@ -625,7 +593,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_key");
+        var config = await client.Config.GetAsync("my_id");
         // Replace entire items dict
         config.Items = new Dictionary<string, object?> { ["new_only"] = "value" };
         await config.SaveAsync();
@@ -649,7 +617,7 @@ public class ConfigClientSetValuesTests
             requestCount++;
             if (requestCount == 1)
             {
-                return JsonResponse(SingleConfigListJson(
+                return JsonResponse(SingleConfigJson(
                     environmentsJson: """{"production": {"timeout": {"value": 60}}}"""));
             }
             if (req.Method == HttpMethod.Put)
@@ -660,7 +628,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_key");
+        var config = await client.Config.GetAsync("my_id");
         config.Environments = new Dictionary<string, Dictionary<string, object?>>
         {
             ["development"] = new() { ["debug"] = true },

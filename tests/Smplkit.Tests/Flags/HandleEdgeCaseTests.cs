@@ -39,16 +39,16 @@ public class HandleEdgeCaseTests
     /// The trick is that when the rule value comes from a JSON-deserialized environment config,
     /// it arrives as a JsonElement, not a native C# type.
     /// </summary>
-    private static string FlagListWithRuleJson(string key, string type, string defaultVal, string ruleValue)
+    private static string FlagListWithRuleJson(string id, string type, string defaultVal, string ruleValue)
     {
         return $$"""
         {
             "data": [
                 {
-                    "id": "flag-001",
+                    "id": "{{id}}",
                     "type": "flag",
                     "attributes": {
-                        "key": "{{key}}",
+                        "id": "{{id}}",
                         "name": "Test Flag",
                         "type": "{{type}}",
                         "default": {{defaultVal}},
@@ -191,7 +191,7 @@ public class HandleEdgeCaseTests
     /// so the fallback path returns the raw JsonElement without normalization. This exercises
     /// the defensive JsonElement branches in handle Get methods.
     /// </summary>
-    private static void InjectRawFlagDef(SmplClient client, string key, string environment, object rawValue)
+    private static void InjectRawFlagDef(SmplClient client, string id, string environment, object rawValue)
     {
         var flagsClient = client.Flags;
 
@@ -222,7 +222,7 @@ public class HandleEdgeCaseTests
 
         var flagDef = new Dictionary<string, object?>
         {
-            ["key"] = key,
+            ["id"] = id,
             ["default"] = rawValue, // raw JsonElement as flag default
             ["environments"] = new Dictionary<string, Dictionary<string, object?>>
             {
@@ -230,7 +230,7 @@ public class HandleEdgeCaseTests
             },
         };
 
-        store[key] = flagDef;
+        store[id] = flagDef;
     }
 
     [Fact]

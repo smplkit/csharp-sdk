@@ -5,14 +5,12 @@ namespace Smplkit.Tests.Helpers;
 /// </summary>
 internal static class TestData
 {
-    internal const string ConfigId = "550e8400-e29b-41d4-a716-446655440000";
-    internal const string ConfigKey = "user_service";
+    internal const string ConfigId = "user_service";
     internal const string ConfigName = "User Service";
     internal const string ApiKey = "sk_api_test_key_123";
 
     internal static string SingleConfigJson(
         string id = ConfigId,
-        string key = ConfigKey,
         string name = ConfigName) =>
         $$"""
         {
@@ -20,7 +18,7 @@ internal static class TestData
                 "id": "{{id}}",
                 "type": "config",
                 "attributes": {
-                    "key": "{{key}}",
+                    "id": "{{id}}",
                     "name": "{{name}}",
                     "description": "Test config",
                     "parent": null,
@@ -41,7 +39,7 @@ internal static class TestData
                     "id": "{{ConfigId}}",
                     "type": "config",
                     "attributes": {
-                        "key": "{{ConfigKey}}",
+                        "id": "{{ConfigId}}",
                         "name": "{{ConfigName}}",
                         "description": "Test config",
                         "parent": null,
@@ -52,10 +50,10 @@ internal static class TestData
                     }
                 },
                 {
-                    "id": "660e8400-e29b-41d4-a716-446655440001",
+                    "id": "payment_service",
                     "type": "config",
                     "attributes": {
-                        "key": "payment_service",
+                        "id": "payment_service",
                         "name": "Payment Service",
                         "description": null,
                         "parent": null,

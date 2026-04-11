@@ -66,10 +66,10 @@ public static class LoggingManagementShowcase
         Section("1. Create a Log Group");
 
         var group = client.Logging.NewGroup("showcase-group", name: "Showcase Group");
-        Step($"NewGroup created locally: key={group.Key}, name={group.Name}");
+        Step($"NewGroup created locally: id={group.Id}, name={group.Name}");
 
         await group.SaveAsync();
-        Step($"Group saved: id={group.Id}, key={group.Key}");
+        Step($"Group saved: id={group.Id}, id={group.Id}");
 
         // ==============================================================
         // 2. CREATE A LOGGER
@@ -77,10 +77,10 @@ public static class LoggingManagementShowcase
         Section("2. Create a Logger");
 
         var logger = client.Logging.New("showcase-logger", name: "Showcase Logger", managed: true);
-        Step($"New logger created locally: key={logger.Key}, name={logger.Name}");
+        Step($"New logger created locally: id={logger.Id}, name={logger.Name}");
 
         await logger.SaveAsync();
-        Step($"Logger saved: id={logger.Id}, key={logger.Key}");
+        Step($"Logger saved: id={logger.Id}, id={logger.Id}");
 
         // ==============================================================
         // 3. SET LOG LEVEL ON THE LOGGER
@@ -114,14 +114,14 @@ public static class LoggingManagementShowcase
         Step($"Total loggers: {allLoggers.Count}");
         foreach (var l in allLoggers)
         {
-            Console.WriteLine($"     - {l.Key} (id={l.Id}, level={l.Level})");
+            Console.WriteLine($"     - {l.Id} (id={l.Id}, level={l.Level})");
         }
 
         var allGroups = await client.Logging.ListGroupsAsync();
         Step($"Total groups: {allGroups.Count}");
         foreach (var g in allGroups)
         {
-            Console.WriteLine($"     - {g.Key} (id={g.Id}, level={g.Level})");
+            Console.WriteLine($"     - {g.Id} (id={g.Id}, level={g.Level})");
         }
 
         // ==============================================================
@@ -132,7 +132,7 @@ public static class LoggingManagementShowcase
         try
         {
             var fetched = await client.Logging.GetAsync("showcase-logger");
-            Step($"Fetched logger: key={fetched.Key}, level={fetched.Level}");
+            Step($"Fetched logger: id={fetched.Id}, level={fetched.Level}");
             Step($"  Name: {fetched.Name}");
             Step($"  Created: {fetched.CreatedAt}");
             Step($"  Updated: {fetched.UpdatedAt}");

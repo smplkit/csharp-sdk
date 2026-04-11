@@ -96,10 +96,10 @@ public class AutoLoadTests
             {
                 "data": [
                     {
-                        "id": "550e8400-e29b-41d4-a716-446655440099",
+                        "id": "my-logger",
                         "type": "logger",
                         "attributes": {
-                            "key": "my-logger",
+                            "id": "my-logger",
                             "name": "My Logger",
                             "level": "WARN",
                             "group": null,
@@ -188,10 +188,10 @@ public class AutoLoadTests
             {
                 "data": [
                     {
-                        "id": "550e8400-e29b-41d4-a716-446655440099",
+                        "id": "no-level-logger",
                         "type": "logger",
                         "attributes": {
-                            "key": "no-level-logger",
+                            "id": "no-level-logger",
                             "name": "No Level",
                             "level": null,
                             "group": null,
@@ -277,10 +277,10 @@ public class AutoLoadTests
             {
                 "data": [
                     {
-                        "id": "550e8400-e29b-41d4-a716-446655440099",
+                        "id": "my-logger",
                         "type": "logger",
                         "attributes": {
-                            "key": "my-logger",
+                            "id": "my-logger",
                             "name": "My Logger",
                             "level": "ERROR",
                             "group": null,
@@ -339,7 +339,7 @@ public class AutoLoadTests
         capturedHook!("new-logger", LogLevel.Debug);
 
         Assert.Single(events);
-        Assert.Equal("new-logger", events[0].Key);
+        Assert.Equal("new-logger", events[0].Id);
         Assert.Equal(LogLevel.Debug, events[0].Level);
         Assert.Equal("adapter", events[0].Source);
     }

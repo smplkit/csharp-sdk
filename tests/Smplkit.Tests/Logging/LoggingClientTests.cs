@@ -9,12 +9,10 @@ namespace Smplkit.Tests.Logging;
 
 public class LoggingClientTests
 {
-    private const string LoggerId = "550e8400-e29b-41d4-a716-446655440099";
-    private const string LoggerKey = "my-logger";
+    private const string LoggerId = "my-logger";
     private const string LoggerName = "My Logger";
 
-    private const string LogGroupId = "550e8400-e29b-41d4-a716-446655440088";
-    private const string LogGroupKey = "my-group";
+    private const string LogGroupId = "my-group";
     private const string LogGroupName = "My Group";
 
     private static (SmplClient client, MockHttpMessageHandler handler) CreateClient(
@@ -42,7 +40,7 @@ public class LoggingClientTests
                 "id": "{{LoggerId}}",
                 "type": "logger",
                 "attributes": {
-                    "key": "{{LoggerKey}}",
+                    "id": "{{LoggerId}}",
                     "name": "{{LoggerName}}",
                     "level": "INFO",
                     "group": null,
@@ -64,7 +62,7 @@ public class LoggingClientTests
                     "id": "{{LoggerId}}",
                     "type": "logger",
                     "attributes": {
-                        "key": "{{LoggerKey}}",
+                        "id": "{{LoggerId}}",
                         "name": "{{LoggerName}}",
                         "level": "INFO",
                         "group": null,
@@ -86,7 +84,7 @@ public class LoggingClientTests
                 "id": "{{LogGroupId}}",
                 "type": "log_group",
                 "attributes": {
-                    "key": "{{LogGroupKey}}",
+                    "id": "{{LogGroupId}}",
                     "name": "{{LogGroupName}}",
                     "level": "WARN",
                     "group": null,
@@ -106,7 +104,7 @@ public class LoggingClientTests
                     "id": "{{LogGroupId}}",
                     "type": "log_group",
                     "attributes": {
-                        "key": "{{LogGroupKey}}",
+                        "id": "{{LogGroupId}}",
                         "name": "{{LogGroupName}}",
                         "level": "WARN",
                         "group": null,
@@ -134,14 +132,12 @@ public class LoggingClientTests
             return Task.FromResult(JsonResponse("""{"data":[]}"""));
         });
 
-        var logger = client.Logging.New(LoggerKey);
-        Assert.Null(logger.Id);
-        Assert.Equal(LoggerKey, logger.Key);
+        var logger = client.Logging.New(LoggerId);
+        Assert.Equal(LoggerId, logger.Id);
 
         await logger.SaveAsync();
 
         Assert.Equal(LoggerId, logger.Id);
-        Assert.Equal(LoggerKey, logger.Key);
         Assert.Equal(LoggerName, logger.Name);
         Assert.Equal(LogLevel.Info, logger.Level);
 
@@ -150,19 +146,18 @@ public class LoggingClientTests
     }
 
     // ------------------------------------------------------------------
-    // GetAsync by key (list with filter[key])
+    // GetAsync by id (direct GET)
     // ------------------------------------------------------------------
 
     [Fact]
-    public async Task GetAsync_ByKey_ReturnsLogger()
+    public async Task GetAsync_ById_ReturnsLogger()
     {
         var (client, handler) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(LoggerListJson())));
+            Task.FromResult(JsonResponse(SingleLoggerJson())));
 
-        var logger = await client.Logging.GetAsync(LoggerKey);
+        var logger = await client.Logging.GetAsync(LoggerId);
 
         Assert.Equal(LoggerId, logger.Id);
-        Assert.Equal(LoggerKey, logger.Key);
         Assert.Equal(LoggerName, logger.Name);
         Assert.Equal(LogLevel.Info, logger.Level);
         Assert.NotNull(handler.LastRequest);
@@ -173,7 +168,7 @@ public class LoggingClientTests
     public async Task GetAsync_NotFound_ThrowsSmplNotFoundException()
     {
         var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse("""{"data":[]}""")));
+            Task.FromResult(JsonResponse("""{"data":null}""")));
 
         await Assert.ThrowsAsync<SmplNotFoundException>(
             () => client.Logging.GetAsync("nonexistent"));
@@ -192,7 +187,7 @@ public class LoggingClientTests
         var loggers = await client.Logging.ListAsync();
 
         Assert.Single(loggers);
-        Assert.Equal(LoggerKey, loggers[0].Key);
+        Assert.Equal(LoggerId, loggers[0].Id);
         Assert.Equal(LoggerName, loggers[0].Name);
     }
 
@@ -208,26 +203,20 @@ public class LoggingClientTests
     }
 
     // ------------------------------------------------------------------
-    // DeleteAsync by key
+    // DeleteAsync by id
     // ------------------------------------------------------------------
 
     [Fact]
-    public async Task DeleteAsync_ByKey_DeletesLogger()
+    public async Task DeleteAsync_ById_DeletesLogger()
     {
-        int requestCount = 0;
         var (client, handler) = CreateClient(req =>
         {
-            requestCount++;
-            // First request: list to find the logger by key
-            if (req.Method == HttpMethod.Get)
-                return Task.FromResult(JsonResponse(LoggerListJson()));
-            // Second request: delete by id
             if (req.Method == HttpMethod.Delete)
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
             return Task.FromResult(JsonResponse("{}"));
         });
 
-        await client.Logging.DeleteAsync(LoggerKey);
+        await client.Logging.DeleteAsync(LoggerId);
 
         var deleteReq = handler.Requests.First(r => r.Method == HttpMethod.Delete);
         Assert.Contains(LoggerId, deleteReq.RequestUri!.AbsoluteUri);
@@ -247,32 +236,29 @@ public class LoggingClientTests
             return Task.FromResult(JsonResponse("""{"data":[]}"""));
         });
 
-        var group = client.Logging.NewGroup(LogGroupKey);
-        Assert.Null(group.Id);
-        Assert.Equal(LogGroupKey, group.Key);
+        var group = client.Logging.NewGroup(LogGroupId);
+        Assert.Equal(LogGroupId, group.Id);
 
         await group.SaveAsync();
 
         Assert.Equal(LogGroupId, group.Id);
-        Assert.Equal(LogGroupKey, group.Key);
         Assert.Equal(LogGroupName, group.Name);
         Assert.Equal(LogLevel.Warn, group.Level);
     }
 
     // ------------------------------------------------------------------
-    // GetGroupAsync by key (list all, filter locally)
+    // GetGroupAsync by id (direct GET)
     // ------------------------------------------------------------------
 
     [Fact]
-    public async Task GetGroupAsync_ByKey_ReturnsLogGroup()
+    public async Task GetGroupAsync_ById_ReturnsLogGroup()
     {
         var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(LogGroupListJson())));
+            Task.FromResult(JsonResponse(SingleLogGroupJson())));
 
-        var group = await client.Logging.GetGroupAsync(LogGroupKey);
+        var group = await client.Logging.GetGroupAsync(LogGroupId);
 
         Assert.Equal(LogGroupId, group.Id);
-        Assert.Equal(LogGroupKey, group.Key);
         Assert.Equal(LogGroupName, group.Name);
         Assert.Equal(LogLevel.Warn, group.Level);
     }
@@ -281,7 +267,7 @@ public class LoggingClientTests
     public async Task GetGroupAsync_NotFound_ThrowsSmplNotFoundException()
     {
         var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse("""{"data":[]}""")));
+            Task.FromResult(JsonResponse("""{"data":null}""")));
 
         await Assert.ThrowsAsync<SmplNotFoundException>(
             () => client.Logging.GetGroupAsync("nonexistent"));
@@ -300,7 +286,7 @@ public class LoggingClientTests
         var groups = await client.Logging.ListGroupsAsync();
 
         Assert.Single(groups);
-        Assert.Equal(LogGroupKey, groups[0].Key);
+        Assert.Equal(LogGroupId, groups[0].Id);
     }
 
     [Fact]
@@ -315,22 +301,20 @@ public class LoggingClientTests
     }
 
     // ------------------------------------------------------------------
-    // DeleteGroupAsync by key
+    // DeleteGroupAsync by id
     // ------------------------------------------------------------------
 
     [Fact]
-    public async Task DeleteGroupAsync_ByKey_DeletesLogGroup()
+    public async Task DeleteGroupAsync_ById_DeletesLogGroup()
     {
         var (client, handler) = CreateClient(req =>
         {
-            if (req.Method == HttpMethod.Get)
-                return Task.FromResult(JsonResponse(LogGroupListJson()));
             if (req.Method == HttpMethod.Delete)
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
             return Task.FromResult(JsonResponse("{}"));
         });
 
-        await client.Logging.DeleteGroupAsync(LogGroupKey);
+        await client.Logging.DeleteGroupAsync(LogGroupId);
 
         var deleteReq = handler.Requests.First(r => r.Method == HttpMethod.Delete);
         Assert.Contains(LogGroupId, deleteReq.RequestUri!.AbsoluteUri);
@@ -409,14 +393,14 @@ public class LoggingClientTests
             requestCount++;
             if (requestCount == 1)
             {
-                // GetAsync (list with filter)
-                return Task.FromResult(JsonResponse(LoggerListJson()));
+                // GetAsync (direct GET)
+                return Task.FromResult(JsonResponse(SingleLoggerJson()));
             }
             // SaveAsync (PUT) response
             return Task.FromResult(JsonResponse(SingleLoggerJson()));
         });
 
-        var logger = await client.Logging.GetAsync(LoggerKey);
+        var logger = await client.Logging.GetAsync(LoggerId);
         Assert.NotNull(logger.Id);
 
         logger.Name = "Updated Logger";
@@ -435,17 +419,16 @@ public class LoggingClientTests
         {
             requestCount++;
             if (requestCount == 1)
-                return Task.FromResult(JsonResponse(LoggerListJson()));
+                return Task.FromResult(JsonResponse(SingleLoggerJson()));
             return Task.FromResult(JsonResponse(SingleLoggerJson()));
         });
 
-        var logger = await client.Logging.GetAsync(LoggerKey);
+        var logger = await client.Logging.GetAsync(LoggerId);
         logger.Name = "Updated";
         await logger.SaveAsync();
 
         // Verify fields were applied from server response
         Assert.Equal(LoggerId, logger.Id);
-        Assert.Equal(LoggerKey, logger.Key);
         Assert.Equal(LoggerName, logger.Name);
         Assert.Equal(LogLevel.Info, logger.Level);
         Assert.NotNull(logger.CreatedAt);
@@ -465,14 +448,14 @@ public class LoggingClientTests
             requestCount++;
             if (requestCount == 1)
             {
-                // ListGroupsAsync then filter locally
-                return Task.FromResult(JsonResponse(LogGroupListJson()));
+                // GetGroupAsync (direct GET)
+                return Task.FromResult(JsonResponse(SingleLogGroupJson()));
             }
             // SaveAsync (PUT) response
             return Task.FromResult(JsonResponse(SingleLogGroupJson()));
         });
 
-        var group = await client.Logging.GetGroupAsync(LogGroupKey);
+        var group = await client.Logging.GetGroupAsync(LogGroupId);
         Assert.NotNull(group.Id);
 
         group.Name = "Updated Group";
@@ -491,17 +474,16 @@ public class LoggingClientTests
         {
             requestCount++;
             if (requestCount == 1)
-                return Task.FromResult(JsonResponse(LogGroupListJson()));
+                return Task.FromResult(JsonResponse(SingleLogGroupJson()));
             return Task.FromResult(JsonResponse(SingleLogGroupJson()));
         });
 
-        var group = await client.Logging.GetGroupAsync(LogGroupKey);
+        var group = await client.Logging.GetGroupAsync(LogGroupId);
         group.Name = "Updated";
         await group.SaveAsync();
 
         // Verify fields were applied from server response
         Assert.Equal(LogGroupId, group.Id);
-        Assert.Equal(LogGroupKey, group.Key);
         Assert.Equal(LogGroupName, group.Name);
         Assert.Equal(LogLevel.Warn, group.Level);
         Assert.NotNull(group.CreatedAt);
@@ -529,20 +511,20 @@ public class LoggingClientTests
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         method!.Invoke(client.Logging, new object[]
         {
-            new Dictionary<string, object?> { ["key"] = "my-logger", ["level"] = "ERROR" }
+            new Dictionary<string, object?> { ["id"] = "my-logger", ["level"] = "ERROR" }
         });
 
         Assert.Single(globalEvents);
-        Assert.Equal("my-logger", globalEvents[0].Key);
+        Assert.Equal("my-logger", globalEvents[0].Id);
         Assert.Equal(LogLevel.Error, globalEvents[0].Level);
         Assert.Equal("websocket", globalEvents[0].Source);
 
         Assert.Single(scopedEvents);
-        Assert.Equal("my-logger", scopedEvents[0].Key);
+        Assert.Equal("my-logger", scopedEvents[0].Id);
     }
 
     [Fact]
-    public void HandleLoggerChanged_NullKey_DoesNotFireListeners()
+    public void HandleLoggerChanged_FallsBackToKeyField()
     {
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse("""{"data":[]}""")));
@@ -554,7 +536,27 @@ public class LoggingClientTests
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         method!.Invoke(client.Logging, new object[]
         {
-            new Dictionary<string, object?> { ["something"] = "else" } // no "key"
+            new Dictionary<string, object?> { ["key"] = "my-logger", ["level"] = "ERROR" }
+        });
+
+        Assert.Single(events);
+        Assert.Equal("my-logger", events[0].Id);
+    }
+
+    [Fact]
+    public void HandleLoggerChanged_NullId_DoesNotFireListeners()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse("""{"data":[]}""")));
+
+        var events = new List<LoggerChangeEvent>();
+        client.Logging.OnChange(e => events.Add(e));
+
+        var method = typeof(LoggingClient).GetMethod("HandleLoggerChanged",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        method!.Invoke(client.Logging, new object[]
+        {
+            new Dictionary<string, object?> { ["something"] = "else" } // no "id" or "key"
         });
 
         Assert.Empty(events);
@@ -573,7 +575,7 @@ public class LoggingClientTests
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         method!.Invoke(client.Logging, new object[]
         {
-            new Dictionary<string, object?> { ["key"] = "my-logger" } // no level
+            new Dictionary<string, object?> { ["id"] = "my-logger" } // no level
         });
 
         Assert.Single(events);
@@ -593,7 +595,7 @@ public class LoggingClientTests
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         method!.Invoke(client.Logging, new object[]
         {
-            new Dictionary<string, object?> { ["key"] = "my-logger", ["level"] = "INVALID_LEVEL" }
+            new Dictionary<string, object?> { ["id"] = "my-logger", ["level"] = "INVALID_LEVEL" }
         });
 
         Assert.Single(events);
@@ -619,7 +621,7 @@ public class LoggingClientTests
         // Should not throw despite listener exception
         method!.Invoke(client.Logging, new object[]
         {
-            new Dictionary<string, object?> { ["key"] = "test", ["level"] = "WARN" }
+            new Dictionary<string, object?> { ["id"] = "test", ["level"] = "WARN" }
         });
 
         // Second listener should still fire
@@ -641,7 +643,7 @@ public class LoggingClientTests
         // Should not throw
         method!.Invoke(client.Logging, new object[]
         {
-            new Dictionary<string, object?> { ["key"] = "test", ["level"] = "INFO" }
+            new Dictionary<string, object?> { ["id"] = "test", ["level"] = "INFO" }
         });
 
         Assert.Single(postThrowEvents);
@@ -660,11 +662,11 @@ public class LoggingClientTests
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         method!.Invoke(client.Logging, new object[]
         {
-            new Dictionary<string, object?> { ["key"] = "unscoped-logger", ["level"] = "DEBUG" }
+            new Dictionary<string, object?> { ["id"] = "unscoped-logger", ["level"] = "DEBUG" }
         });
 
         Assert.Single(globalEvents);
-        Assert.Equal("unscoped-logger", globalEvents[0].Key);
+        Assert.Equal("unscoped-logger", globalEvents[0].Id);
     }
 
     // ------------------------------------------------------------------
@@ -676,23 +678,21 @@ public class LoggingClientTests
     {
         var loggerJson = """
         {
-            "data": [
-                {
-                    "id": "550e8400-e29b-41d4-a716-446655440099",
-                    "type": "logger",
-                    "attributes": {
-                        "key": "managed-logger",
-                        "name": "Managed Logger",
-                        "level": "DEBUG",
-                        "group": "group-id",
-                        "managed": true,
-                        "sources": [{"type": "file", "path": "/var/log/app.log"}],
-                        "environments": {"production": {"level": "ERROR"}},
-                        "created_at": "2024-01-15T10:30:00Z",
-                        "updated_at": "2024-01-15T10:30:00Z"
-                    }
+            "data": {
+                "id": "managed-logger",
+                "type": "logger",
+                "attributes": {
+                    "id": "managed-logger",
+                    "name": "Managed Logger",
+                    "level": "DEBUG",
+                    "group": "group-id",
+                    "managed": true,
+                    "sources": [{"type": "file", "path": "/var/log/app.log"}],
+                    "environments": {"production": {"level": "ERROR"}},
+                    "created_at": "2024-01-15T10:30:00Z",
+                    "updated_at": "2024-01-15T10:30:00Z"
                 }
-            ]
+            }
         }
         """;
         var (client, _) = CreateClient(_ =>
@@ -700,7 +700,7 @@ public class LoggingClientTests
 
         var logger = await client.Logging.GetAsync("managed-logger");
 
-        Assert.Equal("managed-logger", logger.Key);
+        Assert.Equal("managed-logger", logger.Id);
         Assert.True(logger.Managed);
         Assert.Equal(LogLevel.Debug, logger.Level);
         Assert.Equal("group-id", logger.Group);
@@ -717,23 +717,21 @@ public class LoggingClientTests
     {
         var loggerJson = """
         {
-            "data": [
-                {
-                    "id": "550e8400-e29b-41d4-a716-446655440099",
-                    "type": "logger",
-                    "attributes": {
-                        "key": "null-level-logger",
-                        "name": "Null Level Logger",
-                        "level": null,
-                        "group": null,
-                        "managed": false,
-                        "sources": [],
-                        "environments": {},
-                        "created_at": "2024-01-15T10:30:00Z",
-                        "updated_at": "2024-01-15T10:30:00Z"
-                    }
+            "data": {
+                "id": "null-level-logger",
+                "type": "logger",
+                "attributes": {
+                    "id": "null-level-logger",
+                    "name": "Null Level Logger",
+                    "level": null,
+                    "group": null,
+                    "managed": false,
+                    "sources": [],
+                    "environments": {},
+                    "created_at": "2024-01-15T10:30:00Z",
+                    "updated_at": "2024-01-15T10:30:00Z"
                 }
-            ]
+            }
         }
         """;
         var (client, _) = CreateClient(_ =>
@@ -753,21 +751,19 @@ public class LoggingClientTests
     {
         var groupJson = """
         {
-            "data": [
-                {
-                    "id": "550e8400-e29b-41d4-a716-446655440088",
-                    "type": "log_group",
-                    "attributes": {
-                        "key": "nested-group",
-                        "name": "Nested Group",
-                        "level": "FATAL",
-                        "group": "parent-group-id",
-                        "environments": {"staging": {"level": "WARN"}},
-                        "created_at": "2024-01-15T10:30:00Z",
-                        "updated_at": "2024-01-15T10:30:00Z"
-                    }
+            "data": {
+                "id": "nested-group",
+                "type": "log_group",
+                "attributes": {
+                    "id": "nested-group",
+                    "name": "Nested Group",
+                    "level": "FATAL",
+                    "group": "parent-group-id",
+                    "environments": {"staging": {"level": "WARN"}},
+                    "created_at": "2024-01-15T10:30:00Z",
+                    "updated_at": "2024-01-15T10:30:00Z"
                 }
-            ]
+            }
         }
         """;
         var (client, _) = CreateClient(_ =>
@@ -804,23 +800,21 @@ public class LoggingClientTests
     {
         var loggerJson = """
         {
-            "data": [
-                {
-                    "id": "550e8400-e29b-41d4-a716-446655440099",
-                    "type": "logger",
-                    "attributes": {
-                        "key": "json-env-logger",
-                        "name": "Json Env Logger",
-                        "level": "INFO",
-                        "group": null,
-                        "managed": false,
-                        "sources": [],
-                        "environments": {"production": {"level": "ERROR", "enabled": true}},
-                        "created_at": "2024-01-15T10:30:00Z",
-                        "updated_at": "2024-01-15T10:30:00Z"
-                    }
+            "data": {
+                "id": "json-env-logger",
+                "type": "logger",
+                "attributes": {
+                    "id": "json-env-logger",
+                    "name": "Json Env Logger",
+                    "level": "INFO",
+                    "group": null,
+                    "managed": false,
+                    "sources": [],
+                    "environments": {"production": {"level": "ERROR", "enabled": true}},
+                    "created_at": "2024-01-15T10:30:00Z",
+                    "updated_at": "2024-01-15T10:30:00Z"
                 }
-            ]
+            }
         }
         """;
         var (client, _) = CreateClient(_ =>
@@ -892,23 +886,21 @@ public class LoggingClientTests
     {
         var loggerJson = """
         {
-            "data": [
-                {
-                    "id": "550e8400-e29b-41d4-a716-446655440099",
-                    "type": "logger",
-                    "attributes": {
-                        "key": "invalid-level-logger",
-                        "name": "Invalid Level Logger",
-                        "level": "INVALID_LEVEL_STRING",
-                        "group": null,
-                        "managed": false,
-                        "sources": [],
-                        "environments": {},
-                        "created_at": "2024-01-15T10:30:00Z",
-                        "updated_at": "2024-01-15T10:30:00Z"
-                    }
+            "data": {
+                "id": "invalid-level-logger",
+                "type": "logger",
+                "attributes": {
+                    "id": "invalid-level-logger",
+                    "name": "Invalid Level Logger",
+                    "level": "INVALID_LEVEL_STRING",
+                    "group": null,
+                    "managed": false,
+                    "sources": [],
+                    "environments": {},
+                    "created_at": "2024-01-15T10:30:00Z",
+                    "updated_at": "2024-01-15T10:30:00Z"
                 }
-            ]
+            }
         }
         """;
         var (client, _) = CreateClient(_ =>
@@ -929,21 +921,19 @@ public class LoggingClientTests
     {
         var groupJson = """
         {
-            "data": [
-                {
-                    "id": "550e8400-e29b-41d4-a716-446655440088",
-                    "type": "log_group",
-                    "attributes": {
-                        "key": "invalid-level-group",
-                        "name": "Invalid Level Group",
-                        "level": "BOGUS_LEVEL",
-                        "group": null,
-                        "environments": {},
-                        "created_at": "2024-01-15T10:30:00Z",
-                        "updated_at": "2024-01-15T10:30:00Z"
-                    }
+            "data": {
+                "id": "invalid-level-group",
+                "type": "log_group",
+                "attributes": {
+                    "id": "invalid-level-group",
+                    "name": "Invalid Level Group",
+                    "level": "BOGUS_LEVEL",
+                    "group": null,
+                    "environments": {},
+                    "created_at": "2024-01-15T10:30:00Z",
+                    "updated_at": "2024-01-15T10:30:00Z"
                 }
-            ]
+            }
         }
         """;
         var (client, _) = CreateClient(_ =>
@@ -1009,23 +999,21 @@ public class LoggingClientTests
         // and gets properly handled by the if branch.
         var loggerJson = """
         {
-            "data": [
-                {
-                    "id": "550e8400-e29b-41d4-a716-446655440099",
-                    "type": "logger",
-                    "attributes": {
-                        "key": "no-env-logger",
-                        "name": "No Env Logger",
-                        "level": "INFO",
-                        "group": null,
-                        "managed": false,
-                        "sources": [],
-                        "environments": null,
-                        "created_at": "2024-01-15T10:30:00Z",
-                        "updated_at": "2024-01-15T10:30:00Z"
-                    }
+            "data": {
+                "id": "no-env-logger",
+                "type": "logger",
+                "attributes": {
+                    "id": "no-env-logger",
+                    "name": "No Env Logger",
+                    "level": "INFO",
+                    "group": null,
+                    "managed": false,
+                    "sources": [],
+                    "environments": null,
+                    "created_at": "2024-01-15T10:30:00Z",
+                    "updated_at": "2024-01-15T10:30:00Z"
                 }
-            ]
+            }
         }
         """;
         var (client, _) = CreateClient(_ =>
@@ -1110,7 +1098,7 @@ public class LoggingClientTests
             Id = "test-id",
             Attributes = new Smplkit.Internal.Generated.Logging.Logger
             {
-                Key = "test",
+                Id = "test",
                 Name = "Test",
                 Level = "INFO",
                 Group = null,

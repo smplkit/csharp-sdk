@@ -63,19 +63,19 @@ public static class FlagsManagementShowcase
 
         // Boolean flag — factory + SaveAsync pattern
         var maintenanceMode = client.Flags.NewBooleanFlag(
-            key: "maintenance-mode",
+            id: "maintenance-mode",
             defaultValue: false,
             name: "Maintenance Mode",
             description: "Kill switch to put the application into maintenance mode");
         await maintenanceMode.SaveAsync();
-        Step($"Boolean flag created: key={maintenanceMode.Key}, id={maintenanceMode.Id}");
+        Step($"Boolean flag created: id={maintenanceMode.Id}");
 
         // String flag
         // The values parameter defines a closed set — this flag can only
         // serve "light", "dark", or "auto". This makes it a constrained
         // flag. The Console UI shows dropdowns for value selection.
         var theme = client.Flags.NewStringFlag(
-            key: "ui-theme",
+            id: "ui-theme",
             defaultValue: "light",
             name: "UI Theme",
             description: "Active colour theme for the web UI",
@@ -86,7 +86,7 @@ public static class FlagsManagementShowcase
                 new() { ["name"] = "Auto", ["value"] = "auto" },
             });
         await theme.SaveAsync();
-        Step($"String flag created: key={theme.Key}, id={theme.Id}");
+        Step($"String flag created: id={theme.Id}");
 
         // Numeric flag — Unconstrained
         // Unlike ui-theme above, this flag has no predefined values.
@@ -96,18 +96,18 @@ public static class FlagsManagementShowcase
         //
         // Omitting the values parameter creates an unconstrained flag.
         var rateLimit = client.Flags.NewNumberFlag(
-            key: "rate-limit-rps",
+            id: "rate-limit-rps",
             defaultValue: 100.0,
             name: "Rate Limit (RPS)",
             description: "Per-user rate limit in requests per second");
         await rateLimit.SaveAsync();
-        Step($"Numeric flag created: key={rateLimit.Key}, id={rateLimit.Id}");
+        Step($"Numeric flag created: id={rateLimit.Id}");
 
         // JSON flag
         // Like ui-theme, this JSON flag is constrained — only the
         // declared configuration objects can be served.
         var experimentConfig = client.Flags.NewJsonFlag(
-            key: "experiment-config",
+            id: "experiment-config",
             defaultValue: new Dictionary<string, object?>
             {
                 ["variant"] = "control",
@@ -122,7 +122,7 @@ public static class FlagsManagementShowcase
                 new() { ["name"] = "Treatment A", ["value"] = new Dictionary<string, object?> { ["variant"] = "treatment_a", ["sample_rate"] = 0.5, ["enabled"] = true } },
             });
         await experimentConfig.SaveAsync();
-        Step($"JSON flag created: key={experimentConfig.Key}, id={experimentConfig.Id}");
+        Step($"JSON flag created: id={experimentConfig.Id}");
 
         // ==============================================================
         // 2. CONFIGURE ENVIRONMENTS WITH RULES
@@ -214,12 +214,12 @@ public static class FlagsManagementShowcase
 
         foreach (var f in allFlags)
         {
-            Console.WriteLine($"     - {f.Key} (type={f.Type}, default={f.Default})");
+            Console.WriteLine($"     - {f.Id} (type={f.Type}, default={f.Default})");
         }
 
-        // Fetch a single flag by key to show the full payload
+        // Fetch a single flag by id to show the full payload
         var fetched = await client.Flags.GetAsync("ui-theme");
-        Step($"Fetched ui-theme by key: key={fetched.Key}, type={fetched.Type}");
+        Step($"Fetched ui-theme by id: id={fetched.Id}, type={fetched.Type}");
         Step($"  Description: {fetched.Description}");
         Step($"  Default: {fetched.Default}");
         Step($"  Values: [{(fetched.Values is not null ? string.Join(", ", fetched.Values.Select(v => v.TryGetValue("value", out var val) ? val?.ToString() ?? "null" : "?")) : "unconstrained")}]");

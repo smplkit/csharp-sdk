@@ -19,7 +19,7 @@ public sealed class ConfigClient
     private volatile bool _runtimeConnected;
     private readonly object _initLock = new();
     private Dictionary<string, Dictionary<string, object?>> _configCache = new();
-    private readonly List<(Action<ConfigChangeEvent> Callback, string? ConfigKey, string? ItemKey)> _listeners = new();
+    private readonly List<(Action<ConfigChangeEvent> Callback, string? ConfigId, string? ItemKey)> _listeners = new();
     private readonly object _listenerLock = new();
     private SharedWebSocket? _wsManager;
 
@@ -45,18 +45,17 @@ public sealed class ConfigClient
     /// <summary>
     /// Create an unsaved config. Call <see cref="Config.SaveAsync"/> to persist.
     /// </summary>
-    /// <param name="key">The config key.</param>
-    /// <param name="name">Display name. Auto-generated from key if null.</param>
+    /// <param name="id">The config identifier (slug).</param>
+    /// <param name="name">Display name. Auto-generated from id if null.</param>
     /// <param name="description">Optional description.</param>
-    /// <param name="parent">Optional parent config UUID.</param>
+    /// <param name="parent">Optional parent config identifier.</param>
     /// <returns>An unsaved <see cref="Config"/>.</returns>
-    public Config New(string key, string? name = null, string? description = null, string? parent = null)
+    public Config New(string id, string? name = null, string? description = null, string? parent = null)
     {
         return new Config(
             client: this,
-            id: null,
-            key: key,
-            name: name ?? Helpers.KeyToDisplayName(key),
+            id: id,
+            name: name ?? Helpers.KeyToDisplayName(id),
             description: description,
             parent: parent,
             items: new Dictionary<string, object?>(),
@@ -66,26 +65,23 @@ public sealed class ConfigClient
     }
 
     // ------------------------------------------------------------------
-    // Management: CRUD by key
+    // Management: CRUD by id
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Fetches a single config by its human-readable key.
+    /// Fetches a single config by its identifier.
     /// </summary>
-    /// <param name="key">The config key.</param>
+    /// <param name="id">The config identifier.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The matching <see cref="Config"/>.</returns>
     /// <exception cref="SmplNotFoundException">If no matching config exists.</exception>
-    public async Task<Config> GetAsync(string key, CancellationToken ct = default)
+    public async Task<Config> GetAsync(string id, CancellationToken ct = default)
     {
         var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genClient.List_configsAsync(filterkey: key, cancellationToken: ct)).ConfigureAwait(false);
+            () => _genClient.Get_configAsync(id: id, cancellationToken: ct)).ConfigureAwait(false);
 
-        if (response.Data is null || response.Data.Count == 0)
-            throw new SmplNotFoundException($"Config with key '{key}' not found");
-
-        return MapResource(response.Data[0])
-            ?? throw new SmplNotFoundException($"Config with key '{key}' not found");
+        return MapResource(response.Data)
+            ?? throw new SmplNotFoundException($"Config with id '{id}' not found");
     }
 
     /// <summary>
@@ -112,24 +108,24 @@ public sealed class ConfigClient
     }
 
     /// <summary>
-    /// Deletes a config by its human-readable key.
+    /// Deletes a config by its identifier.
     /// </summary>
-    /// <param name="key">The config key.</param>
+    /// <param name="id">The config identifier.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <exception cref="SmplNotFoundException">If no matching config exists.</exception>
-    public async Task DeleteAsync(string key, CancellationToken ct = default)
+    public async Task DeleteAsync(string id, CancellationToken ct = default)
     {
-        var config = await GetAsync(key, ct).ConfigureAwait(false);
         await ApiExceptionMapper.ExecuteAsync(
-            () => _genClient.Delete_configAsync(Guid.Parse(config.Id!), ct)).ConfigureAwait(false);
+            () => _genClient.Delete_configAsync(id, ct)).ConfigureAwait(false);
     }
 
     /// <summary>Internal: save a config (create or update).</summary>
     internal async Task<Config> SaveConfigInternalAsync(Config config, CancellationToken ct = default)
     {
         var body = BuildRequestBody(config);
-        if (config.Id is null)
+        if (config.CreatedAt is null)
         {
+            // Create (unsaved config — CreatedAt is null until first server round-trip)
             var response = await ApiExceptionMapper.ExecuteAsync(
                 () => _genClient.Create_configAsync(body, ct)).ConfigureAwait(false);
             return MapResource(response.Data)
@@ -137,8 +133,9 @@ public sealed class ConfigClient
         }
         else
         {
+            var configId = config.Id ?? throw new SmplValidationException("Cannot update a config without an id");
             var response = await ApiExceptionMapper.ExecuteAsync(
-                () => _genClient.Update_configAsync(Guid.Parse(config.Id), body, ct)).ConfigureAwait(false);
+                () => _genClient.Update_configAsync(configId, body, ct)).ConfigureAwait(false);
             return MapResource(response.Data)
                 ?? throw new SmplValidationException("Failed to update config");
         }
@@ -149,38 +146,38 @@ public sealed class ConfigClient
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Returns the resolved config values for the given key in the current environment.
+    /// Returns the resolved config values for the given id in the current environment.
     /// </summary>
-    /// <param name="key">The config key.</param>
+    /// <param name="id">The config identifier.</param>
     /// <returns>A dictionary of resolved key-value pairs.</returns>
-    /// <exception cref="SmplNotFoundException">If no config with the given key exists.</exception>
-    public Dictionary<string, object?> Resolve(string key)
+    /// <exception cref="SmplNotFoundException">If no config with the given id exists.</exception>
+    public Dictionary<string, object?> Resolve(string id)
     {
         EnsureInitialized();
 
-        if (!_configCache.TryGetValue(key, out var values))
-            throw new SmplNotFoundException($"Config with key '{key}' not found in cache.");
+        if (!_configCache.TryGetValue(id, out var values))
+            throw new SmplNotFoundException($"Config with id '{id}' not found in cache.");
 
         _metrics?.Record("config.resolutions", unit: "resolutions",
-            dimensions: new Dictionary<string, string> { ["config_id"] = key });
+            dimensions: new Dictionary<string, string> { ["config_id"] = id });
 
         return new Dictionary<string, object?>(values);
     }
 
     /// <summary>
-    /// Resolves config values for the given key and deserializes to a typed object.
+    /// Resolves config values for the given id and deserializes to a typed object.
     /// Dot-notation keys (e.g. <c>"db.host"</c>) map to nested properties on the target type.
     /// </summary>
     /// <typeparam name="T">The target type.</typeparam>
-    /// <param name="key">The config key.</param>
+    /// <param name="id">The config identifier.</param>
     /// <returns>A deserialized instance of <typeparamref name="T"/>.</returns>
-    public T Resolve<T>(string key) where T : new()
+    public T Resolve<T>(string id) where T : new()
     {
-        var flat = Resolve(key);
+        var flat = Resolve(id);
         var nested = ExpandDotNotation(flat);
         var json = JsonSerializer.Serialize(nested, JsonOptions.Default);
         return JsonSerializer.Deserialize<T>(json, JsonOptions.Default)
-            ?? throw new SmplException($"Failed to deserialize config '{key}' to {typeof(T).Name}");
+            ?? throw new SmplException($"Failed to deserialize config '{id}' to {typeof(T).Name}");
     }
 
     // ------------------------------------------------------------------
@@ -251,29 +248,29 @@ public sealed class ConfigClient
     }
 
     /// <summary>
-    /// Register a change listener scoped to a specific config key.
+    /// Register a change listener scoped to a specific config id.
     /// </summary>
-    /// <param name="configKey">The config key to listen for.</param>
+    /// <param name="configId">The config identifier to listen for.</param>
     /// <param name="callback">Called with a <see cref="ConfigChangeEvent"/> on each change.</param>
-    public void OnChange(string configKey, Action<ConfigChangeEvent> callback)
+    public void OnChange(string configId, Action<ConfigChangeEvent> callback)
     {
         lock (_listenerLock)
         {
-            _listeners.Add((callback, configKey, null));
+            _listeners.Add((callback, configId, null));
         }
     }
 
     /// <summary>
-    /// Register a change listener scoped to a specific config key and item key.
+    /// Register a change listener scoped to a specific config id and item key.
     /// </summary>
-    /// <param name="configKey">The config key to listen for.</param>
+    /// <param name="configId">The config identifier to listen for.</param>
     /// <param name="itemKey">The item key within the config to listen for.</param>
     /// <param name="callback">Called with a <see cref="ConfigChangeEvent"/> on each change.</param>
-    public void OnChange(string configKey, string itemKey, Action<ConfigChangeEvent> callback)
+    public void OnChange(string configId, string itemKey, Action<ConfigChangeEvent> callback)
     {
         lock (_listenerLock)
         {
-            _listeners.Add((callback, configKey, itemKey));
+            _listeners.Add((callback, configId, itemKey));
         }
     }
 
@@ -303,7 +300,7 @@ public sealed class ConfigClient
             }
 
             var resolved = Resolver.Resolve(chain, environment);
-            cache[cfg.Key] = resolved;
+            cache[cfg.Id!] = resolved;
         }
 
         _configCache = cache;
@@ -339,19 +336,19 @@ public sealed class ConfigClient
         Dictionary<string, Dictionary<string, object?>> newCache,
         string source)
     {
-        List<(Action<ConfigChangeEvent> Callback, string? ConfigKey, string? ItemKey)> listeners;
+        List<(Action<ConfigChangeEvent> Callback, string? ConfigId, string? ItemKey)> listeners;
         lock (_listenerLock)
         {
             listeners = new(_listeners);
         }
 
-        var allConfigKeys = new HashSet<string>(oldCache.Keys);
-        allConfigKeys.UnionWith(newCache.Keys);
+        var allConfigIds = new HashSet<string>(oldCache.Keys);
+        allConfigIds.UnionWith(newCache.Keys);
 
-        foreach (var cfgKey in allConfigKeys)
+        foreach (var cfgId in allConfigIds)
         {
-            var oldItems = oldCache.GetValueOrDefault(cfgKey) ?? new Dictionary<string, object?>();
-            var newItems = newCache.GetValueOrDefault(cfgKey) ?? new Dictionary<string, object?>();
+            var oldItems = oldCache.GetValueOrDefault(cfgId) ?? new Dictionary<string, object?>();
+            var newItems = newCache.GetValueOrDefault(cfgId) ?? new Dictionary<string, object?>();
 
             var allItemKeys = new HashSet<string>(oldItems.Keys);
             allItemKeys.UnionWith(newItems.Keys);
@@ -363,14 +360,14 @@ public sealed class ConfigClient
                 if (Equals(oldVal, newVal)) continue;
 
                 _metrics?.Record("config.changes", unit: "changes",
-                    dimensions: new Dictionary<string, string> { ["config_id"] = cfgKey });
+                    dimensions: new Dictionary<string, string> { ["config_id"] = cfgId });
 
                 if (listeners.Count == 0) continue;
 
-                var evt = new ConfigChangeEvent(cfgKey, iKey, oldVal, newVal, source);
-                foreach (var (callback, filterCfgKey, filterItemKey) in listeners)
+                var evt = new ConfigChangeEvent(cfgId, iKey, oldVal, newVal, source);
+                foreach (var (callback, filterCfgId, filterItemKey) in listeners)
                 {
-                    if (filterCfgKey is not null && filterCfgKey != cfgKey) continue;
+                    if (filterCfgId is not null && filterCfgId != cfgId) continue;
                     if (filterItemKey is not null && filterItemKey != iKey) continue;
                     try { callback(evt); }
                     catch { /* Ignore listener exceptions */ }
@@ -412,8 +409,8 @@ public sealed class ConfigClient
                 Type = "config",
                 Attributes = new GenConfig.Config
                 {
+                    Id = config.Id,
                     Name = config.Name,
-                    Key = config.Key,
                     Description = config.Description,
                     Parent = config.Parent,
                     Items = WrapItemsForRequest(config.Items),
@@ -480,7 +477,6 @@ public sealed class ConfigClient
         return new Config(
             client: this,
             id: resource.Id ?? string.Empty,
-            key: attrs.Key ?? string.Empty,
             name: attrs.Name ?? string.Empty,
             description: attrs.Description,
             parent: attrs.Parent,

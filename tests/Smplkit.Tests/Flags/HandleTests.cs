@@ -27,17 +27,17 @@ public class HandleTests
     }
 
     private static string SimpleFlagListJson(
-        string key,
+        string id,
         string type,
         string defaultVal) =>
         $$"""
         {
             "data": [
                 {
-                    "id": "flag-001",
+                    "id": "{{id}}",
                     "type": "flag",
                     "attributes": {
-                        "key": "{{key}}",
+                        "id": "{{id}}",
                         "name": "Test Flag",
                         "type": "{{type}}",
                         "default": {{defaultVal}},
@@ -81,14 +81,14 @@ public class HandleTests
     [Fact]
     public void BooleanFlag_ReturnsCodeDefault_WhenFlagNotInStore()
     {
-        // Flag list has a different key than what the handle is looking for
+        // Flag list has a different id than what the handle is looking for
         var flagJson = SimpleFlagListJson("other-flag", "BOOLEAN", "true");
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(flagJson)));
 
         var handle = client.Flags.BooleanFlag("my-bool", false);
 
-        // Get() triggers lazy init, flag key not found in store, returns code default
+        // Get() triggers lazy init, flag id not found in store, returns code default
         Assert.False(handle.Get());
     }
 
@@ -262,30 +262,30 @@ public class HandleTests
     }
 
     // ---------------------------------------------------------------
-    // Handle key and default
+    // Handle id and default
     // ---------------------------------------------------------------
 
     [Fact]
-    public void Handle_ExposesKeyAndDefault()
+    public void Handle_ExposesIdAndDefault()
     {
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse("{}")));
 
         var boolHandle = client.Flags.BooleanFlag("bool-key", true);
-        Assert.Equal("bool-key", boolHandle.Key);
+        Assert.Equal("bool-key", boolHandle.Id);
         Assert.Equal(true, boolHandle.Default);
 
         var strHandle = client.Flags.StringFlag("str-key", "default-val");
-        Assert.Equal("str-key", strHandle.Key);
+        Assert.Equal("str-key", strHandle.Id);
         Assert.Equal("default-val", strHandle.Default);
 
         var numHandle = client.Flags.NumberFlag("num-key", 42.0);
-        Assert.Equal("num-key", numHandle.Key);
+        Assert.Equal("num-key", numHandle.Id);
         Assert.Equal(42.0, numHandle.Default);
 
         var jsonDefault = new Dictionary<string, object?> { ["x"] = 1 };
         var jsonHandle = client.Flags.JsonFlag("json-key", jsonDefault);
-        Assert.Equal("json-key", jsonHandle.Key);
+        Assert.Equal("json-key", jsonHandle.Id);
         Assert.Same(jsonDefault, jsonHandle.Default);
     }
 

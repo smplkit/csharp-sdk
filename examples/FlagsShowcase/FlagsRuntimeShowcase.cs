@@ -69,13 +69,13 @@ public static class FlagsRuntimeShowcase
         // compile-time contract between your app and the flag service.
         // No ConnectAsync needed — first .Get() triggers lazy init.
         var checkoutV2 = client.Flags.BooleanFlag("checkout-v2", defaultValue: false);
-        Step($"BooleanFlag declared: key={checkoutV2.Key}, default={checkoutV2.Default}");
+        Step($"BooleanFlag declared: id={checkoutV2.Id}, default={checkoutV2.Default}");
 
         var bannerColor = client.Flags.StringFlag("banner-color", defaultValue: "blue");
-        Step($"StringFlag declared: key={bannerColor.Key}, default={bannerColor.Default}");
+        Step($"StringFlag declared: id={bannerColor.Id}, default={bannerColor.Default}");
 
         var maxRetries = client.Flags.NumberFlag("max-retries", defaultValue: 3);
-        Step($"NumberFlag declared: key={maxRetries.Key}, default={maxRetries.Default}");
+        Step($"NumberFlag declared: id={maxRetries.Id}, default={maxRetries.Default}");
 
         // ==============================================================
         // 2. CONTEXT PROVIDER
@@ -214,7 +214,7 @@ public static class FlagsRuntimeShowcase
         client.Flags.OnChange(evt =>
         {
             globalChanges.Add(evt);
-            Console.WriteLine($"    [CHANGE] flag={evt.Key}, source={evt.Source}");
+            Console.WriteLine($"    [CHANGE] flag={evt.Id}, source={evt.Source}");
         });
         Step("Global change listener registered");
 

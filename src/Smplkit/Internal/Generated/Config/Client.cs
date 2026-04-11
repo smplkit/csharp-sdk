@@ -44,7 +44,7 @@ namespace Smplkit.Internal.Generated.Config
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ConfigListResponse> List_configsAsync(string? filterkey = null, string? filterparent = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ConfigListResponse> List_configsAsync(string? filterparent = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -52,7 +52,7 @@ namespace Smplkit.Internal.Generated.Config
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ConfigResponse> Get_configAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ConfigResponse> Get_configAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -60,7 +60,7 @@ namespace Smplkit.Internal.Generated.Config
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ConfigResponse> Update_configAsync(System.Guid id, Response_Config_ body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ConfigResponse> Update_configAsync(string id, Response_Config_ body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -68,7 +68,7 @@ namespace Smplkit.Internal.Generated.Config
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task Delete_configAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task Delete_configAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
     }
 
@@ -217,7 +217,7 @@ namespace Smplkit.Internal.Generated.Config
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ConfigListResponse> List_configsAsync(string? filterkey = null, string? filterparent = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ConfigListResponse> List_configsAsync(string? filterparent = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -233,10 +233,6 @@ namespace Smplkit.Internal.Generated.Config
                     // Operation Path: "api/v1/configs"
                     urlBuilder_.Append("api/v1/configs");
                     urlBuilder_.Append('?');
-                    if (filterkey != null)
-                    {
-                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[key]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterkey, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
-                    }
                     if (filterparent != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[parent]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterparent, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
@@ -311,7 +307,7 @@ namespace Smplkit.Internal.Generated.Config
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ConfigResponse> Get_configAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ConfigResponse> Get_configAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -399,7 +395,7 @@ namespace Smplkit.Internal.Generated.Config
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ConfigResponse> Update_configAsync(System.Guid id, Response_Config_ body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ConfigResponse> Update_configAsync(string id, Response_Config_ body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -494,7 +490,7 @@ namespace Smplkit.Internal.Generated.Config
         /// </summary>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task Delete_configAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task Delete_configAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -703,8 +699,8 @@ namespace Smplkit.Internal.Generated.Config
     public partial class Config
     {
 
-        [System.Text.Json.Serialization.JsonPropertyName("key")]
-        public string? Key { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string? Id { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = default!;

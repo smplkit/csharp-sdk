@@ -28,11 +28,10 @@ public class ConfigClientTests
     }
 
     /// <summary>
-    /// Helper that builds a list-format JSON response wrapping one config resource.
+    /// Helper that builds a single-resource JSON response wrapping one config resource.
     /// </summary>
-    private static string SingleConfigListJson(
+    private static string SingleConfigJson(
         string id = TestData.ConfigId,
-        string key = TestData.ConfigKey,
         string name = TestData.ConfigName,
         string? description = "Test config",
         string? parent = null,
@@ -43,59 +42,56 @@ public class ConfigClientTests
         var parentStr = parent is null ? "null" : $"\"{parent}\"";
         return $$"""
         {
-            "data": [
-                {
+            "data": {
+                "id": "{{id}}",
+                "type": "config",
+                "attributes": {
                     "id": "{{id}}",
-                    "type": "config",
-                    "attributes": {
-                        "key": "{{key}}",
-                        "name": "{{name}}",
-                        "description": {{descStr}},
-                        "parent": {{parentStr}},
-                        "items": {{itemsJson}},
-                        "environments": {{environmentsJson}},
-                        "created_at": "2024-01-15T10:30:00Z",
-                        "updated_at": "2024-01-15T10:30:00Z"
-                    }
+                    "name": "{{name}}",
+                    "description": {{descStr}},
+                    "parent": {{parentStr}},
+                    "items": {{itemsJson}},
+                    "environments": {{environmentsJson}},
+                    "created_at": "2024-01-15T10:30:00Z",
+                    "updated_at": "2024-01-15T10:30:00Z"
                 }
-            ]
+            }
         }
         """;
     }
 
     // ---------------------------------------------------------------
-    // GetAsync (by key — uses list endpoint with filter[key])
+    // GetAsync (by id — uses direct GET endpoint)
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task GetAsync_ByKey_ReturnsConfig()
+    public async Task GetAsync_ById_ReturnsConfig()
     {
         var (client, handler) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(SingleConfigListJson())));
+            Task.FromResult(JsonResponse(SingleConfigJson())));
 
-        var config = await client.Config.GetAsync(TestData.ConfigKey);
+        var config = await client.Config.GetAsync(TestData.ConfigId);
 
         Assert.Equal(TestData.ConfigId, config.Id);
-        Assert.Equal(TestData.ConfigKey, config.Key);
         Assert.Equal(TestData.ConfigName, config.Name);
         Assert.Equal("Test config", config.Description);
         Assert.Null(config.Parent);
         Assert.NotNull(config.Items);
         Assert.NotNull(config.Environments);
 
-        // Verify filter[key] query param
+        // Verify direct GET endpoint URL
         Assert.NotNull(handler.LastRequest);
         var url = handler.LastRequest.RequestUri!.ToString();
-        Assert.Contains("filter%5Bkey%5D=", url);
+        Assert.Contains($"/api/v1/configs/{TestData.ConfigId}", url);
     }
 
     [Fact]
     public async Task GetAsync_SetsAuthorizationHeader()
     {
         var (client, handler) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(SingleConfigListJson())));
+            Task.FromResult(JsonResponse(SingleConfigJson())));
 
-        await client.Config.GetAsync(TestData.ConfigKey);
+        await client.Config.GetAsync(TestData.ConfigId);
 
         Assert.NotNull(handler.LastRequest);
         var authHeader = handler.LastRequest.Headers.Authorization;
@@ -108,9 +104,9 @@ public class ConfigClientTests
     public async Task GetAsync_SetsUserAgentHeader()
     {
         var (client, handler) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(SingleConfigListJson())));
+            Task.FromResult(JsonResponse(SingleConfigJson())));
 
-        await client.Config.GetAsync(TestData.ConfigKey);
+        await client.Config.GetAsync(TestData.ConfigId);
 
         Assert.NotNull(handler.LastRequest);
         var userAgent = handler.LastRequest.Headers.UserAgent.ToString();
@@ -121,10 +117,12 @@ public class ConfigClientTests
     public async Task GetAsync_WhenNotFound_ThrowsSmplNotFoundException()
     {
         var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(TestData.EmptyListJson())));
+            Task.FromResult(JsonResponse(
+                """{"errors":[{"detail":"Not found"}]}""",
+                HttpStatusCode.NotFound)));
 
         await Assert.ThrowsAsync<SmplNotFoundException>(
-            () => client.Config.GetAsync("nonexistent_key"));
+            () => client.Config.GetAsync("nonexistent_id"));
     }
 
     // ---------------------------------------------------------------
@@ -140,8 +138,8 @@ public class ConfigClientTests
         var configs = await client.Config.ListAsync();
 
         Assert.Equal(2, configs.Count);
-        Assert.Equal(TestData.ConfigKey, configs[0].Key);
-        Assert.Equal("payment_service", configs[1].Key);
+        Assert.Equal(TestData.ConfigId, configs[0].Id);
+        Assert.Equal("payment_service", configs[1].Id);
 
         Assert.NotNull(handler.LastRequest);
         Assert.Contains("/api/v1/configs", handler.LastRequest.RequestUri!.ToString());
@@ -177,8 +175,8 @@ public class ConfigClientTests
                 HttpStatusCode.Created);
         });
 
-        var config = client.Config.New(TestData.ConfigKey, TestData.ConfigName, "Test config");
-        Assert.Null(config.Id); // Unsaved
+        var config = client.Config.New(TestData.ConfigId, TestData.ConfigName, "Test config");
+        Assert.Equal(TestData.ConfigId, config.Id); // Id set by New()
 
         await config.SaveAsync();
 
@@ -200,7 +198,7 @@ public class ConfigClientTests
             return JsonResponse(TestData.SingleConfigJson(), HttpStatusCode.Created);
         });
 
-        var config = client.Config.New("test_key", "Test");
+        var config = client.Config.New("test_id", "Test");
         config.Items["timeout"] = 30;
 
         await config.SaveAsync();
@@ -222,7 +220,7 @@ public class ConfigClientTests
             if (requestCount == 1)
             {
                 // GetAsync call
-                return JsonResponse(SingleConfigListJson());
+                return JsonResponse(SingleConfigJson());
             }
             // PUT for SaveAsync
             var body = await req.Content!.ReadAsStringAsync();
@@ -231,7 +229,7 @@ public class ConfigClientTests
             return JsonResponse(TestData.SingleConfigJson());
         });
 
-        var config = await client.Config.GetAsync(TestData.ConfigKey);
+        var config = await client.Config.GetAsync(TestData.ConfigId);
         config.Name = "Updated Service";
 
         await config.SaveAsync();
@@ -243,28 +241,18 @@ public class ConfigClientTests
     }
 
     // ---------------------------------------------------------------
-    // DeleteAsync (by key — looks up key first, then deletes by UUID)
+    // DeleteAsync (by id — calls Delete_configAsync directly)
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task DeleteAsync_SendsGetThenDeleteRequest()
+    public async Task DeleteAsync_SendsDeleteRequest()
     {
-        int requestCount = 0;
         var (client, handler) = CreateClient(_ =>
-        {
-            requestCount++;
-            if (requestCount == 1)
-            {
-                // GetAsync (list with filter)
-                return Task.FromResult(JsonResponse(SingleConfigListJson()));
-            }
-            // Delete by UUID
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
-        });
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent)));
 
-        await client.Config.DeleteAsync(TestData.ConfigKey);
+        await client.Config.DeleteAsync(TestData.ConfigId);
 
-        Assert.Equal(2, requestCount);
+        Assert.Single(handler.Requests);
         Assert.NotNull(handler.LastRequest);
         Assert.Equal(HttpMethod.Delete, handler.LastRequest.Method);
         Assert.Contains($"/api/v1/configs/{TestData.ConfigId}", handler.LastRequest.RequestUri!.ToString());
@@ -275,17 +263,7 @@ public class ConfigClientTests
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task GetAsync_EmptyList_ThrowsSmplNotFoundException()
-    {
-        var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(TestData.EmptyListJson())));
-
-        await Assert.ThrowsAsync<SmplNotFoundException>(
-            () => client.Config.GetAsync("missing_key"));
-    }
-
-    [Fact]
-    public async Task DeleteAsync_GetPhase404_ThrowsSmplNotFoundException()
+    public async Task GetAsync_NotFound_ThrowsSmplNotFoundException()
     {
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(
@@ -293,25 +271,31 @@ public class ConfigClientTests
                 HttpStatusCode.NotFound)));
 
         await Assert.ThrowsAsync<SmplNotFoundException>(
-            () => client.Config.DeleteAsync("some_key"));
+            () => client.Config.GetAsync("missing_id"));
+    }
+
+    [Fact]
+    public async Task DeleteAsync_404_ThrowsSmplNotFoundException()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(
+                """{"errors":[{"detail":"Not found"}]}""",
+                HttpStatusCode.NotFound)));
+
+        await Assert.ThrowsAsync<SmplNotFoundException>(
+            () => client.Config.DeleteAsync("some_id"));
     }
 
     [Fact]
     public async Task DeleteAsync_409_ThrowsSmplConflictException()
     {
-        int requestCount = 0;
         var (client, _) = CreateClient(_ =>
-        {
-            requestCount++;
-            if (requestCount == 1)
-                return Task.FromResult(JsonResponse(SingleConfigListJson()));
-            return Task.FromResult(JsonResponse(
+            Task.FromResult(JsonResponse(
                 """{"errors":[{"detail":"Has children"}]}""",
-                HttpStatusCode.Conflict));
-        });
+                HttpStatusCode.Conflict)));
 
         var ex = await Assert.ThrowsAsync<SmplConflictException>(
-            () => client.Config.DeleteAsync(TestData.ConfigKey));
+            () => client.Config.DeleteAsync(TestData.ConfigId));
         Assert.Equal(409, ex.StatusCode);
     }
 
@@ -323,7 +307,7 @@ public class ConfigClientTests
                 """{"errors":[{"detail":"Name is required"}]}""",
                 (HttpStatusCode)422)));
 
-        var config = client.Config.New("key");
+        var config = client.Config.New("id");
         var ex = await Assert.ThrowsAsync<SmplValidationException>(
             () => config.SaveAsync());
         Assert.Equal(422, ex.StatusCode);
@@ -336,7 +320,7 @@ public class ConfigClientTests
             throw new HttpRequestException("Connection refused"));
 
         await Assert.ThrowsAsync<SmplConnectionException>(
-            () => client.Config.GetAsync("some_key"));
+            () => client.Config.GetAsync("some_id"));
     }
 
     [Fact]
@@ -346,7 +330,7 @@ public class ConfigClientTests
             throw new TaskCanceledException("The request timed out"));
 
         await Assert.ThrowsAsync<SmplTimeoutException>(
-            () => client.Config.GetAsync("some_key"));
+            () => client.Config.GetAsync("some_id"));
     }
 
     // ---------------------------------------------------------------
@@ -360,10 +344,10 @@ public class ConfigClientTests
         cts.Cancel();
 
         var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(SingleConfigListJson())));
+            Task.FromResult(JsonResponse(SingleConfigJson())));
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => client.Config.GetAsync(TestData.ConfigKey, cts.Token));
+            () => client.Config.GetAsync(TestData.ConfigId, cts.Token));
     }
 
     // ---------------------------------------------------------------
@@ -376,7 +360,7 @@ public class ConfigClientTests
         var (client, handler) = CreateClient(_ =>
             Task.FromResult(JsonResponse(TestData.SingleConfigJson(), HttpStatusCode.Created)));
 
-        var config = client.Config.New("test_key", "Test");
+        var config = client.Config.New("test_id", "Test");
         await config.SaveAsync();
 
         Assert.NotNull(handler.LastRequest);
@@ -397,7 +381,7 @@ public class ConfigClientTests
                 HttpStatusCode.InternalServerError)));
 
         var ex = await Assert.ThrowsAsync<SmplException>(
-            () => client.Config.GetAsync("some_key"));
+            () => client.Config.GetAsync("some_id"));
         Assert.Equal(500, ex.StatusCode);
         Assert.NotNull(ex.ResponseBody);
     }
@@ -411,7 +395,7 @@ public class ConfigClientTests
                 (HttpStatusCode)429)));
 
         var ex = await Assert.ThrowsAsync<SmplException>(
-            () => client.Config.GetAsync("some_key"));
+            () => client.Config.GetAsync("some_id"));
         Assert.Equal(429, ex.StatusCode);
     }
 
@@ -425,7 +409,7 @@ public class ConfigClientTests
         var (client, _) = CreateClient(_ =>
             throw new HttpRequestException("Connection refused"));
 
-        var config = client.Config.New("test_key", "Test");
+        var config = client.Config.New("test_id", "Test");
         await Assert.ThrowsAsync<SmplConnectionException>(
             () => config.SaveAsync());
     }
@@ -436,7 +420,7 @@ public class ConfigClientTests
         var (client, _) = CreateClient(_ =>
             throw new TaskCanceledException("The request timed out"));
 
-        var config = client.Config.New("test_key", "Test");
+        var config = client.Config.New("test_id", "Test");
         await Assert.ThrowsAsync<SmplTimeoutException>(
             () => config.SaveAsync());
     }
@@ -448,7 +432,7 @@ public class ConfigClientTests
             throw new HttpRequestException("Connection refused"));
 
         await Assert.ThrowsAsync<SmplConnectionException>(
-            () => client.Config.DeleteAsync("some_key"));
+            () => client.Config.DeleteAsync("some_id"));
     }
 
     [Fact]
@@ -458,7 +442,7 @@ public class ConfigClientTests
             throw new TaskCanceledException("The request timed out"));
 
         await Assert.ThrowsAsync<SmplTimeoutException>(
-            () => client.Config.DeleteAsync("some_key"));
+            () => client.Config.DeleteAsync("some_id"));
     }
 
     // ---------------------------------------------------------------
@@ -472,7 +456,7 @@ public class ConfigClientTests
             Task.FromResult(JsonResponse("""{"data": null}""")));
 
         await Assert.ThrowsAsync<SmplNotFoundException>(
-            () => client.Config.GetAsync("some_key"));
+            () => client.Config.GetAsync("some_id"));
     }
 
     [Fact]
@@ -480,9 +464,7 @@ public class ConfigClientTests
     {
         var json = """
         {
-            "data": [
-                {"id": "abcabc00-abc0-abc0-abc0-abcabc000000", "type": "config", "attributes": null}
-            ]
+            "data": {"id": "some_id", "type": "config", "attributes": null}
         }
         """;
 
@@ -490,7 +472,7 @@ public class ConfigClientTests
             Task.FromResult(JsonResponse(json)));
 
         await Assert.ThrowsAsync<SmplNotFoundException>(
-            () => client.Config.GetAsync("some_key"));
+            () => client.Config.GetAsync("some_id"));
     }
 
     [Fact]
@@ -512,10 +494,10 @@ public class ConfigClientTests
             "data": [
                 {"id": "abc", "type": "config", "attributes": null},
                 {
-                    "id": "def",
+                    "id": "valid_config",
                     "type": "config",
                     "attributes": {
-                        "key": "valid_config",
+                        "id": "valid_config",
                         "name": "Valid",
                         "description": null,
                         "parent": null,
@@ -535,7 +517,7 @@ public class ConfigClientTests
         var configs = await client.Config.ListAsync();
 
         Assert.Single(configs);
-        Assert.Equal("valid_config", configs[0].Key);
+        Assert.Equal("valid_config", configs[0].Id);
     }
 
     [Fact]
@@ -544,7 +526,7 @@ public class ConfigClientTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse("""{"data": null}""", HttpStatusCode.Created)));
 
-        var config = client.Config.New("test_key", "Test");
+        var config = client.Config.New("test_id", "Test");
         await Assert.ThrowsAsync<SmplValidationException>(
             () => config.SaveAsync());
     }
@@ -556,17 +538,11 @@ public class ConfigClientTests
     [Fact]
     public async Task DeleteAsync_200_Succeeds()
     {
-        int requestCount = 0;
         var (client, _) = CreateClient(_ =>
-        {
-            requestCount++;
-            if (requestCount == 1)
-                return Task.FromResult(JsonResponse(SingleConfigListJson()));
-            return Task.FromResult(JsonResponse("{}", HttpStatusCode.OK));
-        });
+            Task.FromResult(JsonResponse("{}", HttpStatusCode.OK)));
 
         // Should not throw
-        await client.Config.DeleteAsync(TestData.ConfigKey);
+        await client.Config.DeleteAsync(TestData.ConfigId);
     }
 
     // ---------------------------------------------------------------
@@ -578,32 +554,29 @@ public class ConfigClientTests
     {
         var json = """
         {
-            "data": [
-                {
+            "data": {
+                "id": null,
+                "type": "config",
+                "attributes": {
                     "id": null,
-                    "type": "config",
-                    "attributes": {
-                        "key": null,
-                        "name": null,
-                        "description": null,
-                        "parent": null,
-                        "items": null,
-                        "environments": null,
-                        "created_at": null,
-                        "updated_at": null
-                    }
+                    "name": null,
+                    "description": null,
+                    "parent": null,
+                    "items": null,
+                    "environments": null,
+                    "created_at": null,
+                    "updated_at": null
                 }
-            ]
+            }
         }
         """;
 
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(json)));
 
-        var config = await client.Config.GetAsync("some_key");
+        var config = await client.Config.GetAsync("some_id");
 
         Assert.Equal(string.Empty, config.Id);
-        Assert.Equal(string.Empty, config.Key);
         Assert.Equal(string.Empty, config.Name);
         Assert.Null(config.Description);
         Assert.Null(config.Parent);
@@ -623,9 +596,9 @@ public class ConfigClientTests
     public async Task GetAsync_SetsAcceptHeader()
     {
         var (client, handler) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(SingleConfigListJson())));
+            Task.FromResult(JsonResponse(SingleConfigJson())));
 
-        await client.Config.GetAsync(TestData.ConfigKey);
+        await client.Config.GetAsync(TestData.ConfigId);
 
         Assert.NotNull(handler.LastRequest);
         var accept = handler.LastRequest.Headers.Accept.ToString();
@@ -645,7 +618,7 @@ public class ConfigClientTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(TestData.SingleConfigJson(), HttpStatusCode.Created)));
 
-        var config = client.Config.New("test_key", "Test");
+        var config = client.Config.New("test_id", "Test");
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => config.SaveAsync(cts.Token));
     }
@@ -657,10 +630,10 @@ public class ConfigClientTests
         cts.Cancel();
 
         var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(SingleConfigListJson())));
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent)));
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => client.Config.DeleteAsync(TestData.ConfigKey, cts.Token));
+            () => client.Config.DeleteAsync(TestData.ConfigId, cts.Token));
     }
 
     [Fact]
@@ -689,13 +662,13 @@ public class ConfigClientTests
         {
             requestCount++;
             if (requestCount == 1)
-                return JsonResponse(SingleConfigListJson());
+                return JsonResponse(SingleConfigJson());
             if (req.Method == HttpMethod.Put)
                 putBody = await req.Content!.ReadAsStringAsync();
             return JsonResponse(TestData.SingleConfigJson());
         });
 
-        var config = await client.Config.GetAsync(TestData.ConfigKey);
+        var config = await client.Config.GetAsync(TestData.ConfigId);
         config.Name = "Updated";
         config.Description = "Updated description";
         config.Parent = "parent-id";
@@ -719,32 +692,30 @@ public class ConfigClientTests
     {
         var json = """
         {
-            "data": [
-                {
-                    "id": "11111111-1111-1111-1111-111111111111",
-                    "type": "config",
-                    "attributes": {
-                        "key": "my_key",
-                        "name": "My Config",
-                        "description": null,
-                        "parent": null,
-                        "items": {"timeout": {"value": 30, "type": "NUMBER"}},
-                        "environments": {
-                            "production": {"timeout": {"value": 60}},
-                            "staging": {"debug": {"value": true}}
-                        },
-                        "created_at": "2024-01-15T10:30:00Z",
-                        "updated_at": "2024-01-15T10:30:00Z"
-                    }
+            "data": {
+                "id": "my_id",
+                "type": "config",
+                "attributes": {
+                    "id": "my_id",
+                    "name": "My Config",
+                    "description": null,
+                    "parent": null,
+                    "items": {"timeout": {"value": 30, "type": "NUMBER"}},
+                    "environments": {
+                        "production": {"timeout": {"value": 60}},
+                        "staging": {"debug": {"value": true}}
+                    },
+                    "created_at": "2024-01-15T10:30:00Z",
+                    "updated_at": "2024-01-15T10:30:00Z"
                 }
-            ]
+            }
         }
         """;
 
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(json)));
 
-        var config = await client.Config.GetAsync("my_key");
+        var config = await client.Config.GetAsync("my_id");
 
         Assert.Equal(2, config.Environments.Count);
         Assert.True(config.Environments.ContainsKey("production"));
@@ -762,10 +733,10 @@ public class ConfigClientTests
         {
             "data": [
                 {
-                    "id": "1",
+                    "id": "a",
                     "type": "config",
                     "attributes": {
-                        "key": "a",
+                        "id": "a",
                         "name": "A",
                         "description": null,
                         "parent": null,
@@ -776,13 +747,13 @@ public class ConfigClientTests
                     }
                 },
                 {
-                    "id": "2",
+                    "id": "b",
                     "type": "config",
                     "attributes": {
-                        "key": "b",
+                        "id": "b",
                         "name": "B",
                         "description": "desc",
-                        "parent": "1",
+                        "parent": "a",
                         "items": {"x": {"value": 1, "type": "NUMBER"}},
                         "environments": {},
                         "created_at": "2024-01-15T10:30:00Z",
@@ -799,9 +770,9 @@ public class ConfigClientTests
         var configs = await client.Config.ListAsync();
 
         Assert.Equal(2, configs.Count);
-        Assert.Equal("a", configs[0].Key);
-        Assert.Equal("b", configs[1].Key);
-        Assert.Equal("1", configs[1].Parent);
+        Assert.Equal("a", configs[0].Id);
+        Assert.Equal("b", configs[1].Id);
+        Assert.Equal("a", configs[1].Parent);
         Assert.Equal("desc", configs[1].Description);
     }
 
@@ -818,7 +789,7 @@ public class ConfigClientTests
                 HttpStatusCode.ServiceUnavailable)));
 
         var ex = await Assert.ThrowsAsync<SmplException>(
-            () => client.Config.GetAsync("some_key"));
+            () => client.Config.GetAsync("some_id"));
         Assert.Equal(503, ex.StatusCode);
     }
 
@@ -827,50 +798,40 @@ public class ConfigClientTests
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task DeleteAsync_LookupEmpty_ThrowsSmplNotFoundException()
+    public async Task DeleteAsync_NotFound_ThrowsSmplNotFoundException()
     {
         var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(TestData.EmptyListJson())));
+            Task.FromResult(JsonResponse(
+                """{"errors":[{"detail":"Not found"}]}""",
+                HttpStatusCode.NotFound)));
 
         await Assert.ThrowsAsync<SmplNotFoundException>(
-            () => client.Config.DeleteAsync("nonexistent_key"));
+            () => client.Config.DeleteAsync("nonexistent_id"));
     }
 
     [Fact]
     public async Task DeleteAsync_422_ThrowsSmplValidationException()
     {
-        int requestCount = 0;
         var (client, _) = CreateClient(_ =>
-        {
-            requestCount++;
-            if (requestCount == 1)
-                return Task.FromResult(JsonResponse(SingleConfigListJson()));
-            return Task.FromResult(JsonResponse(
+            Task.FromResult(JsonResponse(
                 """{"errors":[{"detail":"Invalid"}]}""",
-                (HttpStatusCode)422));
-        });
+                (HttpStatusCode)422)));
 
         var ex = await Assert.ThrowsAsync<SmplValidationException>(
-            () => client.Config.DeleteAsync(TestData.ConfigKey));
+            () => client.Config.DeleteAsync(TestData.ConfigId));
         Assert.Equal(422, ex.StatusCode);
     }
 
     [Fact]
     public async Task DeleteAsync_500_ThrowsSmplException()
     {
-        int requestCount = 0;
         var (client, _) = CreateClient(_ =>
-        {
-            requestCount++;
-            if (requestCount == 1)
-                return Task.FromResult(JsonResponse(SingleConfigListJson()));
-            return Task.FromResult(JsonResponse(
+            Task.FromResult(JsonResponse(
                 """{"errors":[{"detail":"Server error"}]}""",
-                HttpStatusCode.InternalServerError));
-        });
+                HttpStatusCode.InternalServerError)));
 
         var ex = await Assert.ThrowsAsync<SmplException>(
-            () => client.Config.DeleteAsync(TestData.ConfigKey));
+            () => client.Config.DeleteAsync(TestData.ConfigId));
         Assert.Equal(500, ex.StatusCode);
     }
 
@@ -886,13 +847,13 @@ public class ConfigClientTests
         {
             requestCount++;
             if (requestCount == 1)
-                return Task.FromResult(JsonResponse(SingleConfigListJson()));
+                return Task.FromResult(JsonResponse(SingleConfigJson()));
             return Task.FromResult(JsonResponse(
                 """{"errors":[{"detail":"Not found"}]}""",
                 HttpStatusCode.NotFound));
         });
 
-        var config = await client.Config.GetAsync(TestData.ConfigKey);
+        var config = await client.Config.GetAsync(TestData.ConfigId);
         config.Name = "Updated";
 
         var ex = await Assert.ThrowsAsync<SmplNotFoundException>(
@@ -908,13 +869,13 @@ public class ConfigClientTests
         {
             requestCount++;
             if (requestCount == 1)
-                return Task.FromResult(JsonResponse(SingleConfigListJson()));
+                return Task.FromResult(JsonResponse(SingleConfigJson()));
             return Task.FromResult(JsonResponse(
                 """{"errors":[{"detail":"Name is required"}]}""",
                 (HttpStatusCode)422));
         });
 
-        var config = await client.Config.GetAsync(TestData.ConfigKey);
+        var config = await client.Config.GetAsync(TestData.ConfigId);
         config.Name = "";
 
         var ex = await Assert.ThrowsAsync<SmplValidationException>(
@@ -930,11 +891,11 @@ public class ConfigClientTests
         {
             requestCount++;
             if (requestCount == 1)
-                return Task.FromResult(JsonResponse(SingleConfigListJson()));
+                return Task.FromResult(JsonResponse(SingleConfigJson()));
             throw new HttpRequestException("Connection refused");
         });
 
-        var config = await client.Config.GetAsync(TestData.ConfigKey);
+        var config = await client.Config.GetAsync(TestData.ConfigId);
         await Assert.ThrowsAsync<SmplConnectionException>(
             () => config.SaveAsync());
     }
@@ -947,11 +908,11 @@ public class ConfigClientTests
         {
             requestCount++;
             if (requestCount == 1)
-                return Task.FromResult(JsonResponse(SingleConfigListJson()));
+                return Task.FromResult(JsonResponse(SingleConfigJson()));
             throw new TaskCanceledException("The request timed out");
         });
 
-        var config = await client.Config.GetAsync(TestData.ConfigKey);
+        var config = await client.Config.GetAsync(TestData.ConfigId);
         await Assert.ThrowsAsync<SmplTimeoutException>(
             () => config.SaveAsync());
     }
@@ -965,11 +926,11 @@ public class ConfigClientTests
         {
             requestCount++;
             if (requestCount == 1)
-                return Task.FromResult(JsonResponse(SingleConfigListJson()));
+                return Task.FromResult(JsonResponse(SingleConfigJson()));
             return Task.FromResult(JsonResponse(TestData.SingleConfigJson()));
         });
 
-        var config = await client.Config.GetAsync(TestData.ConfigKey);
+        var config = await client.Config.GetAsync(TestData.ConfigId);
         cts.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
@@ -984,11 +945,11 @@ public class ConfigClientTests
         {
             requestCount++;
             if (requestCount == 1)
-                return Task.FromResult(JsonResponse(SingleConfigListJson()));
+                return Task.FromResult(JsonResponse(SingleConfigJson()));
             return Task.FromResult(JsonResponse("""{"data": null}"""));
         });
 
-        var config = await client.Config.GetAsync(TestData.ConfigKey);
+        var config = await client.Config.GetAsync(TestData.ConfigId);
         config.Name = "Updated";
 
         await Assert.ThrowsAsync<SmplValidationException>(
@@ -1007,7 +968,7 @@ public class ConfigClientTests
                 """{"errors":[{"detail":"Server error"}]}""",
                 HttpStatusCode.InternalServerError)));
 
-        var config = client.Config.New("test_key", "Test");
+        var config = client.Config.New("test_id", "Test");
         var ex = await Assert.ThrowsAsync<SmplException>(
             () => config.SaveAsync());
         Assert.Equal(500, ex.StatusCode);
@@ -1025,13 +986,13 @@ public class ConfigClientTests
         {
             requestCount++;
             if (requestCount == 1)
-                return Task.FromResult(JsonResponse(SingleConfigListJson()));
+                return Task.FromResult(JsonResponse(SingleConfigJson()));
             return Task.FromResult(JsonResponse(
                 """{"errors":[{"detail":"Server error"}]}""",
                 HttpStatusCode.InternalServerError));
         });
 
-        var config = await client.Config.GetAsync(TestData.ConfigKey);
+        var config = await client.Config.GetAsync(TestData.ConfigId);
         config.Name = "Updated";
 
         var ex = await Assert.ThrowsAsync<SmplException>(
@@ -1047,10 +1008,10 @@ public class ConfigClientTests
     public async Task MultipleRequests_AreTrackedByHandler()
     {
         var (client, handler) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(SingleConfigListJson())));
+            Task.FromResult(JsonResponse(SingleConfigJson())));
 
-        await client.Config.GetAsync("key_a");
-        await client.Config.GetAsync("key_b");
+        await client.Config.GetAsync("id_a");
+        await client.Config.GetAsync("id_b");
 
         Assert.Equal(2, handler.Requests.Count);
     }
@@ -1066,10 +1027,9 @@ public class ConfigClientTests
         var httpClient = new HttpClient(handler);
         var client = new SmplClient(TestData.DefaultOptions(), httpClient);
 
-        var config = client.Config.New("my_key");
+        var config = client.Config.New("my_id");
 
-        Assert.Null(config.Id);
-        Assert.Equal("my_key", config.Key);
+        Assert.Equal("my_id", config.Id);
         Assert.Null(config.Description);
         Assert.Null(config.Parent);
         Assert.NotNull(config.Items);
@@ -1087,10 +1047,9 @@ public class ConfigClientTests
         var httpClient = new HttpClient(handler);
         var client = new SmplClient(TestData.DefaultOptions(), httpClient);
 
-        var config = client.Config.New("my_key", "My Name", "My Desc", "parent-uuid");
+        var config = client.Config.New("my_id", "My Name", "My Desc", "parent-uuid");
 
-        Assert.Null(config.Id);
-        Assert.Equal("my_key", config.Key);
+        Assert.Equal("my_id", config.Id);
         Assert.Equal("My Name", config.Name);
         Assert.Equal("My Desc", config.Description);
         Assert.Equal("parent-uuid", config.Parent);
@@ -1108,7 +1067,7 @@ public class ConfigClientTests
                 """{"errors":[{"detail":"Already exists"}]}""",
                 HttpStatusCode.Conflict)));
 
-        var config = client.Config.New("test_key", "Test");
+        var config = client.Config.New("test_id", "Test");
         var ex = await Assert.ThrowsAsync<SmplConflictException>(
             () => config.SaveAsync());
         Assert.Equal(409, ex.StatusCode);
@@ -1126,13 +1085,13 @@ public class ConfigClientTests
         {
             requestCount++;
             if (requestCount == 1)
-                return Task.FromResult(JsonResponse(SingleConfigListJson()));
+                return Task.FromResult(JsonResponse(SingleConfigJson()));
             return Task.FromResult(JsonResponse(
                 """{"errors":[{"detail":"Conflict"}]}""",
                 HttpStatusCode.Conflict));
         });
 
-        var config = await client.Config.GetAsync(TestData.ConfigKey);
+        var config = await client.Config.GetAsync(TestData.ConfigId);
         config.Name = "Updated";
 
         var ex = await Assert.ThrowsAsync<SmplConflictException>(

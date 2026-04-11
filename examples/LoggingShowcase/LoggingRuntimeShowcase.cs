@@ -79,7 +79,7 @@ public static class LoggingRuntimeShowcase
         client.Logging.OnChange(evt =>
         {
             globalChanges.Add(evt);
-            Console.WriteLine($"    [GLOBAL CHANGE] logger={evt.Key}, level={evt.Level}, source={evt.Source}");
+            Console.WriteLine($"    [GLOBAL CHANGE] logger={evt.Id}, level={evt.Level}, source={evt.Source}");
         });
         Step("Global change listener registered");
         Step("Any logger level change will be logged above");
@@ -93,7 +93,7 @@ public static class LoggingRuntimeShowcase
         client.Logging.OnChange("runtime-logger-1", evt =>
         {
             scopedChanges.Add(evt);
-            Console.WriteLine($"    [SCOPED CHANGE] logger={evt.Key}, level={evt.Level}, source={evt.Source}");
+            Console.WriteLine($"    [SCOPED CHANGE] logger={evt.Id}, level={evt.Level}, source={evt.Source}");
         });
         Step("Scoped change listener registered for 'runtime-logger-1'");
         Step("Only changes to runtime-logger-1 will trigger this listener");

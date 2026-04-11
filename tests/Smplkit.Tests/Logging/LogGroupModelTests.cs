@@ -103,10 +103,10 @@ public class LogGroupModelTests
         using var client = CreateSmplClient();
         var group = CreateTestLogGroup(client);
 
-        Assert.Equal("LogGroup(Key=test-group, Level=)", group.ToString());
+        Assert.Equal("LogGroup(Id=test-group, Level=)", group.ToString());
 
         group.SetLevel(LogLevel.Warn);
-        Assert.Equal("LogGroup(Key=test-group, Level=Warn)", group.ToString());
+        Assert.Equal("LogGroup(Id=test-group, Level=Warn)", group.ToString());
     }
 
     // ------------------------------------------------------------------
@@ -119,8 +119,7 @@ public class LogGroupModelTests
         using var client = CreateSmplClient();
         var group = CreateTestLogGroup(client);
 
-        Assert.Null(group.Id);
-        Assert.Equal("test-group", group.Key);
+        Assert.Equal("test-group", group.Id);
         Assert.Equal("Test Group", group.Name);
         Assert.Null(group.Level);
         Assert.Null(group.Group);

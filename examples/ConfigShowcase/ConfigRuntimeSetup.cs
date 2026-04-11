@@ -53,7 +53,7 @@ public static class ConfigRuntimeSetup
         };
         await common.SaveAsync();
 
-        Console.WriteLine($"     Updated: id={common.Id}, key={common.Key}");
+        Console.WriteLine($"     Updated: id={common.Id}");
 
         // ------------------------------------------------------------------
         // 2. user_service — per-service config with production overrides
@@ -61,7 +61,7 @@ public static class ConfigRuntimeSetup
         Console.WriteLine("  -> Creating user_service config...");
 
         var userService = client.Config.New(
-            key: "user_service",
+            id: "user_service",
             name: "User Service");
         userService.Items = new Dictionary<string, object?>
         {
@@ -87,7 +87,7 @@ public static class ConfigRuntimeSetup
         Console.WriteLine("  -> Creating auth_module config (child of user_service)...");
 
         var authModule = client.Config.New(
-            key: "auth_module",
+            id: "auth_module",
             name: "Auth Module",
             parent: userService.Id);
         authModule.Items = new Dictionary<string, object?>

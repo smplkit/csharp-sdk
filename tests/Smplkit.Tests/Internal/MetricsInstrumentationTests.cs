@@ -20,10 +20,10 @@ public class MetricsInstrumentationTests
         {
             "data": [
                 {
-                    "id": "flag-001",
+                    "id": "{{key}}",
                     "type": "flag",
                     "attributes": {
-                        "key": "{{key}}",
+                        "id": "{{key}}",
                         "name": "Test Flag",
                         "type": "BOOLEAN",
                         "default": true,

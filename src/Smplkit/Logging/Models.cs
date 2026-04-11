@@ -10,11 +10,8 @@ public sealed class Logger
 {
     private readonly LoggingClient _client;
 
-    /// <summary>Gets the logger UUID. Null for unsaved loggers.</summary>
+    /// <summary>Gets the logger identifier (slug). Null for unsaved loggers.</summary>
     public string? Id { get; internal set; }
-
-    /// <summary>Gets or sets the logger key.</summary>
-    public string Key { get; internal set; }
 
     /// <summary>Gets or sets the display name.</summary>
     public string Name { get; set; }
@@ -22,7 +19,7 @@ public sealed class Logger
     /// <summary>Gets the current log level. Set via <see cref="SetLevel"/>.</summary>
     public LogLevel? Level { get; internal set; }
 
-    /// <summary>Gets or sets the log group UUID.</summary>
+    /// <summary>Gets or sets the log group identifier (slug).</summary>
     public string? Group { get; set; }
 
     /// <summary>Gets or sets whether this logger is managed.</summary>
@@ -43,7 +40,6 @@ public sealed class Logger
     internal Logger(
         LoggingClient client,
         string? id,
-        string key,
         string name,
         LogLevel? level,
         string? group,
@@ -55,7 +51,6 @@ public sealed class Logger
     {
         _client = client;
         Id = id;
-        Key = key;
         Name = name;
         Level = level;
         Group = group;
@@ -74,7 +69,6 @@ public sealed class Logger
     {
         var saved = await _client.SaveLoggerInternalAsync(this, ct).ConfigureAwait(false);
         Id = saved.Id;
-        Key = saved.Key;
         Name = saved.Name;
         Level = saved.Level;
         Group = saved.Group;
@@ -109,7 +103,7 @@ public sealed class Logger
 
     /// <inheritdoc />
     public override string ToString() =>
-        $"Logger(Key={Key}, Level={Level})";
+        $"Logger(Id={Id}, Level={Level})";
 }
 
 /// <summary>
@@ -120,11 +114,8 @@ public sealed class LogGroup
 {
     private readonly LoggingClient _client;
 
-    /// <summary>Gets the log group UUID. Null for unsaved groups.</summary>
+    /// <summary>Gets the log group identifier (slug). Null for unsaved groups.</summary>
     public string? Id { get; internal set; }
-
-    /// <summary>Gets or sets the log group key.</summary>
-    public string Key { get; internal set; }
 
     /// <summary>Gets or sets the display name.</summary>
     public string Name { get; set; }
@@ -132,7 +123,7 @@ public sealed class LogGroup
     /// <summary>Gets the current log level. Set via <see cref="SetLevel"/>.</summary>
     public LogLevel? Level { get; internal set; }
 
-    /// <summary>Gets or sets the parent group UUID.</summary>
+    /// <summary>Gets or sets the parent group identifier (slug).</summary>
     public string? Group { get; set; }
 
     /// <summary>Gets the per-environment configuration.</summary>
@@ -147,7 +138,6 @@ public sealed class LogGroup
     internal LogGroup(
         LoggingClient client,
         string? id,
-        string key,
         string name,
         LogLevel? level,
         string? group,
@@ -157,7 +147,6 @@ public sealed class LogGroup
     {
         _client = client;
         Id = id;
-        Key = key;
         Name = name;
         Level = level;
         Group = group;
@@ -174,7 +163,6 @@ public sealed class LogGroup
     {
         var saved = await _client.SaveLogGroupInternalAsync(this, ct).ConfigureAwait(false);
         Id = saved.Id;
-        Key = saved.Key;
         Name = saved.Name;
         Level = saved.Level;
         Group = saved.Group;
@@ -207,13 +195,13 @@ public sealed class LogGroup
 
     /// <inheritdoc />
     public override string ToString() =>
-        $"LogGroup(Key={Key}, Level={Level})";
+        $"LogGroup(Id={Id}, Level={Level})";
 }
 
 /// <summary>
 /// Describes a logger change.
 /// </summary>
-/// <param name="Key">The logger key that changed.</param>
+/// <param name="Id">The logger id that changed.</param>
 /// <param name="Level">The new log level, or null if cleared.</param>
 /// <param name="Source">The origin of the change.</param>
-public sealed record LoggerChangeEvent(string Key, LogLevel? Level, string Source);
+public sealed record LoggerChangeEvent(string Id, LogLevel? Level, string Source);

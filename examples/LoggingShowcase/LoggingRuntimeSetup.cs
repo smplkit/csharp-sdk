@@ -35,7 +35,7 @@ public static class LoggingRuntimeSetup
 
         var group = client.Logging.NewGroup("runtime-group", name: "Runtime Group");
         await group.SaveAsync();
-        Console.WriteLine($"     Created: id={group.Id}, key={group.Key}");
+        Console.WriteLine($"     Created: id={group.Id}, id={group.Id}");
 
         // ------------------------------------------------------------------
         // 2. Create runtime-logger-1 with Info level
@@ -45,7 +45,7 @@ public static class LoggingRuntimeSetup
         var logger1 = client.Logging.New("runtime-logger-1", name: "Runtime Logger 1", managed: true);
         logger1.SetLevel(LogLevel.Info);
         await logger1.SaveAsync();
-        Console.WriteLine($"     Created: id={logger1.Id}, key={logger1.Key}, level={logger1.Level}");
+        Console.WriteLine($"     Created: id={logger1.Id}, id={logger1.Id}, level={logger1.Level}");
 
         // ------------------------------------------------------------------
         // 3. Create runtime-logger-2 with Warn level and production override
@@ -56,7 +56,7 @@ public static class LoggingRuntimeSetup
         logger2.SetLevel(LogLevel.Warn);
         logger2.SetEnvironmentLevel("production", LogLevel.Error);
         await logger2.SaveAsync();
-        Console.WriteLine($"     Created: id={logger2.Id}, key={logger2.Key}, level={logger2.Level}");
+        Console.WriteLine($"     Created: id={logger2.Id}, id={logger2.Id}, level={logger2.Level}");
 
         Console.WriteLine();
         Console.WriteLine("  Demo loggers created successfully.");

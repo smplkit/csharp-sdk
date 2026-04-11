@@ -107,10 +107,10 @@ public class LoggerModelTests
         using var client = CreateSmplClient();
         var logger = CreateTestLogger(client);
 
-        Assert.Equal("Logger(Key=test-logger, Level=)", logger.ToString());
+        Assert.Equal("Logger(Id=test-logger, Level=)", logger.ToString());
 
         logger.SetLevel(LogLevel.Info);
-        Assert.Equal("Logger(Key=test-logger, Level=Info)", logger.ToString());
+        Assert.Equal("Logger(Id=test-logger, Level=Info)", logger.ToString());
     }
 
     // ------------------------------------------------------------------
@@ -123,8 +123,7 @@ public class LoggerModelTests
         using var client = CreateSmplClient();
         var logger = CreateTestLogger(client);
 
-        Assert.Null(logger.Id);
-        Assert.Equal("test-logger", logger.Key);
+        Assert.Equal("test-logger", logger.Id);
         Assert.Equal("Test Logger", logger.Name);
         Assert.Null(logger.Level);
         Assert.Null(logger.Group);

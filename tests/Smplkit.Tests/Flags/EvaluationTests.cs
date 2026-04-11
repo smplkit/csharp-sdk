@@ -11,7 +11,7 @@ public class EvaluationTests
     {
         return new Dictionary<string, object?>
         {
-            ["key"] = "test-flag",
+            ["id"] = "test-flag",
             ["name"] = "Test Flag",
             ["type"] = "BOOLEAN",
             ["default"] = defaultValue,
@@ -457,7 +457,7 @@ public class EvaluationTests
     {
         var flagDef = new Dictionary<string, object?>
         {
-            ["key"] = "test",
+            ["id"] = "test",
             ["default"] = "default-val",
         };
 
@@ -471,7 +471,7 @@ public class EvaluationTests
     {
         var flagDef = new Dictionary<string, object?>
         {
-            ["key"] = "test",
+            ["id"] = "test",
             ["default"] = 42,
             ["environments"] = "not-a-dict",
         };

@@ -57,7 +57,7 @@ public static class ConfigManagementShowcase
         Section("1. Update the Common Config");
 
         var common = await client.Config.GetAsync("common");
-        Step($"Fetched common config: id={common.Id}, key={common.Key}");
+        Step($"Fetched common config: id={common.Id}");
 
         // Mutate items directly + SaveAsync
         common.Name = "Common";
@@ -90,7 +90,7 @@ public static class ConfigManagementShowcase
         Section("2. Create User Service Config");
 
         var userService = client.Config.New(
-            key: "user_service",
+            id: "user_service",
             name: "User Service",
             description: "Configuration for the user management service");
         userService.Items = new Dictionary<string, object?>
@@ -119,7 +119,7 @@ public static class ConfigManagementShowcase
         Section("3. Create Auth Module (Child of User Service)");
 
         var authModule = client.Config.New(
-            key: "auth_module",
+            id: "auth_module",
             name: "Auth Module",
             description: "Authentication module config — inherits from user_service",
             parent: userService.Id);
@@ -154,12 +154,12 @@ public static class ConfigManagementShowcase
         foreach (var c in allConfigs)
         {
             var parentLabel = c.Parent != null ? $", parent={c.Parent}" : "";
-            Console.WriteLine($"     - {c.Key} (id={c.Id}{parentLabel})");
+            Console.WriteLine($"     - {c.Id} (id={c.Id}{parentLabel})");
         }
 
-        // Fetch a single config by key to show the full payload
+        // Fetch a single config by id to show the full payload
         var fetched = await client.Config.GetAsync("user_service");
-        Step($"Fetched user_service by key: key={fetched.Key}");
+        Step($"Fetched user_service by id: id={fetched.Id}");
         Step($"  Description: {fetched.Description}");
         Step($"  Items: [{string.Join(", ", fetched.Items.Keys)}]");
         Step($"  Environments: [{string.Join(", ", fetched.Environments.Keys)}]");
