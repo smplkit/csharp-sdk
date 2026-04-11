@@ -699,9 +699,6 @@ namespace Smplkit.Internal.Generated.Flags
     public partial class Flag
     {
 
-        [System.Text.Json.Serialization.JsonPropertyName("id")]
-        public string? Id { get; set; } = default!;
-
         /// <summary>
         /// Human-readable display name
         /// </summary>
