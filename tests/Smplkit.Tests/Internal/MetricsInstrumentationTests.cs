@@ -252,6 +252,64 @@ public class MetricsInstrumentationTests
     }
 
     // ------------------------------------------------------------------
+    // Logging instrumentation
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task LoggingDiscoverAll_RecordsLoggersDiscovered()
+    {
+        var reporter = CreateSeparateReporter(out var metricsHandler);
+
+        // Create a mock adapter that discovers loggers
+        var mockAdapter = new MockLoggingAdapter(3);
+
+        var handler = new MockHttpMessageHandler(_ =>
+            Task.FromResult(JsonResponse("""{"data": []}""")));
+        var httpClient = new HttpClient(handler);
+        var options = TestData.DefaultOptions();
+        var client = new SmplClient(options, httpClient);
+        InjectMetrics(client.Logging, reporter);
+
+        // Register the mock adapter and start
+        client.Logging.RegisterAdapter(mockAdapter);
+        try { await client.Logging.StartAsync(); }
+        catch { /* WS connection failure is expected in tests */ }
+
+        reporter.Flush();
+
+        var metricsRequests = metricsHandler.Requests
+            .Where(r => r.RequestUri?.PathAndQuery.Contains("metrics") == true).ToList();
+        Assert.NotEmpty(metricsRequests);
+
+        var body = await metricsRequests.Last().Content!.ReadAsStringAsync();
+        var payload = JsonDocument.Parse(body).RootElement;
+        var entries = payload.GetProperty("data").EnumerateArray().ToList();
+
+        var discoveredEntry = entries.FirstOrDefault(e =>
+            e.GetProperty("attributes").GetProperty("name").GetString() == "logging.loggers_discovered");
+        Assert.NotEqual(default, discoveredEntry);
+        Assert.Equal(3, discoveredEntry.GetProperty("attributes").GetProperty("value").GetInt32());
+
+        reporter.Dispose();
+    }
+
+    private sealed class MockLoggingAdapter : Smplkit.Logging.Adapters.ILoggingAdapter
+    {
+        private readonly int _loggerCount;
+        public string Name => "mock";
+        public MockLoggingAdapter(int loggerCount) => _loggerCount = loggerCount;
+        public IReadOnlyList<Smplkit.Logging.Adapters.DiscoveredLogger> Discover()
+        {
+            return Enumerable.Range(0, _loggerCount)
+                .Select(i => new Smplkit.Logging.Adapters.DiscoveredLogger($"logger-{i}", Smplkit.LogLevel.Info))
+                .ToList();
+        }
+        public void ApplyLevel(string loggerName, Smplkit.LogLevel level) { }
+        public void InstallHook(Action<string, Smplkit.LogLevel> onNewLogger) { }
+        public void UninstallHook() { }
+    }
+
+    // ------------------------------------------------------------------
     // End-to-end: SmplClient wiring
     // ------------------------------------------------------------------
 

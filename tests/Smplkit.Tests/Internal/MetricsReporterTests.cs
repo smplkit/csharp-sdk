@@ -419,21 +419,34 @@ public class MetricsReporterTests
     [Fact]
     public async Task Timer_RestartsAfterTick_WhenNewRecordsDuringFlush()
     {
+        var flushStarted = new ManualResetEventSlim(false);
+        var flushGate = new ManualResetEventSlim(false);
         var flushCount = 0;
         var handler = new MockHttpMessageHandler(_ =>
         {
-            Interlocked.Increment(ref flushCount);
+            var count = Interlocked.Increment(ref flushCount);
+            if (count == 1)
+            {
+                flushStarted.Set(); // Signal that flush has started
+                flushGate.Wait();   // Block until we add more records
+            }
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
         });
         var httpClient = new HttpClient(handler);
         var reporter = new MetricsReporter(httpClient, Environment, Service, flushIntervalSeconds: 1);
 
         reporter.Record("test.metric1");
-        await Task.Delay(1500); // First timer tick
-        Assert.True(flushCount >= 1);
+        // Wait for first timer tick to start flushing (blocked in handler)
+        flushStarted.Wait(TimeSpan.FromSeconds(5));
+        Assert.Equal(1, flushCount);
 
+        // Record while flush is blocked — after FlushInternal returns,
+        // Tick() will find _counters non-empty and restart the timer.
         reporter.Record("test.metric2");
-        await Task.Delay(1500); // Second timer tick
+        flushGate.Set();
+
+        // Wait for second timer tick
+        await Task.Delay(2000);
         Assert.True(flushCount >= 2);
 
         reporter.Close();

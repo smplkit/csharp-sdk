@@ -140,9 +140,6 @@ internal sealed class MetricsReporter : IDisposable
     private static Dictionary<string, string> ParseDimensions(string key)
     {
         var pipeIdx = key.IndexOf('|');
-        if (pipeIdx < 0 || pipeIdx == key.Length - 1)
-            return new Dictionary<string, string>();
-
         var dimsPart = key[(pipeIdx + 1)..];
         var result = new Dictionary<string, string>();
         foreach (var pair in dimsPart.Split(','))
