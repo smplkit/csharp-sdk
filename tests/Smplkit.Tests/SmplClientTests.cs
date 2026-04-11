@@ -289,4 +289,26 @@ public class SmplClientTests : IDisposable
             new SmplClient(new SmplClientOptions { Environment = "test" }));
         Assert.Contains("service", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void Constructor_DisableTelemetry_NoMetricsRequests()
+    {
+        var handler = new MockHttpMessageHandler(_ =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var httpClient = new HttpClient(handler);
+
+        using var client = new SmplClient(
+            new SmplClientOptions
+            {
+                ApiKey = "sk_api_test_key",
+                Environment = "test",
+                Service = "test-service",
+                DisableTelemetry = true,
+            },
+            httpClient);
+
+        // No metrics endpoint calls should have been made
+        Assert.DoesNotContain(handler.Requests, r =>
+            r.RequestUri?.PathAndQuery.Contains("metrics") == true);
+    }
 }

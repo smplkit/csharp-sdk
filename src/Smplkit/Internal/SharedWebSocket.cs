@@ -19,6 +19,7 @@ internal sealed class SharedWebSocket
     private readonly string _apiKey;
     private readonly ConcurrentDictionary<string, List<Action<Dictionary<string, object?>>>> _listeners = new();
     private readonly object _listenersLock = new();
+    private readonly MetricsReporter? _metrics;
 
     private volatile string _connectionStatus = "disconnected";
     private volatile bool _closed;
@@ -28,10 +29,11 @@ internal sealed class SharedWebSocket
     private readonly Func<Uri, CancellationToken, Task<WebSocket>> _wsFactory;
     private readonly TaskCompletionSource<bool> _initialConnect = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    internal SharedWebSocket(string apiKey, Func<Uri, CancellationToken, Task<WebSocket>>? wsFactory = null)
+    internal SharedWebSocket(string apiKey, Func<Uri, CancellationToken, Task<WebSocket>>? wsFactory = null, MetricsReporter? metrics = null)
     {
         _apiKey = apiKey;
         _wsFactory = wsFactory ?? DefaultWsFactoryAsync;
+        _metrics = metrics;
     }
 
     // ------------------------------------------------------------------
@@ -110,6 +112,7 @@ internal sealed class SharedWebSocket
     {
         _closed = true;
         _connectionStatus = "disconnected";
+        _metrics?.RecordGauge("platform.websocket_connections", 0, unit: "connections");
         _wsCts.Cancel();
 
         var ws = _ws;
@@ -160,6 +163,7 @@ internal sealed class SharedWebSocket
             {
                 if (ct.IsCancellationRequested || _closed) break;
                 _connectionStatus = "reconnecting";
+                _metrics?.RecordGauge("platform.websocket_connections", 0, unit: "connections");
                 _initialConnect.TrySetResult(false);
                 int delay = BackoffSeconds[Math.Min(attempt, BackoffSeconds.Length - 1)];
                 try
@@ -216,6 +220,7 @@ internal sealed class SharedWebSocket
         }
 
         _connectionStatus = "connected";
+        _metrics?.RecordGauge("platform.websocket_connections", 1, unit: "connections");
         _initialConnect.TrySetResult(true);
     }
 

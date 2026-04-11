@@ -33,4 +33,11 @@ public sealed class SmplClientOptions
     /// constructor throws.
     /// </summary>
     public string? Service { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether SDK telemetry reporting is disabled.
+    /// Defaults to <c>false</c>. When set to <c>true</c>, no usage metrics
+    /// are collected or transmitted.
+    /// </summary>
+    public bool DisableTelemetry { get; init; }
 }

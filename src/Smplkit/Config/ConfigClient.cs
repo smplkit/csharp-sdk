@@ -15,6 +15,7 @@ public sealed class ConfigClient
     private readonly GenConfig.ConfigClient _genClient;
     private readonly SmplClient? _parent;
     private readonly Func<SharedWebSocket>? _ensureWs;
+    private readonly MetricsReporter? _metrics;
     private volatile bool _runtimeConnected;
     private readonly object _initLock = new();
     private Dictionary<string, Dictionary<string, object?>> _configCache = new();
@@ -28,11 +29,13 @@ public sealed class ConfigClient
     /// <param name="clients">The generated client factory.</param>
     /// <param name="ensureWs">Factory for the shared WebSocket.</param>
     /// <param name="parent">The parent <see cref="SmplClient"/>, if any.</param>
-    internal ConfigClient(GeneratedClientFactory clients, Func<SharedWebSocket>? ensureWs = null, SmplClient? parent = null)
+    /// <param name="metrics">Optional metrics reporter for telemetry.</param>
+    internal ConfigClient(GeneratedClientFactory clients, Func<SharedWebSocket>? ensureWs = null, SmplClient? parent = null, MetricsReporter? metrics = null)
     {
         _genClient = clients.Config;
         _ensureWs = ensureWs;
         _parent = parent;
+        _metrics = metrics;
     }
 
     // ------------------------------------------------------------------
@@ -157,6 +160,9 @@ public sealed class ConfigClient
 
         if (!_configCache.TryGetValue(key, out var values))
             throw new SmplNotFoundException($"Config with key '{key}' not found in cache.");
+
+        _metrics?.Record("config.resolutions", unit: "resolutions",
+            dimensions: new Dictionary<string, string> { ["config_id"] = key });
 
         return new Dictionary<string, object?>(values);
     }
@@ -339,8 +345,6 @@ public sealed class ConfigClient
             listeners = new(_listeners);
         }
 
-        if (listeners.Count == 0) return;
-
         var allConfigKeys = new HashSet<string>(oldCache.Keys);
         allConfigKeys.UnionWith(newCache.Keys);
 
@@ -357,6 +361,11 @@ public sealed class ConfigClient
                 var oldVal = oldItems.GetValueOrDefault(iKey);
                 var newVal = newItems.GetValueOrDefault(iKey);
                 if (Equals(oldVal, newVal)) continue;
+
+                _metrics?.Record("config.changes", unit: "changes",
+                    dimensions: new Dictionary<string, string> { ["config_id"] = cfgKey });
+
+                if (listeners.Count == 0) continue;
 
                 var evt = new ConfigChangeEvent(cfgKey, iKey, oldVal, newVal, source);
                 foreach (var (callback, filterCfgKey, filterItemKey) in listeners)

@@ -43,13 +43,16 @@ public sealed class FlagsClient
     // Shared WebSocket
     private SharedWebSocket? _wsManager;
 
-    internal FlagsClient(GeneratedClientFactory clients, string apiKey, Func<SharedWebSocket> ensureWs, SmplClient? parent = null)
+    private readonly MetricsReporter? _metrics;
+
+    internal FlagsClient(GeneratedClientFactory clients, string apiKey, Func<SharedWebSocket> ensureWs, SmplClient? parent = null, MetricsReporter? metrics = null)
     {
         _genFlagsClient = clients.Flags;
         _genAppClient = clients.App;
         _apiKey = apiKey;
         _ensureWs = ensureWs;
         _parent = parent;
+        _metrics = metrics;
     }
 
     // ------------------------------------------------------------------
@@ -506,7 +509,13 @@ public sealed class FlagsClient
         var cacheKey = $"{key}:{ctxHash}";
 
         var (hit, cachedValue) = _cache.Get(cacheKey);
-        if (hit) return cachedValue;
+        if (hit)
+        {
+            _metrics?.Record("flags.cache_hits", unit: "hits");
+            _metrics?.Record("flags.evaluations", unit: "evaluations",
+                dimensions: new Dictionary<string, string> { ["flag_id"] = key });
+            return cachedValue;
+        }
 
         if (!_flagStore.TryGetValue(key, out var flagDef))
         {
@@ -518,6 +527,11 @@ public sealed class FlagsClient
         value ??= defaultValue;
 
         _cache.Put(cacheKey, value);
+
+        _metrics?.Record("flags.cache_misses", unit: "misses");
+        _metrics?.Record("flags.evaluations", unit: "evaluations",
+            dimensions: new Dictionary<string, string> { ["flag_id"] = key });
+
         return value;
     }
 

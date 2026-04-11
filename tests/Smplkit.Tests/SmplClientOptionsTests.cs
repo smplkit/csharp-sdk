@@ -61,4 +61,25 @@ public class SmplClientOptionsTests
 
         Assert.Null(options.Service);
     }
+
+    [Fact]
+    public void DisableTelemetry_DefaultIsFalse()
+    {
+        var options = new SmplClientOptions { ApiKey = "sk_test", Environment = "test" };
+
+        Assert.False(options.DisableTelemetry);
+    }
+
+    [Fact]
+    public void DisableTelemetry_CanBeSetTrue()
+    {
+        var options = new SmplClientOptions
+        {
+            ApiKey = "sk_test",
+            Environment = "test",
+            DisableTelemetry = true,
+        };
+
+        Assert.True(options.DisableTelemetry);
+    }
 }

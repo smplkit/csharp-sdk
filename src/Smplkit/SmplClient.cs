@@ -31,6 +31,7 @@ public sealed class SmplClient : IDisposable
     private readonly bool _ownsHttpClient;
     private readonly string _apiKey;
     private readonly GeneratedClientFactory _clients;
+    private readonly MetricsReporter? _metrics;
     private SharedWebSocket? _sharedWs;
     private readonly object _wsLock = new();
 
@@ -129,9 +130,15 @@ public sealed class SmplClient : IDisposable
             Timeout = options.Timeout,
         };
         _clients = new GeneratedClientFactory(_httpClient, resolvedOptions);
-        Config = new ConfigClient(_clients, EnsureSharedWebSocket, this);
-        Flags = new FlagsClient(_clients, _apiKey, EnsureSharedWebSocket, this);
-        Logging = new LoggingClient(_clients, _apiKey, EnsureSharedWebSocket, this);
+
+        // Telemetry reporter (null when disabled)
+        _metrics = options.DisableTelemetry
+            ? null
+            : new MetricsReporter(_httpClient, resolvedEnvironment, resolvedService);
+
+        Config = new ConfigClient(_clients, EnsureSharedWebSocket, this, _metrics);
+        Flags = new FlagsClient(_clients, _apiKey, EnsureSharedWebSocket, this, _metrics);
+        Logging = new LoggingClient(_clients, _apiKey, EnsureSharedWebSocket, this, _metrics);
     }
 
     /// <summary>
@@ -143,7 +150,7 @@ public sealed class SmplClient : IDisposable
         lock (_wsLock)
         {
             if (_sharedWs is not null) return _sharedWs;
-            _sharedWs = new SharedWebSocket(_apiKey);
+            _sharedWs = new SharedWebSocket(_apiKey, metrics: _metrics);
             _sharedWs.Start();
             return _sharedWs;
         }
@@ -161,6 +168,8 @@ public sealed class SmplClient : IDisposable
             _sharedWs.StopAsync().GetAwaiter().GetResult();
             _sharedWs = null;
         }
+
+        _metrics?.Dispose();
 
         if (_ownsHttpClient)
             _httpClient.Dispose();

@@ -28,12 +28,15 @@ public sealed class LoggingClient
     /// <summary>
     /// Initializes a new instance of <see cref="LoggingClient"/>.
     /// </summary>
-    internal LoggingClient(GeneratedClientFactory clients, string apiKey, Func<SharedWebSocket> ensureWs, SmplClient? parent = null)
+    private readonly MetricsReporter? _metrics;
+
+    internal LoggingClient(GeneratedClientFactory clients, string apiKey, Func<SharedWebSocket> ensureWs, SmplClient? parent = null, MetricsReporter? metrics = null)
     {
         _genClient = clients.Logging;
         _apiKey = apiKey;
         _ensureWs = ensureWs;
         _parent = parent;
+        _metrics = metrics;
     }
 
     // ------------------------------------------------------------------
@@ -329,11 +332,18 @@ public sealed class LoggingClient
 
     private void DiscoverAll()
     {
+        var totalDiscovered = 0;
         foreach (var adapter in _adapters)
         {
-            try { adapter.Discover(); }
+            try
+            {
+                var discovered = adapter.Discover();
+                totalDiscovered += discovered.Count;
+            }
             catch { /* Adapter discovery failure is non-fatal */ }
         }
+        if (totalDiscovered > 0)
+            _metrics?.Record("logging.loggers_discovered", value: totalDiscovered, unit: "loggers");
     }
 
     private void InstallAllHooks()
@@ -390,6 +400,9 @@ public sealed class LoggingClient
                 try { adapter.ApplyLevel(logger.Key, logger.Level.Value); }
                 catch { /* Adapter failure is non-fatal */ }
             }
+
+            _metrics?.Record("logging.level_changes", unit: "changes",
+                dimensions: new Dictionary<string, string> { ["logger_id"] = logger.Key });
         }
     }
 
