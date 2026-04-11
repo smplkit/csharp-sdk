@@ -25,6 +25,14 @@ public static class ConfigRuntimeSetup
         Console.WriteLine(new string('=', 60));
         Console.WriteLine();
 
+        // Pre-cleanup: delete any configs left over from a previous run.
+        // Children must be deleted before parents.
+        foreach (var id in new[] { "auth_module", "user_service" })
+        {
+            try { await client.Config.DeleteAsync(id); Console.WriteLine($"  Pre-cleanup: deleted leftover config {id}"); }
+            catch { /* not present — ignore */ }
+        }
+
         // ------------------------------------------------------------------
         // 1. common — organisation-wide shared configuration
         // ------------------------------------------------------------------

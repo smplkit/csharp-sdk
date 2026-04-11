@@ -51,6 +51,14 @@ public static class ConfigManagementShowcase
 
     public static async Task<int> RunAsync(SmplClient client)
     {
+        // Pre-cleanup: delete any configs left over from a previous run.
+        // Children must be deleted before parents.
+        foreach (var id in new[] { "auth_module", "user_service" })
+        {
+            try { await client.Config.DeleteAsync(id); Step($"Pre-cleanup: deleted leftover config {id}"); }
+            catch { /* not present — ignore */ }
+        }
+
         // ==============================================================
         // 1. UPDATE THE COMMON CONFIG
         // ==============================================================
