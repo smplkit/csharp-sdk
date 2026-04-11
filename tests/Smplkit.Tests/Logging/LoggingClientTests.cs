@@ -1098,7 +1098,6 @@ public class LoggingClientTests
             Id = "test-id",
             Attributes = new Smplkit.Internal.Generated.Logging.Logger
             {
-                Id = "test",
                 Name = "Test",
                 Level = "INFO",
                 Group = null,

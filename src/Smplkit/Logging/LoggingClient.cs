@@ -561,9 +561,9 @@ public sealed class LoggingClient
             Data = new GenLogging.Resource_Logger_
             {
                 Type = "logger",
+                Id = logger.Id,
                 Attributes = new GenLogging.Logger
                 {
-                    Id = logger.Id,
                     Name = logger.Name,
                     Level = logger.Level?.ToWireString(),
                     Group = logger.Group,
@@ -579,9 +579,9 @@ public sealed class LoggingClient
             Data = new GenLogging.Resource_LogGroup_
             {
                 Type = "log_group",
+                Id = logGroup.Id,
                 Attributes = new GenLogging.LogGroup
                 {
-                    Id = logGroup.Id,
                     Name = logGroup.Name,
                     Level = logGroup.Level?.ToWireString(),
                     Group = logGroup.Group,

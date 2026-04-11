@@ -876,9 +876,9 @@ public sealed class FlagsClient
             Data = new GenFlags.Resource_Flag_
             {
                 Type = "flag",
+                Id = id,
                 Attributes = new GenFlags.Flag
                 {
-                    Id = id,
                     Name = name,
                     Type = type,
                     Default = @default ?? new object(),
@@ -932,9 +932,9 @@ public sealed class FlagsClient
             Data = new GenFlags.Resource_Flag_
             {
                 Type = "flag",
+                Id = id,
                 Attributes = new GenFlags.Flag
                 {
-                    Id = id,
                     Name = name,
                     Type = type,
                     Default = @default ?? new object(),

@@ -407,9 +407,9 @@ public sealed class ConfigClient
             Data = new GenConfig.Resource_Config_
             {
                 Type = "config",
+                Id = config.Id,
                 Attributes = new GenConfig.Config
                 {
-                    Id = config.Id,
                     Name = config.Name,
                     Description = config.Description,
                     Parent = config.Parent,
