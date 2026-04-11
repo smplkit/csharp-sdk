@@ -507,7 +507,7 @@ public sealed class FlagsClient
         {
             _metrics?.Record("flags.cache_hits", unit: "hits");
             _metrics?.Record("flags.evaluations", unit: "evaluations",
-                dimensions: new Dictionary<string, string> { ["flag_id"] = id });
+                dimensions: new Dictionary<string, string> { ["flag"] = id });
             return cachedValue;
         }
 
@@ -524,7 +524,7 @@ public sealed class FlagsClient
 
         _metrics?.Record("flags.cache_misses", unit: "misses");
         _metrics?.Record("flags.evaluations", unit: "evaluations",
-            dimensions: new Dictionary<string, string> { ["flag_id"] = id });
+            dimensions: new Dictionary<string, string> { ["flag"] = id });
 
         return value;
     }

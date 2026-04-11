@@ -49,9 +49,9 @@ public class MetricsReporterTests
         var (reporter, handler) = CreateReporter();
 
         reporter.Record("flags.evaluations", unit: "evaluations",
-            dimensions: new Dictionary<string, string> { ["flag_id"] = "flag-a" });
+            dimensions: new Dictionary<string, string> { ["flag"] = "flag-a" });
         reporter.Record("flags.evaluations", unit: "evaluations",
-            dimensions: new Dictionary<string, string> { ["flag_id"] = "flag-b" });
+            dimensions: new Dictionary<string, string> { ["flag"] = "flag-b" });
         reporter.Flush();
 
         var payload = ParsePayload(handler);
@@ -186,7 +186,7 @@ public class MetricsReporterTests
         var (reporter, handler) = CreateReporter(flushIntervalSeconds: 60);
 
         reporter.Record("flags.evaluations", unit: "evaluations",
-            dimensions: new Dictionary<string, string> { ["flag_id"] = "checkout-v2" });
+            dimensions: new Dictionary<string, string> { ["flag"] = "checkout-v2" });
         reporter.Flush();
 
         var payload = ParsePayload(handler);
@@ -204,7 +204,7 @@ public class MetricsReporterTests
         var dims = attrs.GetProperty("dimensions");
         Assert.Equal(Environment, dims.GetProperty("environment").GetString());
         Assert.Equal(Service, dims.GetProperty("service").GetString());
-        Assert.Equal("checkout-v2", dims.GetProperty("flag_id").GetString());
+        Assert.Equal("checkout-v2", dims.GetProperty("flag").GetString());
 
         Assert.True(attrs.TryGetProperty("recorded_at", out var recordedAt));
         Assert.False(string.IsNullOrEmpty(recordedAt.GetString()));

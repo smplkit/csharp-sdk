@@ -154,7 +154,7 @@ public class MetricsInstrumentationTests
         var evalEntry = payload.GetProperty("data").EnumerateArray()
             .First(e => e.GetProperty("attributes").GetProperty("name").GetString() == "flags.evaluations");
         var dims = evalEntry.GetProperty("attributes").GetProperty("dimensions");
-        Assert.Equal("checkout-v2", dims.GetProperty("flag_id").GetString());
+        Assert.Equal("checkout-v2", dims.GetProperty("flag").GetString());
 
         reporter.Dispose();
     }
@@ -187,7 +187,7 @@ public class MetricsInstrumentationTests
             e.GetProperty("attributes").GetProperty("name").GetString() == "config.resolutions");
         Assert.Equal(1, resolutionEntry.GetProperty("attributes").GetProperty("value").GetInt32());
         var dims = resolutionEntry.GetProperty("attributes").GetProperty("dimensions");
-        Assert.Equal("user_service", dims.GetProperty("config_id").GetString());
+        Assert.Equal("user_service", dims.GetProperty("config").GetString());
 
         reporter.Dispose();
     }
@@ -222,7 +222,7 @@ public class MetricsInstrumentationTests
             .First(e => e.GetProperty("attributes").GetProperty("name").GetString() == "config.changes");
         Assert.Equal(1, changeEntry.GetProperty("attributes").GetProperty("value").GetInt32());
         var dims = changeEntry.GetProperty("attributes").GetProperty("dimensions");
-        Assert.Equal("my-config", dims.GetProperty("config_id").GetString());
+        Assert.Equal("my-config", dims.GetProperty("config").GetString());
 
         reporter.Dispose();
     }

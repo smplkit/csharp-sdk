@@ -159,7 +159,7 @@ public sealed class ConfigClient
             throw new SmplNotFoundException($"Config with id '{id}' not found in cache.");
 
         _metrics?.Record("config.resolutions", unit: "resolutions",
-            dimensions: new Dictionary<string, string> { ["config_id"] = id });
+            dimensions: new Dictionary<string, string> { ["config"] = id });
 
         return new Dictionary<string, object?>(values);
     }
@@ -360,7 +360,7 @@ public sealed class ConfigClient
                 if (Equals(oldVal, newVal)) continue;
 
                 _metrics?.Record("config.changes", unit: "changes",
-                    dimensions: new Dictionary<string, string> { ["config_id"] = cfgId });
+                    dimensions: new Dictionary<string, string> { ["config"] = cfgId });
 
                 if (listeners.Count == 0) continue;
 

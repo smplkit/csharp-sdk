@@ -400,7 +400,7 @@ public sealed class LoggingClient
             }
 
             _metrics?.Record("logging.level_changes", unit: "changes",
-                dimensions: new Dictionary<string, string> { ["logger_id"] = logger.Id! });
+                dimensions: new Dictionary<string, string> { ["logger"] = logger.Id! });
         }
     }
 
