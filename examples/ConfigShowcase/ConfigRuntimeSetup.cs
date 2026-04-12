@@ -1,5 +1,6 @@
 using Smplkit;
 using Smplkit.Config;
+using Smplkit.Errors;
 
 namespace ConfigShowcase;
 
@@ -129,12 +130,14 @@ public static class ConfigRuntimeSetup
         Console.WriteLine(new string('=', 60));
         Console.WriteLine();
 
-        // Delete child first (auth_module), then parent (user_service)
-        await client.Config.Management.DeleteAsync("auth_module");
-        Console.WriteLine("  -> Deleted auth_module");
+        // Delete child first (auth_module), then parent (user_service).
+        // Use delete-if-exists pattern: if a config is already gone (404) we
+        // treat that as success so teardown is always idempotent.
+        try { await client.Config.Management.DeleteAsync("auth_module"); Console.WriteLine("  -> Deleted auth_module"); }
+        catch (SmplNotFoundException) { Console.WriteLine("  -> auth_module already absent, skipping"); }
 
-        await client.Config.Management.DeleteAsync("user_service");
-        Console.WriteLine("  -> Deleted user_service");
+        try { await client.Config.Management.DeleteAsync("user_service"); Console.WriteLine("  -> Deleted user_service"); }
+        catch (SmplNotFoundException) { Console.WriteLine("  -> user_service already absent, skipping"); }
 
         // Reset common to empty (it's a built-in, not deletable)
         configs.Common.Items = new Dictionary<string, object?>();
