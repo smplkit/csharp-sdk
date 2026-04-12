@@ -7,7 +7,7 @@ public class LogGroupModelTests
 {
     private static LogGroup CreateTestLogGroup(SmplClient client)
     {
-        return client.Logging.NewGroup("test-group", name: "Test Group");
+        return client.Logging.Management.NewGroup("test-group", name: "Test Group");
     }
 
     private static SmplClient CreateSmplClient()
@@ -132,7 +132,7 @@ public class LogGroupModelTests
     public void NewGroup_WithoutName_GeneratesNameFromKey()
     {
         using var client = CreateSmplClient();
-        var group = client.Logging.NewGroup("com.acme.payments");
+        var group = client.Logging.Management.NewGroup("com.acme.payments");
 
         Assert.Equal("Com Acme Payments", group.Name);
     }

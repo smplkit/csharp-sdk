@@ -87,7 +87,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_id");
+        var config = await client.Config.Management.GetAsync("my_id");
         config.Items["new_key"] = "new_value";
         await config.SaveAsync();
 
@@ -119,7 +119,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_id");
+        var config = await client.Config.Management.GetAsync("my_id");
         config.Items["key"] = "val";
         await config.SaveAsync();
 
@@ -154,7 +154,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_id");
+        var config = await client.Config.Management.GetAsync("my_id");
         config.Environments["production"] = new Dictionary<string, object?> { ["timeout"] = 120 };
         await config.SaveAsync();
 
@@ -184,7 +184,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_id");
+        var config = await client.Config.Management.GetAsync("my_id");
         config.Environments["staging"] = new Dictionary<string, object?> { ["timeout"] = 90 };
         await config.SaveAsync();
 
@@ -219,7 +219,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_id");
+        var config = await client.Config.Management.GetAsync("my_id");
         config.Items["timeout"] = 60;
         await config.SaveAsync();
 
@@ -252,7 +252,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_id");
+        var config = await client.Config.Management.GetAsync("my_id");
         config.Items["timeout"] = null;
         await config.SaveAsync();
 
@@ -286,7 +286,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_id");
+        var config = await client.Config.Management.GetAsync("my_id");
         config.Items["debug"] = true;
         await config.SaveAsync();
 
@@ -324,7 +324,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_id");
+        var config = await client.Config.Management.GetAsync("my_id");
         config.Environments["production"] = new Dictionary<string, object?> { ["timeout"] = 120 };
         await config.SaveAsync();
 
@@ -360,7 +360,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_id");
+        var config = await client.Config.Management.GetAsync("my_id");
         config.Items["new_key"] = "val";
         await config.SaveAsync();
 
@@ -411,7 +411,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_id");
+        var config = await client.Config.Management.GetAsync("my_id");
         config.Items["debug"] = true;
         await config.SaveAsync();
 
@@ -439,7 +439,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = client.Config.New("svc_id", "Service Name");
+        var config = client.Config.Management.New("svc_id", "Service Name");
         config.Items["new"] = "val";
         await config.SaveAsync();
 
@@ -467,7 +467,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = client.Config.New("full_id", "Full Config", "A full description", "parent-uuid");
+        var config = client.Config.Management.New("full_id", "Full Config", "A full description", "parent-uuid");
         config.Items = new() { ["a"] = 1 };
         config.Environments = new() { ["prod"] = new Dictionary<string, object?> { ["b"] = 2 } };
         await config.SaveAsync();
@@ -506,7 +506,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_id");
+        var config = await client.Config.Management.GetAsync("my_id");
         config.Items["new"] = "val";
         await config.SaveAsync();
 
@@ -535,7 +535,7 @@ public class ConfigClientSetValuesTests
                 (HttpStatusCode)422));
         });
 
-        var config = await client.Config.GetAsync("my_id");
+        var config = await client.Config.Management.GetAsync("my_id");
         config.Items["key"] = "val";
 
         await Assert.ThrowsAsync<SmplValidationException>(
@@ -557,7 +557,7 @@ public class ConfigClientSetValuesTests
         // This will throw NotFound, but we want to check the URL encoding
         try
         {
-            await client.Config.GetAsync("my id&value=test");
+            await client.Config.Management.GetAsync("my id&value=test");
         }
         catch (SmplNotFoundException) { }
 
@@ -593,7 +593,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_id");
+        var config = await client.Config.Management.GetAsync("my_id");
         // Replace entire items dict
         config.Items = new Dictionary<string, object?> { ["new_only"] = "value" };
         await config.SaveAsync();
@@ -628,7 +628,7 @@ public class ConfigClientSetValuesTests
             return JsonResponse("{}", HttpStatusCode.InternalServerError);
         });
 
-        var config = await client.Config.GetAsync("my_id");
+        var config = await client.Config.Management.GetAsync("my_id");
         config.Environments = new Dictionary<string, Dictionary<string, object?>>
         {
             ["development"] = new() { ["debug"] = true },

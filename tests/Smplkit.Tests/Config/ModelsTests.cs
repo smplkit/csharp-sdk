@@ -30,7 +30,7 @@ public class ModelsTests
     {
         var smplClient = CreateSmplClient();
 
-        var config = smplClient.Config.New(
+        var config = smplClient.Config.Management.New(
             id: "my_id",
             name: "My Config",
             description: "A description",
@@ -53,7 +53,7 @@ public class ModelsTests
     {
         var smplClient = CreateSmplClient();
 
-        var config = smplClient.Config.New("id");
+        var config = smplClient.Config.Management.New("id");
 
         Assert.Equal("id", config.Id);
         Assert.Null(config.Description);
@@ -67,7 +67,7 @@ public class ModelsTests
     {
         var smplClient = CreateSmplClient();
 
-        var config = smplClient.Config.New("id", "Name");
+        var config = smplClient.Config.Management.New("id", "Name");
         config.Name = "Updated Name";
         config.Description = "Updated Description";
         config.Parent = "new-parent";
@@ -89,7 +89,7 @@ public class ModelsTests
     {
         var smplClient = CreateSmplClient();
 
-        var config = smplClient.Config.New("id");
+        var config = smplClient.Config.Management.New("id");
         config.Items["a"] = 1;
         config.Items["b"] = "two";
         config.Items["c"] = true;
@@ -105,7 +105,7 @@ public class ModelsTests
     {
         var smplClient = CreateSmplClient();
 
-        var config = smplClient.Config.New("id");
+        var config = smplClient.Config.Management.New("id");
         config.Environments["prod"] = new() { ["timeout"] = 60 };
         config.Environments["staging"] = new() { ["debug"] = true };
 
@@ -118,7 +118,7 @@ public class ModelsTests
     public void Config_ToString_ReturnsFormattedString()
     {
         var smplClient = CreateSmplClient();
-        var config = smplClient.Config.New("my_id", "My Config");
+        var config = smplClient.Config.Management.New("my_id", "My Config");
 
         Assert.Equal("Config(Id=my_id, Name=My Config)", config.ToString());
     }
@@ -156,7 +156,7 @@ public class ModelsTests
         var httpClient = new HttpClient(handler);
         var smplClient = new SmplClient(TestData.DefaultOptions(), httpClient);
 
-        var config = await smplClient.Config.GetAsync("my_id");
+        var config = await smplClient.Config.Management.GetAsync("my_id");
 
         Assert.Equal("my_id", config.Id);
         Assert.Equal("My Config", config.Name);

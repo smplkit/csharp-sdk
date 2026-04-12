@@ -139,13 +139,13 @@ public class CoverageGapTests
 
         // Resolve triggers lazy initialization (EnsureInitialized)
         // Child config should have child_env_val overriding child_val
-        var childValues = client.Config.Resolve("child_config");
+        var childValues = client.Config.Get("child_config");
         Assert.NotNull(childValues);
         Assert.Equal("child_env_val", childValues["child_key"]);
         Assert.Equal("parent_val", childValues["parent_key"]);
 
         // Parent config should have base values only (no env overrides)
-        var parentValues = client.Config.Resolve("parent_config");
+        var parentValues = client.Config.Get("parent_config");
         Assert.NotNull(parentValues);
         Assert.Equal("base_val", parentValues["child_key"]);
         Assert.Equal("parent_val", parentValues["parent_key"]);
@@ -174,9 +174,9 @@ public class CoverageGapTests
             httpClient);
 
         // Trigger init through a valid key first
-        client.Config.Resolve("my_config");
+        client.Config.Get("my_config");
 
-        var ex = Assert.Throws<SmplNotFoundException>(() => client.Config.Resolve("nonexistent_key"));
+        var ex = Assert.Throws<SmplNotFoundException>(() => client.Config.Get("nonexistent_key"));
         Assert.Contains("not found", ex.Message);
 
         client.Dispose();

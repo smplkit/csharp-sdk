@@ -70,7 +70,7 @@ public class ConfigPrescriptiveTests
             return Task.FromResult(JsonResponse(ConfigListJson()));
         });
 
-        var values = client.Config.Resolve("app");
+        var values = client.Config.Get("app");
         Assert.Equal("Acme", values["name"]);
         Assert.Equal(42L, values["count"]);
         Assert.Equal(true, values["enabled"]);
@@ -86,7 +86,7 @@ public class ConfigPrescriptiveTests
             return Task.FromResult(JsonResponse(ConfigListJson()));
         });
 
-        Assert.Throws<SmplNotFoundException>(() => client.Config.Resolve("nonexistent"));
+        Assert.Throws<SmplNotFoundException>(() => client.Config.Get("nonexistent"));
     }
 
     [Fact]
@@ -99,8 +99,8 @@ public class ConfigPrescriptiveTests
             return Task.FromResult(JsonResponse(ConfigListJson()));
         });
 
-        var values1 = client.Config.Resolve("app");
-        var values2 = client.Config.Resolve("app");
+        var values1 = client.Config.Get("app");
+        var values2 = client.Config.Get("app");
         Assert.NotSame(values1, values2);
     }
 
@@ -119,7 +119,7 @@ public class ConfigPrescriptiveTests
                 itemsJson: """{"name": {"value": "Acme", "type": "STRING"}, "count": {"value": 42, "type": "NUMBER"}}""")));
         });
 
-        var result = client.Config.Resolve<TestConfigModel>("app");
+        var result = client.Config.Get<TestConfigModel>("app");
         Assert.Equal("Acme", result.Name);
         Assert.Equal(42, result.Count);
     }
@@ -142,7 +142,7 @@ public class ConfigPrescriptiveTests
         });
 
         // Should not throw since environment is configured
-        var values = client.Config.Resolve("app");
+        var values = client.Config.Get("app");
         Assert.NotEmpty(values);
     }
 
@@ -165,13 +165,13 @@ public class ConfigPrescriptiveTests
                 itemsJson: """{"retries": {"value": 7, "type": "NUMBER"}}""")));
         });
 
-        var val = client.Config.Resolve("app");
+        var val = client.Config.Get("app");
         Assert.Equal(3L, val["retries"]);
 
         refreshed = true;
         await client.Config.RefreshAsync();
 
-        val = client.Config.Resolve("app");
+        val = client.Config.Get("app");
         Assert.Equal(7L, val["retries"]);
     }
 
@@ -195,7 +195,7 @@ public class ConfigPrescriptiveTests
         });
 
         // Trigger lazy init
-        _ = client.Config.Resolve("app");
+        _ = client.Config.Get("app");
 
         var events = new List<ConfigChangeEvent>();
         client.Config.OnChange(evt => events.Add(evt));
@@ -225,7 +225,7 @@ public class ConfigPrescriptiveTests
         });
 
         // Trigger lazy init
-        _ = client.Config.Resolve("app");
+        _ = client.Config.Get("app");
 
         var retriesEvents = new List<ConfigChangeEvent>();
         client.Config.OnChange("app", "retries", evt => retriesEvents.Add(evt));
@@ -254,7 +254,7 @@ public class ConfigPrescriptiveTests
         });
 
         // Trigger lazy init
-        _ = client.Config.Resolve("app");
+        _ = client.Config.Get("app");
 
         var events = new List<ConfigChangeEvent>();
         client.Config.OnChange("app", evt => events.Add(evt));
@@ -285,7 +285,7 @@ public class ConfigPrescriptiveTests
         });
 
         // Trigger lazy init
-        _ = client.Config.Resolve("app");
+        _ = client.Config.Get("app");
 
         var events = new List<ConfigChangeEvent>();
         // First listener throws
@@ -319,7 +319,7 @@ public class ConfigPrescriptiveTests
         });
 
         // Trigger lazy init
-        _ = client.Config.Resolve("app");
+        _ = client.Config.Get("app");
 
         // No listeners registered -- should not throw
         refreshed = true;
@@ -364,7 +364,7 @@ public class ConfigPrescriptiveTests
         });
 
         // Trigger lazy init
-        _ = client.Config.Resolve("app");
+        _ = client.Config.Get("app");
 
         var events = new List<ConfigChangeEvent>();
         client.Config.OnChange(evt => events.Add(evt));
@@ -394,7 +394,7 @@ public class ConfigPrescriptiveTests
         });
 
         // Trigger lazy init
-        _ = client.Config.Resolve("app");
+        _ = client.Config.Get("app");
 
         var events = new List<ConfigChangeEvent>();
         client.Config.OnChange(evt => events.Add(evt));
@@ -469,7 +469,7 @@ public class ConfigPrescriptiveTests
         });
 
         // Child overrides parent retries, inherits timeout
-        var svcValues = client.Config.Resolve("service");
+        var svcValues = client.Config.Get("service");
         Assert.Equal(5L, svcValues["retries"]);
         Assert.Equal(1000L, svcValues["timeout"]);
 
@@ -477,7 +477,7 @@ public class ConfigPrescriptiveTests
         refreshed = true;
         await client.Config.RefreshAsync();
 
-        svcValues = client.Config.Resolve("service");
+        svcValues = client.Config.Get("service");
         Assert.Equal(2000L, svcValues["timeout"]);
     }
 
@@ -514,7 +514,7 @@ public class ConfigPrescriptiveTests
                 envsJson: """{"production": {"values": {"timeout": {"value": 60}}}}""")));
         });
 
-        var values = client.Config.Resolve("app");
+        var values = client.Config.Get("app");
         // Client was created with environment = "production"
         Assert.Equal(60L, values["timeout"]);
     }
@@ -534,7 +534,7 @@ public class ConfigPrescriptiveTests
                 itemsJson: """{"price": {"value": 42.0, "type": "NUMBER"}}""")));
         });
 
-        var values = client.Config.Resolve("app");
+        var values = client.Config.Get("app");
         // 42.0 in JSON: NSwag deserializes as double since decimal has fraction
         Assert.True(values["price"] is long or double);
         Assert.Equal(42.0, Convert.ToDouble(values["price"]));
@@ -551,7 +551,7 @@ public class ConfigPrescriptiveTests
                 itemsJson: """{"ratio": {"value": 3.14, "type": "NUMBER"}}""")));
         });
 
-        var values = client.Config.Resolve("app");
+        var values = client.Config.Get("app");
         Assert.Equal(3.14, values["ratio"]);
     }
 }

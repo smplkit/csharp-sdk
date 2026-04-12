@@ -24,16 +24,16 @@ public static class LoggingRuntimeSetup
         // Clean up any leftover resources from a previous failed run
         foreach (var key in new[] { "runtime-logger-1", "runtime-logger-2" })
         {
-            try { await client.Logging.DeleteAsync(key); } catch { /* not found is fine */ }
+            try { await client.Logging.Management.DeleteAsync(key); } catch { /* not found is fine */ }
         }
-        try { await client.Logging.DeleteGroupAsync("runtime-group"); } catch { /* not found is fine */ }
+        try { await client.Logging.Management.DeleteGroupAsync("runtime-group"); } catch { /* not found is fine */ }
 
         // ------------------------------------------------------------------
         // 1. Create a log group
         // ------------------------------------------------------------------
         Console.WriteLine("  -> Creating runtime-group...");
 
-        var group = client.Logging.NewGroup("runtime-group", name: "Runtime Group");
+        var group = client.Logging.Management.NewGroup("runtime-group", name: "Runtime Group");
         await group.SaveAsync();
         Console.WriteLine($"     Created: id={group.Id}, id={group.Id}");
 
@@ -42,7 +42,7 @@ public static class LoggingRuntimeSetup
         // ------------------------------------------------------------------
         Console.WriteLine("  -> Creating runtime-logger-1...");
 
-        var logger1 = client.Logging.New("runtime-logger-1", name: "Runtime Logger 1", managed: true);
+        var logger1 = client.Logging.Management.New("runtime-logger-1", name: "Runtime Logger 1", managed: true);
         logger1.SetLevel(LogLevel.Info);
         await logger1.SaveAsync();
         Console.WriteLine($"     Created: id={logger1.Id}, id={logger1.Id}, level={logger1.Level}");
@@ -52,7 +52,7 @@ public static class LoggingRuntimeSetup
         // ------------------------------------------------------------------
         Console.WriteLine("  -> Creating runtime-logger-2...");
 
-        var logger2 = client.Logging.New("runtime-logger-2", name: "Runtime Logger 2", managed: true);
+        var logger2 = client.Logging.Management.New("runtime-logger-2", name: "Runtime Logger 2", managed: true);
         logger2.SetLevel(LogLevel.Warn);
         logger2.SetEnvironmentLevel("production", LogLevel.Error);
         await logger2.SaveAsync();
@@ -73,7 +73,7 @@ public static class LoggingRuntimeSetup
 
         try
         {
-            await client.Logging.DeleteAsync("runtime-logger-1");
+            await client.Logging.Management.DeleteAsync("runtime-logger-1");
             Console.WriteLine($"  -> Deleted runtime-logger-1 ({data.Logger1.Id})");
         }
         catch (Exception ex)
@@ -83,7 +83,7 @@ public static class LoggingRuntimeSetup
 
         try
         {
-            await client.Logging.DeleteAsync("runtime-logger-2");
+            await client.Logging.Management.DeleteAsync("runtime-logger-2");
             Console.WriteLine($"  -> Deleted runtime-logger-2 ({data.Logger2.Id})");
         }
         catch (Exception ex)
@@ -93,7 +93,7 @@ public static class LoggingRuntimeSetup
 
         try
         {
-            await client.Logging.DeleteGroupAsync("runtime-group");
+            await client.Logging.Management.DeleteGroupAsync("runtime-group");
             Console.WriteLine($"  -> Deleted runtime-group ({data.Group.Id})");
         }
         catch (Exception ex)

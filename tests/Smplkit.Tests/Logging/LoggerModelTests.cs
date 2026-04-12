@@ -11,7 +11,7 @@ public class LoggerModelTests
 
     private static Logger CreateTestLogger(SmplClient client)
     {
-        return client.Logging.New("test-logger", name: "Test Logger");
+        return client.Logging.Management.New("test-logger", name: "Test Logger");
     }
 
     private static SmplClient CreateSmplClient()
@@ -138,7 +138,7 @@ public class LoggerModelTests
     public void New_WithoutName_GeneratesNameFromKey()
     {
         using var client = CreateSmplClient();
-        var logger = client.Logging.New("checkout-v2");
+        var logger = client.Logging.Management.New("checkout-v2");
 
         Assert.Equal("Checkout V2", logger.Name);
     }

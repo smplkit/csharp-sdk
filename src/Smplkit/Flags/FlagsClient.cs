@@ -53,21 +53,19 @@ public sealed class FlagsClient
         _ensureWs = ensureWs;
         _parent = parent;
         _metrics = metrics;
+        Management = new FlagsManagement(this);
     }
 
+    /// <summary>
+    /// Provides management (CRUD) operations for flags: create, get, list, and delete.
+    /// </summary>
+    public FlagsManagement Management { get; }
+
     // ------------------------------------------------------------------
-    // Management: typed factory methods
+    // Management: typed factory methods (internal — public surface is via Management)
     // ------------------------------------------------------------------
 
-    /// <summary>
-    /// Create an unsaved boolean flag. Call <see cref="Flag.SaveAsync"/> to persist.
-    /// </summary>
-    /// <param name="id">The flag identifier (slug).</param>
-    /// <param name="defaultValue">Default boolean value.</param>
-    /// <param name="name">Display name. Auto-generated from id if null.</param>
-    /// <param name="description">Optional description.</param>
-    /// <returns>An unsaved <see cref="BooleanFlag"/>.</returns>
-    public BooleanFlag NewBooleanFlag(string id, bool defaultValue, string? name = null, string? description = null)
+    internal BooleanFlag NewBooleanFlag(string id, bool defaultValue, string? name = null, string? description = null)
     {
         return new BooleanFlag(
             client: this,
@@ -85,16 +83,7 @@ public sealed class FlagsClient
             updatedAt: null);
     }
 
-    /// <summary>
-    /// Create an unsaved string flag. Call <see cref="Flag.SaveAsync"/> to persist.
-    /// </summary>
-    /// <param name="id">The flag identifier (slug).</param>
-    /// <param name="defaultValue">Default string value.</param>
-    /// <param name="name">Display name. Auto-generated from id if null.</param>
-    /// <param name="description">Optional description.</param>
-    /// <param name="values">Optional closed set of allowed values.</param>
-    /// <returns>An unsaved <see cref="StringFlag"/>.</returns>
-    public StringFlag NewStringFlag(string id, string defaultValue, string? name = null, string? description = null, List<Dictionary<string, object?>>? values = null)
+    internal StringFlag NewStringFlag(string id, string defaultValue, string? name = null, string? description = null, List<Dictionary<string, object?>>? values = null)
     {
         return new StringFlag(
             client: this,
@@ -108,16 +97,7 @@ public sealed class FlagsClient
             updatedAt: null);
     }
 
-    /// <summary>
-    /// Create an unsaved number flag. Call <see cref="Flag.SaveAsync"/> to persist.
-    /// </summary>
-    /// <param name="id">The flag identifier (slug).</param>
-    /// <param name="defaultValue">Default numeric value.</param>
-    /// <param name="name">Display name. Auto-generated from id if null.</param>
-    /// <param name="description">Optional description.</param>
-    /// <param name="values">Optional closed set of allowed values.</param>
-    /// <returns>An unsaved <see cref="NumberFlag"/>.</returns>
-    public NumberFlag NewNumberFlag(string id, double defaultValue, string? name = null, string? description = null, List<Dictionary<string, object?>>? values = null)
+    internal NumberFlag NewNumberFlag(string id, double defaultValue, string? name = null, string? description = null, List<Dictionary<string, object?>>? values = null)
     {
         return new NumberFlag(
             client: this,
@@ -131,16 +111,7 @@ public sealed class FlagsClient
             updatedAt: null);
     }
 
-    /// <summary>
-    /// Create an unsaved JSON flag. Call <see cref="Flag.SaveAsync"/> to persist.
-    /// </summary>
-    /// <param name="id">The flag identifier (slug).</param>
-    /// <param name="defaultValue">Default JSON value.</param>
-    /// <param name="name">Display name. Auto-generated from id if null.</param>
-    /// <param name="description">Optional description.</param>
-    /// <param name="values">Optional closed set of allowed values.</param>
-    /// <returns>An unsaved <see cref="JsonFlag"/>.</returns>
-    public JsonFlag NewJsonFlag(string id, Dictionary<string, object?> defaultValue, string? name = null, string? description = null, List<Dictionary<string, object?>>? values = null)
+    internal JsonFlag NewJsonFlag(string id, Dictionary<string, object?> defaultValue, string? name = null, string? description = null, List<Dictionary<string, object?>>? values = null)
     {
         return new JsonFlag(
             client: this,
@@ -155,17 +126,10 @@ public sealed class FlagsClient
     }
 
     // ------------------------------------------------------------------
-    // Management: CRUD by id
+    // Management: CRUD by id (internal — public surface is via Management)
     // ------------------------------------------------------------------
 
-    /// <summary>
-    /// Fetches a flag by its identifier.
-    /// </summary>
-    /// <param name="id">The flag identifier.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The matching <see cref="Flag"/>.</returns>
-    /// <exception cref="SmplNotFoundException">If no matching flag exists.</exception>
-    public async Task<Flag> GetAsync(string id, CancellationToken ct = default)
+    internal async Task<Flag> GetAsync(string id, CancellationToken ct = default)
     {
         var response = await ApiExceptionMapper.ExecuteAsync(
             () => _genFlagsClient.Get_flagAsync(id: id, cancellationToken: ct)).ConfigureAwait(false);
@@ -173,12 +137,7 @@ public sealed class FlagsClient
             ?? throw new SmplNotFoundException($"Flag with id '{id}' not found");
     }
 
-    /// <summary>
-    /// Lists all flags.
-    /// </summary>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>A list of <see cref="Flag"/> objects.</returns>
-    public async Task<List<Flag>> ListAsync(CancellationToken ct = default)
+    internal async Task<List<Flag>> ListAsync(CancellationToken ct = default)
     {
         var response = await ApiExceptionMapper.ExecuteAsync(
             () => _genFlagsClient.List_flagsAsync(cancellationToken: ct)).ConfigureAwait(false);
@@ -186,13 +145,7 @@ public sealed class FlagsClient
         return response.Data.Select(r => MapFlagResource(r)!).Where(f => f is not null).ToList();
     }
 
-    /// <summary>
-    /// Deletes a flag by its identifier.
-    /// </summary>
-    /// <param name="id">The flag identifier.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <exception cref="SmplNotFoundException">If no matching flag exists.</exception>
-    public async Task DeleteAsync(string id, CancellationToken ct = default)
+    internal async Task DeleteAsync(string id, CancellationToken ct = default)
     {
         await ApiExceptionMapper.ExecuteAsync(
             () => _genFlagsClient.Delete_flagAsync(id, ct)).ConfigureAwait(false);

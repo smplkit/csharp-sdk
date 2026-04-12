@@ -88,7 +88,7 @@ public class ModelsCoverageTests
     {
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(FlagGetJson())));
 
-        var flag = await client.Flags.GetAsync("my-flag");
+        var flag = await client.Flags.Management.GetAsync("my-flag");
         var str = flag.ToString();
 
         Assert.Contains("Id=my-flag", str);
@@ -118,7 +118,7 @@ public class ModelsCoverageTests
                 SingleFlagResponseJson(name: "Updated Flag")));
         });
 
-        var flag = await client.Flags.GetAsync("my-flag");
+        var flag = await client.Flags.Management.GetAsync("my-flag");
         Assert.Equal("Updated Flag", flag.Name);
 
         flag.Name = "Updated Flag";
@@ -147,7 +147,7 @@ public class ModelsCoverageTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(FlagGetJson(envJson: envJson))));
 
-        var flag = await client.Flags.GetAsync("my-flag");
+        var flag = await client.Flags.Management.GetAsync("my-flag");
 
         var rule = new Rule("Test Rule")
             .Environment("staging")
@@ -169,7 +169,7 @@ public class ModelsCoverageTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(FlagGetJson())));
 
-        var flag = await client.Flags.GetAsync("my-flag");
+        var flag = await client.Flags.Management.GetAsync("my-flag");
 
         var rule = new Rule("New Env Rule")
             .Environment("production")
@@ -188,7 +188,7 @@ public class ModelsCoverageTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(FlagGetJson())));
 
-        var flag = await client.Flags.GetAsync("my-flag");
+        var flag = await client.Flags.Management.GetAsync("my-flag");
 
         var rule = new Rule("No Env")
             .When("user.plan", "==", "pro")
@@ -213,7 +213,7 @@ public class ModelsCoverageTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(FlagGetJson(envJson: envJson))));
 
-        var flag = await client.Flags.GetAsync("my-flag");
+        var flag = await client.Flags.Management.GetAsync("my-flag");
 
         var rule = new Rule("New Rule")
             .Environment("staging")
@@ -246,7 +246,7 @@ public class ModelsCoverageTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(FlagGetJson(envJson: envJson))));
 
-        var flag = await client.Flags.GetAsync("my-flag");
+        var flag = await client.Flags.Management.GetAsync("my-flag");
 
         flag.SetEnvironmentEnabled("staging", false);
 
@@ -260,7 +260,7 @@ public class ModelsCoverageTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(FlagGetJson())));
 
-        var flag = await client.Flags.GetAsync("my-flag");
+        var flag = await client.Flags.Management.GetAsync("my-flag");
 
         flag.SetEnvironmentEnabled("production", true);
 
@@ -287,7 +287,7 @@ public class ModelsCoverageTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(FlagGetJson(envJson: envJson))));
 
-        var flag = await client.Flags.GetAsync("my-flag");
+        var flag = await client.Flags.Management.GetAsync("my-flag");
 
         flag.SetEnvironmentDefault("staging", true);
 
@@ -301,7 +301,7 @@ public class ModelsCoverageTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(FlagGetJson())));
 
-        var flag = await client.Flags.GetAsync("my-flag");
+        var flag = await client.Flags.Management.GetAsync("my-flag");
 
         flag.SetEnvironmentDefault("production", "custom-default");
 
@@ -328,7 +328,7 @@ public class ModelsCoverageTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(FlagGetJson(envJson: envJson))));
 
-        var flag = await client.Flags.GetAsync("my-flag");
+        var flag = await client.Flags.Management.GetAsync("my-flag");
 
         flag.ClearRules("staging");
 
@@ -344,7 +344,7 @@ public class ModelsCoverageTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(FlagGetJson())));
 
-        var flag = await client.Flags.GetAsync("my-flag");
+        var flag = await client.Flags.Management.GetAsync("my-flag");
 
         // Should not throw - non-existent env is a no-op
         flag.ClearRules("nonexistent-env");
@@ -381,7 +381,7 @@ public class ModelsCoverageTests
                 envJson: """{"production": {"enabled": true, "default": true, "rules": []}}""")));
         });
 
-        var flag = await client.Flags.GetAsync("my-flag");
+        var flag = await client.Flags.Management.GetAsync("my-flag");
         Assert.NotNull(flag.Id);
 
         flag.Name = "Updated Name";
@@ -436,7 +436,7 @@ public class ModelsCoverageTests
             return Task.FromResult(JsonResponse(listJson));
         });
 
-        var flag = await client.Flags.GetAsync("my-flag");
+        var flag = await client.Flags.Management.GetAsync("my-flag");
         // The base Get() calls EvaluateHandle which triggers lazy init
         // For a non-handle flag fetched via GetAsync, it has an id and the
         // flag store will be populated after EnsureInitialized

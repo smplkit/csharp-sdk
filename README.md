@@ -39,29 +39,27 @@ using Smplkit.Config;
 using var client = new SmplClient(new SmplClientOptions
 {
     ApiKey = "sk_api_...",
+    Environment = "production",
 });
 
-// Get a config by key
-var config = await client.Config.GetByKeyAsync("user_service");
+// Runtime: resolve config values for the current environment (lazy-loaded, cached)
+var values = client.Config.Get("user_service");
+var timeout = values["timeout"];
 
-// List all configs
-var configs = await client.Config.ListAsync();
+// Typed deserialization
+var cfg = client.Config.Get<MyServiceConfig>("user_service");
 
-// Create a config
-var newConfig = await client.Config.CreateAsync(new CreateConfigOptions
-{
-    Name = "My Service",
-    Key = "my_service",
-    Description = "Configuration for my service",
-    Values = new Dictionary<string, object?>
-    {
-        ["timeout"] = 30,
-        ["retries"] = 3,
-    },
-});
+// Management: create, get, list, delete
+var newConfig = client.Config.Management.New(
+    id: "my_service",
+    name: "My Service",
+    description: "Configuration for my service");
+newConfig.Items = new Dictionary<string, object?> { ["timeout"] = 30, ["retries"] = 3 };
+await newConfig.SaveAsync();
 
-// Delete a config
-await client.Config.DeleteAsync(newConfig.Id);
+var existing = await client.Config.Management.GetAsync("user_service");
+var all = await client.Config.Management.ListAsync();
+await client.Config.Management.DeleteAsync("my_service");
 ```
 
 ## Flags
@@ -119,22 +117,23 @@ await client.Flags.DisconnectAsync();
 
 ```csharp
 // Create a flag
-var flag = await client.Flags.CreateAsync(
-    "checkout-v2", "Checkout V2", FlagType.Boolean, false,
-    description: "New checkout experience");
+var flag = client.Flags.Management.NewBooleanFlag(
+    "checkout-v2", defaultValue: false,
+    name: "Checkout V2", description: "New checkout experience");
 
-// Add a rule
-await flag.AddRuleAsync(
+// Add a rule and save
+flag.AddRule(
     new Rule("Enable for enterprise users")
         .Environment("production")
         .When("user.plan", "==", "enterprise")
         .Serve(true)
         .Build());
+await flag.SaveAsync();
 
-// Context types
-var ct = await client.Flags.CreateContextTypeAsync("user", "User");
-await client.Flags.UpdateContextTypeAsync(ct.Id,
-    new Dictionary<string, object?> { ["plan"] = new Dictionary<string, object?>() });
+// Fetch, list, delete
+var existing = await client.Flags.Management.GetAsync("checkout-v2");
+var all = await client.Flags.Management.ListAsync();
+await client.Flags.Management.DeleteAsync("checkout-v2");
 ```
 
 ## Configuration
@@ -171,7 +170,7 @@ using Smplkit.Errors;
 
 try
 {
-    var config = await client.Config.GetAsync("nonexistent-id");
+    var config = await client.Config.Management.GetAsync("nonexistent-id");
 }
 catch (SmplNotFoundException ex)
 {
@@ -198,7 +197,7 @@ All async methods accept an optional `CancellationToken`:
 
 ```csharp
 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-var configs = await client.Config.ListAsync(cts.Token);
+var configs = await client.Config.Management.ListAsync(cts.Token);
 ```
 
 ## Documentation

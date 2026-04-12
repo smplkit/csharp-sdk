@@ -37,7 +37,13 @@ public sealed class LoggingClient
         _ensureWs = ensureWs;
         _parent = parent;
         _metrics = metrics;
+        Management = new LoggingManagement(this);
     }
+
+    /// <summary>
+    /// Provides management (CRUD) operations for loggers and log groups: create, get, list, and delete.
+    /// </summary>
+    public LoggingManagement Management { get; }
 
     // ------------------------------------------------------------------
     // Adapter registration
@@ -58,17 +64,10 @@ public sealed class LoggingClient
     }
 
     // ------------------------------------------------------------------
-    // Management: Logger CRUD
+    // Management: Logger CRUD (internal — public surface is via Management)
     // ------------------------------------------------------------------
 
-    /// <summary>
-    /// Create an unsaved logger. Call <see cref="Logger.SaveAsync"/> to persist.
-    /// </summary>
-    /// <param name="id">The logger identifier (slug).</param>
-    /// <param name="name">Display name. Auto-generated from id if null.</param>
-    /// <param name="managed">Whether this logger is managed.</param>
-    /// <returns>An unsaved <see cref="Logger"/>.</returns>
-    public Logger New(string id, string? name = null, bool managed = false)
+    internal Logger New(string id, string? name = null, bool managed = false)
     {
         return new Logger(
             client: this,
@@ -83,14 +82,7 @@ public sealed class LoggingClient
             updatedAt: null);
     }
 
-    /// <summary>
-    /// Fetches a logger by its identifier.
-    /// </summary>
-    /// <param name="id">The logger identifier.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The matching <see cref="Logger"/>.</returns>
-    /// <exception cref="SmplNotFoundException">If no matching logger exists.</exception>
-    public async Task<Logger> GetAsync(string id, CancellationToken ct = default)
+    internal async Task<Logger> GetAsync(string id, CancellationToken ct = default)
     {
         var response = await ApiExceptionMapper.ExecuteAsync(
             () => _genClient.Get_loggerAsync(id: id, cancellationToken: ct)).ConfigureAwait(false);
@@ -98,12 +90,7 @@ public sealed class LoggingClient
             ?? throw new SmplNotFoundException($"Logger with id '{id}' not found");
     }
 
-    /// <summary>
-    /// Lists all loggers.
-    /// </summary>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>A list of <see cref="Logger"/> objects.</returns>
-    public async Task<List<Logger>> ListAsync(CancellationToken ct = default)
+    internal async Task<List<Logger>> ListAsync(CancellationToken ct = default)
     {
         var response = await ApiExceptionMapper.ExecuteAsync(
             () => _genClient.List_loggersAsync(cancellationToken: ct)).ConfigureAwait(false);
@@ -111,13 +98,7 @@ public sealed class LoggingClient
         return response.Data.Select(r => MapLoggerResource(r)!).Where(l => l is not null).ToList();
     }
 
-    /// <summary>
-    /// Deletes a logger by its identifier.
-    /// </summary>
-    /// <param name="id">The logger identifier.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <exception cref="SmplNotFoundException">If no matching logger exists.</exception>
-    public async Task DeleteAsync(string id, CancellationToken ct = default)
+    internal async Task DeleteAsync(string id, CancellationToken ct = default)
     {
         await ApiExceptionMapper.ExecuteAsync(
             () => _genClient.Delete_loggerAsync(id, ct)).ConfigureAwait(false);
@@ -146,17 +127,10 @@ public sealed class LoggingClient
     }
 
     // ------------------------------------------------------------------
-    // Management: LogGroup CRUD
+    // Management: LogGroup CRUD (internal — public surface is via Management)
     // ------------------------------------------------------------------
 
-    /// <summary>
-    /// Create an unsaved log group. Call <see cref="LogGroup.SaveAsync"/> to persist.
-    /// </summary>
-    /// <param name="id">The group identifier (slug).</param>
-    /// <param name="name">Display name. Auto-generated from id if null.</param>
-    /// <param name="group">Optional parent group identifier.</param>
-    /// <returns>An unsaved <see cref="LogGroup"/>.</returns>
-    public LogGroup NewGroup(string id, string? name = null, string? group = null)
+    internal LogGroup NewGroup(string id, string? name = null, string? group = null)
     {
         return new LogGroup(
             client: this,
@@ -169,14 +143,7 @@ public sealed class LoggingClient
             updatedAt: null);
     }
 
-    /// <summary>
-    /// Fetches a log group by its identifier.
-    /// </summary>
-    /// <param name="id">The group identifier.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The matching <see cref="LogGroup"/>.</returns>
-    /// <exception cref="SmplNotFoundException">If no matching group exists.</exception>
-    public async Task<LogGroup> GetGroupAsync(string id, CancellationToken ct = default)
+    internal async Task<LogGroup> GetGroupAsync(string id, CancellationToken ct = default)
     {
         var response = await ApiExceptionMapper.ExecuteAsync(
             () => _genClient.Get_log_groupAsync(id: id, cancellationToken: ct)).ConfigureAwait(false);
@@ -184,12 +151,7 @@ public sealed class LoggingClient
             ?? throw new SmplNotFoundException($"LogGroup with id '{id}' not found");
     }
 
-    /// <summary>
-    /// Lists all log groups.
-    /// </summary>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>A list of <see cref="LogGroup"/> objects.</returns>
-    public async Task<List<LogGroup>> ListGroupsAsync(CancellationToken ct = default)
+    internal async Task<List<LogGroup>> ListGroupsAsync(CancellationToken ct = default)
     {
         var response = await ApiExceptionMapper.ExecuteAsync(
             () => _genClient.List_log_groupsAsync(ct)).ConfigureAwait(false);
@@ -197,13 +159,7 @@ public sealed class LoggingClient
         return response.Data.Select(r => MapLogGroupResource(r)!).Where(g => g is not null).ToList();
     }
 
-    /// <summary>
-    /// Deletes a log group by its identifier.
-    /// </summary>
-    /// <param name="id">The group identifier.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <exception cref="SmplNotFoundException">If no matching group exists.</exception>
-    public async Task DeleteGroupAsync(string id, CancellationToken ct = default)
+    internal async Task DeleteGroupAsync(string id, CancellationToken ct = default)
     {
         await ApiExceptionMapper.ExecuteAsync(
             () => _genClient.Delete_log_groupAsync(id, ct)).ConfigureAwait(false);

@@ -175,7 +175,7 @@ public class MetricsInstrumentationTests
         var client = new SmplClient(options, httpClient);
         InjectMetrics(client.Config, reporter);
 
-        var resolved = client.Config.Resolve("user_service");
+        var resolved = client.Config.Get("user_service");
         Assert.NotNull(resolved);
 
         reporter.Flush();

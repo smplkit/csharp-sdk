@@ -29,7 +29,7 @@ public static class ConfigRuntimeSetup
         // Children must be deleted before parents.
         foreach (var id in new[] { "auth_module", "user_service" })
         {
-            try { await client.Config.DeleteAsync(id); Console.WriteLine($"  Pre-cleanup: deleted leftover config {id}"); }
+            try { await client.Config.Management.DeleteAsync(id); Console.WriteLine($"  Pre-cleanup: deleted leftover config {id}"); }
             catch { /* not present — ignore */ }
         }
 
@@ -38,7 +38,7 @@ public static class ConfigRuntimeSetup
         // ------------------------------------------------------------------
         Console.WriteLine("  -> Setting up common config...");
 
-        var common = await client.Config.GetAsync("common");
+        var common = await client.Config.Management.GetAsync("common");
 
         // Mutate properties directly + SaveAsync
         common.Name = "Common";
@@ -68,7 +68,7 @@ public static class ConfigRuntimeSetup
         // ------------------------------------------------------------------
         Console.WriteLine("  -> Creating user_service config...");
 
-        var userService = client.Config.New(
+        var userService = client.Config.Management.New(
             id: "user_service",
             name: "User Service");
         userService.Items = new Dictionary<string, object?>
@@ -94,7 +94,7 @@ public static class ConfigRuntimeSetup
         // ------------------------------------------------------------------
         Console.WriteLine("  -> Creating auth_module config (child of user_service)...");
 
-        var authModule = client.Config.New(
+        var authModule = client.Config.Management.New(
             id: "auth_module",
             name: "Auth Module",
             parent: userService.Id);
@@ -130,10 +130,10 @@ public static class ConfigRuntimeSetup
         Console.WriteLine();
 
         // Delete child first (auth_module), then parent (user_service)
-        await client.Config.DeleteAsync("auth_module");
+        await client.Config.Management.DeleteAsync("auth_module");
         Console.WriteLine("  -> Deleted auth_module");
 
-        await client.Config.DeleteAsync("user_service");
+        await client.Config.Management.DeleteAsync("user_service");
         Console.WriteLine("  -> Deleted user_service");
 
         // Reset common to empty (it's a built-in, not deletable)

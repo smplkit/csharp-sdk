@@ -53,7 +53,7 @@ public static class FlagsManagementShowcase
         // Clean up any leftover flags from a previous failed run
         foreach (var key in new[] { "maintenance-mode", "ui-theme", "rate-limit-rps", "experiment-config" })
         {
-            try { await client.Flags.DeleteAsync(key); } catch { /* not found is fine */ }
+            try { await client.Flags.Management.DeleteAsync(key); } catch { /* not found is fine */ }
         }
 
         // ==============================================================
@@ -62,7 +62,7 @@ public static class FlagsManagementShowcase
         Section("1. Create Flags of Every Type");
 
         // Boolean flag — factory + SaveAsync pattern
-        var maintenanceMode = client.Flags.NewBooleanFlag(
+        var maintenanceMode = client.Flags.Management.NewBooleanFlag(
             id: "maintenance-mode",
             defaultValue: false,
             name: "Maintenance Mode",
@@ -74,7 +74,7 @@ public static class FlagsManagementShowcase
         // The values parameter defines a closed set — this flag can only
         // serve "light", "dark", or "auto". This makes it a constrained
         // flag. The Console UI shows dropdowns for value selection.
-        var theme = client.Flags.NewStringFlag(
+        var theme = client.Flags.Management.NewStringFlag(
             id: "ui-theme",
             defaultValue: "light",
             name: "UI Theme",
@@ -95,7 +95,7 @@ public static class FlagsManagementShowcase
         // where the value space is open-ended.
         //
         // Omitting the values parameter creates an unconstrained flag.
-        var rateLimit = client.Flags.NewNumberFlag(
+        var rateLimit = client.Flags.Management.NewNumberFlag(
             id: "rate-limit-rps",
             defaultValue: 100.0,
             name: "Rate Limit (RPS)",
@@ -106,7 +106,7 @@ public static class FlagsManagementShowcase
         // JSON flag
         // Like ui-theme, this JSON flag is constrained — only the
         // declared configuration objects can be served.
-        var experimentConfig = client.Flags.NewJsonFlag(
+        var experimentConfig = client.Flags.Management.NewJsonFlag(
             id: "experiment-config",
             defaultValue: new Dictionary<string, object?>
             {
@@ -209,7 +209,7 @@ public static class FlagsManagementShowcase
         // ==============================================================
         Section("3. List and Inspect Flags");
 
-        var allFlags = await client.Flags.ListAsync();
+        var allFlags = await client.Flags.Management.ListAsync();
         Step($"Total flags: {allFlags.Count}");
 
         foreach (var f in allFlags)
@@ -218,7 +218,7 @@ public static class FlagsManagementShowcase
         }
 
         // Fetch a single flag by id to show the full payload
-        var fetched = await client.Flags.GetAsync("ui-theme");
+        var fetched = await client.Flags.Management.GetAsync("ui-theme");
         Step($"Fetched ui-theme by id: id={fetched.Id}, type={fetched.Type}");
         Step($"  Description: {fetched.Description}");
         Step($"  Default: {fetched.Default}");
@@ -247,16 +247,16 @@ public static class FlagsManagementShowcase
         Section("5. Cleanup");
 
         // Delete flags by key
-        await client.Flags.DeleteAsync("maintenance-mode");
+        await client.Flags.Management.DeleteAsync("maintenance-mode");
         Step("Deleted maintenance-mode");
 
-        await client.Flags.DeleteAsync("ui-theme");
+        await client.Flags.Management.DeleteAsync("ui-theme");
         Step("Deleted ui-theme");
 
-        await client.Flags.DeleteAsync("rate-limit-rps");
+        await client.Flags.Management.DeleteAsync("rate-limit-rps");
         Step("Deleted rate-limit-rps");
 
-        await client.Flags.DeleteAsync("experiment-config");
+        await client.Flags.Management.DeleteAsync("experiment-config");
         Step("Deleted experiment-config");
 
         // ==============================================================

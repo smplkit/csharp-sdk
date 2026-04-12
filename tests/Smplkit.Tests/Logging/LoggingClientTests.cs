@@ -132,7 +132,7 @@ public class LoggingClientTests
             return Task.FromResult(JsonResponse("""{"data":[]}"""));
         });
 
-        var logger = client.Logging.New(LoggerId);
+        var logger = client.Logging.Management.New(LoggerId);
         Assert.Equal(LoggerId, logger.Id);
 
         await logger.SaveAsync();
@@ -155,7 +155,7 @@ public class LoggingClientTests
         var (client, handler) = CreateClient(_ =>
             Task.FromResult(JsonResponse(SingleLoggerJson())));
 
-        var logger = await client.Logging.GetAsync(LoggerId);
+        var logger = await client.Logging.Management.GetAsync(LoggerId);
 
         Assert.Equal(LoggerId, logger.Id);
         Assert.Equal(LoggerName, logger.Name);
@@ -171,7 +171,7 @@ public class LoggingClientTests
             Task.FromResult(JsonResponse("""{"data":null}""")));
 
         await Assert.ThrowsAsync<SmplNotFoundException>(
-            () => client.Logging.GetAsync("nonexistent"));
+            () => client.Logging.Management.GetAsync("nonexistent"));
     }
 
     // ------------------------------------------------------------------
@@ -184,7 +184,7 @@ public class LoggingClientTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(LoggerListJson())));
 
-        var loggers = await client.Logging.ListAsync();
+        var loggers = await client.Logging.Management.ListAsync();
 
         Assert.Single(loggers);
         Assert.Equal(LoggerId, loggers[0].Id);
@@ -197,7 +197,7 @@ public class LoggingClientTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse("""{"data":[]}""")));
 
-        var loggers = await client.Logging.ListAsync();
+        var loggers = await client.Logging.Management.ListAsync();
 
         Assert.Empty(loggers);
     }
@@ -216,7 +216,7 @@ public class LoggingClientTests
             return Task.FromResult(JsonResponse("{}"));
         });
 
-        await client.Logging.DeleteAsync(LoggerId);
+        await client.Logging.Management.DeleteAsync(LoggerId);
 
         var deleteReq = handler.Requests.First(r => r.Method == HttpMethod.Delete);
         Assert.Contains(LoggerId, deleteReq.RequestUri!.AbsoluteUri);
@@ -236,7 +236,7 @@ public class LoggingClientTests
             return Task.FromResult(JsonResponse("""{"data":[]}"""));
         });
 
-        var group = client.Logging.NewGroup(LogGroupId);
+        var group = client.Logging.Management.NewGroup(LogGroupId);
         Assert.Equal(LogGroupId, group.Id);
 
         await group.SaveAsync();
@@ -256,7 +256,7 @@ public class LoggingClientTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(SingleLogGroupJson())));
 
-        var group = await client.Logging.GetGroupAsync(LogGroupId);
+        var group = await client.Logging.Management.GetGroupAsync(LogGroupId);
 
         Assert.Equal(LogGroupId, group.Id);
         Assert.Equal(LogGroupName, group.Name);
@@ -270,7 +270,7 @@ public class LoggingClientTests
             Task.FromResult(JsonResponse("""{"data":null}""")));
 
         await Assert.ThrowsAsync<SmplNotFoundException>(
-            () => client.Logging.GetGroupAsync("nonexistent"));
+            () => client.Logging.Management.GetGroupAsync("nonexistent"));
     }
 
     // ------------------------------------------------------------------
@@ -283,7 +283,7 @@ public class LoggingClientTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(LogGroupListJson())));
 
-        var groups = await client.Logging.ListGroupsAsync();
+        var groups = await client.Logging.Management.ListGroupsAsync();
 
         Assert.Single(groups);
         Assert.Equal(LogGroupId, groups[0].Id);
@@ -295,7 +295,7 @@ public class LoggingClientTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse("""{"data":[]}""")));
 
-        var groups = await client.Logging.ListGroupsAsync();
+        var groups = await client.Logging.Management.ListGroupsAsync();
 
         Assert.Empty(groups);
     }
@@ -314,7 +314,7 @@ public class LoggingClientTests
             return Task.FromResult(JsonResponse("{}"));
         });
 
-        await client.Logging.DeleteGroupAsync(LogGroupId);
+        await client.Logging.Management.DeleteGroupAsync(LogGroupId);
 
         var deleteReq = handler.Requests.First(r => r.Method == HttpMethod.Delete);
         Assert.Contains(LogGroupId, deleteReq.RequestUri!.AbsoluteUri);
@@ -400,7 +400,7 @@ public class LoggingClientTests
             return Task.FromResult(JsonResponse(SingleLoggerJson()));
         });
 
-        var logger = await client.Logging.GetAsync(LoggerId);
+        var logger = await client.Logging.Management.GetAsync(LoggerId);
         Assert.NotNull(logger.Id);
 
         logger.Name = "Updated Logger";
@@ -423,7 +423,7 @@ public class LoggingClientTests
             return Task.FromResult(JsonResponse(SingleLoggerJson()));
         });
 
-        var logger = await client.Logging.GetAsync(LoggerId);
+        var logger = await client.Logging.Management.GetAsync(LoggerId);
         logger.Name = "Updated";
         await logger.SaveAsync();
 
@@ -455,7 +455,7 @@ public class LoggingClientTests
             return Task.FromResult(JsonResponse(SingleLogGroupJson()));
         });
 
-        var group = await client.Logging.GetGroupAsync(LogGroupId);
+        var group = await client.Logging.Management.GetGroupAsync(LogGroupId);
         Assert.NotNull(group.Id);
 
         group.Name = "Updated Group";
@@ -478,7 +478,7 @@ public class LoggingClientTests
             return Task.FromResult(JsonResponse(SingleLogGroupJson()));
         });
 
-        var group = await client.Logging.GetGroupAsync(LogGroupId);
+        var group = await client.Logging.Management.GetGroupAsync(LogGroupId);
         group.Name = "Updated";
         await group.SaveAsync();
 
@@ -698,7 +698,7 @@ public class LoggingClientTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(loggerJson)));
 
-        var logger = await client.Logging.GetAsync("managed-logger");
+        var logger = await client.Logging.Management.GetAsync("managed-logger");
 
         Assert.Equal("managed-logger", logger.Id);
         Assert.True(logger.Managed);
@@ -737,7 +737,7 @@ public class LoggingClientTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(loggerJson)));
 
-        var logger = await client.Logging.GetAsync("null-level-logger");
+        var logger = await client.Logging.Management.GetAsync("null-level-logger");
 
         Assert.Null(logger.Level);
     }
@@ -769,7 +769,7 @@ public class LoggingClientTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(groupJson)));
 
-        var group = await client.Logging.GetGroupAsync("nested-group");
+        var group = await client.Logging.Management.GetGroupAsync("nested-group");
 
         Assert.Equal(LogLevel.Fatal, group.Level);
         Assert.Equal("parent-group-id", group.Group);
@@ -820,7 +820,7 @@ public class LoggingClientTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(loggerJson)));
 
-        var logger = await client.Logging.GetAsync("json-env-logger");
+        var logger = await client.Logging.Management.GetAsync("json-env-logger");
 
         Assert.True(logger.Environments.ContainsKey("production"));
         Assert.Equal("ERROR", logger.Environments["production"]["level"]);
@@ -836,7 +836,7 @@ public class LoggingClientTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse("""{"data":[]}""")));
 
-        var group = client.Logging.NewGroup("child-group", group: "parent-group-id");
+        var group = client.Logging.Management.NewGroup("child-group", group: "parent-group-id");
 
         Assert.Equal("parent-group-id", group.Group);
     }
@@ -847,7 +847,7 @@ public class LoggingClientTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse("""{"data":[]}""")));
 
-        var logger = client.Logging.New("managed-logger", managed: true);
+        var logger = client.Logging.Management.New("managed-logger", managed: true);
 
         Assert.True(logger.Managed);
     }
@@ -906,7 +906,7 @@ public class LoggingClientTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(loggerJson)));
 
-        var logger = await client.Logging.GetAsync("invalid-level-logger");
+        var logger = await client.Logging.Management.GetAsync("invalid-level-logger");
 
         // Invalid level should be mapped as null (catch block swallows)
         Assert.Null(logger.Level);
@@ -939,7 +939,7 @@ public class LoggingClientTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(groupJson)));
 
-        var group = await client.Logging.GetGroupAsync("invalid-level-group");
+        var group = await client.Logging.Management.GetGroupAsync("invalid-level-group");
 
         Assert.Null(group.Level);
     }
@@ -959,7 +959,7 @@ public class LoggingClientTests
             return JsonResponse(SingleLoggerJson(), HttpStatusCode.Created);
         });
 
-        var logger = client.Logging.New("env-logger");
+        var logger = client.Logging.Management.New("env-logger");
         logger.SetEnvironmentLevel("production", LogLevel.Error);
         await logger.SaveAsync();
 
@@ -978,7 +978,7 @@ public class LoggingClientTests
             return JsonResponse(SingleLogGroupJson(), HttpStatusCode.Created);
         });
 
-        var group = client.Logging.NewGroup("env-group");
+        var group = client.Logging.Management.NewGroup("env-group");
         group.SetEnvironmentLevel("staging", LogLevel.Warn);
         await group.SaveAsync();
 
@@ -1019,7 +1019,7 @@ public class LoggingClientTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(loggerJson)));
 
-        var logger = await client.Logging.GetAsync("no-env-logger");
+        var logger = await client.Logging.Management.GetAsync("no-env-logger");
 
         Assert.Empty(logger.Environments);
     }

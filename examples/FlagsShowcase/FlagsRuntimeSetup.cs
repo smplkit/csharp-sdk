@@ -28,7 +28,7 @@ public static class FlagsRuntimeSetup
         // Clean up any leftover flags from a previous failed run
         foreach (var key in new[] { "checkout-v2", "banner-color", "max-retries" })
         {
-            try { await client.Flags.DeleteAsync(key); } catch { /* not found is fine */ }
+            try { await client.Flags.Management.DeleteAsync(key); } catch { /* not found is fine */ }
         }
 
         // ------------------------------------------------------------------
@@ -36,7 +36,7 @@ public static class FlagsRuntimeSetup
         // ------------------------------------------------------------------
         Console.WriteLine("  -> Creating checkout-v2 (boolean)...");
 
-        var checkoutV2 = client.Flags.NewBooleanFlag(
+        var checkoutV2 = client.Flags.Management.NewBooleanFlag(
             id: "checkout-v2",
             defaultValue: false,
             name: "Checkout V2",
@@ -74,7 +74,7 @@ public static class FlagsRuntimeSetup
         // ------------------------------------------------------------------
         Console.WriteLine("  -> Creating banner-color (string)...");
 
-        var bannerColor = client.Flags.NewStringFlag(
+        var bannerColor = client.Flags.Management.NewStringFlag(
             id: "banner-color",
             defaultValue: "blue",
             name: "Banner Color",
@@ -109,7 +109,7 @@ public static class FlagsRuntimeSetup
         // ------------------------------------------------------------------
         Console.WriteLine("  -> Creating max-retries (numeric)...");
 
-        var maxRetries = client.Flags.NewNumberFlag(
+        var maxRetries = client.Flags.Management.NewNumberFlag(
             id: "max-retries",
             defaultValue: 3.0,
             name: "Max Retries",
@@ -146,13 +146,13 @@ public static class FlagsRuntimeSetup
         Console.WriteLine(new string('=', 60));
         Console.WriteLine();
 
-        await client.Flags.DeleteAsync("checkout-v2");
+        await client.Flags.Management.DeleteAsync("checkout-v2");
         Console.WriteLine("  -> Deleted checkout-v2");
 
-        await client.Flags.DeleteAsync("banner-color");
+        await client.Flags.Management.DeleteAsync("banner-color");
         Console.WriteLine("  -> Deleted banner-color");
 
-        await client.Flags.DeleteAsync("max-retries");
+        await client.Flags.Management.DeleteAsync("max-retries");
         Console.WriteLine("  -> Deleted max-retries");
 
         Console.WriteLine("  Teardown complete.");

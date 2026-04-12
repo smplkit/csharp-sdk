@@ -74,7 +74,7 @@ public class ConfigClientCoverageTests
                 HttpStatusCode.Conflict)));
 
         var ex = await Assert.ThrowsAsync<SmplConflictException>(
-            () => client.Config.DeleteAsync("my_id"));
+            () => client.Config.Management.DeleteAsync("my_id"));
         Assert.Equal(409, ex.StatusCode);
         Assert.Contains("Has children", ex.ResponseBody!);
     }
@@ -97,7 +97,7 @@ public class ConfigClientCoverageTests
                 HttpStatusCode.Conflict));
         });
 
-        var config = await client.Config.GetAsync("my_id");
+        var config = await client.Config.Management.GetAsync("my_id");
         config.Name = "Updated";
 
         var ex = await Assert.ThrowsAsync<SmplConflictException>(
@@ -117,7 +117,7 @@ public class ConfigClientCoverageTests
                 """{"errors":[{"detail":"Already exists"}]}""",
                 HttpStatusCode.Conflict)));
 
-        var config = client.Config.New("test_id", "Test");
+        var config = client.Config.Management.New("test_id", "Test");
         var ex = await Assert.ThrowsAsync<SmplConflictException>(
             () => config.SaveAsync());
         Assert.Equal(409, ex.StatusCode);
@@ -139,7 +139,7 @@ public class ConfigClientCoverageTests
                 valuesJson: """{"timeout": {"value": 30, "type": "NUMBER"}, "retries": {"value": 3, "type": "NUMBER"}}""",
                 environmentsJson: """{"production": {"timeout": {"value": 60}}}"""))));
 
-        var config = await client.Config.GetAsync("svc_id");
+        var config = await client.Config.Management.GetAsync("svc_id");
 
         Assert.Equal("svc_id", config.Id);
         Assert.Equal("Service", config.Name);
@@ -159,7 +159,7 @@ public class ConfigClientCoverageTests
         var (client, handler) = CreateClient(_ =>
             Task.FromResult(JsonResponse(SingleConfigJson(id: "test_id"))));
 
-        await client.Config.GetAsync("test_id");
+        await client.Config.Management.GetAsync("test_id");
 
         Assert.NotNull(handler.LastRequest);
         var url = handler.LastRequest.RequestUri!.AbsoluteUri;
@@ -176,7 +176,7 @@ public class ConfigClientCoverageTests
         var (client, handler) = CreateClient(_ =>
             Task.FromResult(JsonResponse("""{"data": []}""")));
 
-        await client.Config.ListAsync();
+        await client.Config.Management.ListAsync();
 
         Assert.NotNull(handler.LastRequest);
         var url = handler.LastRequest.RequestUri!.AbsoluteUri;
@@ -193,7 +193,7 @@ public class ConfigClientCoverageTests
         var (client, handler) = CreateClient(_ =>
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent)));
 
-        await client.Config.DeleteAsync("target_id");
+        await client.Config.Management.DeleteAsync("target_id");
 
         Assert.NotNull(handler.LastRequest);
         var url = handler.LastRequest.RequestUri!.AbsoluteUri;
@@ -218,7 +218,7 @@ public class ConfigClientCoverageTests
             return JsonResponse(SingleConfigJson(), HttpStatusCode.Created);
         });
 
-        var config = client.Config.New("minimal");
+        var config = client.Config.Management.New("minimal");
         await config.SaveAsync();
 
         Assert.NotNull(postBody);
@@ -237,7 +237,7 @@ public class ConfigClientCoverageTests
                 """{"data": {"id": "test_id", "type": "config", "attributes": null}}""",
                 HttpStatusCode.Created)));
 
-        var config = client.Config.New("test_id", "Test");
+        var config = client.Config.Management.New("test_id", "Test");
         await Assert.ThrowsAsync<SmplValidationException>(
             () => config.SaveAsync());
     }
@@ -259,7 +259,7 @@ public class ConfigClientCoverageTests
                 """{"data": {"id": "test_id", "type": "config", "attributes": null}}"""));
         });
 
-        var config = await client.Config.GetAsync("my_id");
+        var config = await client.Config.Management.GetAsync("my_id");
         config.Name = "Updated";
 
         await Assert.ThrowsAsync<SmplValidationException>(
@@ -282,7 +282,7 @@ public class ConfigClientCoverageTests
             return Task.FromResult(JsonResponse(SingleConfigJson()));
         });
 
-        var config = await client.Config.GetAsync("my_id");
+        var config = await client.Config.Management.GetAsync("my_id");
         config.Name = "Updated";
         await config.SaveAsync();
 
@@ -302,7 +302,7 @@ public class ConfigClientCoverageTests
         var httpClient = new HttpClient(handler);
         var client = new SmplClient(TestData.DefaultOptions(), httpClient);
 
-        var config = client.Config.New("my_id", "My Config");
+        var config = client.Config.Management.New("my_id", "My Config");
 
         Assert.Equal("Config(Id=my_id, Name=My Config)", config.ToString());
     }
@@ -327,7 +327,7 @@ public class ConfigClientCoverageTests
             return JsonResponse(SingleConfigJson());
         });
 
-        var config = await client.Config.GetAsync("my_id");
+        var config = await client.Config.Management.GetAsync("my_id");
         config.Items["new_key"] = "new_value";
 
         await config.SaveAsync();
@@ -356,7 +356,7 @@ public class ConfigClientCoverageTests
             return JsonResponse(SingleConfigJson());
         });
 
-        var config = await client.Config.GetAsync("my_id");
+        var config = await client.Config.Management.GetAsync("my_id");
         config.Environments["production"] = new Dictionary<string, object?> { ["timeout"] = 60 };
 
         await config.SaveAsync();
@@ -403,7 +403,7 @@ public class ConfigClientCoverageTests
             return Task.FromResult(JsonResponse("""{"data":[]}"""));
         });
 
-        var result = client.Config.Resolve<DotNotationModel>("dot_config");
+        var result = client.Config.Get<DotNotationModel>("dot_config");
         Assert.NotNull(result.Database);
         Assert.Equal("localhost", result.Database!.Host);
         Assert.Equal(5432, result.Database.Port);
@@ -448,7 +448,7 @@ public class ConfigClientCoverageTests
         });
 
         // Resolve as a plain dict first to verify expansion
-        var values = client.Config.Resolve("multi_config");
+        var values = client.Config.Get("multi_config");
         // Flat keys still returned from Resolve()
         Assert.Equal("MyApp", values["app.name"]);
     }
@@ -467,7 +467,7 @@ public class ConfigClientCoverageTests
         var factory = new Smplkit.Internal.GeneratedClientFactory(httpClient, options);
         var configClient = new Smplkit.Config.ConfigClient(factory, null, null);
 
-        var ex = Assert.Throws<Smplkit.Errors.SmplException>(() => configClient.Resolve("test"));
+        var ex = Assert.Throws<Smplkit.Errors.SmplException>(() => configClient.Get("test"));
         Assert.Contains("No environment set", ex.Message);
     }
 
@@ -545,7 +545,7 @@ public class ConfigClientCoverageTests
             httpClient);
 
         // Trigger initialization
-        var val = client.Config.Resolve("ws_config");
+        var val = client.Config.Get("ws_config");
         Assert.Equal(3L, val["retries"]);
 
         var events = new List<ConfigChangeEvent>();
@@ -620,7 +620,7 @@ public class ConfigClientCoverageTests
             httpClient);
 
         // Trigger initialization
-        client.Config.Resolve("err_config");
+        client.Config.Get("err_config");
 
         // Now make subsequent config requests fail
         failOnNext = true;
@@ -646,7 +646,7 @@ public class ConfigClientCoverageTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(SingleConfigJson(), HttpStatusCode.Created)));
 
-        var config = client.Config.New("no_env_config", "No Env");
+        var config = client.Config.Management.New("no_env_config", "No Env");
         // Environments is empty by default
         await config.SaveAsync();
 
@@ -663,7 +663,7 @@ public class ConfigClientCoverageTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse(SingleConfigJson(), HttpStatusCode.Created)));
 
-        var config = client.Config.New("empty_items", "Empty Items");
+        var config = client.Config.Management.New("empty_items", "Empty Items");
         // Items is empty by default
         await config.SaveAsync();
 
@@ -685,7 +685,7 @@ public class ConfigClientCoverageTests
             return JsonResponse(SingleConfigJson(), HttpStatusCode.Created);
         });
 
-        var config = client.Config.New("typed_config", "Typed Config");
+        var config = client.Config.Management.New("typed_config", "Typed Config");
         config.Items["str_key"] = "hello";
         config.Items["bool_key"] = true;
         config.Items["num_key"] = 42;

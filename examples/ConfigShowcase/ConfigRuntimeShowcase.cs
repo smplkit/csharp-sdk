@@ -10,8 +10,8 @@ namespace ConfigShowcase;
 /// Demonstrates the runtime (prescriptive access) plane of the smplkit Config C# SDK:
 ///
 ///   1. Demo config setup (common, user_service, auth_module hierarchy)
-///   2. Prescriptive access via Resolve (lazy init on first call)
-///   3. Typed deserialization via Resolve&lt;T&gt;
+///   2. Prescriptive access via Get (lazy init on first call)
+///   3. Typed deserialization via Get&lt;T&gt;
 ///   4. Multi-level inheritance
 ///   5. Real-time updates (OnChange + RefreshAsync)
 ///   6. Cleanup
@@ -59,11 +59,11 @@ public static class ConfigRuntimeShowcase
         // ==============================================================
         // 1. PRESCRIPTIVE ACCESS VIA RESOLVE
         // ==============================================================
-        Section("1. Prescriptive Access via Resolve");
+        Section("1. Prescriptive Access via Get");
 
-        // First Resolve() call triggers lazy init (fetches all configs,
+        // First Get() call triggers lazy init (fetches all configs,
         // resolves environment overrides, opens WebSocket). No ConnectAsync needed.
-        var commonValues = client.Config.Resolve("common");
+        var commonValues = client.Config.Get("common");
         Step($"common resolved keys: [{string.Join(", ", commonValues.Keys)}]");
 
         var appName = commonValues.TryGetValue("app_name", out var nameVal) ? nameVal?.ToString() : "Unknown";
@@ -73,7 +73,7 @@ public static class ConfigRuntimeShowcase
         Step($"common/max_retries = {retries}");
         // Expected: 5 (production override)
 
-        var userServiceValues = client.Config.Resolve("user_service");
+        var userServiceValues = client.Config.Get("user_service");
         var signup = userServiceValues.TryGetValue("enable_signup", out var signupVal) ? signupVal : true;
         Step($"user_service/enable_signup = {signup}");
         // Expected: false (production override)
@@ -85,10 +85,10 @@ public static class ConfigRuntimeShowcase
         // ==============================================================
         // 2. TYPED DESERIALIZATION VIA RESOLVE<T>
         // ==============================================================
-        Section("2. Typed Deserialization via Resolve<T>");
+        Section("2. Typed Deserialization via Get<T>");
 
-        var commonConfig = client.Config.Resolve<CommonConfig>("common");
-        Step($"Resolve<CommonConfig>(\"common\"):");
+        var commonConfig = client.Config.Get<CommonConfig>("common");
+        Step($"Get<CommonConfig>(\"common\"):");
         Step($"  app_name = {commonConfig.AppName}");
         Step($"  support_email = {commonConfig.SupportEmail}");
         Step($"  max_retries = {commonConfig.MaxRetries}");
@@ -102,7 +102,7 @@ public static class ConfigRuntimeShowcase
         // auth_module inherits from user_service.
         // Its own items override, but parent items are still accessible
         // through the resolved hierarchy.
-        var authValues = client.Config.Resolve("auth_module");
+        var authValues = client.Config.Get("auth_module");
 
         var tokenTtl = authValues.TryGetValue("token_ttl_seconds", out var tokenVal) ? tokenVal : 0;
         Step($"auth_module/token_ttl_seconds = {tokenTtl}");
@@ -121,7 +121,7 @@ public static class ConfigRuntimeShowcase
         // ==============================================================
         Section("4. Raw Value Access");
 
-        var allUserServiceValues = client.Config.Resolve("user_service");
+        var allUserServiceValues = client.Config.Get("user_service");
         Step($"user_service total keys: {allUserServiceValues.Count}");
 
         var hasMissing = allUserServiceValues.TryGetValue("nonexistent_item", out var missingVal);
@@ -152,7 +152,7 @@ public static class ConfigRuntimeShowcase
         await client.Config.RefreshAsync();
         Step("Manual refresh completed");
 
-        var refreshedCommon = client.Config.Resolve("common");
+        var refreshedCommon = client.Config.Get("common");
         var newRetries = refreshedCommon.TryGetValue("max_retries", out var newRetriesVal) ? newRetriesVal : 1;
         Step($"max_retries after refresh = {newRetries}");
         // Expected: 7

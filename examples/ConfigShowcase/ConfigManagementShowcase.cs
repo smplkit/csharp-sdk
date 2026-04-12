@@ -55,7 +55,7 @@ public static class ConfigManagementShowcase
         // Children must be deleted before parents.
         foreach (var id in new[] { "auth_module", "user_service" })
         {
-            try { await client.Config.DeleteAsync(id); Step($"Pre-cleanup: deleted leftover config {id}"); }
+            try { await client.Config.Management.DeleteAsync(id); Step($"Pre-cleanup: deleted leftover config {id}"); }
             catch { /* not present — ignore */ }
         }
 
@@ -64,7 +64,7 @@ public static class ConfigManagementShowcase
         // ==============================================================
         Section("1. Update the Common Config");
 
-        var common = await client.Config.GetAsync("common");
+        var common = await client.Config.Management.GetAsync("common");
         Step($"Fetched common config: id={common.Id}");
 
         // Mutate items directly + SaveAsync
@@ -97,7 +97,7 @@ public static class ConfigManagementShowcase
         // ==============================================================
         Section("2. Create User Service Config");
 
-        var userService = client.Config.New(
+        var userService = client.Config.Management.New(
             id: "user_service",
             name: "User Service",
             description: "Configuration for the user management service");
@@ -126,7 +126,7 @@ public static class ConfigManagementShowcase
         // ==============================================================
         Section("3. Create Auth Module (Child of User Service)");
 
-        var authModule = client.Config.New(
+        var authModule = client.Config.Management.New(
             id: "auth_module",
             name: "Auth Module",
             description: "Authentication module config — inherits from user_service",
@@ -156,7 +156,7 @@ public static class ConfigManagementShowcase
         // ==============================================================
         Section("4. List and Inspect Configs");
 
-        var allConfigs = await client.Config.ListAsync();
+        var allConfigs = await client.Config.Management.ListAsync();
         Step($"Total configs: {allConfigs.Count}");
 
         foreach (var c in allConfigs)
@@ -166,7 +166,7 @@ public static class ConfigManagementShowcase
         }
 
         // Fetch a single config by id to show the full payload
-        var fetched = await client.Config.GetAsync("user_service");
+        var fetched = await client.Config.Management.GetAsync("user_service");
         Step($"Fetched user_service by id: id={fetched.Id}");
         Step($"  Description: {fetched.Description}");
         Step($"  Items: [{string.Join(", ", fetched.Items.Keys)}]");
@@ -193,10 +193,10 @@ public static class ConfigManagementShowcase
         Section("6. Cleanup");
 
         // Delete child first, then parent
-        await client.Config.DeleteAsync("auth_module");
+        await client.Config.Management.DeleteAsync("auth_module");
         Step("Deleted auth_module");
 
-        await client.Config.DeleteAsync("user_service");
+        await client.Config.Management.DeleteAsync("user_service");
         Step("Deleted user_service");
 
         // Reset common to empty (it's a built-in, not deletable)

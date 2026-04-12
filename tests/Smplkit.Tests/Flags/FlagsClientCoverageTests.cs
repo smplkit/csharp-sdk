@@ -345,7 +345,7 @@ public class FlagsClientCoverageTests
             return Task.FromResult(JsonResponse(SingleFlagGetJson()));
         });
 
-        var flag = await client.Flags.GetAsync("my-flag");
+        var flag = await client.Flags.Management.GetAsync("my-flag");
 
         // Now update via SaveAsync (Id is not null → PUT)
         flag.Name = "Updated Name";
@@ -1190,7 +1190,7 @@ public class FlagsClientCoverageTests
         """;
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
-        var flags = await client.Flags.ListAsync();
+        var flags = await client.Flags.Management.ListAsync();
         Assert.Single(flags);
         Assert.Null(flags[0].Values);
     }
@@ -1231,7 +1231,7 @@ public class FlagsClientCoverageTests
         """;
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
 
-        var flags = await client.Flags.ListAsync();
+        var flags = await client.Flags.Management.ListAsync();
         Assert.Single(flags);
         Assert.True(flags[0].Environments.ContainsKey("prod"));
     }
@@ -1254,7 +1254,7 @@ public class FlagsClientCoverageTests
             return JsonResponse(SingleFlagGetJson());
         });
 
-        var flag = await client.Flags.GetAsync("my-flag");
+        var flag = await client.Flags.Management.GetAsync("my-flag");
         // Mutate properties then SaveAsync
         flag.Description = "updated desc";
         flag.Name = "Updated Name";
@@ -1446,7 +1446,7 @@ public class FlagsClientCoverageTests
     {
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
 
-        var flag = client.Flags.NewStringFlag("my-string-flag", "hello", name: "My String", description: "desc");
+        var flag = client.Flags.Management.NewStringFlag("my-string-flag", "hello", name: "My String", description: "desc");
 
         Assert.Equal("my-string-flag", flag.Id);
         Assert.Equal("My String", flag.Name);
@@ -1467,7 +1467,7 @@ public class FlagsClientCoverageTests
             new() { ["name"] = "Option A", ["value"] = "a" },
             new() { ["name"] = "Option B", ["value"] = "b" },
         };
-        var flag = client.Flags.NewStringFlag("val-flag", "a", values: values);
+        var flag = client.Flags.Management.NewStringFlag("val-flag", "a", values: values);
 
         Assert.Equal(2, flag.Values!.Count);
     }
@@ -1477,7 +1477,7 @@ public class FlagsClientCoverageTests
     {
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
 
-        var flag = client.Flags.NewStringFlag("feature-color", "red");
+        var flag = client.Flags.Management.NewStringFlag("feature-color", "red");
 
         Assert.Equal("Feature Color", flag.Name);
     }
@@ -1487,7 +1487,7 @@ public class FlagsClientCoverageTests
     {
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
 
-        var flag = client.Flags.NewNumberFlag("my-num-flag", 42.5, name: "My Number", description: "numeric desc");
+        var flag = client.Flags.Management.NewNumberFlag("my-num-flag", 42.5, name: "My Number", description: "numeric desc");
 
         Assert.Equal("my-num-flag", flag.Id);
         Assert.Equal("My Number", flag.Name);
@@ -1508,7 +1508,7 @@ public class FlagsClientCoverageTests
             new() { ["name"] = "Low", ["value"] = 10.0 },
             new() { ["name"] = "High", ["value"] = 100.0 },
         };
-        var flag = client.Flags.NewNumberFlag("rate-limit", 50.0, values: values);
+        var flag = client.Flags.Management.NewNumberFlag("rate-limit", 50.0, values: values);
 
         Assert.Equal(2, flag.Values!.Count);
     }
@@ -1518,7 +1518,7 @@ public class FlagsClientCoverageTests
     {
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
 
-        var flag = client.Flags.NewNumberFlag("max-retries", 3.0);
+        var flag = client.Flags.Management.NewNumberFlag("max-retries", 3.0);
 
         Assert.Equal("Max Retries", flag.Name);
     }
@@ -1529,7 +1529,7 @@ public class FlagsClientCoverageTests
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
 
         var defaultVal = new Dictionary<string, object?> { ["theme"] = "dark", ["fontSize"] = 14 };
-        var flag = client.Flags.NewJsonFlag("ui-config", defaultVal, name: "UI Config", description: "json desc");
+        var flag = client.Flags.Management.NewJsonFlag("ui-config", defaultVal, name: "UI Config", description: "json desc");
 
         Assert.Equal("ui-config", flag.Id);
         Assert.Equal("UI Config", flag.Name);
@@ -1549,7 +1549,7 @@ public class FlagsClientCoverageTests
         {
             new() { ["name"] = "Config A", ["value"] = new Dictionary<string, object?> { ["a"] = 1 } },
         };
-        var flag = client.Flags.NewJsonFlag("json-flag", new Dictionary<string, object?>(), values: values);
+        var flag = client.Flags.Management.NewJsonFlag("json-flag", new Dictionary<string, object?>(), values: values);
 
         Assert.Single(flag.Values!);
     }
@@ -1559,7 +1559,7 @@ public class FlagsClientCoverageTests
     {
         var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
 
-        var flag = client.Flags.NewJsonFlag("dashboard-layout", new Dictionary<string, object?>());
+        var flag = client.Flags.Management.NewJsonFlag("dashboard-layout", new Dictionary<string, object?>());
 
         Assert.Equal("Dashboard Layout", flag.Name);
     }
@@ -1593,7 +1593,7 @@ public class FlagsClientCoverageTests
         var (client, handler) = CreateClient(_ =>
             Task.FromResult(JsonResponse(responseJson, HttpStatusCode.Created)));
 
-        var flag = client.Flags.NewStringFlag("str-flag", "hello");
+        var flag = client.Flags.Management.NewStringFlag("str-flag", "hello");
         await flag.SaveAsync();
 
         Assert.Equal("str-flag", flag.Id);
@@ -1625,7 +1625,7 @@ public class FlagsClientCoverageTests
         var (client, handler) = CreateClient(_ =>
             Task.FromResult(JsonResponse(responseJson, HttpStatusCode.Created)));
 
-        var flag = client.Flags.NewNumberFlag("num-flag", 42.0);
+        var flag = client.Flags.Management.NewNumberFlag("num-flag", 42.0);
         await flag.SaveAsync();
 
         Assert.Equal("num-flag", flag.Id);
@@ -1657,7 +1657,7 @@ public class FlagsClientCoverageTests
         var (client, handler) = CreateClient(_ =>
             Task.FromResult(JsonResponse(responseJson, HttpStatusCode.Created)));
 
-        var flag = client.Flags.NewJsonFlag("json-flag", new Dictionary<string, object?> { ["theme"] = "dark" });
+        var flag = client.Flags.Management.NewJsonFlag("json-flag", new Dictionary<string, object?> { ["theme"] = "dark" });
         await flag.SaveAsync();
 
         Assert.Equal("json-flag", flag.Id);
@@ -1831,7 +1831,7 @@ public class FlagsClientCoverageTests
             return JsonResponse(flagJson);
         });
 
-        var flag = await client.Flags.GetAsync("no-rules-flag");
+        var flag = await client.Flags.Management.GetAsync("no-rules-flag");
         flag.Name = "No Rules Updated";
         await flag.SaveAsync();
 
@@ -1873,7 +1873,7 @@ public class FlagsClientCoverageTests
             return JsonResponse(responseJson, HttpStatusCode.Created);
         });
 
-        var flag = client.Flags.NewStringFlag("unc-string", "hello");
+        var flag = client.Flags.Management.NewStringFlag("unc-string", "hello");
         Assert.Null(flag.Values);
         await flag.SaveAsync();
 
@@ -1935,7 +1935,7 @@ public class FlagsClientCoverageTests
             return JsonResponse(getJson);
         });
 
-        var flag = await client.Flags.GetAsync("unc-num");
+        var flag = await client.Flags.Management.GetAsync("unc-num");
         Assert.Null(flag.Values);
         flag.Description = "updated";
         flag.Name = "Updated Num";

@@ -6,9 +6,9 @@ using GenConfig = Smplkit.Internal.Generated.Config;
 namespace Smplkit.Config;
 
 /// <summary>
-/// Client for the smplkit Config service. Provides operations for creating,
-/// reading, updating, and deleting configs, as well as resolving config values
-/// for the current environment via <see cref="Resolve(string)"/>.
+/// Client for the smplkit Config service. Provides management operations via
+/// <see cref="Management"/>, and resolves config values for the current environment
+/// via <see cref="Get(string)"/>.
 /// </summary>
 public sealed class ConfigClient
 {
@@ -36,21 +36,19 @@ public sealed class ConfigClient
         _ensureWs = ensureWs;
         _parent = parent;
         _metrics = metrics;
+        Management = new ConfigManagement(this);
     }
 
+    /// <summary>
+    /// Provides management (CRUD) operations for configs: create, get, list, and delete.
+    /// </summary>
+    public ConfigManagement Management { get; }
+
     // ------------------------------------------------------------------
-    // Management: factory
+    // Management: factory (internal — public surface is via Management)
     // ------------------------------------------------------------------
 
-    /// <summary>
-    /// Create an unsaved config. Call <see cref="Config.SaveAsync"/> to persist.
-    /// </summary>
-    /// <param name="id">The config identifier (slug).</param>
-    /// <param name="name">Display name. Auto-generated from id if null.</param>
-    /// <param name="description">Optional description.</param>
-    /// <param name="parent">Optional parent config identifier.</param>
-    /// <returns>An unsaved <see cref="Config"/>.</returns>
-    public Config New(string id, string? name = null, string? description = null, string? parent = null)
+    internal Config New(string id, string? name = null, string? description = null, string? parent = null)
     {
         return new Config(
             client: this,
@@ -65,17 +63,10 @@ public sealed class ConfigClient
     }
 
     // ------------------------------------------------------------------
-    // Management: CRUD by id
+    // Management: CRUD by id (internal — public surface is via Management)
     // ------------------------------------------------------------------
 
-    /// <summary>
-    /// Fetches a single config by its identifier.
-    /// </summary>
-    /// <param name="id">The config identifier.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The matching <see cref="Config"/>.</returns>
-    /// <exception cref="SmplNotFoundException">If no matching config exists.</exception>
-    public async Task<Config> GetAsync(string id, CancellationToken ct = default)
+    internal async Task<Config> GetAsync(string id, CancellationToken ct = default)
     {
         var response = await ApiExceptionMapper.ExecuteAsync(
             () => _genClient.Get_configAsync(id: id, cancellationToken: ct)).ConfigureAwait(false);
@@ -84,12 +75,7 @@ public sealed class ConfigClient
             ?? throw new SmplNotFoundException($"Config with id '{id}' not found");
     }
 
-    /// <summary>
-    /// Lists all configs for the account.
-    /// </summary>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>A list of <see cref="Config"/> objects.</returns>
-    public async Task<List<Config>> ListAsync(CancellationToken ct = default)
+    internal async Task<List<Config>> ListAsync(CancellationToken ct = default)
     {
         var response = await ApiExceptionMapper.ExecuteAsync(
             () => _genClient.List_configsAsync(cancellationToken: ct)).ConfigureAwait(false);
@@ -107,13 +93,7 @@ public sealed class ConfigClient
         return results;
     }
 
-    /// <summary>
-    /// Deletes a config by its identifier.
-    /// </summary>
-    /// <param name="id">The config identifier.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <exception cref="SmplNotFoundException">If no matching config exists.</exception>
-    public async Task DeleteAsync(string id, CancellationToken ct = default)
+    internal async Task DeleteAsync(string id, CancellationToken ct = default)
     {
         await ApiExceptionMapper.ExecuteAsync(
             () => _genClient.Delete_configAsync(id, ct)).ConfigureAwait(false);
@@ -142,7 +122,7 @@ public sealed class ConfigClient
     }
 
     // ------------------------------------------------------------------
-    // Runtime: Resolve
+    // Runtime: Get (resolved values)
     // ------------------------------------------------------------------
 
     /// <summary>
@@ -151,7 +131,7 @@ public sealed class ConfigClient
     /// <param name="id">The config identifier.</param>
     /// <returns>A dictionary of resolved key-value pairs.</returns>
     /// <exception cref="SmplNotFoundException">If no config with the given id exists.</exception>
-    public Dictionary<string, object?> Resolve(string id)
+    public Dictionary<string, object?> Get(string id)
     {
         EnsureInitialized();
 
@@ -165,15 +145,15 @@ public sealed class ConfigClient
     }
 
     /// <summary>
-    /// Resolves config values for the given id and deserializes to a typed object.
+    /// Returns the resolved config values for the given id and deserializes to a typed object.
     /// Dot-notation keys (e.g. <c>"db.host"</c>) map to nested properties on the target type.
     /// </summary>
     /// <typeparam name="T">The target type.</typeparam>
     /// <param name="id">The config identifier.</param>
     /// <returns>A deserialized instance of <typeparamref name="T"/>.</returns>
-    public T Resolve<T>(string id) where T : new()
+    public T Get<T>(string id) where T : new()
     {
-        var flat = Resolve(id);
+        var flat = Get(id);
         var nested = ExpandDotNotation(flat);
         var json = JsonSerializer.Serialize(nested, JsonOptions.Default);
         return JsonSerializer.Deserialize<T>(json, JsonOptions.Default)

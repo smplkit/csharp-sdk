@@ -127,7 +127,7 @@ public class FlagsClientTests
         var (client, handler) = CreateClient(_ =>
             Task.FromResult(JsonResponse(SingleFlagJson(), HttpStatusCode.Created)));
 
-        var flag = client.Flags.NewBooleanFlag(FlagSlug, false, name: FlagName, description: "Test flag");
+        var flag = client.Flags.Management.NewBooleanFlag(FlagSlug, false, name: FlagName, description: "Test flag");
         await flag.SaveAsync();
 
         Assert.Equal(FlagSlug, flag.Id);
@@ -150,7 +150,7 @@ public class FlagsClientTests
             return JsonResponse(SingleFlagJson(), HttpStatusCode.Created);
         });
 
-        var flag = client.Flags.NewBooleanFlag(FlagSlug, false, name: FlagName);
+        var flag = client.Flags.Management.NewBooleanFlag(FlagSlug, false, name: FlagName);
         await flag.SaveAsync();
 
         Assert.NotNull(capturedBody);
@@ -168,7 +168,7 @@ public class FlagsClientTests
         var (client, handler) = CreateClient(_ =>
             Task.FromResult(JsonResponse(SingleFlagForGetJson())));
 
-        var flag = await client.Flags.GetAsync(FlagSlug);
+        var flag = await client.Flags.Management.GetAsync(FlagSlug);
 
         Assert.Equal(FlagSlug, flag.Id);
         Assert.NotNull(handler.LastRequest);
@@ -187,7 +187,7 @@ public class FlagsClientTests
             }));
 
         await Assert.ThrowsAsync<SmplNotFoundException>(() =>
-            client.Flags.GetAsync("nonexistent-id"));
+            client.Flags.Management.GetAsync("nonexistent-id"));
     }
 
     // ---------------------------------------------------------------
@@ -200,7 +200,7 @@ public class FlagsClientTests
         var (client, handler) = CreateClient(_ =>
             Task.FromResult(JsonResponse(FlagListJson())));
 
-        var flags = await client.Flags.ListAsync();
+        var flags = await client.Flags.Management.ListAsync();
 
         Assert.Equal(2, flags.Count);
         Assert.Equal(FlagSlug, flags[0].Id);
@@ -214,7 +214,7 @@ public class FlagsClientTests
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse("""{"data": []}""")));
 
-        var flags = await client.Flags.ListAsync();
+        var flags = await client.Flags.Management.ListAsync();
 
         Assert.Empty(flags);
     }
@@ -229,7 +229,7 @@ public class FlagsClientTests
         var (client, handler) = CreateClient(_ =>
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent)));
 
-        await client.Flags.DeleteAsync(FlagSlug);
+        await client.Flags.Management.DeleteAsync(FlagSlug);
 
         Assert.Single(handler.Requests);
         var deleteReq = handler.Requests[0];

@@ -57,15 +57,15 @@ public static class LoggingManagementShowcase
         });
 
         // Clean up any leftover resources from a previous failed run
-        try { await client.Logging.DeleteAsync("showcase-logger"); } catch { /* not found is fine */ }
-        try { await client.Logging.DeleteGroupAsync("showcase-group"); } catch { /* not found is fine */ }
+        try { await client.Logging.Management.DeleteAsync("showcase-logger"); } catch { /* not found is fine */ }
+        try { await client.Logging.Management.DeleteGroupAsync("showcase-group"); } catch { /* not found is fine */ }
 
         // ==============================================================
         // 1. CREATE A LOG GROUP
         // ==============================================================
         Section("1. Create a Log Group");
 
-        var group = client.Logging.NewGroup("showcase-group", name: "Showcase Group");
+        var group = client.Logging.Management.NewGroup("showcase-group", name: "Showcase Group");
         Step($"NewGroup created locally: id={group.Id}, name={group.Name}");
 
         await group.SaveAsync();
@@ -76,7 +76,7 @@ public static class LoggingManagementShowcase
         // ==============================================================
         Section("2. Create a Logger");
 
-        var logger = client.Logging.New("showcase-logger", name: "Showcase Logger", managed: true);
+        var logger = client.Logging.Management.New("showcase-logger", name: "Showcase Logger", managed: true);
         Step($"New logger created locally: id={logger.Id}, name={logger.Name}");
 
         await logger.SaveAsync();
@@ -110,14 +110,14 @@ public static class LoggingManagementShowcase
         // ==============================================================
         Section("5. List Loggers and Groups");
 
-        var allLoggers = await client.Logging.ListAsync();
+        var allLoggers = await client.Logging.Management.ListAsync();
         Step($"Total loggers: {allLoggers.Count}");
         foreach (var l in allLoggers)
         {
             Console.WriteLine($"     - {l.Id} (id={l.Id}, level={l.Level})");
         }
 
-        var allGroups = await client.Logging.ListGroupsAsync();
+        var allGroups = await client.Logging.Management.ListGroupsAsync();
         Step($"Total groups: {allGroups.Count}");
         foreach (var g in allGroups)
         {
@@ -131,7 +131,7 @@ public static class LoggingManagementShowcase
 
         try
         {
-            var fetched = await client.Logging.GetAsync("showcase-logger");
+            var fetched = await client.Logging.Management.GetAsync("showcase-logger");
             Step($"Fetched logger: id={fetched.Id}, level={fetched.Level}");
             Step($"  Name: {fetched.Name}");
             Step($"  Created: {fetched.CreatedAt}");
@@ -149,7 +149,7 @@ public static class LoggingManagementShowcase
 
         try
         {
-            await client.Logging.DeleteAsync("showcase-logger");
+            await client.Logging.Management.DeleteAsync("showcase-logger");
             Step("Deleted showcase-logger");
         }
         catch (Exception ex)
@@ -159,7 +159,7 @@ public static class LoggingManagementShowcase
 
         try
         {
-            await client.Logging.DeleteGroupAsync("showcase-group");
+            await client.Logging.Management.DeleteGroupAsync("showcase-group");
             Step("Deleted showcase-group");
         }
         catch (Exception ex)
