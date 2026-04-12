@@ -37,9 +37,8 @@ namespace Smplkit.Internal.Generated.App
         /// <remarks>
         /// Initiates the OIDC authorization flow by redirecting the user to the provider's login page.
         /// </remarks>
-        /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<object> Begin_oidc_loginAsync(OidcProvider provider, string? mode = null, string? source = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task Begin_oidc_loginAsync(OidcProvider provider, string? mode = null, string? source = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -48,9 +47,8 @@ namespace Smplkit.Internal.Generated.App
         /// <remarks>
         /// Handles the callback from the OIDC provider, exchanges the authorization code for tokens, and redirects to the frontend.
         /// </remarks>
-        /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<object> Handle_oidc_callbackAsync(OidcProvider provider, string? code = null, string? state = null, string? error = null, string? error_description = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task Handle_oidc_callbackAsync(OidcProvider provider, string? code = null, string? state = null, string? error = null, string? error_description = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -100,6 +98,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Get Current User
         /// </summary>
+        /// <remarks>
+        /// Return the currently authenticated user.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<UserResponse> Get_current_userAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -108,6 +109,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Update Current User
         /// </summary>
+        /// <remarks>
+        /// Update the currently authenticated user's profile.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<UserResponse> Update_current_userAsync(UserResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -116,6 +120,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Get Current Account
         /// </summary>
+        /// <remarks>
+        /// Return the account for the currently authenticated user.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<AccountResponse> Get_accountAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -124,6 +131,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Update Current Account
         /// </summary>
+        /// <remarks>
+        /// Update the current account's settings.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<AccountResponse> Update_accountAsync(AccountResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -132,6 +142,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Delete Current Account
         /// </summary>
+        /// <remarks>
+        /// Permanently delete the current account and all associated data.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task Delete_accountAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -140,6 +153,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// List Environments
         /// </summary>
+        /// <remarks>
+        /// List all environments for the authenticated account.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<EnvironmentListResponse> List_environmentsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -148,6 +164,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Create Environment
         /// </summary>
+        /// <remarks>
+        /// Create a new environment. The caller provides the id (key) in the request body.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<EnvironmentResponse> Create_environmentAsync(EnvironmentResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -156,6 +175,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Get Environment
         /// </summary>
+        /// <remarks>
+        /// Return an environment by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<EnvironmentResponse> Get_environmentAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -164,6 +186,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Update Environment
         /// </summary>
+        /// <remarks>
+        /// Update an environment by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<EnvironmentResponse> Update_environmentAsync(string id, EnvironmentResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -172,6 +197,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Delete Environment
         /// </summary>
+        /// <remarks>
+        /// Delete an environment by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task Delete_environmentAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -180,6 +208,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Create API Key
         /// </summary>
+        /// <remarks>
+        /// Create a new API key. The id and key value are server-generated.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<ApiKeyResponse> Create_api_keyAsync(ApiKeyResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -188,6 +219,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// List API Keys
         /// </summary>
+        /// <remarks>
+        /// List all API keys for the authenticated account.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<ApiKeyListResponse> List_api_keysAsync(string? filterstatus = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -196,6 +230,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Get API Key
         /// </summary>
+        /// <remarks>
+        /// Return an API key by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<ApiKeyResponse> Get_api_keyAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -204,6 +241,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Update API Key
         /// </summary>
+        /// <remarks>
+        /// Update an API key by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<ApiKeyResponse> Update_api_keyAsync(System.Guid id, ApiKeyResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -212,6 +252,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Delete API Key
         /// </summary>
+        /// <remarks>
+        /// Delete an API key by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task Delete_api_keyAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -220,6 +263,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Revoke API Key
         /// </summary>
+        /// <remarks>
+        /// Permanently revoke an API key.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<ApiKeyResponse> Revoke_api_keyAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -228,6 +274,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// List Context Types
         /// </summary>
+        /// <remarks>
+        /// List all context types for the authenticated account.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<ContextTypeListResponse> List_context_typesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -236,6 +285,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Create Context Type
         /// </summary>
+        /// <remarks>
+        /// Create a new context type. The caller provides the id (key) in the request body.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<ContextTypeResponse> Create_context_typeAsync(ContextTypeResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -244,6 +296,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Get Context Type
         /// </summary>
+        /// <remarks>
+        /// Return a context type by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<ContextTypeResponse> Get_context_typeAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -252,6 +307,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Update Context Type
         /// </summary>
+        /// <remarks>
+        /// Update a context type by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<ContextTypeResponse> Update_context_typeAsync(string id, ContextTypeResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -260,6 +318,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Delete Context Type
         /// </summary>
+        /// <remarks>
+        /// Delete a context type and all its associated context instances by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task Delete_context_typeAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -268,6 +329,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Bulk Register Contexts
         /// </summary>
+        /// <remarks>
+        /// Register context instances in bulk. Creates context types automatically if they don't exist.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<ContextBatchResponse> Bulk_register_contextsAsync(ContextBulkRegister body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -276,6 +340,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// List Contexts
         /// </summary>
+        /// <remarks>
+        /// List all context instances for the authenticated account.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<ContextListResponse> List_contextsAsync(string? filtercontext_type = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -284,6 +351,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Get Context
         /// </summary>
+        /// <remarks>
+        /// Return a context instance by composite id (type:key).
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<ContextResponse> Get_contextAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -292,6 +362,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Delete Context
         /// </summary>
+        /// <remarks>
+        /// Delete a context instance by composite id (type:key).
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task Delete_contextAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -300,6 +373,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// List Services
         /// </summary>
+        /// <remarks>
+        /// List all services for the authenticated account.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<ServiceListResponse> List_servicesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -308,6 +384,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Create Service
         /// </summary>
+        /// <remarks>
+        /// Create a new service. The caller provides the id (key) in the request body.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<ServiceResponse> Create_serviceAsync(ServiceResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -316,6 +395,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Get Service
         /// </summary>
+        /// <remarks>
+        /// Return a service by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<ServiceResponse> Get_serviceAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -324,6 +406,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Update Service
         /// </summary>
+        /// <remarks>
+        /// Update a service by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<ServiceResponse> Update_serviceAsync(string id, ServiceResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -332,6 +417,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Delete Service
         /// </summary>
+        /// <remarks>
+        /// Delete a service by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task Delete_serviceAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -340,6 +428,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Bulk Create Invitations
         /// </summary>
+        /// <remarks>
+        /// Send one or more invitations to join the account.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<InvitationListResponse> Create_invitationsAsync(InvitationBulkCreateRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -348,6 +439,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// List Invitations
         /// </summary>
+        /// <remarks>
+        /// List all invitations for the authenticated account.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<InvitationListResponse> List_invitationsAsync(string? filterstatus = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -356,6 +450,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Revoke Invitation
         /// </summary>
+        /// <remarks>
+        /// Revoke a pending invitation by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<InvitationResponse> Revoke_invitationAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -364,6 +461,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Resend Invitation
         /// </summary>
+        /// <remarks>
+        /// Resend a pending invitation email by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<InvitationResponse> Resend_invitationAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -372,6 +472,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Accept Invitation
         /// </summary>
+        /// <remarks>
+        /// Accept an invitation using a token from the invitation email.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<InvitationResponse> Accept_invitationAsync(InvitationAcceptRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -394,14 +497,20 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Bulk Ingest Metrics
         /// </summary>
-        /// <returns>Successful Response</returns>
+        /// <remarks>
+        /// Ingest pre-aggregated metric data points. Returns 202 Accepted with no response body.
+        /// </remarks>
+        /// <returns>Accepted</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<object> Bulk_ingest_metricsAsync(MetricBulkRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task Bulk_ingest_metricsAsync(MetricBulkRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
         /// List Metrics
         /// </summary>
+        /// <remarks>
+        /// Query raw metric rows with filtering by name, time range, and dimensions.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<MetricListResponse> List_metricsAsync(string filtername, string? filterrecorded_at = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -410,6 +519,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// List Metric Rollups
         /// </summary>
+        /// <remarks>
+        /// Query aggregated metric rollups. Requires filter[rollup] for the aggregation interval.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<MetricRollupListResponse> List_metric_rollupsAsync(string filtername, string filterrollup, string? filterrecorded_at = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -418,6 +530,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// List Users
         /// </summary>
+        /// <remarks>
+        /// List users in the authenticated account.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<UserListResponse> List_usersAsync(string? filteraccount = null, string? filteremail = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -426,6 +541,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Get User
         /// </summary>
+        /// <remarks>
+        /// Return a user by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<UserResponse> Get_userAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -434,6 +552,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Update User Role
         /// </summary>
+        /// <remarks>
+        /// Update a user's role in the account.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<UserResponse> Update_user_roleAsync(System.Guid id, UserResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -442,6 +563,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Remove User
         /// </summary>
+        /// <remarks>
+        /// Remove a user from the account.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task Remove_userAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -477,7 +601,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<object> List_subscriptionsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<SubscriptionListResponse> List_subscriptionsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -488,7 +612,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<object> Create_subscriptionAsync(CreateSubscriptionBody body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<SubscriptionResponse> Create_subscriptionAsync(CreateSubscriptionBody body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -499,7 +623,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<object> Update_subscriptionAsync(string product, UpdateSubscriptionBody body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<SubscriptionResponse> Update_subscriptionAsync(string product, UpdateSubscriptionBody body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -521,7 +645,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<object> List_payment_methodsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<PaymentMethodListResponse> List_payment_methodsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -547,7 +671,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<object> Execute_setup_intentAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<SetupIntentResponse> Execute_setup_intentAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
     }
 
@@ -606,9 +730,8 @@ namespace Smplkit.Internal.Generated.App
         /// <remarks>
         /// Initiates the OIDC authorization flow by redirecting the user to the provider's login page.
         /// </remarks>
-        /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<object> Begin_oidc_loginAsync(OidcProvider provider, string? mode = null, string? source = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task Begin_oidc_loginAsync(OidcProvider provider, string? mode = null, string? source = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (provider == null)
                 throw new System.ArgumentNullException("provider");
@@ -620,7 +743,6 @@ namespace Smplkit.Internal.Generated.App
                 using (var request_ = new System.Net.Http.HttpRequestMessage())
                 {
                     request_.Method = new System.Net.Http.HttpMethod("GET");
-                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
 
                     var urlBuilder_ = new System.Text.StringBuilder();
                     if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
@@ -661,14 +783,10 @@ namespace Smplkit.Internal.Generated.App
                         ProcessResponse(client_, response_);
 
                         var status_ = (int)response_.StatusCode;
-                        if (status_ == 200)
+                        if (status_ == 302)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<object>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            return objectResponse_.Object;
+                            string responseText_ = ( response_.Content == null ) ? string.Empty : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new ApiException("Redirect to OAuth provider login page", status_, responseText_, headers_, null);
                         }
                         else
                         if (status_ == 400)
@@ -711,6 +829,13 @@ namespace Smplkit.Internal.Generated.App
                             throw new ApiException<ErrorResponse>("Rate limit exceeded", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
+
+                        if (status_ == 200 || status_ == 204)
+                        {
+
+                            return;
+                        }
+                        else
                         {
                             var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
                             throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
@@ -737,9 +862,8 @@ namespace Smplkit.Internal.Generated.App
         /// <remarks>
         /// Handles the callback from the OIDC provider, exchanges the authorization code for tokens, and redirects to the frontend.
         /// </remarks>
-        /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<object> Handle_oidc_callbackAsync(OidcProvider provider, string? code = null, string? state = null, string? error = null, string? error_description = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task Handle_oidc_callbackAsync(OidcProvider provider, string? code = null, string? state = null, string? error = null, string? error_description = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (provider == null)
                 throw new System.ArgumentNullException("provider");
@@ -751,7 +875,6 @@ namespace Smplkit.Internal.Generated.App
                 using (var request_ = new System.Net.Http.HttpRequestMessage())
                 {
                     request_.Method = new System.Net.Http.HttpMethod("GET");
-                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
 
                     var urlBuilder_ = new System.Text.StringBuilder();
                     if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
@@ -800,14 +923,10 @@ namespace Smplkit.Internal.Generated.App
                         ProcessResponse(client_, response_);
 
                         var status_ = (int)response_.StatusCode;
-                        if (status_ == 200)
+                        if (status_ == 302)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<object>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            return objectResponse_.Object;
+                            string responseText_ = ( response_.Content == null ) ? string.Empty : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new ApiException("Redirect to frontend with auth token in fragment", status_, responseText_, headers_, null);
                         }
                         else
                         if (status_ == 400)
@@ -848,6 +967,13 @@ namespace Smplkit.Internal.Generated.App
                                 throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
                             throw new ApiException<ErrorResponse>("Rate limit exceeded", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+
+                        if (status_ == 200 || status_ == 204)
+                        {
+
+                            return;
                         }
                         else
                         {
@@ -1357,6 +1483,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Get Current User
         /// </summary>
+        /// <remarks>
+        /// Return the currently authenticated user.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<UserResponse> Get_current_userAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -1471,6 +1600,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Update Current User
         /// </summary>
+        /// <remarks>
+        /// Update the currently authenticated user's profile.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<UserResponse> Update_current_userAsync(UserResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -1592,6 +1724,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Get Current Account
         /// </summary>
+        /// <remarks>
+        /// Return the account for the currently authenticated user.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<AccountResponse> Get_accountAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -1706,6 +1841,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Update Current Account
         /// </summary>
+        /// <remarks>
+        /// Update the current account's settings.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<AccountResponse> Update_accountAsync(AccountResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -1827,6 +1965,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Delete Current Account
         /// </summary>
+        /// <remarks>
+        /// Permanently delete the current account and all associated data.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task Delete_accountAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -1935,6 +2076,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// List Environments
         /// </summary>
+        /// <remarks>
+        /// List all environments for the authenticated account.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<EnvironmentListResponse> List_environmentsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -2049,6 +2193,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Create Environment
         /// </summary>
+        /// <remarks>
+        /// Create a new environment. The caller provides the id (key) in the request body.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<EnvironmentResponse> Create_environmentAsync(EnvironmentResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -2170,6 +2317,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Get Environment
         /// </summary>
+        /// <remarks>
+        /// Return an environment by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<EnvironmentResponse> Get_environmentAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -2288,6 +2438,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Update Environment
         /// </summary>
+        /// <remarks>
+        /// Update an environment by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<EnvironmentResponse> Update_environmentAsync(string id, EnvironmentResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -2413,6 +2566,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Delete Environment
         /// </summary>
+        /// <remarks>
+        /// Delete an environment by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task Delete_environmentAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -2525,6 +2681,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Create API Key
         /// </summary>
+        /// <remarks>
+        /// Create a new API key. The id and key value are server-generated.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<ApiKeyResponse> Create_api_keyAsync(ApiKeyResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -2646,6 +2805,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// List API Keys
         /// </summary>
+        /// <remarks>
+        /// List all API keys for the authenticated account.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<ApiKeyListResponse> List_api_keysAsync(string? filterstatus = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -2766,6 +2928,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Get API Key
         /// </summary>
+        /// <remarks>
+        /// Return an API key by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<ApiKeyResponse> Get_api_keyAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -2884,6 +3049,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Update API Key
         /// </summary>
+        /// <remarks>
+        /// Update an API key by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<ApiKeyResponse> Update_api_keyAsync(System.Guid id, ApiKeyResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -3009,6 +3177,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Delete API Key
         /// </summary>
+        /// <remarks>
+        /// Delete an API key by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task Delete_api_keyAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -3121,6 +3292,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Revoke API Key
         /// </summary>
+        /// <remarks>
+        /// Permanently revoke an API key.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<ApiKeyResponse> Revoke_api_keyAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -3241,6 +3415,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// List Context Types
         /// </summary>
+        /// <remarks>
+        /// List all context types for the authenticated account.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<ContextTypeListResponse> List_context_typesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -3355,6 +3532,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Create Context Type
         /// </summary>
+        /// <remarks>
+        /// Create a new context type. The caller provides the id (key) in the request body.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<ContextTypeResponse> Create_context_typeAsync(ContextTypeResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -3476,6 +3656,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Get Context Type
         /// </summary>
+        /// <remarks>
+        /// Return a context type by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<ContextTypeResponse> Get_context_typeAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -3594,6 +3777,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Update Context Type
         /// </summary>
+        /// <remarks>
+        /// Update a context type by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<ContextTypeResponse> Update_context_typeAsync(string id, ContextTypeResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -3719,6 +3905,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Delete Context Type
         /// </summary>
+        /// <remarks>
+        /// Delete a context type and all its associated context instances by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task Delete_context_typeAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -3831,6 +4020,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Bulk Register Contexts
         /// </summary>
+        /// <remarks>
+        /// Register context instances in bulk. Creates context types automatically if they don't exist.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<ContextBatchResponse> Bulk_register_contextsAsync(ContextBulkRegister body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -3952,6 +4144,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// List Contexts
         /// </summary>
+        /// <remarks>
+        /// List all context instances for the authenticated account.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<ContextListResponse> List_contextsAsync(string? filtercontext_type = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -4072,6 +4267,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Get Context
         /// </summary>
+        /// <remarks>
+        /// Return a context instance by composite id (type:key).
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<ContextResponse> Get_contextAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -4190,6 +4388,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Delete Context
         /// </summary>
+        /// <remarks>
+        /// Delete a context instance by composite id (type:key).
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task Delete_contextAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -4302,6 +4503,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// List Services
         /// </summary>
+        /// <remarks>
+        /// List all services for the authenticated account.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<ServiceListResponse> List_servicesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -4416,6 +4620,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Create Service
         /// </summary>
+        /// <remarks>
+        /// Create a new service. The caller provides the id (key) in the request body.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<ServiceResponse> Create_serviceAsync(ServiceResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -4537,6 +4744,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Get Service
         /// </summary>
+        /// <remarks>
+        /// Return a service by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<ServiceResponse> Get_serviceAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -4655,6 +4865,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Update Service
         /// </summary>
+        /// <remarks>
+        /// Update a service by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<ServiceResponse> Update_serviceAsync(string id, ServiceResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -4780,6 +4993,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Delete Service
         /// </summary>
+        /// <remarks>
+        /// Delete a service by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task Delete_serviceAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -4892,6 +5108,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Bulk Create Invitations
         /// </summary>
+        /// <remarks>
+        /// Send one or more invitations to join the account.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<InvitationListResponse> Create_invitationsAsync(InvitationBulkCreateRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -5013,6 +5232,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// List Invitations
         /// </summary>
+        /// <remarks>
+        /// List all invitations for the authenticated account.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<InvitationListResponse> List_invitationsAsync(string? filterstatus = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -5133,6 +5355,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Revoke Invitation
         /// </summary>
+        /// <remarks>
+        /// Revoke a pending invitation by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<InvitationResponse> Revoke_invitationAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -5253,6 +5478,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Resend Invitation
         /// </summary>
+        /// <remarks>
+        /// Resend a pending invitation email by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<InvitationResponse> Resend_invitationAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -5373,6 +5601,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Accept Invitation
         /// </summary>
+        /// <remarks>
+        /// Accept an invitation using a token from the invitation email.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<InvitationResponse> Accept_invitationAsync(InvitationAcceptRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -5614,9 +5845,12 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Bulk Ingest Metrics
         /// </summary>
-        /// <returns>Successful Response</returns>
+        /// <remarks>
+        /// Ingest pre-aggregated metric data points. Returns 202 Accepted with no response body.
+        /// </remarks>
+        /// <returns>Accepted</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<object> Bulk_ingest_metricsAsync(MetricBulkRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task Bulk_ingest_metricsAsync(MetricBulkRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (body == null)
                 throw new System.ArgumentNullException("body");
@@ -5632,7 +5866,6 @@ namespace Smplkit.Internal.Generated.App
                     content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/vnd.api+json");
                     request_.Content = content_;
                     request_.Method = new System.Net.Http.HttpMethod("POST");
-                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
 
                     var urlBuilder_ = new System.Text.StringBuilder();
                     if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
@@ -5664,12 +5897,7 @@ namespace Smplkit.Internal.Generated.App
                         var status_ = (int)response_.StatusCode;
                         if (status_ == 202)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<object>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            return objectResponse_.Object;
+                            return;
                         }
                         else
                         if (status_ == 400)
@@ -5735,6 +5963,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// List Metrics
         /// </summary>
+        /// <remarks>
+        /// Query raw metric rows with filtering by name, time range, and dimensions.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<MetricListResponse> List_metricsAsync(string filtername, string? filterrecorded_at = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -5859,6 +6090,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// List Metric Rollups
         /// </summary>
+        /// <remarks>
+        /// Query aggregated metric rollups. Requires filter[rollup] for the aggregation interval.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<MetricRollupListResponse> List_metric_rollupsAsync(string filtername, string filterrollup, string? filterrecorded_at = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -5987,6 +6221,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// List Users
         /// </summary>
+        /// <remarks>
+        /// List users in the authenticated account.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<UserListResponse> List_usersAsync(string? filteraccount = null, string? filteremail = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -6111,6 +6348,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Get User
         /// </summary>
+        /// <remarks>
+        /// Return a user by id.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<UserResponse> Get_userAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -6229,6 +6469,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Update User Role
         /// </summary>
+        /// <remarks>
+        /// Update a user's role in the account.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<UserResponse> Update_user_roleAsync(System.Guid id, UserResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -6354,6 +6597,9 @@ namespace Smplkit.Internal.Generated.App
         /// <summary>
         /// Remove User
         /// </summary>
+        /// <remarks>
+        /// Remove a user from the account.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task Remove_userAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -6705,7 +6951,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<object> List_subscriptionsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<SubscriptionListResponse> List_subscriptionsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -6746,7 +6992,7 @@ namespace Smplkit.Internal.Generated.App
                         var status_ = (int)response_.StatusCode;
                         if (status_ == 200)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<object>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<SubscriptionListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
@@ -6822,7 +7068,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<object> Create_subscriptionAsync(CreateSubscriptionBody body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<SubscriptionResponse> Create_subscriptionAsync(CreateSubscriptionBody body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (body == null)
                 throw new System.ArgumentNullException("body");
@@ -6870,7 +7116,7 @@ namespace Smplkit.Internal.Generated.App
                         var status_ = (int)response_.StatusCode;
                         if (status_ == 201)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<object>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<SubscriptionResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
@@ -6946,7 +7192,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<object> Update_subscriptionAsync(string product, UpdateSubscriptionBody body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<SubscriptionResponse> Update_subscriptionAsync(string product, UpdateSubscriptionBody body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (product == null)
                 throw new System.ArgumentNullException("product");
@@ -6998,7 +7244,7 @@ namespace Smplkit.Internal.Generated.App
                         var status_ = (int)response_.StatusCode;
                         if (status_ == 200)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<object>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<SubscriptionResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
@@ -7189,7 +7435,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<object> List_payment_methodsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<PaymentMethodListResponse> List_payment_methodsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -7230,7 +7476,7 @@ namespace Smplkit.Internal.Generated.App
                         var status_ = (int)response_.StatusCode;
                         if (status_ == 200)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<object>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<PaymentMethodListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
@@ -7427,7 +7673,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<object> Execute_setup_intentAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<SetupIntentResponse> Execute_setup_intentAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -7469,7 +7715,7 @@ namespace Smplkit.Internal.Generated.App
                         var status_ = (int)response_.StatusCode;
                         if (status_ == 200)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<object>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<SetupIntentResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
@@ -7752,16 +7998,16 @@ namespace Smplkit.Internal.Generated.App
         public string Name { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("status")]
-        public string Status { get; set; } = "";
+        public string? Status { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("key")]
-        public string Key { get; set; } = "";
+        public string? Key { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("scopes")]
         public object Scopes { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("created_by")]
-        public string Created_by { get; set; } = "";
+        public string? Created_by { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("expires_at")]
         public System.DateTimeOffset? Expires_at { get; set; } = default!;
@@ -7879,7 +8125,7 @@ namespace Smplkit.Internal.Generated.App
         /// Human-readable display name
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("name")]
-        public string Name { get; set; } = "";
+        public string? Name { get; set; } = default!;
 
         /// <summary>
         /// Context type key (e.g., 'user', 'account')
@@ -8344,16 +8590,16 @@ namespace Smplkit.Internal.Generated.App
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("email")]
-        public string Email { get; set; } = "";
+        public string? Email { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("role")]
-        public string Role { get; set; } = "";
+        public string? Role { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("status")]
-        public string Status { get; set; } = "";
+        public string? Status { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("invited_by")]
-        public string Invited_by { get; set; } = "";
+        public string? Invited_by { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("expires_at")]
         public System.DateTimeOffset? Expires_at { get; set; } = default!;
@@ -8854,6 +9100,79 @@ namespace Smplkit.Internal.Generated.App
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PaymentMethodAttributes
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("brand")]
+        public string Brand { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("last4")]
+        public string Last4 { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("exp_month")]
+        public int Exp_month { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("exp_year")]
+        public int Exp_year { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("is_default")]
+        public bool Is_default { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PaymentMethodListResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public System.Collections.Generic.List<PaymentMethodResource> Data { get; set; } = new System.Collections.Generic.List<PaymentMethodResource>();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PaymentMethodResource
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string? Id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<PaymentMethodResourceType>))]
+        public PaymentMethodResourceType Type { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
+        public PaymentMethodAttributes Attributes { get; set; } = new PaymentMethodAttributes();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Plan
     {
 
@@ -9164,6 +9483,158 @@ namespace Smplkit.Internal.Generated.App
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SetupIntentAttributes
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("client_secret")]
+        public string Client_secret { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SetupIntentResource
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<SetupIntentResourceType>))]
+        public SetupIntentResourceType Type { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
+        public SetupIntentAttributes Attributes { get; set; } = new SetupIntentAttributes();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SetupIntentResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public SetupIntentResource Data { get; set; } = new SetupIntentResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SubscriptionAttributes
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("product")]
+        public string Product { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("plan")]
+        public string Plan { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        public string Status { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("stripe_managed")]
+        public bool Stripe_managed { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("current_period_end")]
+        public string? Current_period_end { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("client_secret")]
+        public string? Client_secret { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SubscriptionListResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public System.Collections.Generic.List<SubscriptionResource> Data { get; set; } = new System.Collections.Generic.List<SubscriptionResource>();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SubscriptionResource
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string? Id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<SubscriptionResourceType>))]
+        public SubscriptionResourceType Type { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
+        public SubscriptionAttributes Attributes { get; set; } = new SubscriptionAttributes();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SubscriptionResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public SubscriptionResource Data { get; set; } = new SubscriptionResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class UpdateSubscriptionAttributes
     {
 
@@ -9237,7 +9708,7 @@ namespace Smplkit.Internal.Generated.App
         public string? Profile_pic { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("auth_provider")]
-        public string Auth_provider { get; set; } = "";
+        public string? Auth_provider { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("email_verified")]
         public bool Email_verified { get; set; } = false;
@@ -9252,7 +9723,7 @@ namespace Smplkit.Internal.Generated.App
         /// Account UUID
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("account")]
-        public string Account { get; set; } = "";
+        public string? Account { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
         public System.DateTimeOffset? Created_at { get; set; } = default!;
@@ -9401,6 +9872,15 @@ namespace Smplkit.Internal.Generated.App
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum PaymentMethodResourceType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"payment_method")]
+        Payment_method = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public enum PlanResourceType
     {
 
@@ -9433,6 +9913,24 @@ namespace Smplkit.Internal.Generated.App
 
         [System.Runtime.Serialization.EnumMember(Value = @"user")]
         User = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum SetupIntentResourceType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"setup_intent")]
+        Setup_intent = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum SubscriptionResourceType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"subscription")]
+        Subscription = 0,
 
     }
 
