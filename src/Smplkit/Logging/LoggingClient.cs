@@ -519,10 +519,10 @@ public sealed class LoggingClient
     // Helpers: request body building
     // ------------------------------------------------------------------
 
-    private static GenLogging.Response_Logger_ BuildLoggerRequestBody(Logger logger) =>
+    private static GenLogging.LoggerResponse BuildLoggerRequestBody(Logger logger) =>
         new()
         {
-            Data = new GenLogging.Resource_Logger_
+            Data = new GenLogging.LoggerResource
             {
                 Type = "logger",
                 Id = logger.Id,
@@ -537,10 +537,10 @@ public sealed class LoggingClient
             }
         };
 
-    private static GenLogging.Response_LogGroup_ BuildLogGroupRequestBody(LogGroup logGroup) =>
+    private static GenLogging.LogGroupResponse BuildLogGroupRequestBody(LogGroup logGroup) =>
         new()
         {
-            Data = new GenLogging.Resource_LogGroup_
+            Data = new GenLogging.LogGroupResource
             {
                 Type = "log_group",
                 Id = logGroup.Id,
