@@ -122,14 +122,14 @@ public class LoggingClientTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public async Task New_SaveAsync_CreatesLogger()
+    public async Task New_SaveAsync_PutsLogger()
     {
         var (client, handler) = CreateClient(req =>
         {
             var url = req.RequestUri!.AbsoluteUri;
-            if (url.Contains("logging.smplkit.com") && req.Method == HttpMethod.Post)
-                return Task.FromResult(JsonResponse(SingleLoggerJson(), HttpStatusCode.Created));
-            return Task.FromResult(JsonResponse("""{"data":[]}"""));
+            if (url.Contains("logging.smplkit.com") && req.Method == HttpMethod.Put)
+                return Task.FromResult(JsonResponse(SingleLoggerJson()));
+            return Task.FromResult(JsonResponse("""{"data":{}}"""));
         });
 
         var logger = client.Logging.Management.New(LoggerId);
@@ -141,8 +141,8 @@ public class LoggingClientTests
         Assert.Equal(LoggerName, logger.Name);
         Assert.Equal(LogLevel.Info, logger.Level);
 
-        var postReq = handler.Requests.First(r => r.Method == HttpMethod.Post);
-        Assert.Contains("logging.smplkit.com", postReq.RequestUri!.AbsoluteUri);
+        var putReq = handler.Requests.First(r => r.Method == HttpMethod.Put);
+        Assert.Contains("logging.smplkit.com", putReq.RequestUri!.AbsoluteUri);
     }
 
     // ------------------------------------------------------------------
@@ -758,7 +758,7 @@ public class LoggingClientTests
                     "id": "nested-group",
                     "name": "Nested Group",
                     "level": "FATAL",
-                    "group": "parent-group-id",
+                    "parent_id": "parent-group-id",
                     "environments": {"staging": {"level": "WARN"}},
                     "created_at": "2024-01-15T10:30:00Z",
                     "updated_at": "2024-01-15T10:30:00Z"
@@ -951,20 +951,20 @@ public class LoggingClientTests
     [Fact]
     public async Task SaveAsync_Logger_WithEnvironments_IncludesEnvsInBody()
     {
-        string? postBody = null;
+        string? putBody = null;
         var (client, _) = CreateClient(async req =>
         {
-            if (req.Method == HttpMethod.Post)
-                postBody = await req.Content!.ReadAsStringAsync();
-            return JsonResponse(SingleLoggerJson(), HttpStatusCode.Created);
+            if (req.Method == HttpMethod.Put)
+                putBody = await req.Content!.ReadAsStringAsync();
+            return JsonResponse(SingleLoggerJson());
         });
 
         var logger = client.Logging.Management.New("env-logger");
         logger.SetEnvironmentLevel("production", LogLevel.Error);
         await logger.SaveAsync();
 
-        Assert.NotNull(postBody);
-        Assert.Contains("production", postBody);
+        Assert.NotNull(putBody);
+        Assert.Contains("production", putBody);
     }
 
     [Fact]
@@ -1159,5 +1159,168 @@ public class LoggingClientTests
         public TestTraceListener(List<string> messages) => _messages = messages;
         public override void Write(string? message) { if (message != null) _messages.Add(message); }
         public override void WriteLine(string? message) { if (message != null) _messages.Add(message); }
+    }
+
+    // ------------------------------------------------------------------
+    // StartAsync — bulk registration failure is swallowed
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task StartAsync_BulkRegisterFails_EmitsTraceWarningAndContinues()
+    {
+        var traceMessages = new List<string>();
+        var listener = new TestTraceListener(traceMessages);
+        System.Diagnostics.Trace.Listeners.Add(listener);
+
+        try
+        {
+            // Handler returns 500 for the bulk endpoint, 200 empty for everything else.
+            var (client, _) = CreateClient(req =>
+            {
+                if (req.RequestUri!.AbsoluteUri.Contains("bulk"))
+                    return Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                    {
+                        Content = new StringContent("""{"errors":[{"detail":"server error"}]}""",
+                            Encoding.UTF8, "application/vnd.api+json"),
+                    });
+                return Task.FromResult(JsonResponse("""{"data":[]}"""));
+            });
+
+            // Register a real adapter so DiscoverAll returns something and BulkRegister is called.
+            var melAdapter = new Smplkit.Logging.Adapters.MicrosoftLoggingAdapter();
+            melAdapter.GetOrCreateLogger("test.logger"); // creates a tracked logger
+            client.Logging.RegisterAdapter(melAdapter);
+
+            try { await client.Logging.StartAsync(); } catch { }
+
+            Assert.Contains(traceMessages, m => m.Contains("[smplkit]") && m.Contains("Bulk logger registration failed"));
+        }
+        finally
+        {
+            System.Diagnostics.Trace.Listeners.Remove(listener);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // BuildBulkItem — payload assembly
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void BuildBulkItem_SetsResolvedLevelAndNullLevel()
+    {
+        var discovered = new Smplkit.Logging.Adapters.DiscoveredLogger("my-service", LogLevel.Warn);
+
+        var item = LoggingClient.BuildBulkItem(discovered);
+
+        Assert.Equal("my-service", item.Id);
+        Assert.Null(item.Level);
+        Assert.Equal("WARN", item.Resolved_level);
+    }
+
+    [Theory]
+    [InlineData(LogLevel.Trace, "TRACE")]
+    [InlineData(LogLevel.Debug, "DEBUG")]
+    [InlineData(LogLevel.Info, "INFO")]
+    [InlineData(LogLevel.Warn, "WARN")]
+    [InlineData(LogLevel.Error, "ERROR")]
+    [InlineData(LogLevel.Fatal, "FATAL")]
+    [InlineData(LogLevel.Silent, "SILENT")]
+    public void BuildBulkItem_AllLevels_ResolvedLevelMatchesWireString(LogLevel level, string expected)
+    {
+        var discovered = new Smplkit.Logging.Adapters.DiscoveredLogger("logger-name", level);
+
+        var item = LoggingClient.BuildBulkItem(discovered);
+
+        Assert.Equal(expected, item.Resolved_level);
+        Assert.Null(item.Level);
+    }
+
+    // ------------------------------------------------------------------
+    // BulkRegisterAsync — HTTP call
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task BulkRegisterAsync_SendsBulkRequestToServer()
+    {
+        string? capturedBody = null;
+        var (client, handler) = CreateClient(async req =>
+        {
+            if (req.RequestUri!.AbsoluteUri.Contains("bulk"))
+            {
+                capturedBody = await req.Content!.ReadAsStringAsync();
+                return JsonResponse("""{"registered":1}""");
+            }
+            return JsonResponse("""{"data":[]}""");
+        });
+
+        var discovered = new List<Smplkit.Logging.Adapters.DiscoveredLogger>
+        {
+            new("my.service", LogLevel.Info),
+        };
+
+        await client.Logging.BulkRegisterAsync(discovered);
+
+        Assert.NotNull(capturedBody);
+        Assert.Contains("my.service", capturedBody);
+        Assert.Contains("resolved_level", capturedBody);
+        Assert.Contains("INFO", capturedBody);
+
+        var bulkReq = handler.Requests.First(r => r.RequestUri!.AbsoluteUri.Contains("bulk"));
+        Assert.Equal(HttpMethod.Post, bulkReq.Method);
+    }
+
+    [Fact]
+    public async Task BulkRegisterAsync_MultipleLoggers_AllIncludedInPayload()
+    {
+        string? capturedBody = null;
+        var (client, _) = CreateClient(async req =>
+        {
+            if (req.RequestUri!.AbsoluteUri.Contains("bulk"))
+            {
+                capturedBody = await req.Content!.ReadAsStringAsync();
+                return JsonResponse("""{"registered":2}""");
+            }
+            return JsonResponse("""{"data":[]}""");
+        });
+
+        var discovered = new List<Smplkit.Logging.Adapters.DiscoveredLogger>
+        {
+            new("alpha", LogLevel.Debug),
+            new("beta", LogLevel.Error),
+        };
+
+        await client.Logging.BulkRegisterAsync(discovered);
+
+        Assert.NotNull(capturedBody);
+        Assert.Contains("alpha", capturedBody);
+        Assert.Contains("DEBUG", capturedBody);
+        Assert.Contains("beta", capturedBody);
+        Assert.Contains("ERROR", capturedBody);
+    }
+
+    [Fact]
+    public async Task BulkRegisterAsync_LevelFieldIsNull_InPayload()
+    {
+        string? capturedBody = null;
+        var (client, _) = CreateClient(async req =>
+        {
+            if (req.RequestUri!.AbsoluteUri.Contains("bulk"))
+            {
+                capturedBody = await req.Content!.ReadAsStringAsync();
+                return JsonResponse("""{"registered":1}""");
+            }
+            return JsonResponse("""{"data":[]}""");
+        });
+
+        var discovered = new List<Smplkit.Logging.Adapters.DiscoveredLogger>
+        {
+            new("svc", LogLevel.Info),
+        };
+
+        await client.Logging.BulkRegisterAsync(discovered);
+
+        Assert.NotNull(capturedBody);
+        // "level" should be null (not set) — the JSON should include "level":null
+        Assert.Contains("\"level\":null", capturedBody);
     }
 }
