@@ -107,23 +107,12 @@ public sealed class LoggingClient
     /// <summary>Internal: save a logger (create or update).</summary>
     internal async Task<Logger> SaveLoggerInternalAsync(Logger logger, CancellationToken ct = default)
     {
+        var loggerId = logger.Id ?? throw new SmplValidationException("Cannot save a logger without an id");
         var body = BuildLoggerRequestBody(logger);
-        if (logger.CreatedAt is null)
-        {
-            // Create (unsaved logger — CreatedAt is null until first server round-trip)
-            var response = await ApiExceptionMapper.ExecuteAsync(
-                () => _genClient.Create_loggerAsync(body, ct)).ConfigureAwait(false);
-            return MapLoggerResource(response.Data)
-                ?? throw new SmplValidationException("Failed to create logger");
-        }
-        else
-        {
-            var loggerId = logger.Id ?? throw new SmplValidationException("Cannot update a logger without an id");
-            var response = await ApiExceptionMapper.ExecuteAsync(
-                () => _genClient.Update_loggerAsync(loggerId, body, ct)).ConfigureAwait(false);
-            return MapLoggerResource(response.Data)
-                ?? throw new SmplValidationException("Failed to update logger");
-        }
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genClient.Update_loggerAsync(loggerId, body, ct)).ConfigureAwait(false);
+        return MapLoggerResource(response.Data)
+            ?? throw new SmplValidationException("Failed to save logger");
     }
 
     // ------------------------------------------------------------------
@@ -205,19 +194,33 @@ public sealed class LoggingClient
             AutoLoadAdapters();
 
         // 2. Discover existing loggers from each adapter
-        DiscoverAll();
+        var discovered = DiscoverAll();
 
         // 3. Install hooks on each adapter
         InstallAllHooks();
 
-        // 4. Fetch all loggers and groups from the server
+        // 4. Bulk-register discovered loggers with the server
+        if (discovered.Count > 0)
+        {
+            try
+            {
+                await BulkRegisterAsync(discovered, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.TraceWarning(
+                    "[smplkit] Bulk logger registration failed: {0}", ex.Message);
+            }
+        }
+
+        // 5. Fetch all loggers and groups from the server
         var loggers = await ListAsync(ct).ConfigureAwait(false);
         await ListGroupsAsync(ct).ConfigureAwait(false);
 
-        // 5. Apply levels from server-managed loggers to adapters
+        // 6. Apply levels from server-managed loggers to adapters
         ApplyLevels(loggers);
 
-        // 6. Wire WebSocket
+        // 7. Wire WebSocket
         _wsManager = _ensureWs();
         _wsManager.On("logger_changed", HandleLoggerChanged);
         _started = true;
@@ -284,15 +287,15 @@ public sealed class LoggingClient
     // Internal: adapter helpers
     // ------------------------------------------------------------------
 
-    private void DiscoverAll()
+    private List<DiscoveredLogger> DiscoverAll()
     {
-        var totalDiscovered = 0;
+        var allDiscovered = new List<DiscoveredLogger>();
         foreach (var adapter in _adapters)
         {
             try
             {
                 var discovered = adapter.Discover();
-                totalDiscovered += discovered.Count;
+                allDiscovered.AddRange(discovered);
             }
             catch (Exception ex)
             {
@@ -300,8 +303,9 @@ public sealed class LoggingClient
                     "[smplkit] Adapter {0} discovery failed: {1}", adapter.Name, ex.Message);
             }
         }
-        if (totalDiscovered > 0)
-            _metrics?.Record("logging.loggers_discovered", value: totalDiscovered, unit: "loggers");
+        if (allDiscovered.Count > 0)
+            _metrics?.Record("logging.loggers_discovered", value: allDiscovered.Count, unit: "loggers");
+        return allDiscovered;
     }
 
     private void InstallAllHooks()
@@ -348,6 +352,32 @@ public sealed class LoggingClient
             return null;
         }
     }
+
+    internal async Task BulkRegisterAsync(IReadOnlyList<DiscoveredLogger> discovered, CancellationToken ct = default)
+    {
+        var items = discovered
+            .Select(d => BuildBulkItem(d))
+            .ToList();
+
+        var request = new GenLogging.LoggerBulkRequest { Loggers = items };
+        await ApiExceptionMapper.ExecuteAsync(
+            () => _genClient.Bulk_register_loggersAsync(request, ct)).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Builds a <see cref="GenLogging.LoggerBulkItem"/> from a discovered logger.
+    /// <para>
+    /// MEL and Serilog adapters track only the effective (resolved) level — they have
+    /// no concept of an explicitly-set vs. inherited level. The payload sets
+    /// <c>level</c> to the adapter's current minimum level (the effective/resolved level).
+    /// </para>
+    /// </summary>
+    internal static GenLogging.LoggerBulkItem BuildBulkItem(DiscoveredLogger discovered) =>
+        new()
+        {
+            Id = discovered.Name,
+            Level = discovered.Level.ToWireString(),
+        };
 
     private void ApplyLevels(List<Logger> loggers)
     {
@@ -485,7 +515,7 @@ public sealed class LoggingClient
             id: resource.Id ?? string.Empty,
             name: attrs.Name ?? string.Empty,
             level: level,
-            group: attrs.Group,
+            group: attrs.Parent_id,
             environments: environments,
             createdAt: attrs.Created_at?.DateTime,
             updatedAt: attrs.Updated_at?.DateTime);
@@ -548,7 +578,7 @@ public sealed class LoggingClient
                 {
                     Name = logGroup.Name,
                     Level = logGroup.Level?.ToWireString(),
-                    Group = logGroup.Group,
+                    Parent_id = logGroup.Group,
                     Environments = BuildEnvironmentsPayload(logGroup.Environments),
                 },
             }
