@@ -284,26 +284,30 @@ public sealed class FlagsClient
             if (_connected) return;
             _environment = _parent?.Environment;
 
-            // Fire-and-forget service context registration
+            // Fire-and-forget environment + service context registration
             if (_parent?.Service is { Length: > 0 } svc)
             {
+                var env = _parent?.Environment;
                 _ = Task.Run(async () =>
                 {
                     try
                     {
+                        var items = new List<GenApp.ContextBulkItem>();
+                        if (!string.IsNullOrEmpty(env))
+                        {
+                            items.Add(new() { Type = "environment", Key = env });
+                        }
+                        items.Add(new()
+                        {
+                            Type = "service",
+                            Key = svc,
+                            Attributes = new Dictionary<string, object?> { ["name"] = svc },
+                        });
                         await ApiExceptionMapper.ExecuteAsync(async () =>
                             await _genAppClient.Bulk_register_contextsAsync(
                                 new GenApp.ContextBulkRegister
                                 {
-                                    Contexts = new List<GenApp.ContextBulkItem>
-                                    {
-                                        new()
-                                        {
-                                            Type = "service",
-                                            Key = svc,
-                                            Attributes = new Dictionary<string, object?> { ["name"] = svc },
-                                        },
-                                    },
+                                    Contexts = items,
                                 }).ConfigureAwait(false)).ConfigureAwait(false);
                     }
                     catch { /* fire-and-forget */ }
