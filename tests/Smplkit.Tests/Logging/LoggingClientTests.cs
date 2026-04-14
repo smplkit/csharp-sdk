@@ -168,6 +168,27 @@ public class LoggingClientTests
         Assert.Equal(System.Text.Json.JsonValueKind.Null, attrs.GetProperty("level").ValueKind);
     }
 
+    [Fact]
+    public async Task SaveAsync_NullId_ThrowsValidationException()
+    {
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(SingleLoggerJson())));
+
+        // Directly construct a logger with null id to exercise the guard
+        var logger = new Logger(client.Logging, null, "Name", null, null, false,
+            new List<Dictionary<string, object?>>(),
+            new Dictionary<string, Dictionary<string, object?>>(), null, null);
+        await Assert.ThrowsAsync<SmplValidationException>(() => logger.SaveAsync());
+    }
+
+    [Fact]
+    public async Task New_SaveAsync_NullResponse_ThrowsValidationException()
+    {
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("""{"data":null}""")));
+
+        var logger = client.Logging.Management.New(LoggerId);
+        await Assert.ThrowsAsync<SmplValidationException>(() => logger.SaveAsync());
+    }
+
     // ------------------------------------------------------------------
     // GetAsync by id (direct GET)
     // ------------------------------------------------------------------
