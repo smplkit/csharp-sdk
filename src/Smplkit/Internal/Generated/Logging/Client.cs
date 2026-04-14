@@ -55,10 +55,11 @@ namespace Smplkit.Internal.Generated.Logging
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// Update Logger
+        /// Update or Create Logger
         /// </summary>
         /// <remarks>
-        /// Update a logger. Fields absent from the body are preserved; explicit null clears them.
+        /// Create or update a logger (upsert). If the logger does not exist it is created.
+        /// <br/>Fields absent from the body are preserved on update; explicit null clears them.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -490,10 +491,11 @@ namespace Smplkit.Internal.Generated.Logging
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// Update Logger
+        /// Update or Create Logger
         /// </summary>
         /// <remarks>
-        /// Update a logger. Fields absent from the body are preserved; explicit null clears them.
+        /// Create or update a logger (upsert). If the logger does not exist it is created.
+        /// <br/>Fields absent from the body are preserved on update; explicit null clears them.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
