@@ -108,6 +108,25 @@ public sealed class LoggingClient
     internal async Task<Logger> SaveLoggerInternalAsync(Logger logger, CancellationToken ct = default)
     {
         var loggerId = logger.Id ?? throw new SmplValidationException("Cannot save a logger without an id");
+
+        if (logger.CreatedAt is null)
+        {
+            // Logger has not been registered yet. Bulk-register first to create
+            // the record, then fall through to the PUT to apply name/level/etc.
+            var bulkItem = new GenLogging.LoggerBulkItem
+            {
+                Id = loggerId,
+                Level = null,
+                Resolved_level = logger.Level?.ToWireString(),
+            };
+            var bulkRequest = new GenLogging.LoggerBulkRequest
+            {
+                Loggers = new System.Collections.Generic.List<GenLogging.LoggerBulkItem> { bulkItem }
+            };
+            await ApiExceptionMapper.ExecuteAsync(
+                () => _genClient.Bulk_register_loggersAsync(bulkRequest, ct)).ConfigureAwait(false);
+        }
+
         var body = BuildLoggerRequestBody(logger);
         var response = await ApiExceptionMapper.ExecuteAsync(
             () => _genClient.Update_loggerAsync(loggerId, body, ct)).ConfigureAwait(false);

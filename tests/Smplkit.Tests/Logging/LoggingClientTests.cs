@@ -118,15 +118,17 @@ public class LoggingClientTests
         """;
 
     // ------------------------------------------------------------------
-    // New + SaveAsync creates logger (POST)
+    // New + SaveAsync creates logger (bulk register + PUT)
     // ------------------------------------------------------------------
 
     [Fact]
-    public async Task New_SaveAsync_PutsLogger()
+    public async Task New_SaveAsync_BulkRegistersAndPutsLogger()
     {
         var (client, handler) = CreateClient(req =>
         {
             var url = req.RequestUri!.AbsoluteUri;
+            if (url.Contains("/loggers/bulk"))
+                return Task.FromResult(JsonResponse("""{"data":[]}"""));
             if (url.Contains("logging.smplkit.com") && req.Method == HttpMethod.Put)
                 return Task.FromResult(JsonResponse(SingleLoggerJson()));
             return Task.FromResult(JsonResponse("""{"data":{}}"""));
@@ -134,6 +136,7 @@ public class LoggingClientTests
 
         var logger = client.Logging.Management.New(LoggerId);
         Assert.Equal(LoggerId, logger.Id);
+        Assert.Null(logger.CreatedAt);
 
         await logger.SaveAsync();
 
@@ -141,7 +144,9 @@ public class LoggingClientTests
         Assert.Equal(LoggerName, logger.Name);
         Assert.Equal(LogLevel.Info, logger.Level);
 
-        var putReq = handler.Requests.First(r => r.Method == HttpMethod.Put);
+        var bulkReq = handler.Requests.First(r => r.RequestUri!.AbsoluteUri.Contains("/loggers/bulk"));
+        Assert.NotNull(bulkReq);
+        var putReq = handler.Requests.First(r => r.Method == HttpMethod.Put && r.RequestUri!.AbsoluteUri.Contains("/loggers/"));
         Assert.Contains("logging.smplkit.com", putReq.RequestUri!.AbsoluteUri);
     }
 
