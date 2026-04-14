@@ -118,18 +118,15 @@ public class LoggingClientTests
         """;
 
     // ------------------------------------------------------------------
-    // New + SaveAsync creates logger (bulk register + PUT)
+    // New + SaveAsync creates logger via PUT upsert (single request)
     // ------------------------------------------------------------------
 
     [Fact]
-    public async Task New_SaveAsync_BulkRegistersAndPutsLogger()
+    public async Task New_SaveAsync_PutsLogger()
     {
         var (client, handler) = CreateClient(req =>
         {
-            var url = req.RequestUri!.AbsoluteUri;
-            if (url.Contains("/loggers/bulk"))
-                return Task.FromResult(JsonResponse("""{"data":[]}"""));
-            if (url.Contains("logging.smplkit.com") && req.Method == HttpMethod.Put)
+            if (req.Method == HttpMethod.Put && req.RequestUri!.AbsoluteUri.Contains("/loggers/"))
                 return Task.FromResult(JsonResponse(SingleLoggerJson()));
             return Task.FromResult(JsonResponse("""{"data":{}}"""));
         });
@@ -144,10 +141,31 @@ public class LoggingClientTests
         Assert.Equal(LoggerName, logger.Name);
         Assert.Equal(LogLevel.Info, logger.Level);
 
-        var bulkReq = handler.Requests.First(r => r.RequestUri!.AbsoluteUri.Contains("/loggers/bulk"));
-        Assert.NotNull(bulkReq);
-        var putReq = handler.Requests.First(r => r.Method == HttpMethod.Put && r.RequestUri!.AbsoluteUri.Contains("/loggers/"));
+        // Only one request: the PUT (no bulk pre-step)
+        Assert.Single(handler.Requests);
+        var putReq = handler.Requests[0];
+        Assert.Equal(HttpMethod.Put, putReq.Method);
         Assert.Contains("logging.smplkit.com", putReq.RequestUri!.AbsoluteUri);
+    }
+
+    [Fact]
+    public async Task New_SaveAsync_NullLevel_PutsNullLevelInBody()
+    {
+        string? capturedBody = null;
+        var (client, _) = CreateClient(async req =>
+        {
+            capturedBody = await req.Content!.ReadAsStringAsync();
+            return JsonResponse(SingleLoggerJson());
+        });
+
+        var logger = client.Logging.Management.New(LoggerId);
+        // No level set — should PUT with null level
+        await logger.SaveAsync();
+
+        Assert.NotNull(capturedBody);
+        using var doc = System.Text.Json.JsonDocument.Parse(capturedBody!);
+        var attrs = doc.RootElement.GetProperty("data").GetProperty("attributes");
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, attrs.GetProperty("level").ValueKind);
     }
 
     // ------------------------------------------------------------------
