@@ -1235,6 +1235,28 @@ public class LoggingClientTests
         Assert.Null(item.Level);
     }
 
+    [Fact]
+    public void BuildBulkItem_IncludesServiceAndEnvironment()
+    {
+        var discovered = new Smplkit.Logging.Adapters.DiscoveredLogger("my-logger", LogLevel.Info);
+
+        var item = LoggingClient.BuildBulkItem(discovered, "api-gateway", "production");
+
+        Assert.Equal("api-gateway", item.Service);
+        Assert.Equal("production", item.Environment);
+    }
+
+    [Fact]
+    public void BuildBulkItem_OmitsServiceAndEnvironmentWhenNull()
+    {
+        var discovered = new Smplkit.Logging.Adapters.DiscoveredLogger("my-logger", LogLevel.Info);
+
+        var item = LoggingClient.BuildBulkItem(discovered);
+
+        Assert.Null(item.Service);
+        Assert.Null(item.Environment);
+    }
+
     // ------------------------------------------------------------------
     // BulkRegisterAsync — HTTP call
     // ------------------------------------------------------------------
@@ -1264,6 +1286,8 @@ public class LoggingClientTests
         Assert.Contains("my.service", capturedBody);
         Assert.Contains("resolved_level", capturedBody);
         Assert.Contains("INFO", capturedBody);
+        Assert.Contains("test-service", capturedBody);
+        Assert.Contains("\"environment\":\"test\"", capturedBody);
 
         var bulkReq = handler.Requests.First(r => r.RequestUri!.AbsoluteUri.Contains("bulk"));
         Assert.Equal(HttpMethod.Post, bulkReq.Method);

@@ -355,8 +355,10 @@ public sealed class LoggingClient
 
     internal async Task BulkRegisterAsync(IReadOnlyList<DiscoveredLogger> discovered, CancellationToken ct = default)
     {
+        var service = _parent?.Service;
+        var environment = _parent?.Environment;
         var items = discovered
-            .Select(d => BuildBulkItem(d))
+            .Select(d => BuildBulkItem(d, service, environment))
             .ToList();
 
         var request = new GenLogging.LoggerBulkRequest { Loggers = items };
@@ -373,12 +375,14 @@ public sealed class LoggingClient
     /// <c>resolved_level</c> to the adapter's current minimum level.
     /// </para>
     /// </summary>
-    internal static GenLogging.LoggerBulkItem BuildBulkItem(DiscoveredLogger discovered) =>
+    internal static GenLogging.LoggerBulkItem BuildBulkItem(DiscoveredLogger discovered, string? service = null, string? environment = null) =>
         new()
         {
             Id = discovered.Name,
             Level = null,
             Resolved_level = discovered.Level.ToWireString(),
+            Service = service,
+            Environment = environment,
         };
 
     private void ApplyLevels(List<Logger> loggers)
