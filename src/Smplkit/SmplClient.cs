@@ -4,6 +4,7 @@ using Smplkit.Flags;
 using Smplkit.Internal;
 using Smplkit.Logging;
 using GenApp = Smplkit.Internal.Generated.App;
+using DebugLog = Smplkit.Internal.Debug;
 
 namespace Smplkit;
 
@@ -139,6 +140,11 @@ public sealed class SmplClient : IDisposable
         Config = new ConfigClient(_clients, EnsureSharedWebSocket, this, _metrics);
         Flags = new FlagsClient(_clients, _apiKey, EnsureSharedWebSocket, this, _metrics);
         Logging = new LoggingClient(_clients, _apiKey, EnsureSharedWebSocket, this, _metrics);
+
+        var maskedKey = resolvedApiKey.Length > 10
+            ? resolvedApiKey[..10] + "..."
+            : resolvedApiKey + "...";
+        DebugLog.Log("lifecycle", $"SmplClient created (api_key={maskedKey}, environment={resolvedEnvironment}, service={resolvedService})");
     }
 
     /// <summary>
@@ -161,6 +167,7 @@ public sealed class SmplClient : IDisposable
     /// </summary>
     public void Dispose()
     {
+        DebugLog.Log("lifecycle", "SmplClient.Dispose() called");
         Logging.Close();
 
         if (_sharedWs is not null)

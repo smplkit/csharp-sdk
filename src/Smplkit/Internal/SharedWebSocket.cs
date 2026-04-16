@@ -70,9 +70,13 @@ internal sealed class SharedWebSocket
         lock (_listenersLock)
         {
             if (!_listeners.TryGetValue(eventName, out var list))
+            {
+                Debug.Log("websocket", $"no handler registered for event: \"{eventName}\"");
                 return;
+            }
             callbacks = new List<Action<Dictionary<string, object?>>>(list);
         }
+        Debug.Log("websocket", $"routing \"{eventName}\" to {callbacks.Count} handler(s)");
         foreach (var cb in callbacks)
         {
             try { cb(data); }
@@ -103,6 +107,7 @@ internal sealed class SharedWebSocket
     /// <summary>Start the background WebSocket task.</summary>
     internal void Start()
     {
+        Debug.Log("websocket", "starting WebSocket connection");
         _closed = false;
         _wsTask = Task.Run(() => RunWebSocketAsync(_wsCts.Token));
     }

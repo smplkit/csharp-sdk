@@ -2,6 +2,7 @@ using System.Text.Json;
 using Smplkit.Errors;
 using Smplkit.Internal;
 using GenConfig = Smplkit.Internal.Generated.Config;
+using DebugLog = Smplkit.Internal.Debug;
 
 namespace Smplkit.Config;
 
@@ -184,8 +185,11 @@ public sealed class ConfigClient
             // Register on the shared WebSocket
             if (_ensureWs is not null)
             {
+                DebugLog.Log("registration", "registering config_changed and config_deleted handlers");
                 _wsManager = _ensureWs();
                 _wsManager.On("config_changed", HandleConfigChanged);
+                _wsManager.On("config_deleted", HandleConfigChanged);
+                DebugLog.Log("websocket", "config runtime connected");
             }
         }
     }
@@ -292,6 +296,8 @@ public sealed class ConfigClient
 
     private void HandleConfigChanged(Dictionary<string, object?> data)
     {
+        var configId = data.TryGetValue("id", out var k) ? k as string : null;
+        DebugLog.Log("websocket", $"config event received, id={configId ?? "<unknown>"}");
         if (!_runtimeConnected) return;
 
         var environment = _parent?.Environment;

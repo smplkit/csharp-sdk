@@ -1,4 +1,5 @@
 using System.Net;
+using System.Reflection;
 using System.Text;
 using Smplkit.Errors;
 using Smplkit.Logging;
@@ -568,7 +569,7 @@ public class LoggingClientTests
     }
 
     [Fact]
-    public void HandleLoggerChanged_FallsBackToKeyField()
+    public void HandleLoggerChanged_UsesIdField()
     {
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse("""{"data":[]}""")));
@@ -580,7 +581,7 @@ public class LoggingClientTests
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         method!.Invoke(client.Logging, new object[]
         {
-            new Dictionary<string, object?> { ["key"] = "my-logger", ["level"] = "ERROR" }
+            new Dictionary<string, object?> { ["id"] = "my-logger", ["level"] = "ERROR" }
         });
 
         Assert.Single(events);
@@ -1390,5 +1391,85 @@ public class LoggingClientTests
         Assert.NotNull(capturedBody);
         // "level" should be null (not set) — the JSON should include "level":null
         Assert.Contains("\"level\":null", capturedBody);
+    }
+
+    // ------------------------------------------------------------------
+    // HandleGroupChanged — WebSocket group event handler
+    // ------------------------------------------------------------------
+
+    private static MethodInfo GetHandleGroupChanged() =>
+        typeof(LoggingClient).GetMethod("HandleGroupChanged",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+
+    [Fact]
+    public async Task HandleGroupChanged_WhenStarted_TriggersRefetch()
+    {
+        int callCount = 0;
+        var (client, _) = CreateClient(_ =>
+        {
+            callCount++;
+            return Task.FromResult(JsonResponse("""{"data":[]}"""));
+        });
+
+        await client.Logging.StartAsync();
+        int callsAfterStart = callCount;
+
+        var method = GetHandleGroupChanged();
+        method.Invoke(client.Logging, new object[] { new Dictionary<string, object?> { ["id"] = "my-group" } });
+
+        // Allow the Task.Run to complete
+        await Task.Delay(200);
+        Assert.True(callCount > callsAfterStart, "Expected at least one additional API call after group event");
+    }
+
+    [Fact]
+    public void HandleGroupChanged_BeforeStart_IsNoOp()
+    {
+        int callCount = 0;
+        var (client, _) = CreateClient(_ =>
+        {
+            callCount++;
+            return Task.FromResult(JsonResponse("""{"data":[]}"""));
+        });
+
+        var method = GetHandleGroupChanged();
+        method.Invoke(client.Logging, new object[] { new Dictionary<string, object?> { ["id"] = "my-group" } });
+
+        Assert.Equal(0, callCount);
+    }
+
+    [Fact]
+    public void HandleGroupChanged_NullId_DoesNotThrow()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse("""{"data":[]}""")));
+
+        var method = GetHandleGroupChanged();
+        var ex = Record.Exception(() =>
+            method.Invoke(client.Logging, new object[] { new Dictionary<string, object?>() }));
+
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public async Task HandleGroupChanged_FetchFailure_DoesNotThrow()
+    {
+        int callCount = 0;
+        var (client, _) = CreateClient(_ =>
+        {
+            callCount++;
+            // StartAsync calls list_loggers + list_log_groups (2 calls). Fail from the 3rd call onward.
+            if (callCount > 2) throw new HttpRequestException("network error");
+            return Task.FromResult(JsonResponse("""{"data":[]}"""));
+        });
+
+        await client.Logging.StartAsync();
+
+        var method = GetHandleGroupChanged();
+        var ex = Record.Exception(() =>
+            method.Invoke(client.Logging, new object[] { new Dictionary<string, object?> { ["id"] = "my-group" } }));
+
+        Assert.Null(ex);
+        await Task.Delay(200); // Allow Task.Run to settle — no unhandled exception
     }
 }

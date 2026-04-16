@@ -3,6 +3,7 @@ using Smplkit.Errors;
 using Smplkit.Internal;
 using Smplkit.Logging.Adapters;
 using GenLogging = Smplkit.Internal.Generated.Logging;
+using DebugLog = Smplkit.Internal.Debug;
 
 namespace Smplkit.Logging;
 
@@ -195,10 +196,13 @@ public sealed class LoggingClient
             AutoLoadAdapters();
 
         // 2. Discover existing loggers from each adapter
+        DebugLog.Log("websocket", "logging runtime initializing");
         var discovered = DiscoverAll();
+        DebugLog.Log("discovery", $"discovered {discovered.Count} loggers from adapters");
 
         // 3. Install hooks on each adapter
         InstallAllHooks();
+        DebugLog.Log("registration", $"installed hooks on {_adapters.Count} adapters");
 
         // 4. Bulk-register discovered loggers with the server
         if (discovered.Count > 0)
@@ -222,9 +226,14 @@ public sealed class LoggingClient
         ApplyLevels(loggers);
 
         // 7. Wire WebSocket
+        DebugLog.Log("registration", "registering logger_changed, logger_deleted, group_changed, group_deleted handlers");
         _wsManager = _ensureWs();
         _wsManager.On("logger_changed", HandleLoggerChanged);
+        _wsManager.On("logger_deleted", HandleLoggerChanged);
+        _wsManager.On("group_changed", HandleGroupChanged);
+        _wsManager.On("group_deleted", HandleGroupChanged);
         _started = true;
+        DebugLog.Log("websocket", "logging runtime connected");
     }
 
     // ------------------------------------------------------------------
@@ -279,9 +288,13 @@ public sealed class LoggingClient
         if (_wsManager is not null)
         {
             _wsManager.Off("logger_changed", HandleLoggerChanged);
+            _wsManager.Off("logger_deleted", HandleLoggerChanged);
+            _wsManager.Off("group_changed", HandleGroupChanged);
+            _wsManager.Off("group_deleted", HandleGroupChanged);
             _wsManager = null;
         }
         _started = false;
+        DebugLog.Log("lifecycle", "LoggingClient closed");
     }
 
     // ------------------------------------------------------------------
@@ -418,8 +431,8 @@ public sealed class LoggingClient
 
     private void HandleLoggerChanged(Dictionary<string, object?> data)
     {
-        var loggerId = data.TryGetValue("id", out var k) ? k as string
-            : data.TryGetValue("key", out var k2) ? k2 as string : null;
+        var loggerId = data.TryGetValue("id", out var k) ? k as string : null;
+        DebugLog.Log("websocket", $"logger event received, id={loggerId ?? "<unknown>"}");
         if (loggerId is null) return;
 
         LogLevel? newLevel = null;
@@ -431,6 +444,23 @@ public sealed class LoggingClient
 
         var evt = new LoggerChangeEvent(loggerId, newLevel, "websocket");
         FireListeners(loggerId, evt);
+    }
+
+    private void HandleGroupChanged(Dictionary<string, object?> data)
+    {
+        var groupId = data.TryGetValue("id", out var k) ? k as string : null;
+        DebugLog.Log("websocket", $"group event received, id={groupId ?? "<unknown>"}");
+        // A group change may affect any logger in that group — re-fetch and re-apply.
+        if (!_started) return;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var loggers = await ListAsync().ConfigureAwait(false);
+                ApplyLevels(loggers);
+            }
+            catch { /* Ignore refresh errors */ }
+        });
     }
 
     private void FireListeners(string loggerId, LoggerChangeEvent evt)

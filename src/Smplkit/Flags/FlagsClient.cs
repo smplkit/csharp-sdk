@@ -314,13 +314,16 @@ public sealed class FlagsClient
                 });
             }
 
+            Debug.Log("websocket", "flags runtime initializing");
             FetchAllFlagsAsync().GetAwaiter().GetResult();
             _connected = true;
             _cache.Clear();
 
+            Debug.Log("registration", "registering flag_changed and flag_deleted handlers");
             _wsManager = _ensureWs();
             _wsManager.On("flag_changed", HandleFlagChanged);
             _wsManager.On("flag_deleted", HandleFlagDeleted);
+            Debug.Log("websocket", "flags runtime connected");
         }
     }
 
@@ -492,8 +495,8 @@ public sealed class FlagsClient
 
     private void HandleFlagChanged(Dictionary<string, object?> data)
     {
-        var flagId = data.TryGetValue("id", out var k) ? k as string
-            : data.TryGetValue("key", out var k2) ? k2 as string : null;
+        var flagId = data.TryGetValue("id", out var k) ? k as string : null;
+        Debug.Log("websocket", $"flag event received, id={flagId ?? "<unknown>"}");
         try
         {
             var response = _genFlagsClient.List_flagsAsync().GetAwaiter().GetResult();

@@ -200,6 +200,26 @@ using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 var configs = await client.Config.Management.ListAsync(cts.Token);
 ```
 
+## Debug Logging
+
+Set the `SMPLKIT_DEBUG` environment variable to enable verbose diagnostic output to stderr:
+
+```bash
+export SMPLKIT_DEBUG=1
+```
+
+Accepted truthy values: `1`, `true`, `yes` (case-insensitive). All other values (including unset) disable output.
+
+Each line follows the format:
+
+```
+[smplkit:{subsystem}] {ISO-8601 timestamp} {message}
+```
+
+Subsystems: `lifecycle`, `websocket`, `api`, `discovery`, `resolution`, `adapter`, `registration`.
+
+Output writes directly to `Console.Error` to avoid interference with the managed logging infrastructure.
+
 ## Documentation
 
 - [Getting Started](https://docs.smplkit.com/getting-started)
