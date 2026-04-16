@@ -77,18 +77,19 @@ public static class LoggingManagementShowcase
         Section("2. Create a Logger");
 
         var logger = client.Logging.Management.New("showcase-logger", name: "Showcase Logger", managed: true);
-        Step($"New logger created locally: id={logger.Id}, name={logger.Name}");
+        logger.SetLevel(LogLevel.Info);
+        Step($"New logger created locally: id={logger.Id}, name={logger.Name}, level={logger.Level}");
 
         await logger.SaveAsync();
-        Step($"Logger saved: id={logger.Id}, id={logger.Id}");
+        Step($"Logger saved: id={logger.Id}, level={logger.Level}");
 
         // ==============================================================
-        // 3. SET LOG LEVEL ON THE LOGGER
+        // 3. CHANGE LOG LEVEL ON THE LOGGER
         // ==============================================================
-        Section("3. Set Log Level");
+        Section("3. Change Log Level");
 
-        logger.SetLevel(LogLevel.Info);
-        Step($"Level set locally: {logger.Level}");
+        logger.SetLevel(LogLevel.Warn);
+        Step($"Level updated locally: {logger.Level}");
 
         await logger.SaveAsync();
         Step($"Logger saved with level: {logger.Level}");
