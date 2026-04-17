@@ -34,22 +34,31 @@ namespace Smplkit.Internal.Generated.Flags
         /// <summary>
         /// Create Flag
         /// </summary>
+        /// <remarks>
+        /// Create a new feature flag. The caller provides the id (key) in the request body.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<FlagResponse> Create_flagAsync(Response_Flag_ body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<FlagResponse> Create_flagAsync(FlagResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
         /// List Flags
         /// </summary>
+        /// <remarks>
+        /// List all feature flags for the authenticated account.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<FlagListResponse> List_flagsAsync(string? filtertype = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<FlagListResponse> List_flagsAsync(string? filtertype = null, bool? filtermanaged = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
         /// Get Flag
         /// </summary>
+        /// <remarks>
+        /// Return a feature flag by its key.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<FlagResponse> Get_flagAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -58,17 +67,56 @@ namespace Smplkit.Internal.Generated.Flags
         /// <summary>
         /// Update Flag
         /// </summary>
+        /// <remarks>
+        /// Replace a feature flag entirely.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<FlagResponse> Update_flagAsync(string id, Response_Flag_ body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<FlagResponse> Update_flagAsync(string id, FlagResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
         /// Delete Flag
         /// </summary>
+        /// <remarks>
+        /// Delete a feature flag by its key.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task Delete_flagAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Bulk Register Flags
+        /// </summary>
+        /// <remarks>
+        /// Register flags discovered by an SDK. Creates new flags or updates source observations on existing ones.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<FlagBulkResponse> Bulk_register_flagsAsync(FlagBulkRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// List Flag Sources
+        /// </summary>
+        /// <remarks>
+        /// List all sources (service/environment observations) for a specific flag.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<FlagSourceListResponse> List_flag_sourcesAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// List All Flag Sources
+        /// </summary>
+        /// <remarks>
+        /// List all flag sources across all flags. Optionally filter by environment or service.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<FlagSourceListResponse> List_all_flag_sourcesAsync(string? filterenvironment = null, string? filterservice = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -79,7 +127,7 @@ namespace Smplkit.Internal.Generated.Flags
         /// </remarks>
         /// <returns>Current usage for the authenticated account</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<object> List_flags_usageAsync(string? filterperiod = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<UsageListResponse> List_flags_usageAsync(string? filterperiod = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
     }
 
@@ -135,9 +183,12 @@ namespace Smplkit.Internal.Generated.Flags
         /// <summary>
         /// Create Flag
         /// </summary>
+        /// <remarks>
+        /// Create a new feature flag. The caller provides the id (key) in the request body.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<FlagResponse> Create_flagAsync(Response_Flag_ body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<FlagResponse> Create_flagAsync(FlagResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (body == null)
                 throw new System.ArgumentNullException("body");
@@ -150,7 +201,7 @@ namespace Smplkit.Internal.Generated.Flags
                 {
                     var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
                     var content_ = new System.Net.Http.ByteArrayContent(json_);
-                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/vnd.api+json");
                     request_.Content = content_;
                     request_.Method = new System.Net.Http.HttpMethod("POST");
                     request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
@@ -193,16 +244,6 @@ namespace Smplkit.Internal.Generated.Flags
                             return objectResponse_.Object;
                         }
                         else
-                        if (status_ == 422)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<HTTPValidationError>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<HTTPValidationError>("Validation Error", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
                         {
                             var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
                             throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
@@ -226,9 +267,12 @@ namespace Smplkit.Internal.Generated.Flags
         /// <summary>
         /// List Flags
         /// </summary>
+        /// <remarks>
+        /// List all feature flags for the authenticated account.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<FlagListResponse> List_flagsAsync(string? filtertype = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<FlagListResponse> List_flagsAsync(string? filtertype = null, bool? filtermanaged = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -247,6 +291,10 @@ namespace Smplkit.Internal.Generated.Flags
                     if (filtertype != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[type]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtertype, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filtermanaged != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[managed]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtermanaged, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -283,16 +331,6 @@ namespace Smplkit.Internal.Generated.Flags
                             return objectResponse_.Object;
                         }
                         else
-                        if (status_ == 422)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<HTTPValidationError>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<HTTPValidationError>("Validation Error", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
                         {
                             var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
                             throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
@@ -316,6 +354,9 @@ namespace Smplkit.Internal.Generated.Flags
         /// <summary>
         /// Get Flag
         /// </summary>
+        /// <remarks>
+        /// Return a feature flag by its key.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<FlagResponse> Get_flagAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -371,16 +412,6 @@ namespace Smplkit.Internal.Generated.Flags
                             return objectResponse_.Object;
                         }
                         else
-                        if (status_ == 422)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<HTTPValidationError>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<HTTPValidationError>("Validation Error", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
                         {
                             var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
                             throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
@@ -404,9 +435,12 @@ namespace Smplkit.Internal.Generated.Flags
         /// <summary>
         /// Update Flag
         /// </summary>
+        /// <remarks>
+        /// Replace a feature flag entirely.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<FlagResponse> Update_flagAsync(string id, Response_Flag_ body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<FlagResponse> Update_flagAsync(string id, FlagResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -422,7 +456,7 @@ namespace Smplkit.Internal.Generated.Flags
                 {
                     var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
                     var content_ = new System.Net.Http.ByteArrayContent(json_);
-                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/vnd.api+json");
                     request_.Content = content_;
                     request_.Method = new System.Net.Http.HttpMethod("PUT");
                     request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
@@ -466,16 +500,6 @@ namespace Smplkit.Internal.Generated.Flags
                             return objectResponse_.Object;
                         }
                         else
-                        if (status_ == 422)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<HTTPValidationError>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<HTTPValidationError>("Validation Error", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
                         {
                             var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
                             throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
@@ -499,6 +523,9 @@ namespace Smplkit.Internal.Generated.Flags
         /// <summary>
         /// Delete Flag
         /// </summary>
+        /// <remarks>
+        /// Delete a feature flag by its key.
+        /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task Delete_flagAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -548,14 +575,257 @@ namespace Smplkit.Internal.Generated.Flags
                             return;
                         }
                         else
-                        if (status_ == 422)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<HTTPValidationError>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Bulk Register Flags
+        /// </summary>
+        /// <remarks>
+        /// Register flags discovered by an SDK. Creates new flags or updates source observations on existing ones.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<FlagBulkResponse> Bulk_register_flagsAsync(FlagBulkRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        {
+            if (body == null)
+                throw new System.ArgumentNullException("body");
+
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/vnd.api+json");
+                    request_.Content = content_;
+                    request_.Method = new System.Net.Http.HttpMethod("POST");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
+                    // Operation Path: "api/v1/flags/bulk"
+                    urlBuilder_.Append("api/v1/flags/bulk");
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<FlagBulkResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new ApiException<HTTPValidationError>("Validation Error", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            return objectResponse_.Object;
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// List Flag Sources
+        /// </summary>
+        /// <remarks>
+        /// List all sources (service/environment observations) for a specific flag.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<FlagSourceListResponse> List_flag_sourcesAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        {
+            if (id == null)
+                throw new System.ArgumentNullException("id");
+
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    request_.Method = new System.Net.Http.HttpMethod("GET");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
+                    // Operation Path: "api/v1/flags/{id}/sources"
+                    urlBuilder_.Append("api/v1/flags/");
+                    urlBuilder_.Append(System.Uri.EscapeDataString(ConvertToString(id, System.Globalization.CultureInfo.InvariantCulture)));
+                    urlBuilder_.Append("/sources");
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<FlagSourceListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// List All Flag Sources
+        /// </summary>
+        /// <remarks>
+        /// List all flag sources across all flags. Optionally filter by environment or service.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<FlagSourceListResponse> List_all_flag_sourcesAsync(string? filterenvironment = null, string? filterservice = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        {
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    request_.Method = new System.Net.Http.HttpMethod("GET");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
+                    // Operation Path: "api/v1/flag_sources"
+                    urlBuilder_.Append("api/v1/flag_sources");
+                    urlBuilder_.Append('?');
+                    if (filterenvironment != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[environment]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterenvironment, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filterservice != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[service]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterservice, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    urlBuilder_.Length--;
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<FlagSourceListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
                         }
                         else
                         {
@@ -586,7 +856,7 @@ namespace Smplkit.Internal.Generated.Flags
         /// </remarks>
         /// <returns>Current usage for the authenticated account</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<object> List_flags_usageAsync(string? filterperiod = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<UsageListResponse> List_flags_usageAsync(string? filterperiod = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -633,7 +903,7 @@ namespace Smplkit.Internal.Generated.Flags
                         var status_ = (int)response_.StatusCode;
                         if (status_ == 200)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<object>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<UsageListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
@@ -645,16 +915,6 @@ namespace Smplkit.Internal.Generated.Flags
                         {
                             string responseText_ = ( response_.Content == null ) ? string.Empty : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
                             throw new ApiException("Missing or invalid filter[period] parameter", status_, responseText_, headers_, null);
-                        }
-                        else
-                        if (status_ == 422)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<HTTPValidationError>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<HTTPValidationError>("Validation Error", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         {
@@ -816,7 +1076,7 @@ namespace Smplkit.Internal.Generated.Flags
         public string Name { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("description")]
-        public string Description { get; set; } = "";
+        public string? Description { get; set; } = default!;
 
         /// <summary>
         /// Value type: STRING, BOOLEAN, NUMERIC, or JSON
@@ -839,11 +1099,101 @@ namespace Smplkit.Internal.Generated.Flags
         [System.Text.Json.Serialization.JsonPropertyName("environments")]
         public System.Collections.Generic.IDictionary<string, FlagEnvironment> Environments { get; set; } = default!;
 
+        /// <summary>
+        /// True if admin-managed, false if auto-discovered
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("managed")]
+        public bool? Managed { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("sources")]
+        public System.Collections.Generic.List<object>? Sources { get; set; } = default!;
+
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
         public System.DateTimeOffset? Created_at { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("updated_at")]
         public System.DateTimeOffset? Updated_at { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class FlagBulkItem
+    {
+
+        /// <summary>
+        /// Flag key as declared in code
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string Id { get; set; } = default!;
+
+        /// <summary>
+        /// Flag type: BOOLEAN, STRING, NUMERIC, or JSON
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        public string Type { get; set; } = default!;
+
+        /// <summary>
+        /// Default value declared in code
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("default")]
+        public object Default { get; set; } = default!;
+
+        /// <summary>
+        /// Service that declared this flag
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("service")]
+        public string? Service { get; set; } = default!;
+
+        /// <summary>
+        /// Environment where observed
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("environment")]
+        public string? Environment { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class FlagBulkRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("flags")]
+        public System.Collections.Generic.List<FlagBulkItem> Flags { get; set; } = new System.Collections.Generic.List<FlagBulkItem>();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class FlagBulkResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("registered")]
+        public int Registered { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -965,6 +1315,84 @@ namespace Smplkit.Internal.Generated.Flags
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class FlagSource
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("service")]
+        public string Service { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("environment")]
+        public string Environment { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("first_observed")]
+        public System.DateTimeOffset? First_observed { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("last_seen")]
+        public System.DateTimeOffset? Last_seen { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public object? Data { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("created_at")]
+        public System.DateTimeOffset? Created_at { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("updated_at")]
+        public System.DateTimeOffset? Updated_at { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class FlagSourceListResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public System.Collections.Generic.List<FlagSourceResource> Data { get; set; } = new System.Collections.Generic.List<FlagSourceResource>();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class FlagSourceResource
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string? Id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        public string Type { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
+        public FlagSource Attributes { get; set; } = new FlagSource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class FlagValue
     {
 
@@ -986,11 +1414,17 @@ namespace Smplkit.Internal.Generated.Flags
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class HTTPValidationError
+    public partial class UsageAttributes
     {
 
-        [System.Text.Json.Serialization.JsonPropertyName("detail")]
-        public System.Collections.Generic.List<ValidationError> Detail { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("limit_key")]
+        public string Limit_key { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("period")]
+        public string Period { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("value")]
+        public int Value { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -1004,35 +1438,11 @@ namespace Smplkit.Internal.Generated.Flags
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class Resource_Flag_
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("id")]
-        public string? Id { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("type")]
-        public string Type { get; set; } = "";
-
-        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
-        public Flag Attributes { get; set; } = new Flag();
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class Response_Flag_
+    public partial class UsageListResponse
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("data")]
-        public Resource_Flag_ Data { get; set; } = new Resource_Flag_();
+        public System.Collections.Generic.List<UsageResource> Data { get; set; } = new System.Collections.Generic.List<UsageResource>();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -1046,32 +1456,17 @@ namespace Smplkit.Internal.Generated.Flags
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class ValidationError
+    public partial class UsageResource
     {
 
-        [System.Text.Json.Serialization.JsonPropertyName("loc")]
-        public System.Collections.Generic.List<Loc> Loc { get; set; } = new System.Collections.Generic.List<Loc>();
-
-        [System.Text.Json.Serialization.JsonPropertyName("msg")]
-        public string Msg { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string Id { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("type")]
         public string Type { get; set; } = default!;
 
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class Loc
-    {
+        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
+        public UsageAttributes Attributes { get; set; } = new UsageAttributes();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
