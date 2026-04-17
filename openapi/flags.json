@@ -11,6 +11,7 @@
           "Flags"
         ],
         "summary": "Create Flag",
+        "description": "Create a new feature flag. The caller provides the id (key) in the request body.",
         "operationId": "create_flag",
         "security": [
           {
@@ -20,9 +21,9 @@
         "requestBody": {
           "required": true,
           "content": {
-            "application/json": {
+            "application/vnd.api+json": {
               "schema": {
-                "$ref": "#/components/schemas/Response_Flag_"
+                "$ref": "#/components/schemas/FlagResponse"
               }
             }
           }
@@ -37,16 +38,6 @@
                 }
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/vnd.api+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
         }
       },
@@ -55,6 +46,7 @@
           "Flags"
         ],
         "summary": "List Flags",
+        "description": "List all feature flags for the authenticated account.",
         "operationId": "list_flags",
         "security": [
           {
@@ -77,6 +69,22 @@
               ],
               "title": "Filter[Type]"
             }
+          },
+          {
+            "name": "filter[managed]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Filter[Managed]"
+            }
           }
         ],
         "responses": {
@@ -86,16 +94,6 @@
               "application/vnd.api+json": {
                 "schema": {
                   "$ref": "#/components/schemas/FlagListResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/vnd.api+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -109,6 +107,7 @@
           "Flags"
         ],
         "summary": "Get Flag",
+        "description": "Return a feature flag by its key.",
         "operationId": "get_flag",
         "security": [
           {
@@ -136,16 +135,6 @@
                 }
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/vnd.api+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
         }
       },
@@ -154,6 +143,7 @@
           "Flags"
         ],
         "summary": "Update Flag",
+        "description": "Replace a feature flag entirely.",
         "operationId": "update_flag",
         "security": [
           {
@@ -174,9 +164,9 @@
         "requestBody": {
           "required": true,
           "content": {
-            "application/json": {
+            "application/vnd.api+json": {
               "schema": {
-                "$ref": "#/components/schemas/Response_Flag_"
+                "$ref": "#/components/schemas/FlagResponse"
               }
             }
           }
@@ -191,16 +181,6 @@
                 }
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/vnd.api+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
         }
       },
@@ -209,6 +189,7 @@
           "Flags"
         ],
         "summary": "Delete Flag",
+        "description": "Delete a feature flag by its key.",
         "operationId": "delete_flag",
         "security": [
           {
@@ -229,13 +210,139 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/v1/flags/bulk": {
+      "post": {
+        "tags": [
+          "Flags"
+        ],
+        "summary": "Bulk Register Flags",
+        "description": "Register flags discovered by an SDK. Creates new flags or updates source observations on existing ones.",
+        "operationId": "bulk_register_flags",
+        "requestBody": {
+          "content": {
+            "application/vnd.api+json": {
+              "schema": {
+                "$ref": "#/components/schemas/FlagBulkRequest"
+              }
+            }
           },
-          "422": {
-            "description": "Validation Error",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
             "content": {
               "application/vnd.api+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/FlagBulkResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/flags/{id}/sources": {
+      "get": {
+        "tags": [
+          "Flag Sources"
+        ],
+        "summary": "List Flag Sources",
+        "description": "List all sources (service/environment observations) for a specific flag.",
+        "operationId": "list_flag_sources",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/vnd.api+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlagSourceListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/flag_sources": {
+      "get": {
+        "tags": [
+          "Flag Sources"
+        ],
+        "summary": "List All Flag Sources",
+        "description": "List all flag sources across all flags. Optionally filter by environment or service.",
+        "operationId": "list_all_flag_sources",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "filter[environment]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Filter[Environment]"
+            }
+          },
+          {
+            "name": "filter[service]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Filter[Service]"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/vnd.api+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlagSourceListResponse"
                 }
               }
             }
@@ -279,22 +386,14 @@
             "description": "Current usage for the authenticated account",
             "content": {
               "application/vnd.api+json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/UsageListResponse"
+                }
               }
             }
           },
           "400": {
             "description": "Missing or invalid filter[period] parameter"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/vnd.api+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
         }
       }
@@ -310,9 +409,15 @@
             "description": "Human-readable display name"
           },
           "description": {
-            "type": "string",
-            "title": "Description",
-            "default": ""
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
           },
           "type": {
             "type": "string",
@@ -345,6 +450,34 @@
             },
             "type": "object",
             "title": "Environments"
+          },
+          "managed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Managed",
+            "description": "True if admin-managed, false if auto-discovered"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sources",
+            "readOnly": true
           },
           "created_at": {
             "anyOf": [
@@ -406,6 +539,7 @@
               "rules": []
             }
           },
+          "managed": true,
           "name": "Dark Mode",
           "type": "BOOLEAN",
           "updated_at": "2026-03-27T10:00:00Z",
@@ -419,6 +553,112 @@
               "value": false
             }
           ]
+        }
+      },
+      "FlagBulkItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Flag key as declared in code"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type",
+            "description": "Flag type: BOOLEAN, STRING, NUMERIC, or JSON"
+          },
+          "default": {
+            "title": "Default",
+            "description": "Default value declared in code"
+          },
+          "service": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service",
+            "description": "Service that declared this flag"
+          },
+          "environment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment",
+            "description": "Environment where observed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "default"
+        ],
+        "title": "FlagBulkItem",
+        "example": {
+          "default": false,
+          "environment": "production",
+          "id": "dark-mode",
+          "service": "api-gateway",
+          "type": "BOOLEAN"
+        }
+      },
+      "FlagBulkRequest": {
+        "properties": {
+          "flags": {
+            "items": {
+              "$ref": "#/components/schemas/FlagBulkItem"
+            },
+            "type": "array",
+            "title": "Flags"
+          }
+        },
+        "type": "object",
+        "required": [
+          "flags"
+        ],
+        "title": "FlagBulkRequest",
+        "example": {
+          "flags": [
+            {
+              "default": false,
+              "environment": "production",
+              "id": "dark-mode",
+              "service": "api-gateway",
+              "type": "BOOLEAN"
+            },
+            {
+              "default": 3,
+              "environment": "production",
+              "id": "max-retries",
+              "service": "api-gateway",
+              "type": "NUMERIC"
+            }
+          ]
+        }
+      },
+      "FlagBulkResponse": {
+        "properties": {
+          "registered": {
+            "type": "integer",
+            "title": "Registered"
+          }
+        },
+        "type": "object",
+        "required": [
+          "registered"
+        ],
+        "title": "FlagBulkResponse",
+        "example": {
+          "registered": 5
         }
       },
       "FlagEnvironment": {
@@ -514,6 +754,7 @@
                 ]
               }
             },
+            "managed": true,
             "name": "Dark Mode",
             "type": "BOOLEAN",
             "updated_at": "2026-03-27T10:00:00Z",
@@ -528,7 +769,7 @@
               }
             ]
           },
-          "id": "dark_mode",
+          "id": "dark-mode",
           "type": "flag"
         }
       },
@@ -573,6 +814,160 @@
         ],
         "title": "FlagRule"
       },
+      "FlagSource": {
+        "properties": {
+          "service": {
+            "type": "string",
+            "title": "Service",
+            "readOnly": true
+          },
+          "environment": {
+            "type": "string",
+            "title": "Environment",
+            "readOnly": true
+          },
+          "first_observed": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Observed",
+            "readOnly": true
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen",
+            "readOnly": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data",
+            "readOnly": true
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At",
+            "readOnly": true
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At",
+            "readOnly": true
+          }
+        },
+        "type": "object",
+        "title": "FlagSource",
+        "example": {
+          "created_at": "2026-04-17T10:00:00Z",
+          "data": {
+            "default": true,
+            "type": "BOOLEAN"
+          },
+          "environment": "production",
+          "first_observed": "2026-04-17T10:00:00Z",
+          "last_seen": "2026-04-17T15:30:00Z",
+          "service": "api-gateway",
+          "updated_at": "2026-04-17T15:30:00Z"
+        }
+      },
+      "FlagSourceListResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/FlagSourceResource"
+            },
+            "type": "array",
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "FlagSourceListResponse"
+      },
+      "FlagSourceResource": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "type": {
+            "type": "string",
+            "const": "flag_source",
+            "title": "Type"
+          },
+          "attributes": {
+            "$ref": "#/components/schemas/FlagSource"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "attributes"
+        ],
+        "title": "FlagSourceResource",
+        "example": {
+          "attributes": {
+            "created_at": "2026-04-17T10:00:00Z",
+            "data": {
+              "default": true,
+              "type": "BOOLEAN"
+            },
+            "environment": "production",
+            "first_observed": "2026-04-17T10:00:00Z",
+            "last_seen": "2026-04-17T15:30:00Z",
+            "service": "api-gateway",
+            "updated_at": "2026-04-17T15:30:00Z"
+          },
+          "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+          "type": "flag_source"
+        }
+      },
       "FlagValue": {
         "properties": {
           "name": {
@@ -590,91 +985,89 @@
         ],
         "title": "FlagValue"
       },
-      "HTTPValidationError": {
+      "UsageAttributes": {
         "properties": {
-          "detail": {
-            "items": {
-              "$ref": "#/components/schemas/ValidationError"
-            },
-            "type": "array",
-            "title": "Detail"
-          }
-        },
-        "type": "object",
-        "title": "HTTPValidationError"
-      },
-      "Resource_Flag_": {
-        "properties": {
-          "id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Id"
-          },
-          "type": {
+          "limit_key": {
             "type": "string",
-            "title": "Type",
-            "default": ""
+            "title": "Limit Key"
           },
-          "attributes": {
-            "$ref": "#/components/schemas/Flag"
+          "period": {
+            "type": "string",
+            "title": "Period"
+          },
+          "value": {
+            "type": "integer",
+            "title": "Value"
           }
         },
         "type": "object",
         "required": [
-          "attributes"
+          "limit_key",
+          "period",
+          "value"
         ],
-        "title": "Resource[Flag]"
+        "title": "UsageAttributes"
       },
-      "Response_Flag_": {
+      "UsageListResponse": {
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/Resource_Flag_"
+            "items": {
+              "$ref": "#/components/schemas/UsageResource"
+            },
+            "type": "array",
+            "title": "Data"
           }
         },
         "type": "object",
         "required": [
           "data"
         ],
-        "title": "Response[Flag]"
+        "title": "UsageListResponse",
+        "example": {
+          "data": [
+            {
+              "attributes": {
+                "limit_key": "flags.items",
+                "period": "current",
+                "value": 5
+              },
+              "id": "550e8400-e29b-41d4-a716-446655440000",
+              "type": "usage"
+            }
+          ]
+        }
       },
-      "ValidationError": {
+      "UsageResource": {
         "properties": {
-          "loc": {
-            "items": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "integer"
-                }
-              ]
-            },
-            "type": "array",
-            "title": "Location"
-          },
-          "msg": {
+          "id": {
             "type": "string",
-            "title": "Message"
+            "title": "Id"
           },
           "type": {
             "type": "string",
-            "title": "Error Type"
+            "const": "usage",
+            "title": "Type"
+          },
+          "attributes": {
+            "$ref": "#/components/schemas/UsageAttributes"
           }
         },
         "type": "object",
         "required": [
-          "loc",
-          "msg",
-          "type"
+          "id",
+          "type",
+          "attributes"
         ],
-        "title": "ValidationError"
+        "title": "UsageResource",
+        "example": {
+          "attributes": {
+            "limit_key": "flags.items",
+            "period": "current",
+            "value": 5
+          },
+          "id": "550e8400-e29b-41d4-a716-446655440000",
+          "type": "usage"
+        }
       }
     },
     "securitySchemes": {
@@ -687,6 +1080,9 @@
   "tags": [
     {
       "name": "Flags"
+    },
+    {
+      "name": "Flag Sources"
     }
   ]
 }
