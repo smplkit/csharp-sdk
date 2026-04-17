@@ -821,7 +821,7 @@ public sealed class FlagsClient
     // Helpers: request body building
     // ------------------------------------------------------------------
 
-    private static GenFlags.Response_Flag_ BuildCreateFlagBody(
+    private static GenFlags.FlagResponse BuildCreateFlagBody(
         string? id, string name, string type, object? @default,
         string? description, List<Dictionary<string, object?>>? values)
     {
@@ -831,9 +831,9 @@ public sealed class FlagsClient
             Value = v.TryGetValue("value", out var val) ? val! : new object(),
         }).ToList();
 
-        return new GenFlags.Response_Flag_
+        return new GenFlags.FlagResponse
         {
-            Data = new GenFlags.Resource_Flag_
+            Data = new GenFlags.FlagResource
             {
                 Type = "flag",
                 Id = id,
@@ -850,7 +850,7 @@ public sealed class FlagsClient
         };
     }
 
-    private static GenFlags.Response_Flag_ BuildUpdateFlagBody(
+    private static GenFlags.FlagResponse BuildUpdateFlagBody(
         string? id, string name, string type, object? @default,
         List<Dictionary<string, object?>>? values, string? description,
         Dictionary<string, Dictionary<string, object?>> environments)
@@ -887,9 +887,9 @@ public sealed class FlagsClient
             flagEnvs[envName] = flagEnv;
         }
 
-        return new GenFlags.Response_Flag_
+        return new GenFlags.FlagResponse
         {
-            Data = new GenFlags.Resource_Flag_
+            Data = new GenFlags.FlagResource
             {
                 Type = "flag",
                 Id = id,
