@@ -16,6 +16,8 @@ internal static class Debug
     /// <summary>Output writer — field so tests can substitute it without Console.Error races.</summary>
     internal static System.IO.TextWriter Out = Console.Error;
 
+    private static readonly object _writeLock = new();
+
     internal static bool ParseDebugEnv(string? value)
     {
         if (value is null) return false;
@@ -33,6 +35,9 @@ internal static class Debug
     {
         if (!Enabled) return;
         var ts = DateTime.UtcNow.ToString("O");
-        Out.WriteLine($"[smplkit:{subsystem}] {ts} {message}");
+        lock (_writeLock)
+        {
+            Out.WriteLine($"[smplkit:{subsystem}] {ts} {message}");
+        }
     }
 }
