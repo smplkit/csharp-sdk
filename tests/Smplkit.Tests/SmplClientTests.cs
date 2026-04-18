@@ -81,12 +81,12 @@ public class SmplClientTests : IDisposable
     }
 
     [Fact]
-    public void Constructor_MissingEnvironment_ErrorDoesNotMentionSmplkitFile()
+    public void Constructor_MissingEnvironment_ErrorMentionsSmplkitFile()
     {
         Environment.SetEnvironmentVariable("SMPLKIT_ENVIRONMENT", null);
         var ex = Assert.Throws<SmplException>(() =>
             new SmplClient(new SmplClientOptions { ApiKey = "sk_api_test", Service = "test-service" }));
-        Assert.DoesNotContain("~/.smplkit", ex.Message);
+        Assert.Contains("~/.smplkit", ex.Message);
     }
 
     [Fact]

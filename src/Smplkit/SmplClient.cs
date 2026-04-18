@@ -98,57 +98,45 @@ public sealed class SmplClient : IDisposable
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(httpClient);
 
-        // 1. Resolve environment: option -> env var -> throw
-        var resolvedEnvironment = options.Environment
-            ?? System.Environment.GetEnvironmentVariable("SMPLKIT_ENVIRONMENT");
-        if (string.IsNullOrEmpty(resolvedEnvironment))
-            throw new SmplException(
-                "No environment provided. Set one of:\n" +
-                "  1. Pass Environment in SmplClientOptions\n" +
-                "  2. Set the SMPLKIT_ENVIRONMENT environment variable");
-
-        // 2. Resolve service: option -> env var -> throw
-        var resolvedService = options.Service
-            ?? System.Environment.GetEnvironmentVariable("SMPLKIT_SERVICE");
-        if (string.IsNullOrEmpty(resolvedService))
-            throw new SmplException(
-                "No service provided. Set one of:\n" +
-                "  1. Pass Service in SmplClientOptions\n" +
-                "  2. Set the SMPLKIT_SERVICE environment variable");
-
-        // 3. Resolve API key: option -> env var -> ~/.smplkit file -> throw
-        var resolvedApiKey = ApiKeyResolver.Resolve(options.ApiKey, resolvedEnvironment);
+        // 4-step resolution: defaults -> file -> env vars -> constructor args
+        var config = ConfigResolver.Resolve(options);
 
         _httpClient = httpClient;
         _ownsHttpClient = ownsHttpClient;
-        _apiKey = resolvedApiKey;
-        _appBaseUrl = $"{options.Scheme}://app.{options.BaseDomain}";
-        Environment = resolvedEnvironment;
-        Service = resolvedService;
+        _apiKey = config.ApiKey;
+        _appBaseUrl = ConfigResolver.ServiceUrl(config.Scheme, "app", config.BaseDomain);
+        Environment = config.Environment;
+        Service = config.Service;
 
-        // Create options with resolved API key and build generated clients.
+        // Apply resolved debug setting (only enable, never disable — multiple
+        // SmplClient instances or tests may coexist and we must not clobber
+        // an earlier explicit enable).
+        if (config.Debug)
+            DebugLog.Enabled = true;
+
+        // Create options with resolved values and build generated clients.
         var resolvedOptions = new SmplClientOptions
         {
-            ApiKey = resolvedApiKey,
+            ApiKey = config.ApiKey,
             Timeout = options.Timeout,
-            BaseDomain = options.BaseDomain,
-            Scheme = options.Scheme,
+            BaseDomain = config.BaseDomain,
+            Scheme = config.Scheme,
         };
         _clients = new GeneratedClientFactory(_httpClient, resolvedOptions);
 
         // Telemetry reporter (null when disabled)
-        _metrics = options.DisableTelemetry
+        _metrics = config.DisableTelemetry
             ? null
-            : new MetricsReporter(_httpClient, resolvedEnvironment, resolvedService, appBaseUrl: _appBaseUrl);
+            : new MetricsReporter(_httpClient, config.Environment, config.Service, appBaseUrl: _appBaseUrl);
 
         Config = new ConfigClient(_clients, EnsureSharedWebSocket, this, _metrics);
         Flags = new FlagsClient(_clients, _apiKey, EnsureSharedWebSocket, this, _metrics);
         Logging = new LoggingClient(_clients, _apiKey, EnsureSharedWebSocket, this, _metrics);
 
-        var maskedKey = resolvedApiKey.Length > 10
-            ? resolvedApiKey[..10] + "..."
-            : resolvedApiKey + "...";
-        DebugLog.Log("lifecycle", $"SmplClient created (api_key={maskedKey}, environment={resolvedEnvironment}, service={resolvedService})");
+        var maskedKey = config.ApiKey.Length > 10
+            ? config.ApiKey[..10] + "..."
+            : config.ApiKey + "...";
+        DebugLog.Log("lifecycle", $"SmplClient created (api_key={maskedKey}, environment={config.Environment}, service={config.Service})");
     }
 
     /// <summary>

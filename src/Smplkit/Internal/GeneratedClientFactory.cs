@@ -43,8 +43,8 @@ internal sealed class GeneratedClientFactory
 
         Auth.ApplyBearerToken(httpClient, options.ApiKey!);
 
-        var scheme = options.Scheme;
-        var domain = options.BaseDomain;
+        var scheme = options.Scheme ?? "https";
+        var domain = options.BaseDomain ?? "smplkit.com";
         Config = new GenConfig.ConfigClient($"{scheme}://config.{domain}", httpClient) { ReadResponseAsString = true };
         Flags = new GenFlags.FlagsClient($"{scheme}://flags.{domain}", httpClient) { ReadResponseAsString = true };
         App = new GenApp.AppClient($"{scheme}://app.{domain}", httpClient) { ReadResponseAsString = true };

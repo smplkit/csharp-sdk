@@ -21,38 +21,56 @@ public sealed class SmplClientOptions
     /// <summary>
     /// Gets the environment key (e.g. "production", "staging").
     /// When <c>null</c>, the SDK falls back to the <c>SMPLKIT_ENVIRONMENT</c>
-    /// environment variable. If neither is set, the <see cref="SmplClient"/>
-    /// constructor throws.
+    /// environment variable or the <c>~/.smplkit</c> configuration file.
+    /// If none is set, the <see cref="SmplClient"/> constructor throws.
     /// </summary>
     public string? Environment { get; init; }
 
     /// <summary>
     /// Gets the service identifier for automatic context injection.
     /// When <c>null</c>, the SDK falls back to the <c>SMPLKIT_SERVICE</c>
-    /// environment variable. If neither is set, the <see cref="SmplClient"/>
-    /// constructor throws.
+    /// environment variable or the <c>~/.smplkit</c> configuration file.
+    /// If none is set, the <see cref="SmplClient"/> constructor throws.
     /// </summary>
     public string? Service { get; init; }
 
     /// <summary>
     /// Gets a value indicating whether SDK telemetry reporting is disabled.
-    /// Defaults to <c>false</c>. When set to <c>true</c>, no usage metrics
-    /// are collected or transmitted.
+    /// When <c>null</c>, the SDK resolves this from the <c>SMPLKIT_DISABLE_TELEMETRY</c>
+    /// environment variable or the <c>~/.smplkit</c> configuration file.
+    /// Defaults to <c>false</c> if unset everywhere.
     /// </summary>
-    public bool DisableTelemetry { get; init; }
+    public bool? DisableTelemetry { get; init; }
+
+    /// <summary>
+    /// Gets the configuration profile name to read from <c>~/.smplkit</c>.
+    /// When <c>null</c>, the SDK falls back to the <c>SMPLKIT_PROFILE</c>
+    /// environment variable, then <c>"default"</c>.
+    /// </summary>
+    public string? Profile { get; init; }
 
     /// <summary>
     /// Gets the base domain used to construct service URLs.
-    /// Defaults to <c>"smplkit.com"</c>, which produces URLs such as
+    /// When <c>null</c>, the SDK resolves this from the <c>SMPLKIT_BASE_DOMAIN</c>
+    /// environment variable or the <c>~/.smplkit</c> configuration file.
+    /// Defaults to <c>"smplkit.com"</c> if unset everywhere, producing URLs such as
     /// <c>https://config.smplkit.com</c> and <c>https://flags.smplkit.com</c>.
-    /// Override this to target a self-hosted or alternate deployment.
     /// </summary>
-    public string BaseDomain { get; init; } = "smplkit.com";
+    public string? BaseDomain { get; init; }
 
     /// <summary>
     /// Gets the URL scheme used when constructing service URLs.
-    /// Defaults to <c>"https"</c>. Set to <c>"http"</c> for local development
-    /// or environments without TLS.
+    /// When <c>null</c>, the SDK resolves this from the <c>SMPLKIT_SCHEME</c>
+    /// environment variable or the <c>~/.smplkit</c> configuration file.
+    /// Defaults to <c>"https"</c> if unset everywhere.
     /// </summary>
-    public string Scheme { get; init; } = "https";
+    public string? Scheme { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether debug logging is enabled.
+    /// When <c>null</c>, the SDK resolves this from the <c>SMPLKIT_DEBUG</c>
+    /// environment variable or the <c>~/.smplkit</c> configuration file.
+    /// Defaults to <c>false</c> if unset everywhere.
+    /// </summary>
+    public bool? Debug { get; init; }
 }

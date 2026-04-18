@@ -63,11 +63,11 @@ public class SmplClientOptionsTests
     }
 
     [Fact]
-    public void DisableTelemetry_DefaultIsFalse()
+    public void DisableTelemetry_DefaultIsNull()
     {
         var options = new SmplClientOptions { ApiKey = "sk_test", Environment = "test" };
 
-        Assert.False(options.DisableTelemetry);
+        Assert.Null(options.DisableTelemetry);
     }
 
     [Fact]
@@ -84,11 +84,11 @@ public class SmplClientOptionsTests
     }
 
     [Fact]
-    public void BaseDomain_DefaultIsSmplkitCom()
+    public void BaseDomain_DefaultIsNull()
     {
         var options = new SmplClientOptions { ApiKey = "sk_test", Environment = "test" };
 
-        Assert.Equal("smplkit.com", options.BaseDomain);
+        Assert.Null(options.BaseDomain);
     }
 
     [Fact]
@@ -105,11 +105,11 @@ public class SmplClientOptionsTests
     }
 
     [Fact]
-    public void Scheme_DefaultIsHttps()
+    public void Scheme_DefaultIsNull()
     {
         var options = new SmplClientOptions { ApiKey = "sk_test", Environment = "test" };
 
-        Assert.Equal("https", options.Scheme);
+        Assert.Null(options.Scheme);
     }
 
     [Fact]
@@ -123,5 +123,47 @@ public class SmplClientOptionsTests
         };
 
         Assert.Equal("http", options.Scheme);
+    }
+
+    [Fact]
+    public void Profile_DefaultIsNull()
+    {
+        var options = new SmplClientOptions { ApiKey = "sk_test", Environment = "test" };
+
+        Assert.Null(options.Profile);
+    }
+
+    [Fact]
+    public void Profile_CanBeSet()
+    {
+        var options = new SmplClientOptions
+        {
+            ApiKey = "sk_test",
+            Environment = "test",
+            Profile = "staging",
+        };
+
+        Assert.Equal("staging", options.Profile);
+    }
+
+    [Fact]
+    public void Debug_DefaultIsNull()
+    {
+        var options = new SmplClientOptions { ApiKey = "sk_test", Environment = "test" };
+
+        Assert.Null(options.Debug);
+    }
+
+    [Fact]
+    public void Debug_CanBeSetTrue()
+    {
+        var options = new SmplClientOptions
+        {
+            ApiKey = "sk_test",
+            Environment = "test",
+            Debug = true,
+        };
+
+        Assert.True(options.Debug);
     }
 }
