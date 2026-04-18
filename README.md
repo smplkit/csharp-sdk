@@ -138,28 +138,49 @@ await client.Flags.Management.DeleteAsync("checkout-v2");
 
 ## Configuration
 
-The API key is resolved using the following priority:
+All settings are resolved from three sources, in order of precedence:
 
-1. **Explicit argument:** Set `ApiKey` in `SmplClientOptions`.
-2. **Environment variable:** Set `SMPLKIT_API_KEY`.
-3. **Configuration file:** Add `api_key` under `[default]` in `~/.smplkit`:
+1. **Constructor options** — highest priority, always wins.
+2. **Environment variables** — e.g. `SMPLKIT_API_KEY`, `SMPLKIT_ENVIRONMENT`.
+3. **Configuration file** (`~/.smplkit`) — INI-format with profile support.
+4. **Defaults** — built-in SDK defaults.
+
+### Configuration File
+
+The `~/.smplkit` file supports a `[common]` section (applied to all profiles) and named profiles:
 
 ```ini
-# ~/.smplkit
+[common]
+environment = production
+service = my-app
 
 [default]
-api_key = sk_api_your_key_here
+api_key = sk_api_abc123
+
+[local]
+base_domain = localhost
+scheme = http
+api_key = sk_api_local_xyz
+environment = development
+debug = true
 ```
 
-If none of these are set, the SDK throws `SmplException` with a message listing all three methods.
+### Constructor Examples
 
 ```csharp
-var options = new SmplClientOptions
+// Use a named profile
+var client = new SmplClient(new SmplClientOptions { Profile = "local" });
+
+// Or configure explicitly
+var client = new SmplClient(new SmplClientOptions
 {
     ApiKey = "sk_api_...",
-    Timeout = TimeSpan.FromSeconds(30),  // default
-};
+    Environment = "production",
+    Service = "my-service",
+});
 ```
+
+For the complete configuration reference, see the [Configuration Guide](https://docs.smplkit.com/getting-started/configuration).
 
 ## Error Handling
 
