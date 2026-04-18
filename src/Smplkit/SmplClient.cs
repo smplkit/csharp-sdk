@@ -168,6 +168,7 @@ public sealed class SmplClient : IDisposable
     public void Dispose()
     {
         DebugLog.Log("lifecycle", "SmplClient.Dispose() called");
+        Flags.Close();
         Logging.Close();
 
         if (_sharedWs is not null)

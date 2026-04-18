@@ -45,6 +45,10 @@ public sealed class FlagsClient
 
     private readonly MetricsReporter? _metrics;
 
+    // Flag auto-registration
+    private readonly FlagRegistrationBuffer _flagBuffer = new();
+    private Timer? _flagFlushTimer;
+
     internal FlagsClient(GeneratedClientFactory clients, string apiKey, Func<SharedWebSocket> ensureWs, SmplClient? parent = null, MetricsReporter? metrics = null)
     {
         _genFlagsClient = clients.Flags;
@@ -195,6 +199,9 @@ public sealed class FlagsClient
             environments: new Dictionary<string, Dictionary<string, object?>>(),
             createdAt: null, updatedAt: null);
         _handles[id] = handle;
+        _flagBuffer.Add(id, "BOOLEAN", defaultValue, _parent?.Service, _parent?.Environment);
+        if (_flagBuffer.PendingCount >= 50)
+            Task.Run(() => FlushFlagsAsync());
         return handle;
     }
 
@@ -214,6 +221,9 @@ public sealed class FlagsClient
             environments: new Dictionary<string, Dictionary<string, object?>>(),
             createdAt: null, updatedAt: null);
         _handles[id] = handle;
+        _flagBuffer.Add(id, "STRING", defaultValue, _parent?.Service, _parent?.Environment);
+        if (_flagBuffer.PendingCount >= 50)
+            Task.Run(() => FlushFlagsAsync());
         return handle;
     }
 
@@ -233,6 +243,9 @@ public sealed class FlagsClient
             environments: new Dictionary<string, Dictionary<string, object?>>(),
             createdAt: null, updatedAt: null);
         _handles[id] = handle;
+        _flagBuffer.Add(id, "NUMERIC", defaultValue, _parent?.Service, _parent?.Environment);
+        if (_flagBuffer.PendingCount >= 50)
+            Task.Run(() => FlushFlagsAsync());
         return handle;
     }
 
@@ -252,6 +265,9 @@ public sealed class FlagsClient
             environments: new Dictionary<string, Dictionary<string, object?>>(),
             createdAt: null, updatedAt: null);
         _handles[id] = handle;
+        _flagBuffer.Add(id, "JSON", defaultValue, _parent?.Service, _parent?.Environment);
+        if (_flagBuffer.PendingCount >= 50)
+            Task.Run(() => FlushFlagsAsync());
         return handle;
     }
 
@@ -315,9 +331,12 @@ public sealed class FlagsClient
             }
 
             Debug.Log("websocket", "flags runtime initializing");
+            FlushFlagsAsync().GetAwaiter().GetResult();
             FetchAllFlagsAsync().GetAwaiter().GetResult();
             _connected = true;
             _cache.Clear();
+
+            _flagFlushTimer = new Timer(_ => FlushTimerCallback(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
 
             Debug.Log("registration", "registering flag_changed and flag_deleted handlers");
             _wsManager = _ensureWs();
@@ -427,6 +446,56 @@ public sealed class FlagsClient
                     new GenApp.ContextBulkRegister { Contexts = items }, ct)).ConfigureAwait(false);
         }
         catch { /* Context registration is fire-and-forget */ }
+    }
+
+    /// <summary>
+    /// Timer callback: flush the flag buffer. Exceptions are silently swallowed.
+    /// </summary>
+    internal void FlushTimerCallback()
+    {
+        try { FlushFlagsAsync().GetAwaiter().GetResult(); }
+        catch { /* fire-and-forget */ }
+    }
+
+    /// <summary>
+    /// Sends any pending flag registrations to the server.
+    /// Failures are silently ignored — registration is best-effort.
+    /// </summary>
+    /// <param name="ct">Cancellation token.</param>
+    internal async Task FlushFlagsAsync(CancellationToken ct = default)
+    {
+        var batch = _flagBuffer.Drain();
+        if (batch.Count == 0) return;
+        try
+        {
+            var items = batch.Select(e => new GenFlags.FlagBulkItem
+            {
+                Id = e.Id,
+                Type = e.Type,
+                Default = e.DefaultValue ?? new object(),
+                Service = e.Service,
+                Environment = e.Environment,
+            }).ToList();
+            var request = new GenFlags.FlagBulkRequest { Flags = items };
+            await ApiExceptionMapper.ExecuteAsync(
+                () => _genFlagsClient.Bulk_register_flagsAsync(request, ct)).ConfigureAwait(false);
+        }
+        catch { /* Failures are silently ignored */ }
+    }
+
+    /// <summary>
+    /// Stops the periodic flag flush timer and unregisters WebSocket event handlers.
+    /// </summary>
+    internal void Close()
+    {
+        _flagFlushTimer?.Dispose();
+        _flagFlushTimer = null;
+        if (_wsManager is not null)
+        {
+            _wsManager.Off("flag_changed", HandleFlagChanged);
+            _wsManager.Off("flag_deleted", HandleFlagDeleted);
+            _wsManager = null;
+        }
     }
 
     // ------------------------------------------------------------------
@@ -1032,4 +1101,43 @@ internal sealed class ContextRegistrationBuffer
     {
         get { lock (_lock) return _pending.Count; }
     }
+}
+
+// ------------------------------------------------------------------
+// Flag registration buffer
+// ------------------------------------------------------------------
+
+internal sealed class FlagRegistrationBuffer
+{
+    private readonly HashSet<string> _seen = new();
+    private readonly List<FlagRegistrationEntry> _pending = new();
+    private readonly object _lock = new();
+
+    internal void Add(string id, string type, object? defaultValue, string? service, string? environment)
+    {
+        lock (_lock)
+        {
+            if (_seen.Add(id))
+            {
+                _pending.Add(new FlagRegistrationEntry(id, type, defaultValue, service, environment));
+            }
+        }
+    }
+
+    internal List<FlagRegistrationEntry> Drain()
+    {
+        lock (_lock)
+        {
+            var batch = new List<FlagRegistrationEntry>(_pending);
+            _pending.Clear();
+            return batch;
+        }
+    }
+
+    internal int PendingCount
+    {
+        get { lock (_lock) { return _pending.Count; } }
+    }
+
+    internal record FlagRegistrationEntry(string Id, string Type, object? DefaultValue, string? Service, string? Environment);
 }

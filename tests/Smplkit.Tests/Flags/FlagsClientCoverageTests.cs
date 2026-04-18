@@ -487,8 +487,8 @@ public class FlagsClientCoverageTests
         var (client, _) = CreateClient(_ =>
         {
             callCount++;
-            // First call succeeds (EnsureInitialized), subsequent ones fail
-            if (callCount <= 1)
+            // First two calls succeed (EnsureInitialized: bulk POST + list GET), subsequent ones fail
+            if (callCount <= 2)
                 return Task.FromResult(JsonResponse(flagJson));
             throw new HttpRequestException("Network error");
         });
