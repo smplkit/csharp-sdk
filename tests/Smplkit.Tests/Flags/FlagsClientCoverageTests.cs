@@ -487,8 +487,10 @@ public class FlagsClientCoverageTests
         var (client, _) = CreateClient(_ =>
         {
             callCount++;
-            // First two calls succeed (EnsureInitialized: bulk POST + list GET), subsequent ones fail
-            if (callCount <= 2)
+            // Allow 3 calls to succeed: FlushFlagsAsync (bulk POST), FetchAllFlagsAsync (list GET),
+            // plus the fire-and-forget context registration (Bulk_register_contextsAsync).
+            // Subsequent calls (e.g. HandleFlagChanged re-fetch) fail and should be swallowed.
+            if (callCount <= 3)
                 return Task.FromResult(JsonResponse(flagJson));
             throw new HttpRequestException("Network error");
         });
@@ -1944,5 +1946,31 @@ public class FlagsClientCoverageTests
         Assert.NotNull(capturedBody);
         Assert.Contains("\"values\":null", capturedBody.Replace(" ", ""));
         Assert.Null(flag.Values);
+    }
+
+    // ---------------------------------------------------------------
+    // Context registration fire-and-forget catch coverage
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task EnsureInitialized_ContextRegistration_ErrorIsSilentlySwallowed()
+    {
+        // When context registration (app.smplkit.com) fails, the fire-and-forget catch
+        // swallows the exception — initialization should still succeed.
+        var flagJson = FlagListWithEnvJson(id: "ctx-err-flag", defaultVal: "false");
+        var (client, _) = CreateClient(req =>
+        {
+            if (req.RequestUri!.Host.Contains("app.smplkit.com"))
+                throw new HttpRequestException("context reg error");
+            return Task.FromResult(JsonResponse(flagJson));
+        });
+
+        var handle = client.Flags.BooleanFlag("ctx-err-flag", false);
+        // Should not throw even though context registration fails
+        var ex = Record.Exception(() => handle.Get());
+        Assert.Null(ex);
+
+        // Allow the fire-and-forget Task.Run to settle
+        await Task.Delay(200);
     }
 }

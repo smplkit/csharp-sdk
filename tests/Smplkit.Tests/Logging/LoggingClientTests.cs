@@ -1843,20 +1843,22 @@ public class LoggingClientTests
     }
 
     [Fact]
-    public void OnFlushTimer_FlushThrows_DoesNotPropagate()
+    public void OnFlushTimer_ServerError_DoesNotPropagate()
     {
-        // Make the bulk endpoint throw to exercise the catch branch in OnFlushTimer
+        // FlushLoggerBufferAsync swallows exceptions internally, so OnFlushTimer never sees them.
         var (client, _) = CreateClient(_ =>
-        {
-            throw new HttpRequestException("simulated network error");
-        });
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError)
+            {
+                Content = new StringContent("""{"errors":[{"detail":"oops"}]}""",
+                    Encoding.UTF8, "application/vnd.api+json"),
+            }));
 
         var bufferField = typeof(LoggingClient).GetField("_loggerBuffer",
             BindingFlags.NonPublic | BindingFlags.Instance)!;
         var buffer = bufferField.GetValue(client.Logging)!;
         BufferAdd(buffer, "exception.logger", null, "ERROR");
 
-        // OnFlushTimer swallows all exceptions — should not throw
+        // FlushLoggerBufferAsync catches all exceptions — OnFlushTimer should not throw
         var ex = Record.Exception(() => client.Logging.OnFlushTimer());
         Assert.Null(ex);
     }
