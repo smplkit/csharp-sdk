@@ -453,6 +453,28 @@ public class MetricsReporterTests
     }
 
     // ------------------------------------------------------------------
+    // Custom appBaseUrl
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Flush_PostsToCustomAppBaseUrl()
+    {
+        var handler = new MockHttpMessageHandler(_ =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var httpClient = new HttpClient(handler);
+        var reporter = new MetricsReporter(httpClient, Environment, Service,
+            appBaseUrl: "https://app.internal.example.com");
+
+        reporter.Record("test.metric");
+        reporter.Flush();
+
+        Assert.Single(handler.Requests);
+        Assert.Equal(
+            "https://app.internal.example.com/api/v1/metrics/bulk",
+            handler.Requests[0].RequestUri!.ToString());
+    }
+
+    // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
 

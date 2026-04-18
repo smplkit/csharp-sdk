@@ -14,9 +14,9 @@ internal sealed class SharedWebSocket
 {
     private static readonly int[] BackoffSeconds = [1, 2, 4, 8, 16, 32, 60];
     private const string WsBasePath = "/api/ws/v1/events";
-    private const string AppBaseUrl = "https://app.smplkit.com";
 
     private readonly string _apiKey;
+    private readonly string _appBaseUrl;
     private readonly ConcurrentDictionary<string, List<Action<Dictionary<string, object?>>>> _listeners = new();
     private readonly object _listenersLock = new();
     private readonly MetricsReporter? _metrics;
@@ -29,9 +29,14 @@ internal sealed class SharedWebSocket
     private readonly Func<Uri, CancellationToken, Task<WebSocket>> _wsFactory;
     private readonly TaskCompletionSource<bool> _initialConnect = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    internal SharedWebSocket(string apiKey, Func<Uri, CancellationToken, Task<WebSocket>>? wsFactory = null, MetricsReporter? metrics = null)
+    internal SharedWebSocket(
+        string apiKey,
+        Func<Uri, CancellationToken, Task<WebSocket>>? wsFactory = null,
+        MetricsReporter? metrics = null,
+        string appBaseUrl = "https://app.smplkit.com")
     {
         _apiKey = apiKey;
+        _appBaseUrl = appBaseUrl;
         _wsFactory = wsFactory ?? DefaultWsFactoryAsync;
         _metrics = metrics;
     }
@@ -194,11 +199,11 @@ internal sealed class SharedWebSocket
 
     private string BuildWebSocketUrl()
     {
-        string wsBase = AppBaseUrl.StartsWith("https://", StringComparison.Ordinal)
-            ? "wss://" + AppBaseUrl["https://".Length..]
-            : AppBaseUrl.StartsWith("http://", StringComparison.Ordinal)
-                ? "ws://" + AppBaseUrl["http://".Length..]
-                : "wss://" + AppBaseUrl;
+        string wsBase = _appBaseUrl.StartsWith("https://", StringComparison.Ordinal)
+            ? "wss://" + _appBaseUrl["https://".Length..]
+            : _appBaseUrl.StartsWith("http://", StringComparison.Ordinal)
+                ? "ws://" + _appBaseUrl["http://".Length..]
+                : "wss://" + _appBaseUrl;
         wsBase = wsBase.TrimEnd('/');
         return $"{wsBase}{WsBasePath}?api_key={Uri.EscapeDataString(_apiKey)}";
     }

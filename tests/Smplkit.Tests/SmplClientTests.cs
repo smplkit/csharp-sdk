@@ -311,4 +311,21 @@ public class SmplClientTests : IDisposable
         Assert.DoesNotContain(handler.Requests, r =>
             r.RequestUri?.PathAndQuery.Contains("metrics") == true);
     }
+
+    [Fact]
+    public void Constructor_WithCustomBaseDomainAndScheme_CreatesClientSuccessfully()
+    {
+        using var client = new SmplClient(new SmplClientOptions
+        {
+            ApiKey = "sk_api_test_key",
+            Environment = "test",
+            Service = "test-service",
+            BaseDomain = "internal.example.com",
+            Scheme = "http",
+        });
+
+        Assert.NotNull(client.Config);
+        Assert.NotNull(client.Flags);
+        Assert.NotNull(client.Logging);
+    }
 }

@@ -11,11 +11,6 @@ namespace Smplkit.Internal;
 /// </summary>
 internal sealed class GeneratedClientFactory
 {
-    private const string ConfigBaseUrl = "https://config.smplkit.com";
-    private const string FlagsBaseUrl = "https://flags.smplkit.com";
-    private const string AppBaseUrl = "https://app.smplkit.com";
-    private const string LoggingBaseUrl = "https://logging.smplkit.com";
-
     private const string JsonApiMediaType = "application/vnd.api+json";
     private const string UserAgent = "smplkit-dotnet-sdk/0.0.0";
 
@@ -48,9 +43,11 @@ internal sealed class GeneratedClientFactory
 
         Auth.ApplyBearerToken(httpClient, options.ApiKey!);
 
-        Config = new GenConfig.ConfigClient(ConfigBaseUrl, httpClient) { ReadResponseAsString = true };
-        Flags = new GenFlags.FlagsClient(FlagsBaseUrl, httpClient) { ReadResponseAsString = true };
-        App = new GenApp.AppClient(AppBaseUrl, httpClient) { ReadResponseAsString = true };
-        Logging = new GenLogging.LoggingClient(LoggingBaseUrl, httpClient) { ReadResponseAsString = true };
+        var scheme = options.Scheme;
+        var domain = options.BaseDomain;
+        Config = new GenConfig.ConfigClient($"{scheme}://config.{domain}", httpClient) { ReadResponseAsString = true };
+        Flags = new GenFlags.FlagsClient($"{scheme}://flags.{domain}", httpClient) { ReadResponseAsString = true };
+        App = new GenApp.AppClient($"{scheme}://app.{domain}", httpClient) { ReadResponseAsString = true };
+        Logging = new GenLogging.LoggingClient($"{scheme}://logging.{domain}", httpClient) { ReadResponseAsString = true };
     }
 }

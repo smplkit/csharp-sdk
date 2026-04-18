@@ -615,4 +615,56 @@ public class SharedWebSocketTests
         Assert.Equal("disconnected", ws.ConnectionStatus);
         Assert.True(attempt >= 2);
     }
+
+    // ---------------------------------------------------------------
+    // Custom appBaseUrl
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task BuildWebSocketUrl_UsesCustomAppBaseUrl()
+    {
+        Uri? capturedUri = null;
+        var connectedMsg = """{"type": "connected"}""";
+        var mockWs = CreateMockWs(connectedMsg);
+
+        var ws = new SharedWebSocket(
+            "test-key",
+            wsFactory: (uri, _) =>
+            {
+                capturedUri = uri;
+                return Task.FromResult<WebSocket>(mockWs.Object);
+            },
+            appBaseUrl: "https://app.internal.example.com");
+
+        ws.Start();
+        await Task.Delay(200);
+        await ws.StopAsync();
+
+        Assert.NotNull(capturedUri);
+        Assert.StartsWith("wss://app.internal.example.com/api/ws/v1/events", capturedUri!.ToString());
+    }
+
+    [Fact]
+    public async Task BuildWebSocketUrl_HttpScheme_UsesWs()
+    {
+        Uri? capturedUri = null;
+        var connectedMsg = """{"type": "connected"}""";
+        var mockWs = CreateMockWs(connectedMsg);
+
+        var ws = new SharedWebSocket(
+            "test-key",
+            wsFactory: (uri, _) =>
+            {
+                capturedUri = uri;
+                return Task.FromResult<WebSocket>(mockWs.Object);
+            },
+            appBaseUrl: "http://app.localhost:8000");
+
+        ws.Start();
+        await Task.Delay(200);
+        await ws.StopAsync();
+
+        Assert.NotNull(capturedUri);
+        Assert.StartsWith("ws://app.localhost:8000/api/ws/v1/events", capturedUri!.ToString());
+    }
 }

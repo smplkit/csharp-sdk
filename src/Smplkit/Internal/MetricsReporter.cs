@@ -9,7 +9,6 @@ namespace Smplkit.Internal;
 /// </summary>
 internal sealed class MetricsReporter : IDisposable
 {
-    private const string AppBaseUrl = "https://app.smplkit.com";
     private const string MetricsEndpoint = "/api/v1/metrics/bulk";
     private const string JsonApiMediaType = "application/vnd.api+json";
     private const int DefaultFlushIntervalSeconds = 60;
@@ -17,6 +16,7 @@ internal sealed class MetricsReporter : IDisposable
     private readonly HttpClient _httpClient;
     private readonly string _environment;
     private readonly string _service;
+    private readonly string _appBaseUrl;
     private readonly int _flushIntervalSeconds;
 
     private Dictionary<string, Counter> _counters = new();
@@ -29,11 +29,13 @@ internal sealed class MetricsReporter : IDisposable
         HttpClient httpClient,
         string environment,
         string service,
-        int flushIntervalSeconds = DefaultFlushIntervalSeconds)
+        int flushIntervalSeconds = DefaultFlushIntervalSeconds,
+        string appBaseUrl = "https://app.smplkit.com")
     {
         _httpClient = httpClient;
         _environment = environment;
         _service = service;
+        _appBaseUrl = appBaseUrl;
         _flushIntervalSeconds = flushIntervalSeconds;
     }
 
@@ -203,7 +205,7 @@ internal sealed class MetricsReporter : IDisposable
         {
             var json = JsonSerializer.Serialize(payload, JsonOptions.Default);
             var content = new StringContent(json, Encoding.UTF8, JsonApiMediaType);
-            _httpClient.PostAsync($"{AppBaseUrl}{MetricsEndpoint}", content)
+            _httpClient.PostAsync($"{_appBaseUrl}{MetricsEndpoint}", content)
                 .GetAwaiter().GetResult();
         }
         catch

@@ -82,4 +82,46 @@ public class SmplClientOptionsTests
 
         Assert.True(options.DisableTelemetry);
     }
+
+    [Fact]
+    public void BaseDomain_DefaultIsSmplkitCom()
+    {
+        var options = new SmplClientOptions { ApiKey = "sk_test", Environment = "test" };
+
+        Assert.Equal("smplkit.com", options.BaseDomain);
+    }
+
+    [Fact]
+    public void BaseDomain_CanBeOverridden()
+    {
+        var options = new SmplClientOptions
+        {
+            ApiKey = "sk_test",
+            Environment = "test",
+            BaseDomain = "internal.example.com",
+        };
+
+        Assert.Equal("internal.example.com", options.BaseDomain);
+    }
+
+    [Fact]
+    public void Scheme_DefaultIsHttps()
+    {
+        var options = new SmplClientOptions { ApiKey = "sk_test", Environment = "test" };
+
+        Assert.Equal("https", options.Scheme);
+    }
+
+    [Fact]
+    public void Scheme_CanBeOverridden()
+    {
+        var options = new SmplClientOptions
+        {
+            ApiKey = "sk_test",
+            Environment = "test",
+            Scheme = "http",
+        };
+
+        Assert.Equal("http", options.Scheme);
+    }
 }

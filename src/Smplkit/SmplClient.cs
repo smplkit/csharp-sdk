@@ -31,6 +31,7 @@ public sealed class SmplClient : IDisposable
     private readonly HttpClient _httpClient;
     private readonly bool _ownsHttpClient;
     private readonly string _apiKey;
+    private readonly string _appBaseUrl;
     private readonly GeneratedClientFactory _clients;
     private readonly MetricsReporter? _metrics;
     private SharedWebSocket? _sharedWs;
@@ -121,6 +122,7 @@ public sealed class SmplClient : IDisposable
         _httpClient = httpClient;
         _ownsHttpClient = ownsHttpClient;
         _apiKey = resolvedApiKey;
+        _appBaseUrl = $"{options.Scheme}://app.{options.BaseDomain}";
         Environment = resolvedEnvironment;
         Service = resolvedService;
 
@@ -129,13 +131,15 @@ public sealed class SmplClient : IDisposable
         {
             ApiKey = resolvedApiKey,
             Timeout = options.Timeout,
+            BaseDomain = options.BaseDomain,
+            Scheme = options.Scheme,
         };
         _clients = new GeneratedClientFactory(_httpClient, resolvedOptions);
 
         // Telemetry reporter (null when disabled)
         _metrics = options.DisableTelemetry
             ? null
-            : new MetricsReporter(_httpClient, resolvedEnvironment, resolvedService);
+            : new MetricsReporter(_httpClient, resolvedEnvironment, resolvedService, appBaseUrl: _appBaseUrl);
 
         Config = new ConfigClient(_clients, EnsureSharedWebSocket, this, _metrics);
         Flags = new FlagsClient(_clients, _apiKey, EnsureSharedWebSocket, this, _metrics);
@@ -156,7 +160,7 @@ public sealed class SmplClient : IDisposable
         lock (_wsLock)
         {
             if (_sharedWs is not null) return _sharedWs;
-            _sharedWs = new SharedWebSocket(_apiKey, metrics: _metrics);
+            _sharedWs = new SharedWebSocket(_apiKey, metrics: _metrics, appBaseUrl: _appBaseUrl);
             _sharedWs.Start();
             return _sharedWs;
         }

@@ -40,4 +40,19 @@ public sealed class SmplClientOptions
     /// are collected or transmitted.
     /// </summary>
     public bool DisableTelemetry { get; init; }
+
+    /// <summary>
+    /// Gets the base domain used to construct service URLs.
+    /// Defaults to <c>"smplkit.com"</c>, which produces URLs such as
+    /// <c>https://config.smplkit.com</c> and <c>https://flags.smplkit.com</c>.
+    /// Override this to target a self-hosted or alternate deployment.
+    /// </summary>
+    public string BaseDomain { get; init; } = "smplkit.com";
+
+    /// <summary>
+    /// Gets the URL scheme used when constructing service URLs.
+    /// Defaults to <c>"https"</c>. Set to <c>"http"</c> for local development
+    /// or environments without TLS.
+    /// </summary>
+    public string Scheme { get; init; } = "https";
 }
