@@ -30,6 +30,8 @@ public sealed class LoggingClient
     /// Initializes a new instance of <see cref="LoggingClient"/>.
     /// </summary>
     private readonly MetricsReporter? _metrics;
+    private readonly LoggerRegistrationBuffer _loggerBuffer = new();
+    private Timer? _loggerFlushTimer;
 
     internal LoggingClient(GeneratedClientFactory clients, string apiKey, Func<SharedWebSocket> ensureWs, SmplClient? parent = null, MetricsReporter? metrics = null)
     {
@@ -195,28 +197,19 @@ public sealed class LoggingClient
         if (!_explicitAdapters)
             AutoLoadAdapters();
 
-        // 2. Discover existing loggers from each adapter
+        // 2. Discover existing loggers from each adapter and add to buffer
         DebugLog.Log("websocket", "logging runtime initializing");
         var discovered = DiscoverAll();
         DebugLog.Log("discovery", $"discovered {discovered.Count} loggers from adapters");
+        foreach (var d in discovered)
+            _loggerBuffer.Add(d.Name, null, d.Level.ToWireString(), _parent?.Service, _parent?.Environment);
 
         // 3. Install hooks on each adapter
         InstallAllHooks();
         DebugLog.Log("registration", $"installed hooks on {_adapters.Count} adapters");
 
-        // 4. Bulk-register discovered loggers with the server
-        if (discovered.Count > 0)
-        {
-            try
-            {
-                await BulkRegisterAsync(discovered, ct).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Trace.TraceWarning(
-                    "[smplkit] Bulk logger registration failed: {0}", ex.Message);
-            }
-        }
+        // 4. Flush discovered loggers to server via buffer
+        await FlushLoggerBufferAsync(ct).ConfigureAwait(false);
 
         // 5. Fetch all loggers and groups from the server
         var loggers = await ListAsync(ct).ConfigureAwait(false);
@@ -233,6 +226,10 @@ public sealed class LoggingClient
         _wsManager.On("group_changed", HandleGroupChanged);
         _wsManager.On("group_deleted", HandleGroupChanged);
         _started = true;
+
+        // 8. Start periodic flush timer for post-startup loggers
+        _loggerFlushTimer = new Timer(_ => OnFlushTimer(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+
         DebugLog.Log("websocket", "logging runtime connected");
     }
 
@@ -284,6 +281,9 @@ public sealed class LoggingClient
             try { adapter.UninstallHook(); }
             catch { /* Best effort */ }
         }
+
+        _loggerFlushTimer?.Dispose();
+        _loggerFlushTimer = null;
 
         if (_wsManager is not null)
         {
@@ -420,9 +420,53 @@ public sealed class LoggingClient
 
     private void HandleAdapterNewLogger(string loggerName, LogLevel level)
     {
-        // When an adapter detects a new logger, fire change listeners
+        var smplLevel = level.ToWireString();
+        _loggerBuffer.Add(loggerName, null, smplLevel, _parent?.Service, _parent?.Environment);
+
+        if (_loggerBuffer.PendingCount >= 50)
+            Task.Run(() => FlushLoggerBufferAsync());
+
+        // Still fire listeners for immediate in-process notification
         var evt = new LoggerChangeEvent(loggerName, level, "adapter");
         FireListeners(loggerName, evt);
+    }
+
+    internal async Task FlushLoggerBufferAsync(CancellationToken ct = default)
+    {
+        var batch = _loggerBuffer.Drain();
+        if (batch.Count == 0) return;
+
+        var items = batch.Select(e =>
+        {
+            var item = new GenLogging.LoggerBulkItem
+            {
+                Id = e.Id,
+                Resolved_level = e.ResolvedLevel,
+            };
+            if (e.Level is not null) item.Level = e.Level;
+            if (e.Service is not null) item.Service = e.Service;
+            if (e.Environment is not null) item.Environment = e.Environment;
+            return item;
+        }).ToList();
+
+        var request = new GenLogging.LoggerBulkRequest { Loggers = items };
+        try
+        {
+            await ApiExceptionMapper.ExecuteAsync(
+                () => _genClient.Bulk_register_loggersAsync(request, ct)).ConfigureAwait(false);
+            DebugLog.Log("registration", $"bulk-registered {batch.Count} logger(s)");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                "[smplkit] Logger buffer flush failed: {0}", ex.Message);
+        }
+    }
+
+    internal void OnFlushTimer()
+    {
+        try { FlushLoggerBufferAsync().GetAwaiter().GetResult(); }
+        catch { /* fire-and-forget */ }
     }
 
     // ------------------------------------------------------------------
@@ -625,5 +669,42 @@ public sealed class LoggingClient
     {
         if (environments.Count == 0) return null;
         return environments;
+    }
+
+    // ------------------------------------------------------------------
+    // Inner: registration buffer
+    // ------------------------------------------------------------------
+
+    private sealed class LoggerRegistrationBuffer
+    {
+        private readonly HashSet<string> _seen = new();
+        private readonly List<LoggerRegistrationEntry> _pending = new();
+        private readonly object _lock = new();
+
+        public void Add(string id, string? level, string resolvedLevel, string? service, string? environment)
+        {
+            lock (_lock)
+            {
+                if (_seen.Add(id))
+                    _pending.Add(new(id, level, resolvedLevel, service, environment));
+            }
+        }
+
+        public List<LoggerRegistrationEntry> Drain()
+        {
+            lock (_lock)
+            {
+                var batch = new List<LoggerRegistrationEntry>(_pending);
+                _pending.Clear();
+                return batch;
+            }
+        }
+
+        public int PendingCount
+        {
+            get { lock (_lock) { return _pending.Count; } }
+        }
+
+        internal record LoggerRegistrationEntry(string Id, string? Level, string ResolvedLevel, string? Service, string? Environment);
     }
 }

@@ -1238,7 +1238,7 @@ public class LoggingClientTests
 
             try { await client.Logging.StartAsync(); } catch { }
 
-            Assert.Contains(traceMessages, m => m.Contains("[smplkit]") && m.Contains("Bulk logger registration failed"));
+            Assert.Contains(traceMessages, m => m.Contains("[smplkit]") && m.Contains("Logger buffer flush failed"));
         }
         finally
         {
@@ -1471,5 +1471,393 @@ public class LoggingClientTests
 
         Assert.Null(ex);
         await Task.Delay(200); // Allow Task.Run to settle — no unhandled exception
+    }
+
+    // ------------------------------------------------------------------
+    // LoggerRegistrationBuffer — unit tests via reflection
+    // ------------------------------------------------------------------
+
+    private static object CreateBuffer()
+    {
+        var bufferType = typeof(LoggingClient)
+            .GetNestedType("LoggerRegistrationBuffer", BindingFlags.NonPublic)!;
+        return Activator.CreateInstance(bufferType)!;
+    }
+
+    private static void BufferAdd(object buffer, string id, string? level, string resolvedLevel, string? service = null, string? environment = null)
+    {
+        var method = buffer.GetType().GetMethod("Add",
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!;
+        method.Invoke(buffer, new object?[] { id, level, resolvedLevel, service, environment });
+    }
+
+    private static int BufferPendingCount(object buffer)
+    {
+        var prop = buffer.GetType().GetProperty("PendingCount",
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!;
+        return (int)prop.GetValue(buffer)!;
+    }
+
+    private static System.Collections.IList BufferDrain(object buffer)
+    {
+        var method = buffer.GetType().GetMethod("Drain",
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!;
+        return (System.Collections.IList)method.Invoke(buffer, null)!;
+    }
+
+    [Fact]
+    public void LoggerRegistrationBuffer_Add_IncrementsPendingCount()
+    {
+        var buffer = CreateBuffer();
+        Assert.Equal(0, BufferPendingCount(buffer));
+
+        BufferAdd(buffer, "logger-a", null, "INFO");
+        Assert.Equal(1, BufferPendingCount(buffer));
+
+        BufferAdd(buffer, "logger-b", null, "WARN");
+        Assert.Equal(2, BufferPendingCount(buffer));
+    }
+
+    [Fact]
+    public void LoggerRegistrationBuffer_Add_Deduplicates()
+    {
+        var buffer = CreateBuffer();
+        BufferAdd(buffer, "logger-a", null, "INFO");
+        BufferAdd(buffer, "logger-a", null, "WARN"); // duplicate — should be ignored
+        Assert.Equal(1, BufferPendingCount(buffer));
+    }
+
+    [Fact]
+    public void LoggerRegistrationBuffer_Drain_ReturnsAndClearsPending()
+    {
+        var buffer = CreateBuffer();
+        BufferAdd(buffer, "logger-x", null, "DEBUG");
+        BufferAdd(buffer, "logger-y", null, "ERROR");
+
+        var batch = BufferDrain(buffer);
+        Assert.Equal(2, batch.Count);
+        Assert.Equal(0, BufferPendingCount(buffer));
+    }
+
+    [Fact]
+    public void LoggerRegistrationBuffer_Drain_EmptyBuffer_ReturnsEmptyList()
+    {
+        var buffer = CreateBuffer();
+        var batch = BufferDrain(buffer);
+        Assert.Empty(batch);
+    }
+
+    [Fact]
+    public void LoggerRegistrationBuffer_Drain_AllowsReAdd()
+    {
+        var buffer = CreateBuffer();
+        BufferAdd(buffer, "logger-a", null, "INFO");
+        BufferDrain(buffer);
+        // After drain, the seen set still blocks re-adds
+        BufferAdd(buffer, "logger-a", null, "WARN");
+        Assert.Equal(0, BufferPendingCount(buffer));
+    }
+
+    [Fact]
+    public async Task LoggerRegistrationBuffer_ThreadSafety_ConcurrentAdds_NoDuplicates()
+    {
+        var buffer = CreateBuffer();
+        var tasks = Enumerable.Range(0, 100).Select(i =>
+            Task.Run(() => BufferAdd(buffer, $"logger-{i}", null, "INFO")));
+        await Task.WhenAll(tasks);
+        Assert.Equal(100, BufferPendingCount(buffer));
+    }
+
+    [Fact]
+    public async Task LoggerRegistrationBuffer_ThreadSafety_ConcurrentDuplicateAdds()
+    {
+        var buffer = CreateBuffer();
+        // 200 concurrent adds for the same 10 loggers
+        var tasks = Enumerable.Range(0, 200).Select(i =>
+            Task.Run(() => BufferAdd(buffer, $"logger-{i % 10}", null, "INFO")));
+        await Task.WhenAll(tasks);
+        Assert.Equal(10, BufferPendingCount(buffer));
+    }
+
+    // ------------------------------------------------------------------
+    // HandleAdapterNewLogger — adds to buffer and fires listeners
+    // ------------------------------------------------------------------
+
+    private static MethodInfo GetHandleAdapterNewLogger() =>
+        typeof(LoggingClient).GetMethod("HandleAdapterNewLogger",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+    [Fact]
+    public void HandleAdapterNewLogger_AddsToBuffer()
+    {
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("""{"data":[]}""")));
+
+        var method = GetHandleAdapterNewLogger();
+        method.Invoke(client.Logging, new object[] { "my.service.Logger", LogLevel.Warn });
+
+        // Access buffer via reflection
+        var bufferField = typeof(LoggingClient).GetField("_loggerBuffer",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var buffer = bufferField.GetValue(client.Logging)!;
+        Assert.Equal(1, BufferPendingCount(buffer));
+    }
+
+    [Fact]
+    public void HandleAdapterNewLogger_StillFiresChangeListeners()
+    {
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("""{"data":[]}""")));
+
+        var events = new List<LoggerChangeEvent>();
+        client.Logging.OnChange(e => events.Add(e));
+
+        var method = GetHandleAdapterNewLogger();
+        method.Invoke(client.Logging, new object[] { "my.service.Logger", LogLevel.Debug });
+
+        Assert.Single(events);
+        Assert.Equal("my.service.Logger", events[0].Id);
+        Assert.Equal(LogLevel.Debug, events[0].Level);
+        Assert.Equal("adapter", events[0].Source);
+    }
+
+    [Fact]
+    public void HandleAdapterNewLogger_Deduplicates_SameLoggerTwice()
+    {
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("""{"data":[]}""")));
+
+        var method = GetHandleAdapterNewLogger();
+        method.Invoke(client.Logging, new object[] { "dup.logger", LogLevel.Info });
+        method.Invoke(client.Logging, new object[] { "dup.logger", LogLevel.Warn });
+
+        var bufferField = typeof(LoggingClient).GetField("_loggerBuffer",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var buffer = bufferField.GetValue(client.Logging)!;
+        Assert.Equal(1, BufferPendingCount(buffer));
+    }
+
+    [Fact]
+    public async Task HandleAdapterNewLogger_AtThreshold_TriggersFlush()
+    {
+        var bulkCallCount = 0;
+        var (client, _) = CreateClient(req =>
+        {
+            if (req.RequestUri!.AbsoluteUri.Contains("bulk"))
+                Interlocked.Increment(ref bulkCallCount);
+            return Task.FromResult(JsonResponse("""{"data":[]}"""));
+        });
+
+        var method = GetHandleAdapterNewLogger();
+        // Add 50 distinct loggers — the 50th triggers a Task.Run flush
+        for (int i = 0; i < 50; i++)
+            method.Invoke(client.Logging, new object[] { $"logger-{i}", LogLevel.Info });
+
+        // Give Task.Run time to complete
+        await Task.Delay(500);
+        Assert.True(bulkCallCount >= 1, "Expected at least one bulk call when threshold reached");
+    }
+
+    // ------------------------------------------------------------------
+    // FlushLoggerBufferAsync — HTTP payload
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task FlushLoggerBufferAsync_SendsBulkPayload()
+    {
+        string? capturedBody = null;
+        var (client, _) = CreateClient(async req =>
+        {
+            if (req.RequestUri!.AbsoluteUri.Contains("bulk"))
+                capturedBody = await req.Content!.ReadAsStringAsync();
+            return JsonResponse("""{"registered":1}""");
+        });
+
+        // Add an item to the buffer directly
+        var bufferField = typeof(LoggingClient).GetField("_loggerBuffer",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var buffer = bufferField.GetValue(client.Logging)!;
+        BufferAdd(buffer, "post.startup.Logger", null, "ERROR");
+
+        await client.Logging.FlushLoggerBufferAsync();
+
+        Assert.NotNull(capturedBody);
+        Assert.Contains("post.startup.Logger", capturedBody);
+        Assert.Contains("ERROR", capturedBody);
+        Assert.Contains("resolved_level", capturedBody);
+    }
+
+    [Fact]
+    public async Task FlushLoggerBufferAsync_EmptyBuffer_MakesNoHttpCall()
+    {
+        int callCount = 0;
+        var (client, _) = CreateClient(req =>
+        {
+            callCount++;
+            return Task.FromResult(JsonResponse("""{"data":[]}"""));
+        });
+
+        await client.Logging.FlushLoggerBufferAsync();
+        Assert.Equal(0, callCount);
+    }
+
+    [Fact]
+    public async Task FlushLoggerBufferAsync_ServerError_EmitsTraceWarning()
+    {
+        var traceMessages = new List<string>();
+        var listener = new TestTraceListener(traceMessages);
+        System.Diagnostics.Trace.Listeners.Add(listener);
+
+        try
+        {
+            var (client, _) = CreateClient(req =>
+            {
+                if (req.RequestUri!.AbsoluteUri.Contains("bulk"))
+                    return Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                    {
+                        Content = new StringContent("""{"errors":[{"detail":"oops"}]}""",
+                            Encoding.UTF8, "application/vnd.api+json"),
+                    });
+                return Task.FromResult(JsonResponse("""{"data":[]}"""));
+            });
+
+            var bufferField = typeof(LoggingClient).GetField("_loggerBuffer",
+                BindingFlags.NonPublic | BindingFlags.Instance)!;
+            var buffer = bufferField.GetValue(client.Logging)!;
+            BufferAdd(buffer, "some.logger", null, "INFO");
+
+            await client.Logging.FlushLoggerBufferAsync();
+
+            Assert.Contains(traceMessages, m => m.Contains("[smplkit]") && m.Contains("Logger buffer flush failed"));
+        }
+        finally
+        {
+            System.Diagnostics.Trace.Listeners.Remove(listener);
+        }
+    }
+
+    [Fact]
+    public async Task FlushLoggerBufferAsync_LevelNullInPayload_WhenLevelIsNull()
+    {
+        string? capturedBody = null;
+        var (client, _) = CreateClient(async req =>
+        {
+            if (req.RequestUri!.AbsoluteUri.Contains("bulk"))
+                capturedBody = await req.Content!.ReadAsStringAsync();
+            return JsonResponse("""{"registered":1}""");
+        });
+
+        var bufferField = typeof(LoggingClient).GetField("_loggerBuffer",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var buffer = bufferField.GetValue(client.Logging)!;
+        BufferAdd(buffer, "svc.logger", null, "DEBUG"); // level is null
+
+        await client.Logging.FlushLoggerBufferAsync();
+
+        Assert.NotNull(capturedBody);
+        Assert.Contains("\"level\":null", capturedBody);
+    }
+
+    // ------------------------------------------------------------------
+    // Timer lifecycle — started by StartAsync, disposed by Close
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task StartAsync_StartsFlushTimer()
+    {
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("""{"data":[]}""")));
+
+        try { await client.Logging.StartAsync(); } catch { }
+
+        var timerField = typeof(LoggingClient).GetField("_loggerFlushTimer",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var timer = timerField.GetValue(client.Logging);
+        Assert.NotNull(timer);
+    }
+
+    [Fact]
+    public async Task Close_DisposesFlushTimer()
+    {
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("""{"data":[]}""")));
+
+        try { await client.Logging.StartAsync(); } catch { }
+
+        client.Dispose(); // calls Close()
+
+        var timerField = typeof(LoggingClient).GetField("_loggerFlushTimer",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var timer = timerField.GetValue(client.Logging);
+        Assert.Null(timer);
+    }
+
+    // ------------------------------------------------------------------
+    // No managed=true from auto-discovery
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void BuildBulkItem_ManagedIsNotSet()
+    {
+        // BuildBulkItem constructs LoggerBulkItem — there is no Managed field on it.
+        // This test verifies that auto-discovery never creates loggers with managed=true
+        // by checking the bulk item payload has no managed field.
+        var discovered = new Smplkit.Logging.Adapters.DiscoveredLogger("svc.logger", LogLevel.Info);
+        var item = LoggingClient.BuildBulkItem(discovered);
+
+        // LoggerBulkItem has Id, Level, Resolved_level, Service, Environment — no Managed.
+        Assert.Equal("svc.logger", item.Id);
+        Assert.Null(item.Level);
+        Assert.Equal("INFO", item.Resolved_level);
+    }
+
+    // ------------------------------------------------------------------
+    // OnFlushTimer — timer callback
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task OnFlushTimer_WithPendingItems_FlushesBuffer()
+    {
+        string? capturedBody = null;
+        var (client, _) = CreateClient(async req =>
+        {
+            if (req.RequestUri!.AbsoluteUri.Contains("bulk"))
+                capturedBody = await req.Content!.ReadAsStringAsync();
+            return JsonResponse("""{"registered":1}""");
+        });
+
+        // Add an item to the buffer
+        var bufferField = typeof(LoggingClient).GetField("_loggerBuffer",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var buffer = bufferField.GetValue(client.Logging)!;
+        BufferAdd(buffer, "timer.test.logger", null, "WARN");
+
+        await Task.Run(() => client.Logging.OnFlushTimer());
+
+        Assert.NotNull(capturedBody);
+        Assert.Contains("timer.test.logger", capturedBody);
+    }
+
+    [Fact]
+    public void OnFlushTimer_Empty_DoesNotThrow()
+    {
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("""{"data":[]}""")));
+
+        var ex = Record.Exception(() => client.Logging.OnFlushTimer());
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void OnFlushTimer_FlushThrows_DoesNotPropagate()
+    {
+        // Make the bulk endpoint throw to exercise the catch branch in OnFlushTimer
+        var (client, _) = CreateClient(_ =>
+        {
+            throw new HttpRequestException("simulated network error");
+        });
+
+        var bufferField = typeof(LoggingClient).GetField("_loggerBuffer",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var buffer = bufferField.GetValue(client.Logging)!;
+        BufferAdd(buffer, "exception.logger", null, "ERROR");
+
+        // OnFlushTimer swallows all exceptions — should not throw
+        var ex = Record.Exception(() => client.Logging.OnFlushTimer());
+        Assert.Null(ex);
     }
 }
