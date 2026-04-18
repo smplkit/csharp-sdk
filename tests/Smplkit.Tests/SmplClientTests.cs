@@ -328,4 +328,26 @@ public class SmplClientTests : IDisposable
         Assert.NotNull(client.Flags);
         Assert.NotNull(client.Logging);
     }
+
+    [Fact]
+    public void Constructor_WithDebugTrue_EnablesDebugLogging()
+    {
+        var prevEnabled = Smplkit.Internal.Debug.Enabled;
+        try
+        {
+            using var client = new SmplClient(new SmplClientOptions
+            {
+                ApiKey = "sk_api_test_key",
+                Environment = "test",
+                Service = "test-service",
+                Debug = true,
+            });
+
+            Assert.True(Smplkit.Internal.Debug.Enabled);
+        }
+        finally
+        {
+            Smplkit.Internal.Debug.Enabled = prevEnabled;
+        }
+    }
 }
