@@ -326,7 +326,12 @@ public sealed class FlagsClient
                                     Contexts = items,
                                 }).ConfigureAwait(false)).ConfigureAwait(false);
                     }
-                    catch { /* fire-and-forget */ }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Trace.TraceWarning(
+                            "[smplkit] Context registration failed: {0}", ex.Message);
+                        Debug.Log("registration", $"Context registration failed: {ex}");
+                    }
                 });
             }
 
@@ -445,7 +450,12 @@ public sealed class FlagsClient
                 () => _genAppClient.Bulk_register_contextsAsync(
                     new GenApp.ContextBulkRegister { Contexts = items }, ct)).ConfigureAwait(false);
         }
-        catch { /* Context registration is fire-and-forget */ }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                "[smplkit] Context flush failed: {0}", ex.Message);
+            Debug.Log("registration", $"Context flush failed: {ex}");
+        }
     }
 
     /// <summary>
@@ -479,7 +489,12 @@ public sealed class FlagsClient
             await ApiExceptionMapper.ExecuteAsync(
                 () => _genFlagsClient.Bulk_register_flagsAsync(request, ct)).ConfigureAwait(false);
         }
-        catch { /* Failures are silently ignored */ }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                "[smplkit] Flag registration flush failed: {0}", ex.Message);
+            Debug.Log("registration", $"Flag registration flush failed: {ex}");
+        }
     }
 
     /// <summary>
@@ -579,7 +594,12 @@ public sealed class FlagsClient
                 }
             }
         }
-        catch { /* Ignore refresh errors */ }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                "[smplkit] Flag refresh failed: {0}", ex.Message);
+            Debug.Log("websocket", $"Flag refresh failed: {ex}");
+        }
 
         _cache.Clear();
         FireChangeListeners(flagId, "websocket");

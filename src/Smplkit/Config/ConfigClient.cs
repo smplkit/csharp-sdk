@@ -310,7 +310,12 @@ public sealed class ConfigClient
             RebuildCache(allConfigs, environment);
             DiffAndFire(oldCache, _configCache, "websocket");
         }
-        catch { /* Ignore refresh errors */ }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                "[smplkit] Config refresh failed: {0}", ex.Message);
+            DebugLog.Log("websocket", $"Config refresh failed: {ex}");
+        }
     }
 
     // ------------------------------------------------------------------

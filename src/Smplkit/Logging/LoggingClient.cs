@@ -502,7 +502,12 @@ public sealed class LoggingClient
                 var loggers = await ListAsync().ConfigureAwait(false);
                 ApplyLevels(loggers);
             }
-            catch { /* Ignore refresh errors */ }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.TraceWarning(
+                    "[smplkit] Logger group refresh failed: {0}", ex.Message);
+                DebugLog.Log("websocket", $"Logger group refresh failed: {ex}");
+            }
         });
     }
 
