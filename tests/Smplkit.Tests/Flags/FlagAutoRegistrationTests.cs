@@ -634,7 +634,9 @@ public class FlagAutoRegistrationTests
 
         client.Flags.StringFlag("str-flag-49", "val"); // 50th triggers threshold
 
-        Thread.Sleep(300);
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (Volatile.Read(ref requestCount) <= beforeCount && DateTime.UtcNow < deadline)
+            Thread.Sleep(50);
         Assert.True(requestCount > beforeCount,
             $"Expected string flag threshold flush, requestCount={requestCount}, beforeCount={beforeCount}");
     }
@@ -655,7 +657,9 @@ public class FlagAutoRegistrationTests
 
         client.Flags.NumberFlag("num-flag-49", 49); // 50th triggers threshold
 
-        Thread.Sleep(300);
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (Volatile.Read(ref requestCount) <= beforeCount && DateTime.UtcNow < deadline)
+            Thread.Sleep(50);
         Assert.True(requestCount > beforeCount,
             $"Expected number flag threshold flush, requestCount={requestCount}, beforeCount={beforeCount}");
     }
@@ -677,7 +681,9 @@ public class FlagAutoRegistrationTests
 
         client.Flags.JsonFlag("json-flag-49", defaultVal); // 50th triggers threshold
 
-        Thread.Sleep(300);
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (Volatile.Read(ref requestCount) <= beforeCount && DateTime.UtcNow < deadline)
+            Thread.Sleep(50);
         Assert.True(requestCount > beforeCount,
             $"Expected json flag threshold flush, requestCount={requestCount}, beforeCount={beforeCount}");
     }
