@@ -116,6 +116,18 @@ public class ApiExceptionMapperTests
                 () => throw new HttpRequestException("connection refused")));
 
         Assert.Contains("Connection failed", ex.Message);
+        Assert.Contains("connection refused", ex.Message);
+    }
+
+    [Fact]
+    public async Task Generic_HttpRequestException_ThrowsSmplConnectionException()
+    {
+        var ex = await Assert.ThrowsAsync<SmplConnectionException>(
+            () => ApiExceptionMapper.ExecuteAsync<int>(
+                () => throw new HttpRequestException("nodename nor servname provided, or not known (config.localhost:80)")));
+
+        Assert.Contains("Connection failed", ex.Message);
+        Assert.Contains("config.localhost", ex.Message);
     }
 
     [Fact]
