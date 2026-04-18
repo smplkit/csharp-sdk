@@ -449,12 +449,11 @@ public sealed class FlagsClient
     }
 
     /// <summary>
-    /// Timer callback: flush the flag buffer. Exceptions are silently swallowed.
+    /// Timer callback: flush the flag buffer. FlushFlagsAsync handles all exceptions internally.
     /// </summary>
     internal void FlushTimerCallback()
     {
-        try { FlushFlagsAsync().GetAwaiter().GetResult(); }
-        catch { /* fire-and-forget */ }
+        FlushFlagsAsync().GetAwaiter().GetResult();
     }
 
     /// <summary>
