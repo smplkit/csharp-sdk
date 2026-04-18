@@ -482,15 +482,16 @@ public class FlagsClientCoverageTests
     [Fact]
     public void HandleFlagChanged_TransportFailure_DoesNotThrow()
     {
-        int callCount = 0;
         var flagJson = FlagListWithEnvJson(id: "fail-flag", defaultVal: "true");
-        var (client, _) = CreateClient(_ =>
+        int flagListGetCount = 0;
+        var (client, _) = CreateClient(req =>
         {
-            callCount++;
-            // Allow 3 calls to succeed: FlushFlagsAsync (bulk POST), FetchAllFlagsAsync (list GET),
-            // plus the fire-and-forget context registration (Bulk_register_contextsAsync).
-            // Subsequent calls (e.g. HandleFlagChanged re-fetch) fail and should be swallowed.
-            if (callCount <= 3)
+            // POSTs (bulk flag/context registration) always succeed
+            if (req.Method == HttpMethod.Post)
+                return Task.FromResult(JsonResponse("{}"));
+            // First GET to /flags succeeds (EnsureInitialized fetch); subsequent ones fail
+            Interlocked.Increment(ref flagListGetCount);
+            if (flagListGetCount == 1)
                 return Task.FromResult(JsonResponse(flagJson));
             throw new HttpRequestException("Network error");
         });

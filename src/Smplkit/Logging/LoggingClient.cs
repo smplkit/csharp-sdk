@@ -465,7 +465,6 @@ public sealed class LoggingClient
 
     internal void OnFlushTimer()
     {
-        // FlushLoggerBufferAsync swallows all exceptions internally — safe to call synchronously
         FlushLoggerBufferAsync().GetAwaiter().GetResult();
     }
 

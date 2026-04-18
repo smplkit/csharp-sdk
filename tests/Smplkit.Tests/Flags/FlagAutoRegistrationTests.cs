@@ -732,6 +732,40 @@ public class FlagAutoRegistrationTests
     }
 
     // ---------------------------------------------------------------
+    // Context registration failure (fire-and-forget)
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void EnsureInitialized_ContextRegistrationFails_DoesNotThrow()
+    {
+        var contextPostAttempted = 0;
+        var (client, _) = CreateClient(req =>
+        {
+            if (req.Method == HttpMethod.Post && req.RequestUri!.AbsolutePath.Contains("contexts/bulk"))
+            {
+                Interlocked.Increment(ref contextPostAttempted);
+                throw new HttpRequestException("context registration failed");
+            }
+            // Flags bulk + list all succeed
+            if (req.Method == HttpMethod.Post)
+                return Task.FromResult(JsonResponse(BulkResponseJson()));
+            return Task.FromResult(JsonResponse(EmptyFlagListJson()));
+        });
+
+        var handle = client.Flags.BooleanFlag("ctx-fail-flag", false);
+
+        // Trigger EnsureInitialized — should not throw even if context POST fails
+        handle.Get();
+
+        // Wait up to 5s for the fire-and-forget context registration Task.Run to complete
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (Volatile.Read(ref contextPostAttempted) == 0 && DateTime.UtcNow < deadline)
+            Thread.Sleep(50);
+
+        Assert.True(contextPostAttempted > 0, "context registration POST should have been attempted");
+    }
+
+    // ---------------------------------------------------------------
     // Helper: access internal FlagRegistrationBuffer via reflection
     // ---------------------------------------------------------------
 
