@@ -492,8 +492,10 @@ public class FlagAutoRegistrationTests
         // 50th flag triggers threshold flush via Task.Run
         client.Flags.BooleanFlag("flag-49", false);
 
-        // Give the background Task.Run time to fire
-        Thread.Sleep(300);
+        // Wait up to 5 seconds for the background Task.Run to fire and complete
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (Volatile.Read(ref requestCount) <= beforeCount && DateTime.UtcNow < deadline)
+            Thread.Sleep(50);
 
         // At least one bulk request should have been made
         Assert.True(requestCount > beforeCount,
