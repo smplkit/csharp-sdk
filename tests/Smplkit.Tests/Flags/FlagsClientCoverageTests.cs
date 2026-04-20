@@ -386,6 +386,41 @@ public class FlagsClientCoverageTests
         // Should have fired both global and scoped listeners
         Assert.True(events.Count >= 2);
         Assert.All(events, e => Assert.Equal("ws-flag", e.Id));
+        // Source must be "websocket" for WebSocket-triggered events
+        Assert.All(events, e => Assert.Equal("websocket", e.Source));
+    }
+
+    // ---------------------------------------------------------------
+    // WS event name registration
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void EnsureInitialized_RegistersExpectedWsEventNames()
+    {
+        var flagJson = FlagListWithEnvJson(id: "ws-reg-flag", defaultVal: "true");
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
+
+        // Trigger initialization
+        var handle = client.Flags.BooleanFlag("ws-reg-flag", false);
+        handle.Get();
+
+        // Retrieve _wsManager via reflection
+        var wsManagerField = typeof(FlagsClient).GetField("_wsManager",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var wsManager = wsManagerField!.GetValue(client.Flags);
+        Assert.NotNull(wsManager);
+
+        // Retrieve _listeners from SharedWebSocket via reflection
+        var listenersField = wsManager!.GetType().GetField("_listeners",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var listeners = listenersField!.GetValue(wsManager)
+            as System.Collections.Concurrent.ConcurrentDictionary<string, List<Action<Dictionary<string, object?>>>>;
+        Assert.NotNull(listeners);
+
+        Assert.True(listeners!.ContainsKey("flag_changed"),
+            "Expected 'flag_changed' to be registered on the WebSocket manager");
+        Assert.True(listeners.ContainsKey("flag_deleted"),
+            "Expected 'flag_deleted' to be registered on the WebSocket manager");
     }
 
     [Fact]

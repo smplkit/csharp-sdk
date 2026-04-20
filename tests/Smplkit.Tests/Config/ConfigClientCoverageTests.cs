@@ -671,6 +671,152 @@ public class ConfigClientCoverageTests
     }
 
     // ------------------------------------------------------------------
+    // WS event name registration
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void EnsureInitialized_RegistersExpectedWsEventNames()
+    {
+        var configListJson = """
+        {
+            "data": [
+                {
+                    "id": "ws_reg_config",
+                    "type": "config",
+                    "attributes": {
+                        "id": "ws_reg_config",
+                        "name": "WS Reg Config",
+                        "description": null,
+                        "parent": null,
+                        "items": {},
+                        "environments": {},
+                        "created_at": null,
+                        "updated_at": null
+                    }
+                }
+            ]
+        }
+        """;
+        var handler = new MockHttpMessageHandler(req =>
+        {
+            var url = req.RequestUri!.AbsoluteUri;
+            if (url.Contains("configs"))
+                return Task.FromResult(JsonResponse(configListJson));
+            return Task.FromResult(JsonResponse("""{"data":[]}"""));
+        });
+        var httpClient = new HttpClient(handler);
+        var client = new SmplClient(
+            new SmplClientOptions { ApiKey = "sk_api_test", Environment = "production", Service = "test-service" },
+            httpClient);
+
+        // Trigger initialization
+        client.Config.Get("ws_reg_config");
+
+        // Retrieve _wsManager via reflection
+        var wsManagerField = typeof(Smplkit.Config.ConfigClient).GetField("_wsManager",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var wsManager = wsManagerField!.GetValue(client.Config);
+        Assert.NotNull(wsManager);
+
+        // Retrieve _listeners from SharedWebSocket via reflection
+        var listenersField = wsManager!.GetType().GetField("_listeners",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var listeners = listenersField!.GetValue(wsManager)
+            as System.Collections.Concurrent.ConcurrentDictionary<string, List<Action<Dictionary<string, object?>>>>;
+        Assert.NotNull(listeners);
+
+        Assert.True(listeners!.ContainsKey("config_changed"),
+            "Expected 'config_changed' to be registered on the WebSocket manager");
+        Assert.True(listeners.ContainsKey("config_deleted"),
+            "Expected 'config_deleted' to be registered on the WebSocket manager");
+    }
+
+    // ------------------------------------------------------------------
+    // HandleConfigChanged fires listeners with Source == "websocket"
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void HandleConfigChanged_Initialized_FiresListenersWithWebsocketSource()
+    {
+        // Config with two different values so a diff fires
+        var configListJson1 = """
+        {
+            "data": [
+                {
+                    "id": "src_config",
+                    "type": "config",
+                    "attributes": {
+                        "id": "src_config",
+                        "name": "Src Config",
+                        "description": null,
+                        "parent": null,
+                        "items": { "timeout": {"value": 30, "type": "NUMBER"} },
+                        "environments": {},
+                        "created_at": null,
+                        "updated_at": null
+                    }
+                }
+            ]
+        }
+        """;
+        var configListJson2 = """
+        {
+            "data": [
+                {
+                    "id": "src_config",
+                    "type": "config",
+                    "attributes": {
+                        "id": "src_config",
+                        "name": "Src Config",
+                        "description": null,
+                        "parent": null,
+                        "items": { "timeout": {"value": 60, "type": "NUMBER"} },
+                        "environments": {},
+                        "created_at": null,
+                        "updated_at": null
+                    }
+                }
+            ]
+        }
+        """;
+
+        int callCount = 0;
+        var handler = new MockHttpMessageHandler(req =>
+        {
+            var url = req.RequestUri!.AbsoluteUri;
+            if (url.Contains("configs"))
+            {
+                callCount++;
+                // First call: initial fetch. Subsequent calls: updated values.
+                return Task.FromResult(JsonResponse(callCount == 1 ? configListJson1 : configListJson2));
+            }
+            return Task.FromResult(JsonResponse("""{"data":[]}"""));
+        });
+        var httpClient = new HttpClient(handler);
+        var client = new SmplClient(
+            new SmplClientOptions { ApiKey = "sk_api_test", Environment = "production", Service = "test-service" },
+            httpClient);
+
+        // Trigger initialization
+        client.Config.Get("src_config");
+
+        var events = new List<ConfigChangeEvent>();
+        client.Config.OnChange(evt => events.Add(evt));
+
+        // Simulate a config_changed WS event via reflection
+        var method = typeof(Smplkit.Config.ConfigClient).GetMethod("HandleConfigChanged",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        method!.Invoke(client.Config, new object[]
+        {
+            new Dictionary<string, object?> { ["id"] = "src_config" }
+        });
+
+        // Should have fired at least one event with source == "websocket"
+        Assert.NotEmpty(events);
+        Assert.All(events, e => Assert.Equal("websocket", e.Source));
+    }
+
+    // ------------------------------------------------------------------
     // InferType helper coverage
     // ------------------------------------------------------------------
 
