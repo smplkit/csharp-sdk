@@ -392,10 +392,10 @@ public sealed class ConfigClient
         return nested;
     }
 
-    private static GenConfig.Response_Config_ BuildRequestBody(Config config) =>
+    private static GenConfig.ConfigResponse BuildRequestBody(Config config) =>
         new()
         {
-            Data = new GenConfig.Resource_Config_
+            Data = new GenConfig.ConfigResource
             {
                 Type = "config",
                 Id = config.Id,

@@ -365,7 +365,7 @@ public class ConfigClientTests
 
         Assert.NotNull(handler.LastRequest);
         var contentType = handler.LastRequest.Content!.Headers.ContentType!.MediaType;
-        Assert.Equal("application/json", contentType);
+        Assert.Equal("application/vnd.api+json", contentType);
     }
 
     // ---------------------------------------------------------------
