@@ -478,7 +478,7 @@
           "Users"
         ],
         "summary": "Get Current User",
-        "description": "Return the currently authenticated user.",
+        "description": "Return the currently authenticated user. ``role`` and ``account`` are populated when the user has a membership; both are null when the caller is authenticated but has no account yet \u2014 e.g. a returning user who has just accepted an invitation email.",
         "operationId": "get_current_user",
         "responses": {
           "200": {
@@ -3144,7 +3144,7 @@
           "Invitations"
         ],
         "summary": "List Invitations",
-        "description": "List all invitations for the authenticated account.",
+        "description": "List invitations. Authenticated admins list invitations for their own account and may narrow by status. Unauthenticated callers must pass ``filter[token]`` to look up a specific invitation by its token \u2014 used to render the invitation preview before sign-in. The token-filter path always returns an array of 0 or 1 elements.",
         "operationId": "list_invitations",
         "security": [
           {
@@ -3160,6 +3160,16 @@
               "type": "string",
               "nullable": true,
               "title": "Filter[Status]"
+            }
+          },
+          {
+            "name": "filter[token]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true,
+              "title": "Filter[Token]"
             }
           }
         ],
@@ -3916,6 +3926,45 @@
               "nullable": true,
               "title": "Filter[Email]"
             }
+          },
+          {
+            "name": "filter[search]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true,
+              "description": "Case-insensitive substring match against display_name and email. If the value is a valid UUID, also matches user id exactly.",
+              "title": "Filter[Search]"
+            },
+            "description": "Case-insensitive substring match against display_name and email. If the value is a valid UUID, also matches user id exactly."
+          },
+          {
+            "name": "page[number]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "1-based page number",
+              "default": 1,
+              "title": "Page[Number]"
+            },
+            "description": "1-based page number"
+          },
+          {
+            "name": "page[size]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Items per page",
+              "default": 50,
+              "title": "Page[Size]"
+            },
+            "description": "Items per page"
           }
         ],
         "responses": {
@@ -6932,6 +6981,24 @@
             "title": "Invited By",
             "readOnly": true
           },
+          "account_name": {
+            "type": "string",
+            "nullable": true,
+            "title": "Account Name",
+            "readOnly": true
+          },
+          "inviter_display_name": {
+            "type": "string",
+            "nullable": true,
+            "title": "Inviter Display Name",
+            "readOnly": true
+          },
+          "token": {
+            "type": "string",
+            "nullable": true,
+            "title": "Token",
+            "readOnly": true
+          },
           "expires_at": {
             "type": "string",
             "format": "date-time",
@@ -7570,6 +7637,38 @@
           "microsoft"
         ],
         "title": "OidcProvider"
+      },
+      "PageMeta": {
+        "properties": {
+          "size": {
+            "type": "integer",
+            "title": "Size",
+            "description": "Page size used for this response"
+          },
+          "number": {
+            "type": "integer",
+            "title": "Number",
+            "description": "1-based page number returned"
+          },
+          "total_items": {
+            "type": "integer",
+            "title": "Total Items",
+            "description": "Total number of matching items across all pages"
+          },
+          "total_pages": {
+            "type": "integer",
+            "title": "Total Pages",
+            "description": "Total number of pages at the current page size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "size",
+          "number",
+          "total_items",
+          "total_pages"
+        ],
+        "title": "PageMeta"
       },
       "PaymentMethod": {
         "properties": {
@@ -8341,6 +8440,18 @@
           "role": "OWNER"
         }
       },
+      "UserListMeta": {
+        "properties": {
+          "page": {
+            "$ref": "#/components/schemas/PageMeta"
+          }
+        },
+        "type": "object",
+        "required": [
+          "page"
+        ],
+        "title": "UserListMeta"
+      },
       "UserListResponse": {
         "properties": {
           "data": {
@@ -8349,6 +8460,10 @@
             },
             "type": "array",
             "title": "Data"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/UserListMeta",
+            "nullable": true
           }
         },
         "type": "object",

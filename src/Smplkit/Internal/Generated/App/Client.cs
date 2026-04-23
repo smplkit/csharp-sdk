@@ -99,7 +99,7 @@ namespace Smplkit.Internal.Generated.App
         /// Get Current User
         /// </summary>
         /// <remarks>
-        /// Return the currently authenticated user.
+        /// Return the currently authenticated user. ``role`` and ``account`` are populated when the user has a membership; both are null when the caller is authenticated but has no account yet — e.g. a returning user who has just accepted an invitation email.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -495,11 +495,11 @@ namespace Smplkit.Internal.Generated.App
         /// List Invitations
         /// </summary>
         /// <remarks>
-        /// List all invitations for the authenticated account.
+        /// List invitations. Authenticated admins list invitations for their own account and may narrow by status. Unauthenticated callers must pass ``filter[token]`` to look up a specific invitation by its token — used to render the invitation preview before sign-in. The token-filter path always returns an array of 0 or 1 elements.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<InvitationListResponse> List_invitationsAsync(string? filterstatus = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<InvitationListResponse> List_invitationsAsync(string? filterstatus = null, string? filtertoken = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -599,9 +599,12 @@ namespace Smplkit.Internal.Generated.App
         /// <remarks>
         /// List users in the authenticated account.
         /// </remarks>
+        /// <param name="filtersearch">Case-insensitive substring match against display_name and email. If the value is a valid UUID, also matches user id exactly.</param>
+        /// <param name="pagenumber">1-based page number</param>
+        /// <param name="pagesize">Items per page</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<UserListResponse> List_usersAsync(string? filteraccount = null, string? filteremail = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<UserListResponse> List_usersAsync(string? filteraccount = null, string? filteremail = null, string? filtersearch = null, int? pagenumber = null, int? pagesize = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -1675,7 +1678,7 @@ namespace Smplkit.Internal.Generated.App
         /// Get Current User
         /// </summary>
         /// <remarks>
-        /// Return the currently authenticated user.
+        /// Return the currently authenticated user. ``role`` and ``account`` are populated when the user has a membership; both are null when the caller is authenticated but has no account yet — e.g. a returning user who has just accepted an invitation email.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -6016,11 +6019,11 @@ namespace Smplkit.Internal.Generated.App
         /// List Invitations
         /// </summary>
         /// <remarks>
-        /// List all invitations for the authenticated account.
+        /// List invitations. Authenticated admins list invitations for their own account and may narrow by status. Unauthenticated callers must pass ``filter[token]`` to look up a specific invitation by its token — used to render the invitation preview before sign-in. The token-filter path always returns an array of 0 or 1 elements.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<InvitationListResponse> List_invitationsAsync(string? filterstatus = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<InvitationListResponse> List_invitationsAsync(string? filterstatus = null, string? filtertoken = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -6039,6 +6042,10 @@ namespace Smplkit.Internal.Generated.App
                     if (filterstatus != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[status]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterstatus, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filtertoken != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[token]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtertoken, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -7151,9 +7158,12 @@ namespace Smplkit.Internal.Generated.App
         /// <remarks>
         /// List users in the authenticated account.
         /// </remarks>
+        /// <param name="filtersearch">Case-insensitive substring match against display_name and email. If the value is a valid UUID, also matches user id exactly.</param>
+        /// <param name="pagenumber">1-based page number</param>
+        /// <param name="pagesize">Items per page</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<UserListResponse> List_usersAsync(string? filteraccount = null, string? filteremail = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<UserListResponse> List_usersAsync(string? filteraccount = null, string? filteremail = null, string? filtersearch = null, int? pagenumber = null, int? pagesize = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -7176,6 +7186,18 @@ namespace Smplkit.Internal.Generated.App
                     if (filteremail != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[email]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filteremail, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filtersearch != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[search]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtersearch, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagenumber != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[number]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagenumber, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagesize != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -11276,6 +11298,15 @@ namespace Smplkit.Internal.Generated.App
         [System.Text.Json.Serialization.JsonPropertyName("invited_by")]
         public string? Invited_by { get; set; } = default!;
 
+        [System.Text.Json.Serialization.JsonPropertyName("account_name")]
+        public string? Account_name { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("inviter_display_name")]
+        public string? Inviter_display_name { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("token")]
+        public string? Token { get; set; } = default!;
+
         [System.Text.Json.Serialization.JsonPropertyName("expires_at")]
         public System.DateTimeOffset? Expires_at { get; set; } = default!;
 
@@ -11789,6 +11820,45 @@ namespace Smplkit.Internal.Generated.App
 
         [System.Runtime.Serialization.EnumMember(Value = @"microsoft")]
         Microsoft = 1,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PageMeta
+    {
+
+        /// <summary>
+        /// Page size used for this response
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("size")]
+        public int Size { get; set; } = default!;
+
+        /// <summary>
+        /// 1-based page number returned
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("number")]
+        public int Number { get; set; } = default!;
+
+        /// <summary>
+        /// Total number of matching items across all pages
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("total_items")]
+        public int Total_items { get; set; } = default!;
+
+        /// <summary>
+        /// Total number of pages at the current page size
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("total_pages")]
+        public int Total_pages { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
 
     }
 
@@ -12433,11 +12503,32 @@ namespace Smplkit.Internal.Generated.App
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class UserListMeta
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("page")]
+        public PageMeta Page { get; set; } = new PageMeta();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class UserListResponse
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public System.Collections.Generic.List<UserResource> Data { get; set; } = new System.Collections.Generic.List<UserResource>();
+
+        [System.Text.Json.Serialization.JsonPropertyName("meta")]
+        public UserListMeta? Meta { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
