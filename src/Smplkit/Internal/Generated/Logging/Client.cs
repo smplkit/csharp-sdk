@@ -2138,9 +2138,6 @@ namespace Smplkit.Internal.Generated.Logging
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = default!;
 
-        [System.Text.Json.Serialization.JsonPropertyName("key")]
-        public string? Key { get; set; } = default!;
-
         [System.Text.Json.Serialization.JsonPropertyName("level")]
         public string? Level { get; set; } = default!;
 
