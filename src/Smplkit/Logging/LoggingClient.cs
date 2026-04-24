@@ -476,17 +476,24 @@ public sealed class LoggingClient
     {
         var loggerId = data.TryGetValue("id", out var k) ? k as string : null;
         DebugLog.Log("websocket", $"logger event received, id={loggerId ?? "<unknown>"}");
-        if (loggerId is null) return;
-
-        LogLevel? newLevel = null;
-        if (data.TryGetValue("level", out var levelObj) && levelObj is string levelStr)
+        if (loggerId is null || !_started) return;
+        _ = Task.Run(async () =>
         {
-            try { newLevel = LogLevelExtensions.ParseLogLevel(levelStr); }
-            catch { /* Unknown level */ }
-        }
-
-        var evt = new LoggerChangeEvent(loggerId, newLevel, "websocket");
-        FireListeners(loggerId, evt);
+            try
+            {
+                var loggers = await ListAsync().ConfigureAwait(false);
+                ApplyLevels(loggers);
+                var logger = loggers.FirstOrDefault(l => l.Id == loggerId);
+                var evt = new LoggerChangeEvent(loggerId, logger?.Level, "websocket");
+                FireListeners(loggerId, evt);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.TraceWarning(
+                    "[smplkit] Logger refresh failed: {0}", ex.Message);
+                DebugLog.Log("websocket", $"Logger refresh failed: {ex}");
+            }
+        });
     }
 
     private void HandleGroupChanged(Dictionary<string, object?> data)

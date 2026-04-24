@@ -539,53 +539,83 @@ public class LoggingClientTests
     // HandleLoggerChanged via reflection
     // ------------------------------------------------------------------
 
+    private static MethodInfo GetHandleLoggerChanged() =>
+        typeof(LoggingClient).GetMethod("HandleLoggerChanged",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+
     [Fact]
-    public void HandleLoggerChanged_WithValidData_FiresListeners()
+    public async Task HandleLoggerChanged_WhenStarted_TriggersRefetch()
     {
+        int callCount = 0;
         var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse("""{"data":[]}""")));
-
-        var globalEvents = new List<LoggerChangeEvent>();
-        var scopedEvents = new List<LoggerChangeEvent>();
-
-        client.Logging.OnChange(e => globalEvents.Add(e));
-        client.Logging.OnChange("my-logger", e => scopedEvents.Add(e));
-
-        // Invoke HandleLoggerChanged via reflection
-        var method = typeof(LoggingClient).GetMethod("HandleLoggerChanged",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        method!.Invoke(client.Logging, new object[]
         {
-            new Dictionary<string, object?> { ["id"] = "my-logger", ["level"] = "ERROR" }
+            callCount++;
+            return Task.FromResult(JsonResponse("""{"data":[]}"""));
         });
 
-        Assert.Single(globalEvents);
-        Assert.Equal("my-logger", globalEvents[0].Id);
-        Assert.Equal(LogLevel.Error, globalEvents[0].Level);
-        Assert.Equal("websocket", globalEvents[0].Source);
+        await client.Logging.StartAsync();
+        int callsAfterStart = callCount;
 
-        Assert.Single(scopedEvents);
-        Assert.Equal("my-logger", scopedEvents[0].Id);
+        GetHandleLoggerChanged().Invoke(client.Logging, new object[]
+        {
+            new Dictionary<string, object?> { ["id"] = LoggerId }
+        });
+
+        await Task.Delay(200);
+        Assert.True(callCount > callsAfterStart, "Expected at least one additional API call after logger_changed event");
     }
 
     [Fact]
-    public void HandleLoggerChanged_UsesIdField()
+    public async Task HandleLoggerChanged_FiresListenersWithRefetchedLevel()
+    {
+        var (client, _) = CreateClient(_ =>
+            Task.FromResult(JsonResponse(LoggerListJson())));
+
+        await client.Logging.StartAsync();
+
+        var globalEvents = new List<LoggerChangeEvent>();
+        var scopedEvents = new List<LoggerChangeEvent>();
+        client.Logging.OnChange(e => globalEvents.Add(e));
+        client.Logging.OnChange(LoggerId, e => scopedEvents.Add(e));
+
+        // Event payload has no "level" — server never sends it
+        GetHandleLoggerChanged().Invoke(client.Logging, new object[]
+        {
+            new Dictionary<string, object?> { ["id"] = LoggerId }
+        });
+
+        await Task.Delay(200);
+
+        Assert.Single(globalEvents);
+        Assert.Equal(LoggerId, globalEvents[0].Id);
+        Assert.Equal(LogLevel.Info, globalEvents[0].Level); // level from refetch, not payload
+        Assert.Equal("websocket", globalEvents[0].Source);
+
+        Assert.Single(scopedEvents);
+        Assert.Equal(LoggerId, scopedEvents[0].Id);
+    }
+
+    [Fact]
+    public async Task HandleLoggerChanged_LoggerNotInList_FiresListenerWithNullLevel()
     {
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse("""{"data":[]}""")));
+
+        await client.Logging.StartAsync();
 
         var events = new List<LoggerChangeEvent>();
         client.Logging.OnChange(e => events.Add(e));
 
-        var method = typeof(LoggingClient).GetMethod("HandleLoggerChanged",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        method!.Invoke(client.Logging, new object[]
+        GetHandleLoggerChanged().Invoke(client.Logging, new object[]
         {
-            new Dictionary<string, object?> { ["id"] = "my-logger", ["level"] = "ERROR" }
+            new Dictionary<string, object?> { ["id"] = "unknown-logger" }
         });
 
+        await Task.Delay(200);
+
         Assert.Single(events);
-        Assert.Equal("my-logger", events[0].Id);
+        Assert.Equal("unknown-logger", events[0].Id);
+        Assert.Null(events[0].Level);
     }
 
     [Fact]
@@ -597,54 +627,54 @@ public class LoggingClientTests
         var events = new List<LoggerChangeEvent>();
         client.Logging.OnChange(e => events.Add(e));
 
-        var method = typeof(LoggingClient).GetMethod("HandleLoggerChanged",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        method!.Invoke(client.Logging, new object[]
+        GetHandleLoggerChanged().Invoke(client.Logging, new object[]
         {
-            new Dictionary<string, object?> { ["something"] = "else" } // no "id" or "key"
+            new Dictionary<string, object?> { ["something"] = "else" }
         });
 
         Assert.Empty(events);
     }
 
     [Fact]
-    public void HandleLoggerChanged_WithNullLevel_SetsNullLevel()
+    public void HandleLoggerChanged_BeforeStart_IsNoOp()
     {
+        int callCount = 0;
         var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse("""{"data":[]}""")));
-
-        var events = new List<LoggerChangeEvent>();
-        client.Logging.OnChange(e => events.Add(e));
-
-        var method = typeof(LoggingClient).GetMethod("HandleLoggerChanged",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        method!.Invoke(client.Logging, new object[]
         {
-            new Dictionary<string, object?> { ["id"] = "my-logger" } // no level
+            callCount++;
+            return Task.FromResult(JsonResponse("""{"data":[]}"""));
         });
 
-        Assert.Single(events);
-        Assert.Null(events[0].Level);
+        GetHandleLoggerChanged().Invoke(client.Logging, new object[]
+        {
+            new Dictionary<string, object?> { ["id"] = LoggerId }
+        });
+
+        Assert.Equal(0, callCount);
     }
 
     [Fact]
-    public void HandleLoggerChanged_WithInvalidLevel_SetsNullLevel()
+    public async Task HandleLoggerChanged_FetchFailure_DoesNotThrow()
     {
+        int callCount = 0;
         var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse("""{"data":[]}""")));
-
-        var events = new List<LoggerChangeEvent>();
-        client.Logging.OnChange(e => events.Add(e));
-
-        var method = typeof(LoggingClient).GetMethod("HandleLoggerChanged",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        method!.Invoke(client.Logging, new object[]
         {
-            new Dictionary<string, object?> { ["id"] = "my-logger", ["level"] = "INVALID_LEVEL" }
+            callCount++;
+            // StartAsync calls list_loggers + list_log_groups (2 calls). Fail from the 3rd onward.
+            if (callCount > 2) throw new HttpRequestException("network error");
+            return Task.FromResult(JsonResponse("""{"data":[]}"""));
         });
 
-        Assert.Single(events);
-        Assert.Null(events[0].Level); // Invalid level should result in null
+        await client.Logging.StartAsync();
+
+        var ex = Record.Exception(() =>
+            GetHandleLoggerChanged().Invoke(client.Logging, new object[]
+            {
+                new Dictionary<string, object?> { ["id"] = LoggerId }
+            }));
+
+        Assert.Null(ex);
+        await Task.Delay(200); // Allow Task.Run to settle
     }
 
     // ------------------------------------------------------------------
@@ -652,63 +682,71 @@ public class LoggingClientTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public void FireListeners_GlobalListenerThrows_DoesNotPropagate()
+    public async Task FireListeners_GlobalListenerThrows_DoesNotPropagate()
     {
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse("""{"data":[]}""")));
+
+        await client.Logging.StartAsync();
 
         var postThrowEvents = new List<LoggerChangeEvent>();
         client.Logging.OnChange(_ => throw new InvalidOperationException("boom"));
         client.Logging.OnChange(e => postThrowEvents.Add(e));
 
-        var method = typeof(LoggingClient).GetMethod("HandleLoggerChanged",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        // Should not throw despite listener exception
-        method!.Invoke(client.Logging, new object[]
-        {
-            new Dictionary<string, object?> { ["id"] = "test", ["level"] = "WARN" }
-        });
+        var ex = Record.Exception(() =>
+            GetHandleLoggerChanged().Invoke(client.Logging, new object[]
+            {
+                new Dictionary<string, object?> { ["id"] = "test" }
+            }));
 
-        // Second listener should still fire
+        Assert.Null(ex);
+        await Task.Delay(200);
+
+        // Second listener should still fire despite first throwing
         Assert.Single(postThrowEvents);
     }
 
     [Fact]
-    public void FireListeners_ScopedListenerThrows_DoesNotPropagate()
+    public async Task FireListeners_ScopedListenerThrows_DoesNotPropagate()
     {
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse("""{"data":[]}""")));
+
+        await client.Logging.StartAsync();
 
         var postThrowEvents = new List<LoggerChangeEvent>();
         client.Logging.OnChange("test", _ => throw new InvalidOperationException("boom"));
         client.Logging.OnChange("test", e => postThrowEvents.Add(e));
 
-        var method = typeof(LoggingClient).GetMethod("HandleLoggerChanged",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        // Should not throw
-        method!.Invoke(client.Logging, new object[]
-        {
-            new Dictionary<string, object?> { ["id"] = "test", ["level"] = "INFO" }
-        });
+        var ex = Record.Exception(() =>
+            GetHandleLoggerChanged().Invoke(client.Logging, new object[]
+            {
+                new Dictionary<string, object?> { ["id"] = "test" }
+            }));
+
+        Assert.Null(ex);
+        await Task.Delay(200);
 
         Assert.Single(postThrowEvents);
     }
 
     [Fact]
-    public void FireListeners_NoScopedListeners_OnlyGlobalFires()
+    public async Task FireListeners_NoScopedListeners_OnlyGlobalFires()
     {
         var (client, _) = CreateClient(_ =>
             Task.FromResult(JsonResponse("""{"data":[]}""")));
 
+        await client.Logging.StartAsync();
+
         var globalEvents = new List<LoggerChangeEvent>();
         client.Logging.OnChange(e => globalEvents.Add(e));
 
-        var method = typeof(LoggingClient).GetMethod("HandleLoggerChanged",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        method!.Invoke(client.Logging, new object[]
+        GetHandleLoggerChanged().Invoke(client.Logging, new object[]
         {
-            new Dictionary<string, object?> { ["id"] = "unscoped-logger", ["level"] = "DEBUG" }
+            new Dictionary<string, object?> { ["id"] = "unscoped-logger" }
         });
+
+        await Task.Delay(200);
 
         Assert.Single(globalEvents);
         Assert.Equal("unscoped-logger", globalEvents[0].Id);
