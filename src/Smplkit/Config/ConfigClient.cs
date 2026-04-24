@@ -185,10 +185,11 @@ public sealed class ConfigClient
             // Register on the shared WebSocket
             if (_ensureWs is not null)
             {
-                DebugLog.Log("registration", "registering config_changed and config_deleted handlers");
+                DebugLog.Log("registration", "registering config_changed, config_deleted, and configs_changed handlers");
                 _wsManager = _ensureWs();
                 _wsManager.On("config_changed", HandleConfigChanged);
-                _wsManager.On("config_deleted", HandleConfigChanged);
+                _wsManager.On("config_deleted", HandleConfigDeleted);
+                _wsManager.On("configs_changed", HandleConfigsChanged);
                 DebugLog.Log("websocket", "config runtime connected");
             }
         }
@@ -291,13 +292,58 @@ public sealed class ConfigClient
     }
 
     // ------------------------------------------------------------------
-    // Internal: WebSocket event handler
+    // Internal: WebSocket event handlers
     // ------------------------------------------------------------------
 
     private void HandleConfigChanged(Dictionary<string, object?> data)
     {
         var configId = data.TryGetValue("id", out var k) ? k as string : null;
-        DebugLog.Log("websocket", $"config event received, id={configId ?? "<unknown>"}");
+        DebugLog.Log("websocket", $"config_changed event received, id={configId ?? "<unknown>"}");
+        if (!_runtimeConnected || configId is null) return;
+
+        var environment = _parent?.Environment;
+        if (environment is null) return;
+
+        try
+        {
+            // Scoped fetch: GET just the single changed config
+            var config = GetAsync(configId).GetAwaiter().GetResult();
+
+            var oldCache = new Dictionary<string, Dictionary<string, object?>>(_configCache);
+
+            // Resolve the updated config (standalone — no parent lookup needed for diff)
+            var chain = new List<ConfigChainEntry> { Resolver.ToChainEntry(config) };
+            var newCache = new Dictionary<string, Dictionary<string, object?>>(_configCache);
+            newCache[configId] = Resolver.Resolve(chain, environment);
+            _configCache = newCache;
+
+            DiffAndFire(oldCache, _configCache, "websocket");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                "[smplkit] Config refresh failed: {0}", ex.Message);
+            DebugLog.Log("websocket", $"Config refresh failed: {ex}");
+        }
+    }
+
+    private void HandleConfigDeleted(Dictionary<string, object?> data)
+    {
+        var configId = data.TryGetValue("id", out var k) ? k as string : null;
+        DebugLog.Log("websocket", $"config_deleted event received, id={configId ?? "<unknown>"}");
+        if (!_runtimeConnected || configId is null) return;
+
+        var oldCache = new Dictionary<string, Dictionary<string, object?>>(_configCache);
+        var newCache = new Dictionary<string, Dictionary<string, object?>>(_configCache);
+        newCache.Remove(configId);
+        _configCache = newCache;
+
+        DiffAndFire(oldCache, _configCache, "websocket");
+    }
+
+    private void HandleConfigsChanged(Dictionary<string, object?> data)
+    {
+        DebugLog.Log("websocket", "configs_changed event received — full list refetch");
         if (!_runtimeConnected) return;
 
         var environment = _parent?.Environment;
@@ -313,8 +359,8 @@ public sealed class ConfigClient
         catch (Exception ex)
         {
             System.Diagnostics.Trace.TraceWarning(
-                "[smplkit] Config refresh failed: {0}", ex.Message);
-            DebugLog.Log("websocket", $"Config refresh failed: {ex}");
+                "[smplkit] Configs bulk refresh failed: {0}", ex.Message);
+            DebugLog.Log("websocket", $"Configs bulk refresh failed: {ex}");
         }
     }
 

@@ -362,20 +362,30 @@ public class FlagsClientCoverageTests
     // ---------------------------------------------------------------
 
     [Fact]
-    public void HandleFlagChanged_RefetchesAndFiresListeners()
+    public void HandleFlagChanged_ScopedFetch_FiresListenersWhenContentChanged()
     {
-        var flagJson = FlagListWithEnvJson(id: "ws-flag", defaultVal: "true");
+        // Initialization uses the list response (default=true).
+        // The scoped GET for flag_changed returns a different default (false) → diff detected → listeners fire.
+        var listJson = FlagListWithEnvJson(id: "ws-flag", defaultVal: "true");
+        var singleJson = SingleFlagGetJson(id: "ws-flag"); // default=false
+
         var events = new List<FlagChangeEvent>();
-        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
+        var (client, _) = CreateClient(req =>
+        {
+            // Distinguish list vs single-item requests by URL
+            if (req.RequestUri!.AbsoluteUri.Contains("/flags/ws-flag"))
+                return Task.FromResult(JsonResponse(singleJson));
+            return Task.FromResult(JsonResponse(listJson));
+        });
 
         client.Flags.OnChange(evt => events.Add(evt));
         client.Flags.OnChange("ws-flag", evt => events.Add(evt));
 
-        // Trigger initialization
+        // Trigger initialization (loads flag with default=true)
         var handle = client.Flags.BooleanFlag("ws-flag", false);
         handle.Get();
 
-        // Simulate HandleFlagChanged via reflection (it's private)
+        // Simulate HandleFlagChanged — scoped GET returns default=false → diff → listeners fire
         var method = typeof(FlagsClient).GetMethod("HandleFlagChanged",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         method!.Invoke(client.Flags, new object[]
@@ -386,7 +396,6 @@ public class FlagsClientCoverageTests
         // Should have fired both global and scoped listeners
         Assert.True(events.Count >= 2);
         Assert.All(events, e => Assert.Equal("ws-flag", e.Id));
-        // Source must be "websocket" for WebSocket-triggered events
         Assert.All(events, e => Assert.Equal("websocket", e.Source));
     }
 
@@ -473,8 +482,15 @@ public class FlagsClientCoverageTests
     [Fact]
     public void HandleFlagChanged_ListenerThrows_DoesNotPropagate()
     {
-        var flagJson = FlagListWithEnvJson(id: "throw-flag", defaultVal: "true");
-        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
+        // Init returns default=true; scoped GET returns default=false → diff detected → listeners fire (and throw)
+        var listJson = FlagListWithEnvJson(id: "throw-flag", defaultVal: "true");
+        var singleJson = SingleFlagGetJson(id: "throw-flag"); // default=false
+        var (client, _) = CreateClient(req =>
+        {
+            if (req.RequestUri!.AbsoluteUri.Contains("/flags/throw-flag"))
+                return Task.FromResult(JsonResponse(singleJson));
+            return Task.FromResult(JsonResponse(listJson));
+        });
 
         client.Flags.OnChange(_ => throw new InvalidOperationException("boom"));
 
@@ -495,8 +511,15 @@ public class FlagsClientCoverageTests
     [Fact]
     public void HandleFlagChanged_ScopedListenerThrows_DoesNotPropagate()
     {
-        var flagJson = FlagListWithEnvJson(id: "handle-throw", defaultVal: "true");
-        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
+        // Init returns default=true; scoped GET returns default=false → diff detected → scoped listener fires (and throws)
+        var listJson = FlagListWithEnvJson(id: "handle-throw", defaultVal: "true");
+        var singleJson = SingleFlagGetJson(id: "handle-throw"); // default=false
+        var (client, _) = CreateClient(req =>
+        {
+            if (req.RequestUri!.AbsoluteUri.Contains("/flags/handle-throw"))
+                return Task.FromResult(JsonResponse(singleJson));
+            return Task.FromResult(JsonResponse(listJson));
+        });
 
         client.Flags.OnChange("handle-throw", _ => throw new InvalidOperationException("boom"));
 
@@ -2008,5 +2031,279 @@ public class FlagsClientCoverageTests
 
         // Allow the fire-and-forget Task.Run to settle
         await Task.Delay(200);
+    }
+
+    // ---------------------------------------------------------------
+    // New WS event behaviors: scoped fetch, plural events, deleted
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void HandleFlagChanged_UsesScopedGetNotList()
+    {
+        // Verify that flag_changed does GET /flags/{id}, not GET /flags (list)
+        var listJson = FlagListWithEnvJson(id: "scoped-flag", defaultVal: "true");
+        var singleJson = SingleFlagGetJson(id: "scoped-flag"); // default=false
+
+        var getUrls = new List<string>();
+        var (client, _) = CreateClient(req =>
+        {
+            getUrls.Add(req.RequestUri!.AbsoluteUri);
+            if (req.RequestUri!.AbsoluteUri.Contains("/flags/scoped-flag"))
+                return Task.FromResult(JsonResponse(singleJson));
+            return Task.FromResult(JsonResponse(listJson));
+        });
+
+        var handle = client.Flags.BooleanFlag("scoped-flag", false);
+        handle.Get(); // initialize (uses list)
+        getUrls.Clear();
+
+        var method = typeof(FlagsClient).GetMethod("HandleFlagChanged",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        method!.Invoke(client.Flags, new object[]
+        {
+            new Dictionary<string, object?> { ["id"] = "scoped-flag" }
+        });
+
+        // Should have called GET /flags/scoped-flag, NOT GET /flags (list)
+        Assert.Single(getUrls);
+        Assert.Contains("/flags/scoped-flag", getUrls[0]);
+    }
+
+    [Fact]
+    public void HandleFlagChanged_ContentUnchanged_DoesNotFireListeners()
+    {
+        // flag_changed: scoped GET returns same content → no diff → no listeners
+        var listJson = FlagListWithEnvJson(id: "unchanged-flag", defaultVal: "false");
+        var singleJson = SingleFlagGetJson(id: "unchanged-flag"); // default=false same
+
+        var events = new List<FlagChangeEvent>();
+        var (client, _) = CreateClient(req =>
+        {
+            if (req.RequestUri!.AbsoluteUri.Contains("/flags/unchanged-flag"))
+                return Task.FromResult(JsonResponse(singleJson));
+            return Task.FromResult(JsonResponse(listJson));
+        });
+
+        client.Flags.OnChange(evt => events.Add(evt));
+        var handle = client.Flags.BooleanFlag("unchanged-flag", false);
+        handle.Get(); // initialize
+
+        var method = typeof(FlagsClient).GetMethod("HandleFlagChanged",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        method!.Invoke(client.Flags, new object[]
+        {
+            new Dictionary<string, object?> { ["id"] = "unchanged-flag" }
+        });
+
+        // Content unchanged → no listeners fired
+        Assert.Empty(events);
+    }
+
+    [Fact]
+    public void HandleFlagDeleted_RemovesFromStoreAndFiresDeletedEvent_NoFetch()
+    {
+        var listJson = FlagListWithEnvJson(id: "del-ws-flag", defaultVal: "true");
+
+        var fetchCount = 0;
+        var events = new List<FlagChangeEvent>();
+        var (client, _) = CreateClient(req =>
+        {
+            fetchCount++;
+            return Task.FromResult(JsonResponse(listJson));
+        });
+
+        client.Flags.OnChange(evt => events.Add(evt));
+        var handle = client.Flags.BooleanFlag("del-ws-flag", false);
+        handle.Get(); // initialize
+        int fetchesAfterInit = fetchCount;
+
+        var method = typeof(FlagsClient).GetMethod("HandleFlagDeleted",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        method!.Invoke(client.Flags, new object[]
+        {
+            new Dictionary<string, object?> { ["id"] = "del-ws-flag" }
+        });
+
+        // No additional HTTP fetch for deleted event
+        Assert.Equal(fetchesAfterInit, fetchCount);
+
+        // Listener fires with Deleted=true
+        Assert.Single(events);
+        Assert.Equal("del-ws-flag", events[0].Id);
+        Assert.True(events[0].Deleted);
+        Assert.Equal("websocket", events[0].Source);
+    }
+
+    [Fact]
+    public void HandleFlagsChanged_FullListFetch_DiffBasedFiring()
+    {
+        // flags_changed: full list refetch, diff, fire global once + per-key for changed.
+        // Initialization loads V1 (default=true). HandleFlagsChanged refetches V2 (default=false).
+        var listJsonV1 = FlagListWithEnvJson(id: "bulk-flag", defaultVal: "true");
+        var listJsonV2 = FlagListWithEnvJson(id: "bulk-flag", defaultVal: "false"); // changed
+
+        // Track list-GET requests to flags endpoint specifically
+        int flagListGetCount = 0;
+        var globalEvents = new List<FlagChangeEvent>();
+        var scopedEvents = new List<FlagChangeEvent>();
+        var (client, _) = CreateClient(req =>
+        {
+            // Only count GET requests to the flags list endpoint (not bulk POST, not app endpoint)
+            bool isFlagsListGet = req.Method == HttpMethod.Get &&
+                req.RequestUri!.AbsoluteUri.Contains("flags.smplkit.com") &&
+                !req.RequestUri.AbsoluteUri.Contains("/flags/") &&
+                req.RequestUri.AbsoluteUri.TrimEnd('/').EndsWith("flags");
+            if (isFlagsListGet) flagListGetCount++;
+
+            // First list GET (init) → V1; subsequent (HandleFlagsChanged) → V2
+            if (isFlagsListGet && flagListGetCount >= 2)
+                return Task.FromResult(JsonResponse(listJsonV2));
+            return Task.FromResult(JsonResponse(listJsonV1));
+        });
+
+        client.Flags.OnChange(evt => globalEvents.Add(evt));
+        client.Flags.OnChange("bulk-flag", evt => scopedEvents.Add(evt));
+        var handle = client.Flags.BooleanFlag("bulk-flag", false);
+        handle.Get(); // initialize with V1
+
+        var method = typeof(FlagsClient).GetMethod("HandleFlagsChanged",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        method!.Invoke(client.Flags, new object[]
+        {
+            new Dictionary<string, object?>()
+        });
+
+        // Global listener fires exactly once
+        Assert.Single(globalEvents);
+        Assert.Equal("websocket", globalEvents[0].Source);
+
+        // Per-key listener fires for the changed flag
+        Assert.Single(scopedEvents);
+        Assert.Equal("bulk-flag", scopedEvents[0].Id);
+    }
+
+    [Fact]
+    public void HandleFlagsChanged_NoChange_DoesNotFireListeners()
+    {
+        // flags_changed: same content → diff is empty → no listeners fire
+        var listJson = FlagListWithEnvJson(id: "nochange-flag", defaultVal: "true");
+
+        var events = new List<FlagChangeEvent>();
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(listJson)));
+
+        client.Flags.OnChange(evt => events.Add(evt));
+        var handle = client.Flags.BooleanFlag("nochange-flag", false);
+        handle.Get(); // initialize
+
+        var method = typeof(FlagsClient).GetMethod("HandleFlagsChanged",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        method!.Invoke(client.Flags, new object[]
+        {
+            new Dictionary<string, object?>()
+        });
+
+        Assert.Empty(events);
+    }
+
+    [Fact]
+    public void EnsureInitialized_RegistersFlagsChangedHandler()
+    {
+        var flagJson = FlagListWithEnvJson(id: "reg-test-flag", defaultVal: "false");
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(flagJson)));
+
+        var handle = client.Flags.BooleanFlag("reg-test-flag", false);
+        handle.Get(); // trigger initialization
+
+        var wsManagerField = typeof(FlagsClient).GetField("_wsManager",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var wsManager = wsManagerField!.GetValue(client.Flags);
+        Assert.NotNull(wsManager);
+
+        var listenersField = wsManager!.GetType().GetField("_listeners",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var listeners = listenersField!.GetValue(wsManager)
+            as System.Collections.Concurrent.ConcurrentDictionary<string, List<Action<Dictionary<string, object?>>>>;
+        Assert.NotNull(listeners);
+
+        Assert.True(listeners!.ContainsKey("flags_changed"),
+            "Expected 'flags_changed' to be registered on the WebSocket manager");
+    }
+
+    [Fact]
+    public void HandleFlagsChanged_FetchFailure_DoesNotThrow()
+    {
+        var flagJson = FlagListWithEnvJson(id: "bulk-fail-flag", defaultVal: "true");
+        bool failOnBulk = false;
+        var (client, _) = CreateClient(req =>
+        {
+            if (failOnBulk && req.Method == HttpMethod.Get &&
+                req.RequestUri!.AbsoluteUri.Contains("flags.smplkit.com") &&
+                !req.RequestUri.AbsoluteUri.Contains("/flags/"))
+                throw new HttpRequestException("Network error");
+            if (req.Method == HttpMethod.Post)
+                return Task.FromResult(JsonResponse("{}"));
+            return Task.FromResult(JsonResponse(flagJson));
+        });
+
+        var handle = client.Flags.BooleanFlag("bulk-fail-flag", false);
+        handle.Get(); // initialize
+
+        failOnBulk = true;
+
+        var method = typeof(FlagsClient).GetMethod("HandleFlagsChanged",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+        // Should not throw — error is swallowed
+        method!.Invoke(client.Flags, new object[] { new Dictionary<string, object?>() });
+    }
+
+    [Fact]
+    public void FireGlobalListeners_ListenerThrows_DoesNotPropagate()
+    {
+        var flagJson = FlagListWithEnvJson(id: "global-throw-flag", defaultVal: "true");
+        var listJsonV2 = FlagListWithEnvJson(id: "global-throw-flag", defaultVal: "false");
+        int getCount = 0;
+        var (client, _) = CreateClient(req =>
+        {
+            if (req.Method == HttpMethod.Post)
+                return Task.FromResult(JsonResponse("{}"));
+            getCount++;
+            return Task.FromResult(JsonResponse(getCount == 1 ? flagJson : listJsonV2));
+        });
+
+        client.Flags.OnChange(_ => throw new InvalidOperationException("global boom"));
+        var handle = client.Flags.BooleanFlag("global-throw-flag", false);
+        handle.Get(); // initialize
+
+        var method = typeof(FlagsClient).GetMethod("HandleFlagsChanged",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+        // Should not throw even though global listener throws
+        method!.Invoke(client.Flags, new object[] { new Dictionary<string, object?>() });
+    }
+
+    [Fact]
+    public void FireScopedListeners_ListenerThrows_DoesNotPropagate()
+    {
+        var flagJson = FlagListWithEnvJson(id: "scoped-throw-flag", defaultVal: "true");
+        var listJsonV2 = FlagListWithEnvJson(id: "scoped-throw-flag", defaultVal: "false");
+        int getCount = 0;
+        var (client, _) = CreateClient(req =>
+        {
+            if (req.Method == HttpMethod.Post)
+                return Task.FromResult(JsonResponse("{}"));
+            getCount++;
+            return Task.FromResult(JsonResponse(getCount == 1 ? flagJson : listJsonV2));
+        });
+
+        client.Flags.OnChange("scoped-throw-flag", _ => throw new InvalidOperationException("scoped boom"));
+        var handle = client.Flags.BooleanFlag("scoped-throw-flag", false);
+        handle.Get(); // initialize
+
+        var method = typeof(FlagsClient).GetMethod("HandleFlagsChanged",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+        // Should not throw even though scoped listener throws
+        method!.Invoke(client.Flags, new object[] { new Dictionary<string, object?>() });
     }
 }

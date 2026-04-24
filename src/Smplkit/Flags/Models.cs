@@ -270,7 +270,8 @@ public sealed class JsonFlag : Flag
 /// </summary>
 /// <param name="Id">The flag id that changed.</param>
 /// <param name="Source">The origin of the change.</param>
-public sealed record FlagChangeEvent(string Id, string Source);
+/// <param name="Deleted">True when the flag was deleted.</param>
+public sealed record FlagChangeEvent(string Id, string Source, bool Deleted = false);
 
 /// <summary>
 /// Evaluation statistics for the flags service.

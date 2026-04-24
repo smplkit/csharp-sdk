@@ -25,6 +25,9 @@ public sealed class LoggingClient
     private readonly List<Action<LoggerChangeEvent>> _globalListeners = new();
     private readonly Dictionary<string, List<Action<LoggerChangeEvent>>> _scopedListeners = new();
     private readonly object _listenerLock = new();
+    // Cache of last-known logger levels for diff-based listener firing
+    private readonly Dictionary<string, LogLevel?> _loggerLevelCache = new();
+    private readonly object _loggerCacheLock = new();
 
     /// <summary>
     /// Initializes a new instance of <see cref="LoggingClient"/>.
@@ -215,16 +218,23 @@ public sealed class LoggingClient
         var loggers = await ListAsync(ct).ConfigureAwait(false);
         await ListGroupsAsync(ct).ConfigureAwait(false);
 
-        // 6. Apply levels from server-managed loggers to adapters
+        // 6. Apply levels from server-managed loggers to adapters, seed level cache
         ApplyLevels(loggers);
+        lock (_loggerCacheLock)
+        {
+            foreach (var l in loggers)
+                if (l.Id is not null)
+                    _loggerLevelCache[l.Id] = l.Level;
+        }
 
         // 7. Wire WebSocket
-        DebugLog.Log("registration", "registering logger_changed, logger_deleted, group_changed, group_deleted handlers");
+        DebugLog.Log("registration", "registering logger_changed, logger_deleted, group_changed, group_deleted, loggers_changed handlers");
         _wsManager = _ensureWs();
         _wsManager.On("logger_changed", HandleLoggerChanged);
-        _wsManager.On("logger_deleted", HandleLoggerChanged);
+        _wsManager.On("logger_deleted", HandleLoggerDeleted);
         _wsManager.On("group_changed", HandleGroupChanged);
-        _wsManager.On("group_deleted", HandleGroupChanged);
+        _wsManager.On("group_deleted", HandleGroupDeleted);
+        _wsManager.On("loggers_changed", HandleLoggersChanged);
         _started = true;
 
         // 8. Start periodic flush timer for post-startup loggers
@@ -288,9 +298,10 @@ public sealed class LoggingClient
         if (_wsManager is not null)
         {
             _wsManager.Off("logger_changed", HandleLoggerChanged);
-            _wsManager.Off("logger_deleted", HandleLoggerChanged);
+            _wsManager.Off("logger_deleted", HandleLoggerDeleted);
             _wsManager.Off("group_changed", HandleGroupChanged);
-            _wsManager.Off("group_deleted", HandleGroupChanged);
+            _wsManager.Off("group_deleted", HandleGroupDeleted);
+            _wsManager.Off("loggers_changed", HandleLoggersChanged);
             _wsManager = null;
         }
         _started = false;
@@ -475,17 +486,29 @@ public sealed class LoggingClient
     private void HandleLoggerChanged(Dictionary<string, object?> data)
     {
         var loggerId = data.TryGetValue("id", out var k) ? k as string : null;
-        DebugLog.Log("websocket", $"logger event received, id={loggerId ?? "<unknown>"}");
+        DebugLog.Log("websocket", $"logger_changed event received, id={loggerId ?? "<unknown>"}");
         if (loggerId is null || !_started) return;
         _ = Task.Run(async () =>
         {
             try
             {
-                var loggers = await ListAsync().ConfigureAwait(false);
-                ApplyLevels(loggers);
-                var logger = loggers.FirstOrDefault(l => l.Id == loggerId);
-                var evt = new LoggerChangeEvent(loggerId, logger?.Level, "websocket");
-                FireListeners(loggerId, evt);
+                // Scoped fetch: GET just the single changed logger
+                var logger = await GetAsync(loggerId).ConfigureAwait(false);
+                ApplyLevels(new List<Logger> { logger });
+
+                // Only fire listeners if level changed
+                LogLevel? prevLevel;
+                lock (_loggerCacheLock)
+                {
+                    _loggerLevelCache.TryGetValue(loggerId, out prevLevel);
+                    _loggerLevelCache[loggerId] = logger.Level;
+                }
+
+                if (!Equals(prevLevel, logger.Level))
+                {
+                    var evt = new LoggerChangeEvent(loggerId, logger.Level, "websocket");
+                    FireListeners(loggerId, evt);
+                }
             }
             catch (Exception ex)
             {
@@ -496,24 +519,134 @@ public sealed class LoggingClient
         });
     }
 
+    private void HandleLoggerDeleted(Dictionary<string, object?> data)
+    {
+        var loggerId = data.TryGetValue("id", out var k) ? k as string : null;
+        DebugLog.Log("websocket", $"logger_deleted event received, id={loggerId ?? "<unknown>"}");
+        if (loggerId is null || !_started) return;
+
+        lock (_loggerCacheLock)
+        {
+            _loggerLevelCache.Remove(loggerId);
+        }
+
+        var evt = new LoggerChangeEvent(loggerId, null, "websocket", Deleted: true);
+        FireListeners(loggerId, evt);
+    }
+
     private void HandleGroupChanged(Dictionary<string, object?> data)
     {
         var groupId = data.TryGetValue("id", out var k) ? k as string : null;
-        DebugLog.Log("websocket", $"group event received, id={groupId ?? "<unknown>"}");
-        // A group change may affect any logger in that group — re-fetch and re-apply.
-        if (!_started) return;
+        DebugLog.Log("websocket", $"group_changed event received, id={groupId ?? "<unknown>"}");
+        if (groupId is null || !_started) return;
         _ = Task.Run(async () =>
         {
             try
             {
+                // Scoped fetch: GET just the single changed group
+                var group = await GetGroupAsync(groupId).ConfigureAwait(false);
+                // A group level change affects all loggers in that group — re-apply all
                 var loggers = await ListAsync().ConfigureAwait(false);
                 ApplyLevels(loggers);
+
+                // Diff and fire for loggers whose effective level changed
+                var changedLoggers = new List<Logger>();
+                lock (_loggerCacheLock)
+                {
+                    foreach (var logger in loggers)
+                    {
+                        if (logger.Id is null) continue;
+                        _loggerLevelCache.TryGetValue(logger.Id, out var prev);
+                        if (!Equals(prev, logger.Level))
+                        {
+                            _loggerLevelCache[logger.Id] = logger.Level;
+                            changedLoggers.Add(logger);
+                        }
+                    }
+                }
+                foreach (var logger in changedLoggers)
+                {
+                    var evt = new LoggerChangeEvent(logger.Id!, logger.Level, "websocket");
+                    FireListeners(logger.Id!, evt);
+                }
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Trace.TraceWarning(
                     "[smplkit] Logger group refresh failed: {0}", ex.Message);
                 DebugLog.Log("websocket", $"Logger group refresh failed: {ex}");
+            }
+        });
+    }
+
+    private void HandleGroupDeleted(Dictionary<string, object?> data)
+    {
+        var groupId = data.TryGetValue("id", out var k) ? k as string : null;
+        DebugLog.Log("websocket", $"group_deleted event received, id={groupId ?? "<unknown>"}");
+        if (groupId is null || !_started) return;
+
+        // Fire a logger change event for the group using loggerId = groupId (group-level event)
+        var evt = new LoggerChangeEvent(groupId, null, "websocket", Deleted: true);
+        FireListeners(groupId, evt);
+    }
+
+    private void HandleLoggersChanged(Dictionary<string, object?> data)
+    {
+        DebugLog.Log("websocket", "loggers_changed event received — full refetch");
+        if (!_started) return;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                // Full refetch of both loggers and groups
+                var loggers = await ListAsync().ConfigureAwait(false);
+                await ListGroupsAsync().ConfigureAwait(false);
+                ApplyLevels(loggers);
+
+                // Diff and fire per-key listeners for changed loggers
+                var changedLoggers = new List<Logger>();
+                lock (_loggerCacheLock)
+                {
+                    var allIds = new HashSet<string>(_loggerLevelCache.Keys);
+                    foreach (var l in loggers)
+                        if (l.Id is not null) allIds.Add(l.Id);
+
+                    foreach (var id in allIds)
+                    {
+                        _loggerLevelCache.TryGetValue(id, out var prev);
+                        var current = loggers.FirstOrDefault(l => l.Id == id);
+                        var newLevel = current?.Level;
+                        if (!Equals(prev, newLevel))
+                        {
+                            if (current is not null)
+                                _loggerLevelCache[id] = newLevel;
+                            else
+                                _loggerLevelCache.Remove(id);
+                            changedLoggers.Add(new Logger(this, id, id, newLevel, null, false,
+                                new List<Dictionary<string, object?>>(),
+                                new Dictionary<string, Dictionary<string, object?>>(), null, null));
+                        }
+                    }
+                }
+
+                if (changedLoggers.Count == 0) return;
+
+                // Fire global listener exactly once
+                var globalEvt = new LoggerChangeEvent(changedLoggers[0].Id!, changedLoggers[0].Level, "websocket");
+                FireGlobalListeners(globalEvt);
+
+                // Fire per-key listeners for each changed logger
+                foreach (var logger in changedLoggers)
+                {
+                    var evt = new LoggerChangeEvent(logger.Id!, logger.Level, "websocket");
+                    FireScopedListeners(logger.Id!, evt);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.TraceWarning(
+                    "[smplkit] Loggers bulk refresh failed: {0}", ex.Message);
+                DebugLog.Log("websocket", $"Loggers bulk refresh failed: {ex}");
             }
         });
     }
@@ -542,6 +675,35 @@ public sealed class LoggingClient
                 try { cb(evt); }
                 catch { /* Ignore listener exceptions */ }
             }
+        }
+    }
+
+    private void FireGlobalListeners(LoggerChangeEvent evt)
+    {
+        List<Action<LoggerChangeEvent>> globalCopy;
+        lock (_listenerLock)
+        {
+            globalCopy = new List<Action<LoggerChangeEvent>>(_globalListeners);
+        }
+        foreach (var cb in globalCopy)
+        {
+            try { cb(evt); }
+            catch { /* Ignore listener exceptions */ }
+        }
+    }
+
+    private void FireScopedListeners(string loggerId, LoggerChangeEvent evt)
+    {
+        List<Action<LoggerChangeEvent>>? scopedCopy;
+        lock (_listenerLock)
+        {
+            if (!_scopedListeners.TryGetValue(loggerId, out var scoped)) return;
+            scopedCopy = new List<Action<LoggerChangeEvent>>(scoped);
+        }
+        foreach (var cb in scopedCopy)
+        {
+            try { cb(evt); }
+            catch { /* Ignore listener exceptions */ }
         }
     }
 

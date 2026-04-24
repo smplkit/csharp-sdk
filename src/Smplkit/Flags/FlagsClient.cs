@@ -343,10 +343,11 @@ public sealed class FlagsClient
 
             _flagFlushTimer = new Timer(_ => FlushTimerCallback(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
 
-            Debug.Log("registration", "registering flag_changed and flag_deleted handlers");
+            Debug.Log("registration", "registering flag_changed, flag_deleted, and flags_changed handlers");
             _wsManager = _ensureWs();
             _wsManager.On("flag_changed", HandleFlagChanged);
             _wsManager.On("flag_deleted", HandleFlagDeleted);
+            _wsManager.On("flags_changed", HandleFlagsChanged);
             Debug.Log("websocket", "flags runtime connected");
         }
     }
@@ -508,6 +509,7 @@ public sealed class FlagsClient
         {
             _wsManager.Off("flag_changed", HandleFlagChanged);
             _wsManager.Off("flag_deleted", HandleFlagDeleted);
+            _wsManager.Off("flags_changed", HandleFlagsChanged);
             _wsManager = null;
         }
     }
@@ -579,19 +581,23 @@ public sealed class FlagsClient
     private void HandleFlagChanged(Dictionary<string, object?> data)
     {
         var flagId = data.TryGetValue("id", out var k) ? k as string : null;
-        Debug.Log("websocket", $"flag event received, id={flagId ?? "<unknown>"}");
+        Debug.Log("websocket", $"flag_changed event received, id={flagId ?? "<unknown>"}");
+        if (flagId is null) return;
+
         try
         {
-            var response = _genFlagsClient.List_flagsAsync().GetAwaiter().GetResult();
-            if (response.Data is not null)
+            var preState = _flagStore.TryGetValue(flagId, out var prev) ? prev : null;
+
+            var response = _genFlagsClient.Get_flagAsync(flagId).GetAwaiter().GetResult();
+            var newState = ParseFlagDef(response.Data);
+            if (newState is not null)
+                _flagStore[flagId] = newState;
+
+            // Only fire listeners if content actually changed
+            if (!FlagDefEquals(preState, newState))
             {
-                _flagStore.Clear();
-                foreach (var resource in response.Data)
-                {
-                    var flag = ParseFlagDef(resource);
-                    if (flag is not null && flag.TryGetValue("id", out var fk) && fk is string fks)
-                        _flagStore[fks] = flag;
-                }
+                _cache.Clear();
+                FireChangeListeners(flagId, "websocket");
             }
         }
         catch (Exception ex)
@@ -600,14 +606,68 @@ public sealed class FlagsClient
                 "[smplkit] Flag refresh failed: {0}", ex.Message);
             Debug.Log("websocket", $"Flag refresh failed: {ex}");
         }
-
-        _cache.Clear();
-        FireChangeListeners(flagId, "websocket");
     }
 
     private void HandleFlagDeleted(Dictionary<string, object?> data)
     {
-        HandleFlagChanged(data);
+        var flagId = data.TryGetValue("id", out var k) ? k as string : null;
+        Debug.Log("websocket", $"flag_deleted event received, id={flagId ?? "<unknown>"}");
+        if (flagId is null) return;
+
+        _flagStore.TryRemove(flagId, out _);
+        _cache.Clear();
+        FireChangeListeners(flagId, "websocket", deleted: true);
+    }
+
+    private void HandleFlagsChanged(Dictionary<string, object?> data)
+    {
+        Debug.Log("websocket", "flags_changed event received — full list refetch");
+        try
+        {
+            // Snapshot pre-state
+            var preStore = _flagStore.ToDictionary(kv => kv.Key, kv => kv.Value);
+
+            var response = _genFlagsClient.List_flagsAsync().GetAwaiter().GetResult();
+            _flagStore.Clear();
+            if (response.Data is not null)
+            {
+                foreach (var resource in response.Data)
+                {
+                    var flag = ParseFlagDef(resource);
+                    if (flag is not null && flag.TryGetValue("id", out var fk) && fk is string fks)
+                        _flagStore[fks] = flag;
+                }
+            }
+
+            _cache.Clear();
+
+            // Compute changed keys (added, modified, removed)
+            var allKeys = new HashSet<string>(preStore.Keys);
+            allKeys.UnionWith(_flagStore.Keys);
+            var changedKeys = allKeys
+                .Where(id =>
+                {
+                    preStore.TryGetValue(id, out var pre);
+                    _flagStore.TryGetValue(id, out var post);
+                    return !FlagDefEquals(pre, post);
+                })
+                .ToList();
+
+            if (changedKeys.Count == 0) return;
+
+            // Fire global listener exactly once
+            FireGlobalListeners("flags_changed", "websocket");
+
+            // Fire per-key listeners for each changed key
+            foreach (var id in changedKeys)
+                FireScopedListeners(id, "websocket");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                "[smplkit] Flags bulk refresh failed: {0}", ex.Message);
+            Debug.Log("websocket", $"Flags bulk refresh failed: {ex}");
+        }
     }
 
     // ------------------------------------------------------------------
@@ -632,10 +692,10 @@ public sealed class FlagsClient
     // Internal: change listeners
     // ------------------------------------------------------------------
 
-    private void FireChangeListeners(string? flagId, string source)
+    private void FireChangeListeners(string? flagId, string source, bool deleted = false)
     {
         if (flagId is null) return;
-        var evt = new FlagChangeEvent(flagId, source);
+        var evt = new FlagChangeEvent(flagId, source, deleted);
         foreach (var cb in _globalListeners)
         {
             try { cb(evt); }
@@ -656,10 +716,56 @@ public sealed class FlagsClient
         }
     }
 
+    private void FireGlobalListeners(string flagId, string source)
+    {
+        var evt = new FlagChangeEvent(flagId, source);
+        foreach (var cb in _globalListeners)
+        {
+            try { cb(evt); }
+            catch { /* Ignore listener exceptions */ }
+        }
+    }
+
+    private void FireScopedListeners(string flagId, string source)
+    {
+        if (!_scopedListeners.TryGetValue(flagId, out var scopedList)) return;
+        List<Action<FlagChangeEvent>> snapshot;
+        lock (scopedList)
+        {
+            snapshot = new List<Action<FlagChangeEvent>>(scopedList);
+        }
+        var evt = new FlagChangeEvent(flagId, source);
+        foreach (var cb in snapshot)
+        {
+            try { cb(evt); }
+            catch { /* Ignore listener exceptions */ }
+        }
+    }
+
     private void FireChangeListenersAll(string source)
     {
         foreach (var id in _flagStore.Keys)
             FireChangeListeners(id, source);
+    }
+
+    // ------------------------------------------------------------------
+    // Helpers: flag def comparison
+    // ------------------------------------------------------------------
+
+    private static bool FlagDefEquals(Dictionary<string, object?>? a, Dictionary<string, object?>? b)
+    {
+        if (ReferenceEquals(a, b)) return true;
+        if (a is null || b is null) return false;
+        if (a.Count != b.Count) return false;
+        foreach (var (key, val) in a)
+        {
+            if (!b.TryGetValue(key, out var bVal)) return false;
+            // Use JSON-serialized comparison for deep equality
+            var aJson = System.Text.Json.JsonSerializer.Serialize(val, JsonOptions.Default);
+            var bJson = System.Text.Json.JsonSerializer.Serialize(bVal, JsonOptions.Default);
+            if (aJson != bJson) return false;
+        }
+        return true;
     }
 
     // ------------------------------------------------------------------

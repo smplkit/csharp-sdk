@@ -566,10 +566,19 @@ public class LoggingClientTests
     }
 
     [Fact]
-    public async Task HandleLoggerChanged_FiresListenersWithRefetchedLevel()
+    public async Task HandleLoggerChanged_FiresListenersWhenLevelChanges()
     {
-        var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse(LoggerListJson())));
+        // StartAsync returns INFO level; HandleLoggerChanged returns DEBUG → diff → listeners fire.
+        int callCount = 0;
+        var debugLoggerJson = LoggerListJson().Replace("\"INFO\"", "\"DEBUG\"");
+        var (client, _) = CreateClient(req =>
+        {
+            callCount++;
+            // Initial StartAsync list calls return INFO; subsequent single-item GET returns DEBUG
+            if (req.RequestUri!.AbsoluteUri.Contains($"/loggers/{LoggerId}") && req.Method == HttpMethod.Get && callCount > 2)
+                return Task.FromResult(JsonResponse(SingleLoggerJson().Replace("\"INFO\"", "\"DEBUG\"")));
+            return Task.FromResult(JsonResponse(LoggerListJson()));
+        });
 
         await client.Logging.StartAsync();
 
@@ -578,7 +587,6 @@ public class LoggingClientTests
         client.Logging.OnChange(e => globalEvents.Add(e));
         client.Logging.OnChange(LoggerId, e => scopedEvents.Add(e));
 
-        // Event payload has no "level" — server never sends it
         GetHandleLoggerChanged().Invoke(client.Logging, new object[]
         {
             new Dictionary<string, object?> { ["id"] = LoggerId }
@@ -588,7 +596,7 @@ public class LoggingClientTests
 
         Assert.Single(globalEvents);
         Assert.Equal(LoggerId, globalEvents[0].Id);
-        Assert.Equal(LogLevel.Info, globalEvents[0].Level); // level from refetch, not payload
+        Assert.Equal(LogLevel.Debug, globalEvents[0].Level); // level from scoped GET
         Assert.Equal("websocket", globalEvents[0].Source);
 
         Assert.Single(scopedEvents);
@@ -596,10 +604,11 @@ public class LoggingClientTests
     }
 
     [Fact]
-    public async Task HandleLoggerChanged_LoggerNotInList_FiresListenerWithNullLevel()
+    public async Task HandleLoggerChanged_LevelUnchanged_DoesNotFireListeners()
     {
+        // StartAsync seeds INFO in cache; HandleLoggerChanged GET also returns INFO → no diff → no fire.
         var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse("""{"data":[]}""")));
+            Task.FromResult(JsonResponse(LoggerListJson()))); // always returns INFO
 
         await client.Logging.StartAsync();
 
@@ -608,14 +617,44 @@ public class LoggingClientTests
 
         GetHandleLoggerChanged().Invoke(client.Logging, new object[]
         {
-            new Dictionary<string, object?> { ["id"] = "unknown-logger" }
+            new Dictionary<string, object?> { ["id"] = LoggerId }
         });
 
         await Task.Delay(200);
 
-        Assert.Single(events);
-        Assert.Equal("unknown-logger", events[0].Id);
-        Assert.Null(events[0].Level);
+        Assert.Empty(events);
+    }
+
+    [Fact]
+    public async Task HandleLoggerChanged_LoggerNotFound_SwallowsExceptionAndDoesNotFire()
+    {
+        // With scoped GET, a 404 causes an exception which is swallowed → no listener fires.
+        var (client, _) = CreateClient(req =>
+        {
+            if (req.RequestUri!.AbsoluteUri.Contains("/loggers/unknown-logger"))
+                return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.NotFound)
+                {
+                    Content = new StringContent("""{"errors":[{"status":"404","detail":"Not found"}]}""",
+                        Encoding.UTF8, "application/vnd.api+json"),
+                });
+            return Task.FromResult(JsonResponse("""{"data":[]}"""));
+        });
+
+        await client.Logging.StartAsync();
+
+        var events = new List<LoggerChangeEvent>();
+        client.Logging.OnChange(e => events.Add(e));
+
+        var ex = Record.Exception(() =>
+            GetHandleLoggerChanged().Invoke(client.Logging, new object[]
+            {
+                new Dictionary<string, object?> { ["id"] = "unknown-logger" }
+            }));
+
+        await Task.Delay(200);
+
+        Assert.Null(ex);
+        Assert.Empty(events);
     }
 
     [Fact]
@@ -681,11 +720,37 @@ public class LoggingClientTests
     // FireListeners edge cases
     // ------------------------------------------------------------------
 
+    private static string SingleLoggerJsonForId(string id, string level = "INFO") => $$"""
+        {
+            "data": {
+                "id": "{{id}}",
+                "type": "logger",
+                "attributes": {
+                    "id": "{{id}}",
+                    "name": "{{id}}",
+                    "level": "{{level}}",
+                    "group": null,
+                    "managed": false,
+                    "sources": [],
+                    "environments": {},
+                    "created_at": "2024-01-15T10:30:00Z",
+                    "updated_at": "2024-01-15T10:30:00Z"
+                }
+            }
+        }
+        """;
+
     [Fact]
     public async Task FireListeners_GlobalListenerThrows_DoesNotPropagate()
     {
-        var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse("""{"data":[]}""")));
+        // StartAsync returns empty list (no loggers seeded). HandleLoggerChanged
+        // does scoped GET for "test" which returns INFO (new level vs null in cache) → fires.
+        var (client, _) = CreateClient(req =>
+        {
+            if (req.RequestUri!.AbsoluteUri.Contains("/loggers/test"))
+                return Task.FromResult(JsonResponse(SingleLoggerJsonForId("test", "INFO")));
+            return Task.FromResult(JsonResponse("""{"data":[]}"""));
+        });
 
         await client.Logging.StartAsync();
 
@@ -709,8 +774,12 @@ public class LoggingClientTests
     [Fact]
     public async Task FireListeners_ScopedListenerThrows_DoesNotPropagate()
     {
-        var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse("""{"data":[]}""")));
+        var (client, _) = CreateClient(req =>
+        {
+            if (req.RequestUri!.AbsoluteUri.Contains("/loggers/test"))
+                return Task.FromResult(JsonResponse(SingleLoggerJsonForId("test", "INFO")));
+            return Task.FromResult(JsonResponse("""{"data":[]}"""));
+        });
 
         await client.Logging.StartAsync();
 
@@ -733,8 +802,12 @@ public class LoggingClientTests
     [Fact]
     public async Task FireListeners_NoScopedListeners_OnlyGlobalFires()
     {
-        var (client, _) = CreateClient(_ =>
-            Task.FromResult(JsonResponse("""{"data":[]}""")));
+        var (client, _) = CreateClient(req =>
+        {
+            if (req.RequestUri!.AbsoluteUri.Contains("/loggers/unscoped-logger"))
+                return Task.FromResult(JsonResponse(SingleLoggerJsonForId("unscoped-logger", "WARN")));
+            return Task.FromResult(JsonResponse("""{"data":[]}"""));
+        });
 
         await client.Logging.StartAsync();
 
@@ -1899,5 +1972,384 @@ public class LoggingClientTests
         // FlushLoggerBufferAsync catches all exceptions — OnFlushTimer should not throw
         var ex = Record.Exception(() => client.Logging.OnFlushTimer());
         Assert.Null(ex);
+    }
+
+    // ------------------------------------------------------------------
+    // New WS event behaviors: scoped fetch, plural events, deleted
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task HandleLoggerChanged_UsesScopedGetNotList()
+    {
+        // logger_changed should call GET /loggers/{id}, NOT GET /loggers (list)
+        var getUrls = new List<string>();
+        var (client, _) = CreateClient(req =>
+        {
+            getUrls.Add(req.RequestUri!.AbsoluteUri);
+            if (req.RequestUri!.AbsoluteUri.Contains($"/loggers/{LoggerId}") && req.Method == HttpMethod.Get)
+                return Task.FromResult(JsonResponse(SingleLoggerJson().Replace("\"INFO\"", "\"DEBUG\"")));
+            return Task.FromResult(JsonResponse(LoggerListJson()));
+        });
+
+        await client.Logging.StartAsync();
+        getUrls.Clear();
+
+        GetHandleLoggerChanged().Invoke(client.Logging, new object[]
+        {
+            new Dictionary<string, object?> { ["id"] = LoggerId }
+        });
+
+        await Task.Delay(200);
+
+        // Should have called GET /loggers/{id}, not the list endpoint
+        Assert.Single(getUrls);
+        Assert.Contains($"/loggers/{LoggerId}", getUrls[0]);
+    }
+
+    [Fact]
+    public async Task HandleLoggerDeleted_FiresDeletedEvent_NoFetch()
+    {
+        int fetchCount = 0;
+        var (client, _) = CreateClient(_ =>
+        {
+            fetchCount++;
+            return Task.FromResult(JsonResponse(LoggerListJson()));
+        });
+
+        await client.Logging.StartAsync();
+        int fetchesAfterStart = fetchCount;
+
+        var events = new List<LoggerChangeEvent>();
+        client.Logging.OnChange(e => events.Add(e));
+        client.Logging.OnChange(LoggerId, e => events.Add(e));
+
+        var method = typeof(LoggingClient).GetMethod("HandleLoggerDeleted",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        method.Invoke(client.Logging, new object[]
+        {
+            new Dictionary<string, object?> { ["id"] = LoggerId }
+        });
+
+        // No additional HTTP fetch
+        Assert.Equal(fetchesAfterStart, fetchCount);
+
+        // Both global and scoped listeners fire with Deleted=true
+        Assert.True(events.Count >= 2);
+        Assert.All(events, e => Assert.True(e.Deleted));
+        Assert.All(events, e => Assert.Equal(LoggerId, e.Id));
+        Assert.All(events, e => Assert.Equal("websocket", e.Source));
+    }
+
+    [Fact]
+    public async Task HandleGroupDeleted_FiresDeletedEvent_NoFetch()
+    {
+        int fetchCount = 0;
+        var (client, _) = CreateClient(_ =>
+        {
+            fetchCount++;
+            return Task.FromResult(JsonResponse("""{"data":[]}"""));
+        });
+
+        await client.Logging.StartAsync();
+        int fetchesAfterStart = fetchCount;
+
+        var events = new List<LoggerChangeEvent>();
+        client.Logging.OnChange(e => events.Add(e));
+        client.Logging.OnChange(LogGroupId, e => events.Add(e));
+
+        var method = typeof(LoggingClient).GetMethod("HandleGroupDeleted",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        method.Invoke(client.Logging, new object[]
+        {
+            new Dictionary<string, object?> { ["id"] = LogGroupId }
+        });
+
+        // No additional HTTP fetch
+        Assert.Equal(fetchesAfterStart, fetchCount);
+
+        // Listeners fire with Deleted=true
+        Assert.NotEmpty(events);
+        Assert.All(events, e => Assert.True(e.Deleted));
+        Assert.All(events, e => Assert.Equal(LogGroupId, e.Id));
+    }
+
+    [Fact]
+    public async Task HandleLoggersChanged_FullRefetch_DiffBasedFiring()
+    {
+        // loggers_changed: full refetch of loggers and groups, diff-based listener firing
+        int callCount = 0;
+        var (client, _) = CreateClient(req =>
+        {
+            callCount++;
+            // After startup, return changed logger level
+            if (callCount > 2 && req.RequestUri!.AbsoluteUri.Contains("/loggers") &&
+                !req.RequestUri!.AbsoluteUri.Contains("bulk"))
+                return Task.FromResult(JsonResponse(LoggerListJson().Replace("\"INFO\"", "\"DEBUG\"")));
+            return Task.FromResult(JsonResponse(LoggerListJson()));
+        });
+
+        await client.Logging.StartAsync();
+
+        var globalEvents = new List<LoggerChangeEvent>();
+        var scopedEvents = new List<LoggerChangeEvent>();
+        client.Logging.OnChange(e => globalEvents.Add(e));
+        client.Logging.OnChange(LoggerId, e => scopedEvents.Add(e));
+
+        var method = typeof(LoggingClient).GetMethod("HandleLoggersChanged",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        method.Invoke(client.Logging, new object[]
+        {
+            new Dictionary<string, object?>()
+        });
+
+        await Task.Delay(300);
+
+        // Global listener fires exactly once
+        Assert.Single(globalEvents);
+        Assert.Equal("websocket", globalEvents[0].Source);
+
+        // Per-key listener fires for the changed logger
+        Assert.Single(scopedEvents);
+        Assert.Equal(LoggerId, scopedEvents[0].Id);
+    }
+
+    [Fact]
+    public async Task HandleLoggersChanged_NoChange_DoesNotFireListeners()
+    {
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse(LoggerListJson())));
+
+        await client.Logging.StartAsync();
+
+        var events = new List<LoggerChangeEvent>();
+        client.Logging.OnChange(e => events.Add(e));
+
+        var method = typeof(LoggingClient).GetMethod("HandleLoggersChanged",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        method.Invoke(client.Logging, new object[]
+        {
+            new Dictionary<string, object?>()
+        });
+
+        await Task.Delay(200);
+
+        // No change → no listeners fire
+        Assert.Empty(events);
+    }
+
+    [Fact]
+    public async Task StartAsync_RegistersLoggersChangedHandler()
+    {
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("""{"data":[]}""")));
+
+        try { await client.Logging.StartAsync(); } catch { }
+
+        var wsField = typeof(LoggingClient).GetField("_wsManager",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var wsManager = wsField.GetValue(client.Logging);
+        Assert.NotNull(wsManager);
+
+        var listenersField = wsManager!.GetType().GetField("_listeners",
+            BindingFlags.NonPublic | BindingFlags.Instance);
+        var listeners = listenersField!.GetValue(wsManager)
+            as System.Collections.Concurrent.ConcurrentDictionary<string, List<Action<Dictionary<string, object?>>>>;
+        Assert.NotNull(listeners);
+
+        Assert.True(listeners!.ContainsKey("loggers_changed"),
+            "Expected 'loggers_changed' to be registered on the WebSocket manager");
+        Assert.True(listeners.ContainsKey("logger_deleted"),
+            "Expected 'logger_deleted' to be registered on the WebSocket manager");
+        Assert.True(listeners.ContainsKey("group_deleted"),
+            "Expected 'group_deleted' to be registered on the WebSocket manager");
+    }
+
+    [Fact]
+    public async Task HandleGroupChanged_UsesScopedGetNotList()
+    {
+        // group_changed: scoped GET /log_groups/{id}, not full list
+        var getUrls = new List<string>();
+        var (client, _) = CreateClient(req =>
+        {
+            getUrls.Add(req.RequestUri!.AbsoluteUri);
+            if (req.RequestUri!.AbsoluteUri.Contains($"/log_groups/{LogGroupId}"))
+                return Task.FromResult(JsonResponse(SingleLogGroupJson()));
+            if (req.RequestUri!.AbsoluteUri.Contains("/loggers") && !req.RequestUri!.AbsoluteUri.Contains("bulk"))
+                return Task.FromResult(JsonResponse("""{"data":[]}"""));
+            return Task.FromResult(JsonResponse("""{"data":[]}"""));
+        });
+
+        await client.Logging.StartAsync();
+        getUrls.Clear();
+
+        var method = typeof(LoggingClient).GetMethod("HandleGroupChanged",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        method.Invoke(client.Logging, new object[]
+        {
+            new Dictionary<string, object?> { ["id"] = LogGroupId }
+        });
+
+        await Task.Delay(200);
+
+        // Should have called GET /log_groups/{id}
+        Assert.Contains(getUrls, u => u.Contains($"/log_groups/{LogGroupId}"));
+    }
+
+    [Fact]
+    public async Task HandleGroupChanged_LevelChangedForLogger_FiresListener()
+    {
+        // group_changed: when group GET succeeds and list returns changed logger level → fires
+        var events = new List<LoggerChangeEvent>();
+        int callCount = 0;
+        var (client, _) = CreateClient(req =>
+        {
+            callCount++;
+            if (req.RequestUri!.AbsoluteUri.Contains($"/log_groups/{LogGroupId}"))
+                return Task.FromResult(JsonResponse(SingleLogGroupJson()));
+            // Logger list: first 2 calls (startup) → INFO; subsequent calls → DEBUG (changed)
+            if (req.RequestUri!.AbsoluteUri.Contains("/loggers") && !req.RequestUri!.AbsoluteUri.Contains("bulk"))
+                return Task.FromResult(JsonResponse(callCount <= 2 ? LoggerListJson() : LoggerListJson().Replace("\"INFO\"", "\"DEBUG\"")));
+            return Task.FromResult(JsonResponse("""{"data":[]}"""));
+        });
+
+        await client.Logging.StartAsync();
+        client.Logging.OnChange(e => events.Add(e));
+
+        var method = typeof(LoggingClient).GetMethod("HandleGroupChanged",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        method.Invoke(client.Logging, new object[]
+        {
+            new Dictionary<string, object?> { ["id"] = LogGroupId }
+        });
+
+        await Task.Delay(300);
+
+        // Listener fires for the logger whose level changed
+        Assert.NotEmpty(events);
+        Assert.All(events, e => Assert.Equal("websocket", e.Source));
+    }
+
+    [Fact]
+    public async Task HandleLoggersChanged_LoggerRemovedFromServer_ClearsFromCache()
+    {
+        // loggers_changed: logger was in cache but no longer in server list → cache removed
+        var events = new List<LoggerChangeEvent>();
+        int callCount = 0;
+        var (client, _) = CreateClient(req =>
+        {
+            callCount++;
+            if (req.RequestUri!.AbsoluteUri.Contains("/loggers") && !req.RequestUri!.AbsoluteUri.Contains("bulk") &&
+                req.Method == HttpMethod.Get)
+            {
+                // Startup (≤2 loggers calls): has logger; HandleLoggersChanged: empty (logger removed)
+                return Task.FromResult(JsonResponse(callCount <= 2 ? LoggerListJson() : """{"data":[]}"""));
+            }
+            return Task.FromResult(JsonResponse("""{"data":[]}"""));
+        });
+
+        await client.Logging.StartAsync();
+        client.Logging.OnChange(e => events.Add(e));
+
+        var method = typeof(LoggingClient).GetMethod("HandleLoggersChanged",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        method.Invoke(client.Logging, new object[]
+        {
+            new Dictionary<string, object?>()
+        });
+
+        await Task.Delay(300);
+
+        // Listener fires for the removed logger (null level → changed from INFO)
+        Assert.NotEmpty(events);
+        Assert.Contains(events, e => e.Id == LoggerId);
+    }
+
+    [Fact]
+    public async Task HandleLoggersChanged_FetchFailure_DoesNotThrow()
+    {
+        int callCount = 0;
+        var (client, _) = CreateClient(_ =>
+        {
+            callCount++;
+            if (callCount > 2) throw new HttpRequestException("network error");
+            return Task.FromResult(JsonResponse("""{"data":[]}"""));
+        });
+
+        await client.Logging.StartAsync();
+
+        var method = typeof(LoggingClient).GetMethod("HandleLoggersChanged",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var ex = Record.Exception(() =>
+            method.Invoke(client.Logging, new object[] { new Dictionary<string, object?>() }));
+
+        Assert.Null(ex);
+        await Task.Delay(200);
+    }
+
+    [Fact]
+    public async Task FireGlobalListeners_ListenerThrows_DoesNotPropagate()
+    {
+        // Covers the FireGlobalListeners catch block
+        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("""{"data":[]}""")));
+        await client.Logging.StartAsync();
+
+        var postThrowEvents = new List<LoggerChangeEvent>();
+        client.Logging.OnChange(_ => throw new InvalidOperationException("boom"));
+        client.Logging.OnChange(e => postThrowEvents.Add(e));
+
+        // Trigger via HandleLoggersChanged which calls FireGlobalListeners
+        int callCount2 = 0;
+        var (client2, _) = CreateClient(req =>
+        {
+            callCount2++;
+            if (req.RequestUri!.AbsoluteUri.Contains("/loggers") && !req.RequestUri.AbsoluteUri.Contains("bulk") &&
+                req.Method == HttpMethod.Get)
+                return Task.FromResult(JsonResponse(callCount2 <= 2 ? LoggerListJson() : LoggerListJson().Replace("\"INFO\"", "\"DEBUG\"")));
+            return Task.FromResult(JsonResponse("""{"data":[]}"""));
+        });
+        await client2.Logging.StartAsync();
+        client2.Logging.OnChange(_ => throw new InvalidOperationException("boom"));
+        var postThrowEvents2 = new List<LoggerChangeEvent>();
+        client2.Logging.OnChange(e => postThrowEvents2.Add(e));
+
+        var method = typeof(LoggingClient).GetMethod("HandleLoggersChanged",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var ex = Record.Exception(() =>
+            method.Invoke(client2.Logging, new object[] { new Dictionary<string, object?>() }));
+
+        Assert.Null(ex);
+        await Task.Delay(300);
+
+        // Second listener fires despite first throwing
+        Assert.NotEmpty(postThrowEvents2);
+    }
+
+    [Fact]
+    public async Task FireScopedListeners_ListenerThrows_DoesNotPropagate()
+    {
+        // Covers the FireScopedListeners catch block (via HandleLoggersChanged)
+        int callCount = 0;
+        var (client, _) = CreateClient(req =>
+        {
+            callCount++;
+            if (req.RequestUri!.AbsoluteUri.Contains("/loggers") && !req.RequestUri.AbsoluteUri.Contains("bulk") &&
+                req.Method == HttpMethod.Get)
+                return Task.FromResult(JsonResponse(callCount <= 2 ? LoggerListJson() : LoggerListJson().Replace("\"INFO\"", "\"DEBUG\"")));
+            return Task.FromResult(JsonResponse("""{"data":[]}"""));
+        });
+
+        await client.Logging.StartAsync();
+        client.Logging.OnChange(LoggerId, _ => throw new InvalidOperationException("scoped boom"));
+        var postThrowScopedEvents = new List<LoggerChangeEvent>();
+        client.Logging.OnChange(LoggerId, e => postThrowScopedEvents.Add(e));
+
+        var method = typeof(LoggingClient).GetMethod("HandleLoggersChanged",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var ex = Record.Exception(() =>
+            method.Invoke(client.Logging, new object[] { new Dictionary<string, object?>() }));
+
+        Assert.Null(ex);
+        await Task.Delay(300);
+
+        // Second scoped listener fires despite first throwing
+        Assert.NotEmpty(postThrowScopedEvents);
     }
 }

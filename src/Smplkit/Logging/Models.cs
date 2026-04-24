@@ -204,4 +204,5 @@ public sealed class LogGroup
 /// <param name="Id">The logger id that changed.</param>
 /// <param name="Level">The new log level, or null if cleared.</param>
 /// <param name="Source">The origin of the change.</param>
-public sealed record LoggerChangeEvent(string Id, LogLevel? Level, string Source);
+/// <param name="Deleted">True when the logger was deleted.</param>
+public sealed record LoggerChangeEvent(string Id, LogLevel? Level, string Source, bool Deleted = false);

@@ -632,7 +632,7 @@ public class ConfigClientCoverageTests
         // Should not throw — error is swallowed by catch block
         method!.Invoke(client.Config, new object[]
         {
-            new Dictionary<string, object?> { ["key"] = "err_config" }
+            new Dictionary<string, object?> { ["id"] = "err_config" }
         });
     }
 
@@ -738,7 +738,7 @@ public class ConfigClientCoverageTests
     [Fact]
     public void HandleConfigChanged_Initialized_FiresListenersWithWebsocketSource()
     {
-        // Config with two different values so a diff fires
+        // Initial list response (timeout=30)
         var configListJson1 = """
         {
             "data": [
@@ -759,37 +759,35 @@ public class ConfigClientCoverageTests
             ]
         }
         """;
-        var configListJson2 = """
+        // Scoped single-item GET response (timeout=60) — the changed value
+        var configSingleJson2 = """
         {
-            "data": [
-                {
+            "data": {
+                "id": "src_config",
+                "type": "config",
+                "attributes": {
                     "id": "src_config",
-                    "type": "config",
-                    "attributes": {
-                        "id": "src_config",
-                        "name": "Src Config",
-                        "description": null,
-                        "parent": null,
-                        "items": { "timeout": {"value": 60, "type": "NUMBER"} },
-                        "environments": {},
-                        "created_at": null,
-                        "updated_at": null
-                    }
+                    "name": "Src Config",
+                    "description": null,
+                    "parent": null,
+                    "items": { "timeout": {"value": 60, "type": "NUMBER"} },
+                    "environments": {},
+                    "created_at": null,
+                    "updated_at": null
                 }
-            ]
+            }
         }
         """;
 
-        int callCount = 0;
         var handler = new MockHttpMessageHandler(req =>
         {
             var url = req.RequestUri!.AbsoluteUri;
+            // Single-item GET: /configs/src_config
+            if (url.Contains("/configs/src_config"))
+                return Task.FromResult(JsonResponse(configSingleJson2));
+            // List GET: /configs
             if (url.Contains("configs"))
-            {
-                callCount++;
-                // First call: initial fetch. Subsequent calls: updated values.
-                return Task.FromResult(JsonResponse(callCount == 1 ? configListJson1 : configListJson2));
-            }
+                return Task.FromResult(JsonResponse(configListJson1));
             return Task.FromResult(JsonResponse("""{"data":[]}"""));
         });
         var httpClient = new HttpClient(handler);
@@ -797,13 +795,13 @@ public class ConfigClientCoverageTests
             new SmplClientOptions { ApiKey = "sk_api_test", Environment = "production", Service = "test-service" },
             httpClient);
 
-        // Trigger initialization
+        // Trigger initialization (loads timeout=30)
         client.Config.Get("src_config");
 
         var events = new List<ConfigChangeEvent>();
         client.Config.OnChange(evt => events.Add(evt));
 
-        // Simulate a config_changed WS event via reflection
+        // Simulate a config_changed WS event — scoped GET returns timeout=60 → diff fires listeners
         var method = typeof(Smplkit.Config.ConfigClient).GetMethod("HandleConfigChanged",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         method!.Invoke(client.Config, new object[]
@@ -842,6 +840,190 @@ public class ConfigClientCoverageTests
         Assert.Contains("str_key", postBody);
         Assert.Contains("bool_key", postBody);
         Assert.Contains("num_key", postBody);
+    }
+
+    // ------------------------------------------------------------------
+    // New WS event behaviors: scoped fetch, configs_changed, deleted
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void HandleConfigChanged_UsesScopedGetNotList()
+    {
+        // Verify that config_changed does GET /configs/{id}, not GET /configs (list)
+        var listJson = TestData.ConfigListJson();
+        var singleJson = TestData.SingleConfigJson();
+
+        var getUrls = new List<string>();
+        var handler = new MockHttpMessageHandler(req =>
+        {
+            getUrls.Add(req.RequestUri!.AbsoluteUri);
+            if (req.RequestUri!.AbsoluteUri.Contains($"/configs/{TestData.ConfigId}") &&
+                req.Method == HttpMethod.Get)
+                return Task.FromResult(JsonResponse(singleJson));
+            return Task.FromResult(JsonResponse(listJson));
+        });
+        var httpClient = new HttpClient(handler);
+        var client = new SmplClient(
+            new SmplClientOptions { ApiKey = TestData.ApiKey, Environment = "test", Service = "test-service" },
+            httpClient);
+
+        client.Config.Get(TestData.ConfigId); // initialize (uses list)
+        getUrls.Clear();
+
+        var method = typeof(Smplkit.Config.ConfigClient).GetMethod("HandleConfigChanged",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        method!.Invoke(client.Config, new object[]
+        {
+            new Dictionary<string, object?> { ["id"] = TestData.ConfigId }
+        });
+
+        // Should have called GET /configs/{id}, NOT the list endpoint
+        Assert.Single(getUrls);
+        Assert.Contains($"/configs/{TestData.ConfigId}", getUrls[0]);
+    }
+
+    [Fact]
+    public void HandleConfigDeleted_RemovesFromCacheAndFiresListeners_NoFetch()
+    {
+        var listJson = TestData.ConfigListJson();
+        int fetchCount = 0;
+
+        var handler = new MockHttpMessageHandler(req =>
+        {
+            fetchCount++;
+            return Task.FromResult(JsonResponse(listJson));
+        });
+        var httpClient = new HttpClient(handler);
+        var client = new SmplClient(
+            new SmplClientOptions { ApiKey = TestData.ApiKey, Environment = "test", Service = "test-service" },
+            httpClient);
+
+        client.Config.Get(TestData.ConfigId); // initialize
+        int fetchesAfterInit = fetchCount;
+
+        var events = new List<ConfigChangeEvent>();
+        client.Config.OnChange(evt => events.Add(evt));
+
+        var method = typeof(Smplkit.Config.ConfigClient).GetMethod("HandleConfigDeleted",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        method!.Invoke(client.Config, new object[]
+        {
+            new Dictionary<string, object?> { ["id"] = TestData.ConfigId }
+        });
+
+        // No additional HTTP fetch
+        Assert.Equal(fetchesAfterInit, fetchCount);
+
+        // Listeners fired (config was removed — values went from non-empty to empty)
+        Assert.NotEmpty(events);
+        Assert.All(events, e => Assert.Equal("websocket", e.Source));
+    }
+
+    [Fact]
+    public void HandleConfigsChanged_FullListFetch_RebuildsAndDiffs()
+    {
+        var listJsonV1 = TestData.ConfigListJson(); // timeout=30
+        var listJsonV2 = """
+        {
+            "data": [
+                {
+                    "id": "user_service",
+                    "type": "config",
+                    "attributes": {
+                        "id": "user_service",
+                        "name": "User Service",
+                        "description": "Test config",
+                        "parent": null,
+                        "items": { "timeout": {"value": 999, "type": "NUMBER"} },
+                        "environments": {},
+                        "created_at": "2024-01-15T10:30:00Z",
+                        "updated_at": "2024-01-15T10:30:00Z"
+                    }
+                }
+            ]
+        }
+        """;
+
+        int listCallCount = 0;
+        var events = new List<ConfigChangeEvent>();
+        var handler = new MockHttpMessageHandler(req =>
+        {
+            listCallCount++;
+            return Task.FromResult(JsonResponse(listCallCount == 1 ? listJsonV1 : listJsonV2));
+        });
+        var httpClient = new HttpClient(handler);
+        var client = new SmplClient(
+            new SmplClientOptions { ApiKey = TestData.ApiKey, Environment = "test", Service = "test-service" },
+            httpClient);
+
+        client.Config.Get(TestData.ConfigId); // initialize with V1
+        client.Config.OnChange(evt => events.Add(evt));
+
+        var method = typeof(Smplkit.Config.ConfigClient).GetMethod("HandleConfigsChanged",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        method!.Invoke(client.Config, new object[]
+        {
+            new Dictionary<string, object?>()
+        });
+
+        // Listeners fired for changed keys
+        Assert.NotEmpty(events);
+        Assert.All(events, e => Assert.Equal("websocket", e.Source));
+    }
+
+    [Fact]
+    public void EnsureInitialized_RegistersConfigsChangedHandler()
+    {
+        var handler = new MockHttpMessageHandler(_ =>
+            Task.FromResult(JsonResponse(TestData.ConfigListJson())));
+        var httpClient = new HttpClient(handler);
+        var client = new SmplClient(
+            new SmplClientOptions { ApiKey = TestData.ApiKey, Environment = "test", Service = "test-service" },
+            httpClient);
+
+        client.Config.Get(TestData.ConfigId); // trigger initialization
+
+        var wsField = typeof(Smplkit.Config.ConfigClient).GetField("_wsManager",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var wsManager = wsField!.GetValue(client.Config);
+        Assert.NotNull(wsManager);
+
+        var listenersField = wsManager!.GetType().GetField("_listeners",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var listeners = listenersField!.GetValue(wsManager)
+            as System.Collections.Concurrent.ConcurrentDictionary<string, List<Action<Dictionary<string, object?>>>>;
+        Assert.NotNull(listeners);
+
+        Assert.True(listeners!.ContainsKey("configs_changed"),
+            "Expected 'configs_changed' to be registered on the WebSocket manager");
+    }
+
+    [Fact]
+    public void HandleConfigsChanged_FetchFailure_DoesNotThrow()
+    {
+        bool failOnBulk = false;
+        var handler = new MockHttpMessageHandler(req =>
+        {
+            var url = req.RequestUri!.AbsoluteUri;
+            if (failOnBulk && url.Contains("configs"))
+                throw new HttpRequestException("Network error");
+            if (url.Contains("configs"))
+                return Task.FromResult(JsonResponse(TestData.ConfigListJson()));
+            return Task.FromResult(JsonResponse("""{"data":[]}"""));
+        });
+        var httpClient = new HttpClient(handler);
+        var client = new SmplClient(
+            new SmplClientOptions { ApiKey = TestData.ApiKey, Environment = "test", Service = "test-service" },
+            httpClient);
+
+        client.Config.Get(TestData.ConfigId); // initialize
+        failOnBulk = true;
+
+        var method = typeof(Smplkit.Config.ConfigClient).GetMethod("HandleConfigsChanged",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+        // Should not throw — error is swallowed by catch block
+        method!.Invoke(client.Config, new object[] { new Dictionary<string, object?>() });
     }
 }
 
