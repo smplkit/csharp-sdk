@@ -48,9 +48,11 @@ namespace Smplkit.Internal.Generated.Flags
         /// <remarks>
         /// List all feature flags for the authenticated account.
         /// </remarks>
+        /// <param name="filterreferences_context">Return flags whose rules reference this context instance. Format: {type}:{key}</param>
+        /// <param name="filterreferences_context_type">Return flags whose rules reference any attribute of the given context type.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<FlagListResponse> List_flagsAsync(string? filtertype = null, bool? filtermanaged = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<FlagListResponse> List_flagsAsync(string? filtertype = null, bool? filtermanaged = null, string? filterreferences_context = null, string? filterreferences_context_type = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -270,9 +272,11 @@ namespace Smplkit.Internal.Generated.Flags
         /// <remarks>
         /// List all feature flags for the authenticated account.
         /// </remarks>
+        /// <param name="filterreferences_context">Return flags whose rules reference this context instance. Format: {type}:{key}</param>
+        /// <param name="filterreferences_context_type">Return flags whose rules reference any attribute of the given context type.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<FlagListResponse> List_flagsAsync(string? filtertype = null, bool? filtermanaged = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<FlagListResponse> List_flagsAsync(string? filtertype = null, bool? filtermanaged = null, string? filterreferences_context = null, string? filterreferences_context_type = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -295,6 +299,14 @@ namespace Smplkit.Internal.Generated.Flags
                     if (filtermanaged != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[managed]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtermanaged, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filterreferences_context != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[references_context]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterreferences_context, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filterreferences_context_type != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[references_context_type]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterreferences_context_type, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
