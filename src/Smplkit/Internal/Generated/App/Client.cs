@@ -666,7 +666,7 @@ namespace Smplkit.Internal.Generated.App
         /// List Products
         /// </summary>
         /// <remarks>
-        /// Return all products with their plans and limits as JSON:API resources.
+        /// Return all flag-enabled products with their plans and limits.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -7918,7 +7918,7 @@ namespace Smplkit.Internal.Generated.App
         /// List Products
         /// </summary>
         /// <remarks>
-        /// Return all products with their plans and limits as JSON:API resources.
+        /// Return all flag-enabled products with their plans and limits.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
