@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -1771,9 +1772,9 @@ public class FlagsClientCoverageTests
     // ---------------------------------------------------------------
 
     [Fact]
-    public void EnsureInitialized_WithService_TriggersContextRegistration()
+    public async Task EnsureInitialized_WithService_TriggersContextRegistration()
     {
-        var requestUrls = new List<string>();
+        var requestUrls = new ConcurrentBag<string>();
         var flagJson = FlagListWithEnvJson(id: "svc-flag", defaultVal: "true");
         var handler = new MockHttpMessageHandler(req =>
         {
@@ -1788,12 +1789,14 @@ public class FlagsClientCoverageTests
         var handle = client.Flags.BooleanFlag("svc-flag", false);
         handle.Get(); // triggers EnsureInitialized
 
-        // Wait a bit for fire-and-forget Task.Run to complete
-        Thread.Sleep(200);
+        // Await the fire-and-forget registration task deterministically
+        if (client.Flags._initRegistrationTask is not null)
+            await client.Flags._initRegistrationTask;
 
-        // At minimum, the flags list was fetched. The context registration
-        // is fire-and-forget, so it may or may not appear depending on timing.
-        Assert.True(requestUrls.Count >= 1);
+        // Flags list was fetched (init) and context registration was attempted (app endpoint)
+        Assert.True(requestUrls.Count >= 2);
+        Assert.Contains(requestUrls, url => url.Contains("flags.smplkit.com"));
+        Assert.Contains(requestUrls, url => url.Contains("app.smplkit.com"));
     }
 
     [Fact]
@@ -2029,8 +2032,9 @@ public class FlagsClientCoverageTests
         var ex = Record.Exception(() => handle.Get());
         Assert.Null(ex);
 
-        // Allow the fire-and-forget Task.Run to settle
-        await Task.Delay(200);
+        // Await the fire-and-forget registration task to ensure the catch block is covered
+        if (client.Flags._initRegistrationTask is not null)
+            await client.Flags._initRegistrationTask;
     }
 
     // ---------------------------------------------------------------
@@ -2100,22 +2104,33 @@ public class FlagsClientCoverageTests
     }
 
     [Fact]
-    public void HandleFlagDeleted_RemovesFromStoreAndFiresDeletedEvent_NoFetch()
+    public async Task HandleFlagDeleted_RemovesFromStoreAndFiresDeletedEvent_NoFetch()
     {
         var listJson = FlagListWithEnvJson(id: "del-ws-flag", defaultVal: "true");
 
-        var fetchCount = 0;
+        // Count only flags-list GETs. The fire-and-forget context registration posts to
+        // app.smplkit.com and is excluded; counting all calls would be racy.
+        var flagsListGetCount = 0;
         var events = new List<FlagChangeEvent>();
         var (client, _) = CreateClient(req =>
         {
-            fetchCount++;
+            bool isFlagsListGet = req.Method == HttpMethod.Get &&
+                req.RequestUri!.AbsoluteUri.Contains("flags.smplkit.com") &&
+                !req.RequestUri.AbsoluteUri.Contains("/flags/") &&
+                req.RequestUri.AbsoluteUri.TrimEnd('/').EndsWith("flags");
+            if (isFlagsListGet) Interlocked.Increment(ref flagsListGetCount);
             return Task.FromResult(JsonResponse(listJson));
         });
 
         client.Flags.OnChange(evt => events.Add(evt));
         var handle = client.Flags.BooleanFlag("del-ws-flag", false);
-        handle.Get(); // initialize
-        int fetchesAfterInit = fetchCount;
+        handle.Get(); // initialize (fetches flags list once)
+
+        // Await the fire-and-forget registration so it doesn't race with assertions
+        if (client.Flags._initRegistrationTask is not null)
+            await client.Flags._initRegistrationTask;
+
+        int fetchesAfterInit = flagsListGetCount; // should be 1 (the init fetch)
 
         var method = typeof(FlagsClient).GetMethod("HandleFlagDeleted",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
@@ -2125,7 +2140,7 @@ public class FlagsClientCoverageTests
         });
 
         // No additional HTTP fetch for deleted event
-        Assert.Equal(fetchesAfterInit, fetchCount);
+        Assert.Equal(fetchesAfterInit, flagsListGetCount);
 
         // Listener fires with Deleted=true
         Assert.Single(events);

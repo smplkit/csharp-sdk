@@ -49,6 +49,9 @@ public sealed class FlagsClient
     private readonly FlagRegistrationBuffer _flagBuffer = new();
     private Timer? _flagFlushTimer;
 
+    // Exposed for tests to await the fire-and-forget context registration task
+    internal Task? _initRegistrationTask;
+
     internal FlagsClient(GeneratedClientFactory clients, string apiKey, Func<SharedWebSocket> ensureWs, SmplClient? parent = null, MetricsReporter? metrics = null)
     {
         _genFlagsClient = clients.Flags;
@@ -304,7 +307,7 @@ public sealed class FlagsClient
             if (_parent?.Service is { Length: > 0 } svc)
             {
                 var env = _parent?.Environment;
-                _ = Task.Run(async () =>
+                _initRegistrationTask = Task.Run(async () =>
                 {
                     try
                     {
