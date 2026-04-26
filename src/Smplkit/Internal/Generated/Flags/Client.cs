@@ -1195,7 +1195,7 @@ namespace Smplkit.Internal.Generated.Flags
         /// Value type: STRING, BOOLEAN, NUMERIC, or JSON
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("type")]
-        public string Type { get; set; } = default!;
+        public string? Type { get; set; } = default!;
 
         /// <summary>
         /// Default value; must reference a value in the values array (constrained) or match the flag type (unconstrained)
