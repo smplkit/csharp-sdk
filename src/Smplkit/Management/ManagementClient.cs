@@ -233,7 +233,6 @@ public sealed class ContextTypesClient
                 Type = GenApp.ContextTypeResourceType.Context_type,
                 Attributes = new GenApp.ContextType
                 {
-                    Id = ct.Id,
                     Name = ct.Name,
                     Attributes = doc.RootElement.Clone(),
                 },
