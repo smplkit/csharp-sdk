@@ -103,7 +103,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// Create Log Group
         /// </summary>
         /// <remarks>
-        /// Create a new log group. The caller provides the key in data.id or attributes.key.
+        /// Create a new log group. The caller provides the key in data.id, or it is auto-generated from name.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -979,7 +979,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// Create Log Group
         /// </summary>
         /// <remarks>
-        /// Create a new log group. The caller provides the key in data.id or attributes.key.
+        /// Create a new log group. The caller provides the key in data.id, or it is auto-generated from name.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
