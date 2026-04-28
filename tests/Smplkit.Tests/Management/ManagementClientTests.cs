@@ -594,6 +594,8 @@ public class ManagementClientTests
 
         Assert.Equal("user", ctx.Type);
         Assert.Equal("usr-1", ctx.Key);
+        Assert.NotNull(ctx.CreatedAt);
+        Assert.NotNull(ctx.UpdatedAt);
         Assert.Contains("contexts/", handler.LastRequest!.RequestUri!.AbsoluteUri);
         Assert.Contains("usr-1", handler.LastRequest.RequestUri!.AbsoluteUri);
     }
