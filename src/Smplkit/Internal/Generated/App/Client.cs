@@ -154,11 +154,11 @@ namespace Smplkit.Internal.Generated.App
         /// Wipe Account Data
         /// </summary>
         /// <remarks>
-        /// Delete every config, flag, logger, log group, context, context type (except the auto-managed ``service``), and customer API key (except the caller's current key) on the account. Environments are preserved. The ``common`` config is preserved as a structural anchor but its items are reset. Requires ``OWNER`` role and a ``{"confirm": true}`` body — anything else returns 400.
+        /// Delete every config, flag, logger, log group, context, context type, environment, and customer API key (except the caller's current key) on the account. The ``common`` config is preserved as a structural anchor but its items are reset. Requires ``OWNER`` role and a ``{"confirm": true}`` body — anything else returns 400. Returns 204 on success; if any sub-delete fails the response is 500.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<AccountWipeResponse> Wipe_account_dataAsync(AccountWipeRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task Wipe_account_dataAsync(AccountWipeRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -2304,11 +2304,11 @@ namespace Smplkit.Internal.Generated.App
         /// Wipe Account Data
         /// </summary>
         /// <remarks>
-        /// Delete every config, flag, logger, log group, context, context type (except the auto-managed ``service``), and customer API key (except the caller's current key) on the account. Environments are preserved. The ``common`` config is preserved as a structural anchor but its items are reset. Requires ``OWNER`` role and a ``{"confirm": true}`` body — anything else returns 400.
+        /// Delete every config, flag, logger, log group, context, context type, environment, and customer API key (except the caller's current key) on the account. The ``common`` config is preserved as a structural anchor but its items are reset. Requires ``OWNER`` role and a ``{"confirm": true}`` body — anything else returns 400. Returns 204 on success; if any sub-delete fails the response is 500.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<AccountWipeResponse> Wipe_account_dataAsync(AccountWipeRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task Wipe_account_dataAsync(AccountWipeRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (body == null)
                 throw new System.ArgumentNullException("body");
@@ -2324,7 +2324,6 @@ namespace Smplkit.Internal.Generated.App
                     content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/vnd.api+json");
                     request_.Content = content_;
                     request_.Method = new System.Net.Http.HttpMethod("POST");
-                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
 
                     var urlBuilder_ = new System.Text.StringBuilder();
                     if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
@@ -2354,14 +2353,9 @@ namespace Smplkit.Internal.Generated.App
                         ProcessResponse(client_, response_);
 
                         var status_ = (int)response_.StatusCode;
-                        if (status_ == 200)
+                        if (status_ == 204)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<AccountWipeResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            return objectResponse_.Object;
+                            return;
                         }
                         else
                         if (status_ == 400)
@@ -10745,48 +10739,6 @@ namespace Smplkit.Internal.Generated.App
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("confirm")]
         public bool Confirm { get; set; } = default!;
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    /// <summary>
-    /// Summary of resources removed by a wipe.
-    /// </summary>
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class AccountWipeResponse
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("configs_deleted")]
-        public int Configs_deleted { get; set; } = 0;
-
-        [System.Text.Json.Serialization.JsonPropertyName("flags_deleted")]
-        public int Flags_deleted { get; set; } = 0;
-
-        [System.Text.Json.Serialization.JsonPropertyName("loggers_deleted")]
-        public int Loggers_deleted { get; set; } = 0;
-
-        [System.Text.Json.Serialization.JsonPropertyName("log_groups_deleted")]
-        public int Log_groups_deleted { get; set; } = 0;
-
-        [System.Text.Json.Serialization.JsonPropertyName("contexts_deleted")]
-        public int Contexts_deleted { get; set; } = 0;
-
-        [System.Text.Json.Serialization.JsonPropertyName("context_types_deleted")]
-        public int Context_types_deleted { get; set; } = 0;
-
-        [System.Text.Json.Serialization.JsonPropertyName("api_keys_deleted")]
-        public int Api_keys_deleted { get; set; } = 0;
-
-        [System.Text.Json.Serialization.JsonPropertyName("failures")]
-        public System.Collections.Generic.List<string> Failures { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
