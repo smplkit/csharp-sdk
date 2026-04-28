@@ -11328,9 +11328,6 @@ namespace Smplkit.Internal.Generated.App
     public partial class ContextType
     {
 
-        [System.Text.Json.Serialization.JsonPropertyName("id")]
-        public string? Id { get; set; } = default!;
-
         /// <summary>
         /// Display label: User, Account, Device
         /// </summary>
