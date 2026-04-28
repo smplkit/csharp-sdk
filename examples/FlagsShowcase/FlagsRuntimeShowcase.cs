@@ -104,8 +104,8 @@ public static class FlagsRuntimeShowcase
         Section("3. Explicit Context Registration");
 
         // Register contexts explicitly for analytics / audience tracking.
-        // This is fire-and-forget and batched automatically.
-        client.Flags.Register(currentUser);
+        // Use client.Management.Contexts.RegisterAsync — buffered, flushed in background.
+        await client.Management.Contexts.RegisterAsync(currentUser);
         Step("Registered current user context");
 
         var secondUser = new Context(
@@ -118,7 +118,7 @@ public static class FlagsRuntimeShowcase
             },
             name: "Bob");
 
-        client.Flags.Register(secondUser);
+        await client.Management.Contexts.RegisterAsync(secondUser);
         Step($"Registered second user: {secondUser}");
 
         // ==============================================================
@@ -201,7 +201,7 @@ public static class FlagsRuntimeShowcase
         Section("7. Context Registration Flush");
 
         // Flush any pending context registrations to the server.
-        await client.Flags.FlushContextsAsync();
+        await client.Management.Contexts.FlushAsync();
         Step("Pending context registrations flushed to server");
 
         // ==============================================================

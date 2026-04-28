@@ -392,6 +392,28 @@ public sealed class LoggingClient
     }
 
     /// <summary>
+    /// Registers explicit logger sources. Accepts per-source service and environment overrides —
+    /// useful for sample-data seeding, cross-service migration, and test fixtures.
+    /// </summary>
+    /// <param name="sources">Logger sources to register.</param>
+    /// <param name="ct">Cancellation token.</param>
+    internal async Task RegisterSourcesAsync(IEnumerable<LoggerSource> sources, CancellationToken ct = default)
+    {
+        var items = sources.Select(s => new GenLogging.LoggerBulkItem
+        {
+            Id = s.Name,
+            Level = s.Level?.ToWireString(),
+            Resolved_level = s.ResolvedLevel?.ToWireString(),
+            Service = s.Service,
+            Environment = s.Environment,
+        }).ToList();
+
+        await ApiExceptionMapper.ExecuteAsync(
+            () => _genClient.Bulk_register_loggersAsync(
+                new GenLogging.LoggerBulkRequest { Loggers = items }, ct)).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Builds a <see cref="GenLogging.LoggerBulkItem"/> from a discovered logger.
     /// <para>
     /// MEL and Serilog adapters track only the effective (resolved) level — they have

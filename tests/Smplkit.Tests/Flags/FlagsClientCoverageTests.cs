@@ -193,76 +193,6 @@ public class FlagsClientCoverageTests
     }
 
     // ---------------------------------------------------------------
-    // Register (single context)
-    // ---------------------------------------------------------------
-
-    [Fact]
-    public void Register_SingleContext_DoesNotThrow()
-    {
-        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
-
-        client.Flags.Register(new Context("user", "u1",
-            new Dictionary<string, object?> { ["plan"] = "pro" }));
-    }
-
-    // ---------------------------------------------------------------
-    // Register (multiple contexts)
-    // ---------------------------------------------------------------
-
-    [Fact]
-    public void Register_MultipleContexts_DoesNotThrow()
-    {
-        var (client, _) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
-
-        client.Flags.Register(new List<Context>
-        {
-            new("user", "u1", new Dictionary<string, object?> { ["plan"] = "pro" }),
-            new("device", "d1", new Dictionary<string, object?> { ["os"] = "ios" }),
-        });
-    }
-
-    // ---------------------------------------------------------------
-    // FlushContextsAsync
-    // ---------------------------------------------------------------
-
-    [Fact]
-    public async Task FlushContextsAsync_EmptyBuffer_DoesNotCallApi()
-    {
-        var (client, handler) = CreateClient(_ => Task.FromResult(JsonResponse("{}")));
-
-        await client.Flags.FlushContextsAsync();
-
-        // No requests should have been made
-        Assert.Empty(handler.Requests);
-    }
-
-    [Fact]
-    public async Task FlushContextsAsync_WithPendingContexts_CallsApi()
-    {
-        var (client, handler) = CreateClient(_ =>
-            Task.FromResult(JsonResponse("{}")));
-
-        client.Flags.Register(new Context("user", "u1",
-            new Dictionary<string, object?> { ["plan"] = "pro" }));
-        await client.Flags.FlushContextsAsync();
-
-        Assert.Single(handler.Requests);
-        Assert.Equal(HttpMethod.Post, handler.Requests[0].Method);
-        Assert.Contains("/api/v1/contexts/bulk", handler.Requests[0].RequestUri!.ToString());
-    }
-
-    [Fact]
-    public async Task FlushContextsAsync_ApiFailure_DoesNotThrow()
-    {
-        var (client, _) = CreateClient(_ =>
-            Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError)));
-
-        client.Flags.Register(new Context("user", "u1"));
-        // Should not throw - fire-and-forget
-        await client.Flags.FlushContextsAsync();
-    }
-
-    // ---------------------------------------------------------------
     // EvaluateHandle with context provider triggering flush
     // ---------------------------------------------------------------
 
@@ -2320,5 +2250,55 @@ public class FlagsClientCoverageTests
 
         // Should not throw even though scoped listener throws
         method!.Invoke(client.Flags, new object[] { new Dictionary<string, object?>() });
+    }
+
+    // ------------------------------------------------------------------
+    // FlushContextsAsync — error swallowing
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task FlushContextsAsync_ApiFailure_LogsAndDoesNotThrow()
+    {
+        // Covers the catch block in FlagsClient.FlushContextsAsync
+        var traceMessages = new List<string>();
+        var listener = new TraceListener(traceMessages);
+        System.Diagnostics.Trace.Listeners.Add(listener);
+
+        try
+        {
+            var (client, _) = CreateClient(req =>
+            {
+                if (req.RequestUri!.AbsoluteUri.Contains("contexts/bulk"))
+                    return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.InternalServerError)
+                    {
+                        Content = new System.Net.Http.StringContent(
+                            """{"errors":[{"detail":"server error"}]}""",
+                            System.Text.Encoding.UTF8, "application/vnd.api+json"),
+                    });
+                return Task.FromResult(JsonResponse("{}"));
+            });
+
+            // Register a context so the buffer is non-empty, then flush via FlagsClient
+            await client.Management.Contexts.RegisterAsync(
+                new Smplkit.Context("user", "u1"), flush: false);
+
+            // Call internal FlushContextsAsync directly (shares the same buffer)
+            await client.Flags.FlushContextsAsync();
+
+            // Should swallow the exception and emit a trace warning
+            Assert.Contains(traceMessages, m => m.Contains("[smplkit]") && m.Contains("Context flush failed"));
+        }
+        finally
+        {
+            System.Diagnostics.Trace.Listeners.Remove(listener);
+        }
+    }
+
+    private sealed class TraceListener : System.Diagnostics.TraceListener
+    {
+        private readonly List<string> _messages;
+        public TraceListener(List<string> messages) => _messages = messages;
+        public override void Write(string? message) { if (message != null) _messages.Add(message); }
+        public override void WriteLine(string? message) { if (message != null) _messages.Add(message); }
     }
 }

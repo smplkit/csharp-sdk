@@ -1,5 +1,6 @@
 using Smplkit;
 using Smplkit.Logging;
+using Smplkit.Management;
 
 /// <summary>
 /// Smpl Logging SDK -- Management API Showcase
@@ -144,9 +145,37 @@ public static class LoggingManagementShowcase
         }
 
         // ==============================================================
-        // 7. DELETE LOGGER AND GROUP
+        // 7. REGISTER SYNTHETIC LOGGER SOURCES
         // ==============================================================
-        Section("7. Cleanup");
+        // RegisterSourcesAsync accepts explicit (service, environment) overrides —
+        // useful for seeding, cross-service migration, and test fixtures.
+        // Contrast with StartAsync which registers loggers seen in the current process.
+        Section("7. Register Synthetic Logger Sources");
+
+        await client.Logging.Management.RegisterSourcesAsync(new[]
+        {
+            new LoggerSource(
+                "sqlalchemy.engine",
+                service: "user-service",
+                environment: "production",
+                resolvedLevel: LogLevel.Warn),
+            new LoggerSource(
+                "sqlalchemy.engine",
+                service: "payment-service",
+                environment: "production",
+                resolvedLevel: LogLevel.Warn),
+            new LoggerSource(
+                "httpx",
+                service: "checkout-service",
+                environment: "staging",
+                resolvedLevel: LogLevel.Info),
+        });
+        Step("3 logger sources registered");
+
+        // ==============================================================
+        // 8. DELETE LOGGER AND GROUP
+        // ==============================================================
+        Section("8. Cleanup");
 
         try
         {

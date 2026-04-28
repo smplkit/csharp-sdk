@@ -93,4 +93,21 @@ public sealed class LoggingManagement
     /// <exception cref="SmplNotFoundException">If no matching group exists.</exception>
     public Task DeleteGroupAsync(string id, CancellationToken ct = default)
         => _client.DeleteGroupAsync(id, ct);
+
+    // ------------------------------------------------------------------
+    // Logger source registration
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Registers explicit logger sources with per-source service and environment overrides.
+    /// Useful for sample-data seeding, cross-service migration, and test fixtures.
+    /// </summary>
+    /// <remarks>
+    /// Contrast with <see cref="LoggingClient.StartAsync"/>, which registers loggers
+    /// discovered in the current process under the SmplClient's own service and environment.
+    /// </remarks>
+    /// <param name="sources">Logger sources to register.</param>
+    /// <param name="ct">Cancellation token.</param>
+    public Task RegisterSourcesAsync(IEnumerable<LoggerSource> sources, CancellationToken ct = default)
+        => _client.RegisterSourcesAsync(sources, ct);
 }

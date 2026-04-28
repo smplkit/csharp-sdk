@@ -3,6 +3,7 @@ using Smplkit.Errors;
 using Smplkit.Flags;
 using Smplkit.Internal;
 using Smplkit.Logging;
+using Smplkit.Management;
 using GenApp = Smplkit.Internal.Generated.App;
 using DebugLog = Smplkit.Internal.Debug;
 
@@ -61,6 +62,12 @@ public sealed class SmplClient : IDisposable
     /// Gets the Logging service client.
     /// </summary>
     public LoggingClient Logging { get; }
+
+    /// <summary>
+    /// Gets the management client for app-service-owned resources: environments,
+    /// context types, contexts, and account settings.
+    /// </summary>
+    public ManagementClient Management { get; }
 
     /// <summary>
     /// Initializes a new instance of <see cref="SmplClient"/> with automatic API key
@@ -129,9 +136,12 @@ public sealed class SmplClient : IDisposable
             ? null
             : new MetricsReporter(_httpClient, config.Environment, config.Service, appBaseUrl: _appBaseUrl);
 
+        var contextBuffer = new ContextRegistrationBuffer(lruSize: 10_000, flushSize: 100);
+
         Config = new ConfigClient(_clients, EnsureSharedWebSocket, this, _metrics);
-        Flags = new FlagsClient(_clients, _apiKey, EnsureSharedWebSocket, this, _metrics);
+        Flags = new FlagsClient(_clients, _apiKey, EnsureSharedWebSocket, contextBuffer, this, _metrics);
         Logging = new LoggingClient(_clients, _apiKey, EnsureSharedWebSocket, this, _metrics);
+        Management = new ManagementClient(_clients.App, _httpClient, contextBuffer, _appBaseUrl);
 
         var maskedKey = config.ApiKey.Length > 10
             ? config.ApiKey[..10] + "..."

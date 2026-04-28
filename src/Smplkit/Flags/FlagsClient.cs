@@ -35,7 +35,7 @@ public sealed class FlagsClient
     private readonly object _initLock = new();
     private readonly ResolutionCache _cache = new(CacheMaxSize);
     private Func<IReadOnlyList<Context>>? _contextProvider;
-    private readonly ContextRegistrationBuffer _contextBuffer = new(ContextRegistrationLruSize, ContextBatchFlushSize);
+    private readonly ContextRegistrationBuffer _contextBuffer;
     private readonly ConcurrentDictionary<string, Flag> _handles = new();
     private readonly List<Action<FlagChangeEvent>> _globalListeners = new();
     private readonly ConcurrentDictionary<string, List<Action<FlagChangeEvent>>> _scopedListeners = new();
@@ -52,12 +52,13 @@ public sealed class FlagsClient
     // Exposed for tests to await the fire-and-forget context registration task
     internal Task? _initRegistrationTask;
 
-    internal FlagsClient(GeneratedClientFactory clients, string apiKey, Func<SharedWebSocket> ensureWs, SmplClient? parent = null, MetricsReporter? metrics = null)
+    internal FlagsClient(GeneratedClientFactory clients, string apiKey, Func<SharedWebSocket> ensureWs, ContextRegistrationBuffer contextBuffer, SmplClient? parent = null, MetricsReporter? metrics = null)
     {
         _genFlagsClient = clients.Flags;
         _genAppClient = clients.App;
         _apiKey = apiKey;
         _ensureWs = ensureWs;
+        _contextBuffer = contextBuffer;
         _parent = parent;
         _metrics = metrics;
         Management = new FlagsManagement(this);
@@ -408,32 +409,15 @@ public sealed class FlagsClient
     }
 
     // ------------------------------------------------------------------
-    // Runtime: context registration
+    // Internal: context flush (called from EvaluateHandle auto-flush path)
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Register a context for server-side targeting and analytics.
-    /// </summary>
-    /// <param name="context">A single context to register.</param>
-    public void Register(Context context)
-    {
-        _contextBuffer.Observe(new[] { context });
-    }
-
-    /// <summary>
-    /// Register contexts for server-side targeting and analytics.
-    /// </summary>
-    /// <param name="contexts">Contexts to register.</param>
-    public void Register(IEnumerable<Context> contexts)
-    {
-        _contextBuffer.Observe(contexts);
-    }
-
-    /// <summary>
     /// Sends any pending context registrations to the server.
+    /// Public context registration is via <c>client.Management.Contexts.RegisterAsync()</c>.
     /// </summary>
     /// <param name="ct">Cancellation token.</param>
-    public async Task FlushContextsAsync(CancellationToken ct = default)
+    internal async Task FlushContextsAsync(CancellationToken ct = default)
     {
         var batch = _contextBuffer.Drain();
         if (batch.Count == 0) return;
