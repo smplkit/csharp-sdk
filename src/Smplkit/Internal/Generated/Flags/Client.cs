@@ -1324,7 +1324,7 @@ namespace Smplkit.Internal.Generated.Flags
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("enabled")]
-        public bool Enabled { get; set; } = false;
+        public bool Enabled { get; set; } = true;
 
         [System.Text.Json.Serialization.JsonPropertyName("default")]
         public object? Default { get; set; } = default!;
