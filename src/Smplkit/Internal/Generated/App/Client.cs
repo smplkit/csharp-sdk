@@ -12904,6 +12904,12 @@ namespace Smplkit.Internal.Generated.App
         [System.Text.Json.Serialization.JsonPropertyName("profile_pic")]
         public string? Profile_pic { get; set; } = default!;
 
+        /// <summary>
+        /// Server-computed ``data:`` URL when an OIDC provider supplied a profile picture. Null otherwise — callers should fall back to Gravatar or initials.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("avatar_url")]
+        public string? Avatar_url { get; set; } = default!;
+
         [System.Text.Json.Serialization.JsonPropertyName("auth_provider")]
         public string? Auth_provider { get; set; } = default!;
 
