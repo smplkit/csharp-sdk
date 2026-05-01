@@ -154,7 +154,7 @@ namespace Smplkit.Internal.Generated.App
         /// Wipe Account Data
         /// </summary>
         /// <remarks>
-        /// Delete every config, flag, logger, log group, context, context type, environment, and customer API key (except the caller's current key) on the account. The ``common`` config is preserved as a structural anchor but its items are reset. Requires ``OWNER`` role and a ``{"confirm": true}`` body — anything else returns 400. Returns 204 on success; if any sub-delete fails the response is 500.
+        /// Delete every config, flag, logger, log group, context, context type, environment, and customer API key (except the caller's current key) on the account. The ``common`` config is preserved as a structural anchor but its items are reset. Requires ``OWNER`` role and a ``{"confirm": true}`` body — anything else returns 400. Pass ``"generate_sample_data": true`` to re-seed the account with the standard sample dataset after the wipe completes (best-effort; seed failures are logged but do not fail the wipe). Returns 204 on success; if any sub-delete fails the response is 500.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -2304,7 +2304,7 @@ namespace Smplkit.Internal.Generated.App
         /// Wipe Account Data
         /// </summary>
         /// <remarks>
-        /// Delete every config, flag, logger, log group, context, context type, environment, and customer API key (except the caller's current key) on the account. The ``common`` config is preserved as a structural anchor but its items are reset. Requires ``OWNER`` role and a ``{"confirm": true}`` body — anything else returns 400. Returns 204 on success; if any sub-delete fails the response is 500.
+        /// Delete every config, flag, logger, log group, context, context type, environment, and customer API key (except the caller's current key) on the account. The ``common`` config is preserved as a structural anchor but its items are reset. Requires ``OWNER`` role and a ``{"confirm": true}`` body — anything else returns 400. Pass ``"generate_sample_data": true`` to re-seed the account with the standard sample dataset after the wipe completes (best-effort; seed failures are logged but do not fail the wipe). Returns 204 on success; if any sub-delete fails the response is 500.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -10739,6 +10739,12 @@ namespace Smplkit.Internal.Generated.App
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("confirm")]
         public bool Confirm { get; set; } = default!;
+
+        /// <summary>
+        /// When ``true``, the wipe re-seeds the account with the same Acme Commerce sample dataset that new accounts are bootstrapped with. Best-effort: any seeding failures are logged but do not fail the wipe.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("generate_sample_data")]
+        public bool Generate_sample_data { get; set; } = false;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
