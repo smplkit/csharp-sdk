@@ -181,7 +181,10 @@ public class CoverageGapsFinalTests
         {
             client.Flags.BooleanFlag("any", true).Get();
         }
-        await Task.Delay(50);
+        // Await the tracked context-flush task so coverage is deterministic.
+        var taskField = typeof(Smplkit.Flags.FlagsClient).GetField("_lastContextBufferFlushTask",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        if (taskField.GetValue(client.Flags) is Task t) await t;
     }
 
     // ------------------------------------------------------------------
@@ -373,7 +376,10 @@ public class CoverageGapsFinalTests
         // Now adapter triggers >50 new loggers
         for (int i = 0; i < 60; i++)
             fake.SimulateNew($"l{i}", LogLevel.Info);
-        await Task.Delay(50);
+        // Await the tracked logger-buffer flush task so coverage is deterministic.
+        var taskField = typeof(LoggingClient).GetField("_lastLoggerBufferFlushTask",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        if (taskField.GetValue(client.Logging) is Task t) await t;
     }
 
     private sealed class Adapter50PlusLoggers : Smplkit.Logging.Adapters.ILoggingAdapter

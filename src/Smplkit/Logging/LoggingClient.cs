@@ -36,6 +36,14 @@ public sealed class LoggingClient
     private readonly LoggerRegistrationBuffer _loggerBuffer = new();
     private Timer? _loggerFlushTimer;
 
+    // Exposed for tests to await fire-and-forget threshold-triggered flushes
+    // and the websocket-handler async work (otherwise the lambda body
+    // coverage races with process exit on CI).
+    internal Task? _lastLoggerBufferFlushTask;
+    internal Task? _lastLoggerChangedTask;
+    internal Task? _lastGroupChangedTask;
+    internal Task? _lastLoggersChangedTask;
+
     internal LoggingClient(GeneratedClientFactory clients, string apiKey, Func<SharedWebSocket> ensureWs, SmplClient? parent = null, MetricsReporter? metrics = null)
     {
         _genClient = clients.Logging;
@@ -347,7 +355,7 @@ public sealed class LoggingClient
         _loggerBuffer.Add(loggerName, null, smplLevel, _parent?.Service, _parent?.Environment);
 
         if (_loggerBuffer.PendingCount >= 50)
-            Task.Run(() => FlushLoggerBufferAsync());
+            _lastLoggerBufferFlushTask = Task.Run(() => FlushLoggerBufferAsync());
 
         // Still fire listeners for immediate in-process notification
         var evt = new LoggerChangeEvent(loggerName, level, "adapter");
@@ -400,12 +408,13 @@ public sealed class LoggingClient
         var loggerId = data.TryGetValue("id", out var k) ? k as string : null;
         DebugLog.Log("websocket", $"logger_changed event received, id={loggerId ?? "<unknown>"}");
         if (loggerId is null || !_started) return;
-        _ = Task.Run(async () =>
+        _lastLoggerChangedTask = Task.Run(async () =>
         {
             try
             {
                 // Scoped fetch: GET just the single changed logger
-                if (_parent?.Manage.Loggers is not { } mgmtL) return; var logger = await mgmtL.GetAsync(loggerId).ConfigureAwait(false);
+                if (_parent?.Manage.Loggers is not { } mgmtL) return;
+                var logger = await mgmtL.GetAsync(loggerId).ConfigureAwait(false);
                 ApplyLevels(new List<Logger> { logger });
 
                 // Only fire listeners if level changed
@@ -451,7 +460,7 @@ public sealed class LoggingClient
         var groupId = data.TryGetValue("id", out var k) ? k as string : null;
         DebugLog.Log("websocket", $"group_changed event received, id={groupId ?? "<unknown>"}");
         if (groupId is null || !_started) return;
-        _ = Task.Run(async () =>
+        _lastGroupChangedTask = Task.Run(async () =>
         {
             try
             {
@@ -507,7 +516,7 @@ public sealed class LoggingClient
     {
         DebugLog.Log("websocket", "loggers_changed event received — full refetch");
         if (!_started) return;
-        _ = Task.Run(async () =>
+        _lastLoggersChangedTask = Task.Run(async () =>
         {
             try
             {

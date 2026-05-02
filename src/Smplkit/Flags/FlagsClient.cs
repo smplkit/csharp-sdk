@@ -52,6 +52,11 @@ public sealed class FlagsClient
     // Exposed for tests to await the fire-and-forget context registration task
     internal Task? _initRegistrationTask;
 
+    // Exposed for tests to await fire-and-forget threshold-triggered flushes
+    // (otherwise the lambda body coverage races with process exit on CI).
+    internal Task? _lastFlagBufferFlushTask;
+    internal Task? _lastContextBufferFlushTask;
+
     internal FlagsClient(GeneratedClientFactory clients, string apiKey, Func<SharedWebSocket> ensureWs, ContextRegistrationBuffer contextBuffer, SmplClient? parent = null, MetricsReporter? metrics = null)
     {
         _genFlagsClient = clients.Flags;
@@ -86,7 +91,7 @@ public sealed class FlagsClient
         _handles[id] = handle;
         _flagBuffer.Add(id, "BOOLEAN", defaultValue, _parent?.Service, _parent?.Environment);
         if (_flagBuffer.PendingCount >= 50)
-            Task.Run(() => FlushFlagsAsync());
+            _lastFlagBufferFlushTask = Task.Run(() => FlushFlagsAsync());
         return handle;
     }
 
@@ -109,7 +114,7 @@ public sealed class FlagsClient
         _handles[id] = handle;
         _flagBuffer.Add(id, "STRING", defaultValue, _parent?.Service, _parent?.Environment);
         if (_flagBuffer.PendingCount >= 50)
-            Task.Run(() => FlushFlagsAsync());
+            _lastFlagBufferFlushTask = Task.Run(() => FlushFlagsAsync());
         return handle;
     }
 
@@ -132,7 +137,7 @@ public sealed class FlagsClient
         _handles[id] = handle;
         _flagBuffer.Add(id, "NUMERIC", defaultValue, _parent?.Service, _parent?.Environment);
         if (_flagBuffer.PendingCount >= 50)
-            Task.Run(() => FlushFlagsAsync());
+            _lastFlagBufferFlushTask = Task.Run(() => FlushFlagsAsync());
         return handle;
     }
 
@@ -155,7 +160,7 @@ public sealed class FlagsClient
         _handles[id] = handle;
         _flagBuffer.Add(id, "JSON", defaultValue, _parent?.Service, _parent?.Environment);
         if (_flagBuffer.PendingCount >= 50)
-            Task.Run(() => FlushFlagsAsync());
+            _lastFlagBufferFlushTask = Task.Run(() => FlushFlagsAsync());
         return handle;
     }
 
@@ -404,7 +409,7 @@ public sealed class FlagsClient
             evalDict = ContextsToEvalDict(contexts);
             _contextBuffer.Observe(contexts);
             if (_contextBuffer.PendingCount >= ContextBatchFlushSize)
-                Task.Run(() => FlushContextsAsync());
+                _lastContextBufferFlushTask = Task.Run(() => FlushContextsAsync());
         }
         else
         {

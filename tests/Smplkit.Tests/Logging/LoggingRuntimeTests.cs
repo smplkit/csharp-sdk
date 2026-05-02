@@ -568,9 +568,10 @@ public class LoggingRuntimeTests
             new Dictionary<string, object?> { ["id"] = "showcase" },
         });
 
-        // Wait briefly for Task.Run to complete
-        for (int i = 0; i < 50 && fireCount == 0; i++)
-            await Task.Delay(20);
+        // Await the tracked Task.Run so coverage is deterministic.
+        var taskField = typeof(LoggingClient).GetField("_lastLoggerChangedTask",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        if (taskField.GetValue(client.Logging) is Task t) await t;
         Assert.True(fireCount >= 1);
     }
 
@@ -631,7 +632,10 @@ public class LoggingRuntimeTests
         {
             new Dictionary<string, object?> { ["id"] = "showcase" },
         });
-        await Task.Delay(100); // let the Task.Run complete
+        // Await the tracked Task.Run so coverage is deterministic.
+        var taskField = typeof(LoggingClient).GetField("_lastLoggerChangedTask",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        if (taskField.GetValue(client.Logging) is Task t) await t;
     }
 
     [Fact]
@@ -658,7 +662,9 @@ public class LoggingRuntimeTests
         {
             new Dictionary<string, object?> { ["id"] = "billing" },
         });
-        await Task.Delay(100);
+        var taskField = typeof(LoggingClient).GetField("_lastGroupChangedTask",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        if (taskField.GetValue(client.Logging) is Task tg) await tg;
     }
 
     [Fact]
@@ -717,7 +723,9 @@ public class LoggingRuntimeTests
         {
             new Dictionary<string, object?> { ["id"] = "billing" },
         });
-        await Task.Delay(100);
+        var taskField = typeof(LoggingClient).GetField("_lastGroupChangedTask",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        if (taskField.GetValue(client.Logging) is Task tg) await tg;
     }
 
     [Fact]
@@ -755,8 +763,9 @@ public class LoggingRuntimeTests
             new Dictionary<string, object?>(),
         });
 
-        for (int i = 0; i < 50 && fireCount == 0; i++)
-            await Task.Delay(20);
+        var taskField = typeof(LoggingClient).GetField("_lastLoggersChangedTask",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        if (taskField.GetValue(client.Logging) is Task t) await t;
         Assert.True(fireCount >= 1);
     }
 
@@ -786,7 +795,9 @@ public class LoggingRuntimeTests
         {
             new Dictionary<string, object?>(),
         });
-        await Task.Delay(100);
+        var taskField = typeof(LoggingClient).GetField("_lastLoggersChangedTask",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        if (taskField.GetValue(client.Logging) is Task tl) await tl;
     }
 
     // Listener fire paths — exception swallowing

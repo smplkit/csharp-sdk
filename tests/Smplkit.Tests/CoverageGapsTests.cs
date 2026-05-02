@@ -284,8 +284,7 @@ public class CoverageGapsTests
         client.Logging.RegisterAdapter(fakeAdapter);
         await client.Logging.InstallAsync();
 
-        var fired = false;
-        client.Logging.OnChange("a", _ => fired = true);
+        client.Logging.OnChange("a", _ => { /* listener exists for diff path */ });
 
         var method = typeof(LoggingClient).GetMethod("HandleGroupChanged",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
@@ -293,8 +292,11 @@ public class CoverageGapsTests
         {
             new Dictionary<string, object?> { ["id"] = "g" },
         });
-        for (int i = 0; i < 50 && !fired; i++) await Task.Delay(20);
-        // Either fired or not depending on diff; just ensure no exception
+        // Await the tracked task so coverage is deterministic.
+        var taskField = typeof(LoggingClient).GetField("_lastGroupChangedTask",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        if (taskField.GetValue(client.Logging) is Task t) await t;
+        // Either fired or not depending on diff; just ensure no exception.
     }
 
     private sealed class TestLoggingAdapter : ILoggingAdapter

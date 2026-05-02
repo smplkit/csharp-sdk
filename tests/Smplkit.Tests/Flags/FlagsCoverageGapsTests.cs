@@ -28,37 +28,47 @@ public class FlagsCoverageGapsTests
     private static HttpResponseMessage Json(string body, HttpStatusCode code = HttpStatusCode.OK)
         => new(code) { Content = new StringContent(body, Encoding.UTF8, "application/vnd.api+json") };
 
+    private static async Task AwaitFlagBufferFlush(SmplClient client)
+    {
+        var taskField = typeof(Smplkit.Flags.FlagsClient).GetField("_lastFlagBufferFlushTask",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        if (taskField.GetValue(client.Flags) is Task t) await t;
+    }
+
     [Fact]
-    public void BooleanFlag_50Declarations_TriggersBufferFlush()
+    public async Task BooleanFlag_50Declarations_TriggersBufferFlush()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json("""{"data":[]}""")));
         for (int i = 0; i < 60; i++)
             client.Flags.BooleanFlag($"f{i}", false);
-        // No exception (Task.Run path covered)
+        await AwaitFlagBufferFlush(client);
     }
 
     [Fact]
-    public void StringFlag_50Declarations_TriggersBufferFlush()
+    public async Task StringFlag_50Declarations_TriggersBufferFlush()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json("""{"data":[]}""")));
         for (int i = 0; i < 60; i++)
             client.Flags.StringFlag($"f{i}", "v");
+        await AwaitFlagBufferFlush(client);
     }
 
     [Fact]
-    public void NumberFlag_50Declarations_TriggersBufferFlush()
+    public async Task NumberFlag_50Declarations_TriggersBufferFlush()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json("""{"data":[]}""")));
         for (int i = 0; i < 60; i++)
             client.Flags.NumberFlag($"f{i}", 1.0);
+        await AwaitFlagBufferFlush(client);
     }
 
     [Fact]
-    public void JsonFlag_50Declarations_TriggersBufferFlush()
+    public async Task JsonFlag_50Declarations_TriggersBufferFlush()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json("""{"data":[]}""")));
         for (int i = 0; i < 60; i++)
             client.Flags.JsonFlag($"f{i}", new Dictionary<string, object?>());
+        await AwaitFlagBufferFlush(client);
     }
 
     [Fact]
@@ -328,7 +338,10 @@ public class FlagsCoverageGapsTests
             var handle = client.Flags.BooleanFlag("f", true);
             handle.Get();
         }
-        await Task.Delay(50); // let the Task.Run complete
+        // Await the tracked context-flush task so coverage is deterministic.
+        var taskField = typeof(Smplkit.Flags.FlagsClient).GetField("_lastContextBufferFlushTask",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        if (taskField.GetValue(client.Flags) is Task t) await t;
     }
 
     [Fact]
