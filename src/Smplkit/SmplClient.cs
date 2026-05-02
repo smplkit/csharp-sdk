@@ -105,12 +105,14 @@ public sealed class SmplClient : IDisposable
 
         _contextBuffer = new ContextRegistrationBuffer(lruSize: 10_000, flushSize: 100);
 
+        // Construct the management plane first so the runtime sub-clients can
+        // reference _parent.Manage.* for their CRUD fetches. Management is a
+        // peer of the runtime — it does not wrap or own any runtime sub-client.
+        Manage = new SmplManagementClient(_httpClient, _clients, _appBaseUrl, _contextBuffer);
+
         Config = new ConfigClient(_clients, EnsureSharedWebSocket, this, _metrics);
         Flags = new FlagsClient(_clients, _apiKey, EnsureSharedWebSocket, _contextBuffer, this, _metrics);
         Logging = new LoggingClient(_clients, _apiKey, EnsureSharedWebSocket, this, _metrics);
-
-        Manage = new SmplManagementClient(
-            _httpClient, _clients, _appBaseUrl, Flags, Config, Logging, _contextBuffer);
 
         // Wire up ambient-context bridge for flag evaluation.
         Flags.SetContextProvider(GetAmbientContext);

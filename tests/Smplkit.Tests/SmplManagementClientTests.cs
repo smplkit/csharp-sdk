@@ -60,19 +60,21 @@ public class SmplManagementClientTests
     }
 
     [Fact]
-    public void Construction_ZeroSideEffects()
+    public void Construction_MakesZeroOutboundHttpCalls()
     {
-        // Constructing should not register the service, start metrics, or
-        // open a WebSocket — verified by completing quickly with no network.
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        using var mgmt = new SmplManagementClient(new SmplClientOptions
-        {
-            ApiKey = "sk_test_dummy",
-        });
-        sw.Stop();
+        // Rule 1: SmplManagementClient construction has zero side effects on
+        // the network. Verify by injecting an HTTP handler that throws on every
+        // request — construction must not trigger one.
+        var handler = new Smplkit.Tests.Helpers.MockHttpMessageHandler(req =>
+            throw new InvalidOperationException(
+                $"Construction must not make HTTP calls (got {req.Method} {req.RequestUri})"));
+        using var http = new HttpClient(handler);
+        using var mgmt = new SmplManagementClient(
+            new SmplClientOptions { ApiKey = "sk_test" }, http);
 
-        // Construction should be fast (< 1s); a network call would be slower.
-        Assert.True(sw.ElapsedMilliseconds < 1000,
-            $"SmplManagementClient construction took {sw.ElapsedMilliseconds}ms — likely has unwanted side effects.");
+        // No requests recorded — neither during construction nor immediately
+        // after (no service registration, no metrics, no WebSocket).
+        Assert.Empty(handler.Requests);
+        Assert.Equal(0, mgmt.Contexts.PendingCount);
     }
 }

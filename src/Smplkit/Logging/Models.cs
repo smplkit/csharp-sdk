@@ -6,7 +6,7 @@ namespace Smplkit.Logging;
 /// </summary>
 public sealed class Logger
 {
-    private readonly LoggingClient _client;
+    private readonly Smplkit.Management.LoggersClient _client;
 
     /// <summary>Gets the logger identifier (slug). Null for unsaved loggers.</summary>
     public string? Id { get; internal set; }
@@ -36,7 +36,7 @@ public sealed class Logger
     public DateTime? UpdatedAt { get; internal set; }
 
     internal Logger(
-        LoggingClient client,
+        Smplkit.Management.LoggersClient client,
         string? id,
         string name,
         LogLevel? level,
@@ -118,7 +118,7 @@ public sealed class Logger
 /// </summary>
 public sealed class LogGroup
 {
-    private readonly LoggingClient _client;
+    private readonly Smplkit.Management.LogGroupsClient _client;
 
     /// <summary>Gets the log group identifier (slug). Null for unsaved groups.</summary>
     public string? Id { get; internal set; }
@@ -142,7 +142,7 @@ public sealed class LogGroup
     public DateTime? UpdatedAt { get; internal set; }
 
     internal LogGroup(
-        LoggingClient client,
+        Smplkit.Management.LogGroupsClient client,
         string? id,
         string name,
         LogLevel? level,
@@ -179,7 +179,7 @@ public sealed class LogGroup
     {
         if (Id is null)
             throw new InvalidOperationException("Cannot delete an unsaved log group.");
-        return _client.DeleteGroupAsync(Id, ct);
+        return _client.DeleteAsync(Id, ct);
     }
 
     /// <summary>

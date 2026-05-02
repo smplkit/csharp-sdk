@@ -12,8 +12,10 @@ namespace Smplkit;
 /// reading (<c>mgmt.Contexts.GetAsync</c> / <c>ListAsync</c> return populated
 /// <see cref="Context"/> instances with <see cref="SaveAsync"/> / <see cref="DeleteAsync"/>
 /// ready to call).</para>
-/// <para>Identity (<see cref="Type"/> / <see cref="Key"/>) is locked after persistence —
-/// reassigning would mean a different entity, not a mutation.</para>
+/// <para>Identity (<see cref="Type"/> / <see cref="Key"/>) is get-only at all times —
+/// stricter than the Python SDK, which permits pre-save reassignment. In C# the
+/// once-construct-then-immutable shape is more idiomatic and prevents the silent
+/// "different entity" bug class entirely.</para>
 /// </remarks>
 /// <example>
 /// <code>

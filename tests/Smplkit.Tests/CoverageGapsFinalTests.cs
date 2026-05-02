@@ -292,16 +292,14 @@ public class CoverageGapsFinalTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public void ConfigClient_MapResource_NullResource_ReturnsNull()
+    public void ConfigsClient_MapResource_NullResource_ReturnsNull()
     {
         var (mgmt, _) = MakeMgmt(_ => Task.FromResult(Json("{}")));
-        var configClient = typeof(SmplManagementClient)
-            .GetField("_runtimeConfig", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(mgmt);
-        var method = typeof(Smplkit.Config.ConfigClient).GetMethod("MapResource",
+        // After the architectural-inversion remediation, MapResource lives on
+        // Smplkit.Management.ConfigsClient (not the runtime ConfigClient).
+        var method = typeof(Smplkit.Management.ConfigsClient).GetMethod("MapResource",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
-        // Pass null resource — short-circuits and returns null.
-        var result = method.Invoke(configClient, new object?[] { null });
+        var result = method.Invoke(mgmt.Config, new object?[] { null });
         Assert.Null(result);
     }
 
@@ -507,18 +505,126 @@ public class CoverageGapsFinalTests
     // ------------------------------------------------------------------
 
     [Fact]
+    public async Task Flag_SaveAsync_NoMgmtClient_Throws()
+    {
+        var (client, _) = MakeClient(_ => Task.FromResult(Json("""{"data":[]}""")));
+        // Simulate a flag with neither client wired up.
+        var flag = new Smplkit.Flags.BooleanFlag(
+            evalClient: null, mgmtClient: null,
+            id: "f", name: "f", @default: false,
+            values: new List<Dictionary<string, object?>>(),
+            description: null,
+            environments: new Dictionary<string, Dictionary<string, object?>>(),
+            createdAt: null, updatedAt: null);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => flag.SaveAsync());
+    }
+
+    [Fact]
+    public void Flag_Get_NoEvalClient_Throws()
+    {
+        var flag = new Smplkit.Flags.BooleanFlag(
+            evalClient: null, mgmtClient: null,
+            id: "f", name: "f", @default: false,
+            values: new List<Dictionary<string, object?>>(),
+            description: null,
+            environments: new Dictionary<string, Dictionary<string, object?>>(),
+            createdAt: null, updatedAt: null);
+        // Calls base Flag.Get which checks _evalClient
+        Assert.Throws<InvalidOperationException>(() => ((Smplkit.Flags.Flag)flag).Get());
+    }
+
+    [Fact]
+    public void LiveConfigProxy_NonGenericEnumerator_Works()
+    {
+        var (client, _) = MakeClient(_ => Task.FromResult(Json("""
+            {"data":[{"id":"c","type":"config","attributes":{"id":"c","name":"c","items":{"k":{"value":"v","type":"STRING"}},"environments":{}}}]}
+            """)));
+        var proxy = client.Config.Get("c");
+        // Cast to non-generic IEnumerable to hit the explicit interface impl
+        System.Collections.IEnumerable enumerable = proxy;
+        var found = false;
+        foreach (var _ in enumerable) { found = true; }
+        Assert.True(found);
+    }
+
+    [Fact]
+    public void LiveConfigProxy_PreInit_TriggersLazyInit()
+    {
+        var (client, _) = MakeClient(_ => Task.FromResult(Json("""
+            {"data":[{"id":"c","type":"config","attributes":{"id":"c","name":"c","items":{"k":{"value":"v","type":"STRING"}},"environments":{}}}]}
+            """)));
+        // Construct a proxy directly via reflection without first triggering init.
+        var ctor = typeof(Smplkit.Config.LiveConfigProxy).GetConstructors(
+            BindingFlags.Instance | BindingFlags.NonPublic)
+            .First();
+        var proxy = (Smplkit.Config.LiveConfigProxy)ctor.Invoke(new object[] { client.Config, "c" });
+        // Reading the proxy now triggers EnsureInitialized via Snapshot().
+        Assert.Equal("v", proxy["k"]);
+    }
+
+    [Fact]
+    public void Runtime_ParseFlagDef_WithRules_ExercisesRulesIteration()
+    {
+        // Trigger ExtractEnvironments rules path via HandleFlagsChanged with a flag
+        // whose environments contain rules.
+        var listV1 = """{"data":[]}""";
+        var listV2 = """
+            {"data":[
+                {"id":"f1","type":"flag","attributes":{"id":"f1","name":"f1","type":"BOOLEAN","default":false,"values":[],"description":null,
+                    "environments":{
+                        "test":{"enabled":true,"default":true,"rules":[
+                            {"description":"r1","logic":{"==":[{"var":"user.plan"},"enterprise"]},"value":true}
+                        ]}
+                    }
+                }}
+            ]}
+            """;
+        int callNum = 0;
+        var (client, _) = MakeClient(req =>
+        {
+            if (req.RequestUri!.AbsolutePath.EndsWith("/flags") && req.Method == HttpMethod.Get)
+            {
+                callNum++;
+                return Task.FromResult(Json(callNum <= 1 ? listV1 : listV2));
+            }
+            return Task.FromResult(Json("{}"));
+        });
+        client.Flags.BooleanFlag("f1", false).Get();
+
+        var method = typeof(Smplkit.Flags.FlagsClient).GetMethod("HandleFlagsChanged",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        method.Invoke(client.Flags, new object?[] { new Dictionary<string, object?>() });
+    }
+
+    [Fact]
     public async Task SmplClient_WaitUntilReadyAsync_AlreadyConnected_Succeeds()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json("""{"data":[]}""")));
 
-        // Force the WS into "connected" state via reflection so the loop exits cleanly.
+        // Force the WS into "connected" state via reflection so the loop exits
+        // cleanly. The real WS thread may race (overwrite the status as it
+        // connects/reconnects), so keep poking the field from a helper thread
+        // until WaitUntilReadyAsync exits.
         var ws = client.EnsureSharedWebSocket();
         var statusField = typeof(Smplkit.Internal.SharedWebSocket).GetField("_connectionStatus",
-            BindingFlags.Instance | BindingFlags.NonPublic);
-        if (statusField is not null)
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        using var stopPoking = new CancellationTokenSource();
+        var poker = Task.Run(async () =>
         {
-            statusField.SetValue(ws, "connected");
-            await client.WaitUntilReadyAsync(TimeSpan.FromSeconds(2));
+            while (!stopPoking.Token.IsCancellationRequested)
+            {
+                statusField.SetValue(ws, "connected");
+                try { await Task.Delay(5, stopPoking.Token); } catch { return; }
+            }
+        });
+        try
+        {
+            await client.WaitUntilReadyAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            stopPoking.Cancel();
+            try { await poker; } catch { }
         }
     }
 }

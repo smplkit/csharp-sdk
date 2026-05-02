@@ -23,17 +23,17 @@ await client.WaitUntilReadyAsync();
 // get a config as a plain dict
 var userSvcConfigDict = client.Config.Get("showcase-user-service");
 Console.WriteLine($"Total resolved keys: {userSvcConfigDict.Count}");
-Console.WriteLine($"database.host = {userSvcConfigDict.GetValueOrDefault("database.host")}");
-Console.WriteLine($"max_retries = {userSvcConfigDict.GetValueOrDefault("max_retries")}");
-Console.WriteLine($"cache_ttl_seconds = {userSvcConfigDict.GetValueOrDefault("cache_ttl_seconds")}");
-Console.WriteLine($"pagination_default_page_size = {userSvcConfigDict.GetValueOrDefault("pagination_default_page_size")}");
-Console.WriteLine($"enable_signup = {userSvcConfigDict.GetValueOrDefault("enable_signup")}");
-Console.WriteLine($"nonexistent_key = {userSvcConfigDict.GetValueOrDefault("nonexistent_key")}");
+Console.WriteLine($"database.host = {userSvcConfigDict.GetOrDefault("database.host")}");
+Console.WriteLine($"max_retries = {userSvcConfigDict.GetOrDefault("max_retries")}");
+Console.WriteLine($"cache_ttl_seconds = {userSvcConfigDict.GetOrDefault("cache_ttl_seconds")}");
+Console.WriteLine($"pagination_default_page_size = {userSvcConfigDict.GetOrDefault("pagination_default_page_size")}");
+Console.WriteLine($"enable_signup = {userSvcConfigDict.GetOrDefault("enable_signup")}");
+Console.WriteLine($"nonexistent_key = {userSvcConfigDict.GetOrDefault("nonexistent_key")}");
 
 // production overrides resolve through the inheritance chain
-System.Diagnostics.Debug.Assert((string?)userSvcConfigDict.GetValueOrDefault("database.host")
+System.Diagnostics.Debug.Assert((string?)userSvcConfigDict.GetOrDefault("database.host")
     == "prod-users-rds.internal.acme.dev");
-System.Diagnostics.Debug.Assert(userSvcConfigDict.GetValueOrDefault("nonexistent_key") is null);
+System.Diagnostics.Debug.Assert(userSvcConfigDict.GetOrDefault("nonexistent_key") is null);
 
 // get a config as a typed model
 var userSvcConfig = client.Config.Get<UserServiceConfig>("showcase-user-service");

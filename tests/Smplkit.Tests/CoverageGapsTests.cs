@@ -68,22 +68,9 @@ public class CoverageGapsTests
         mgmt.Dispose(); // idempotent
     }
 
-    [Fact]
-    public void SmplManagementClient_ThrowingWebSocketFactory_Throws()
-    {
-        // Reflect into the private static factory and verify the InvalidOperationException
-        var method = typeof(SmplManagementClient).GetMethod("ThrowingWebSocketFactory",
-            BindingFlags.Static | BindingFlags.NonPublic)!;
-        try
-        {
-            method.Invoke(null, Array.Empty<object>());
-        }
-        catch (System.Reflection.TargetInvocationException tie)
-        {
-            Assert.IsType<InvalidOperationException>(tie.InnerException);
-            Assert.Contains("WebSocket access is not available", tie.InnerException.Message);
-        }
-    }
+    // ThrowingWebSocketFactory removed in the architectural-inversion remediation —
+    // SmplManagementClient no longer constructs runtime sub-clients, so it has no need
+    // for a websocket-factory placeholder. (See PR review item 1.)
 
     // ------------------------------------------------------------------
     // Color: Equals(object) and GetHashCode coverage

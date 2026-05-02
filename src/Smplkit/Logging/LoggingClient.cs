@@ -64,121 +64,17 @@ public sealed class LoggingClient
     }
 
     // ------------------------------------------------------------------
-    // Management: Logger CRUD (internal — public surface is via Management)
+    // Wire CRUD code (factory, GetAsync, ListAsync, DeleteAsync, Save,
+    // request-body building, MapLoggerResource, MapLogGroupResource,
+    // BuildLoggerRequestBody, BuildLogGroupRequestBody) lives in
+    // Smplkit.Management.LoggersClient and Smplkit.Management.LogGroupsClient.
+    // The runtime client routes its initial fetch / refresh / single-resource
+    // refresh through the management plane via _parent.Manage.Loggers and
+    // _parent.Manage.LogGroups — there is no duplicated wire code here.
     // ------------------------------------------------------------------
 
-    internal Logger New(string id, string? name = null, bool managed = false)
-    {
-        return new Logger(
-            client: this,
-            id: id,
-            name: name ?? Helpers.KeyToDisplayName(id),
-            level: null,
-            group: null,
-            managed: managed,
-            sources: new List<Dictionary<string, object?>>(),
-            environments: new Dictionary<string, Dictionary<string, object?>>(),
-            createdAt: null,
-            updatedAt: null);
-    }
-
-    internal async Task<Logger> GetAsync(string id, CancellationToken ct = default)
-    {
-        var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genClient.Get_loggerAsync(id: id, cancellationToken: ct)).ConfigureAwait(false);
-        return MapLoggerResource(response.Data)
-            ?? throw new NotFoundException($"Logger with id '{id}' not found");
-    }
-
-    internal async Task<List<Logger>> ListAsync(CancellationToken ct = default)
-    {
-        var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genClient.List_loggersAsync(cancellationToken: ct)).ConfigureAwait(false);
-        if (response.Data is null) return new List<Logger>();
-        return response.Data.Select(r => MapLoggerResource(r)!).Where(l => l is not null).ToList();
-    }
-
-    internal async Task DeleteAsync(string id, CancellationToken ct = default)
-    {
-        await ApiExceptionMapper.ExecuteAsync(
-            () => _genClient.Delete_loggerAsync(id, ct)).ConfigureAwait(false);
-    }
-
-    /// <summary>Internal: save a logger (create or update). PUT has upsert semantics.</summary>
-    internal async Task<Logger> SaveLoggerInternalAsync(Logger logger, CancellationToken ct = default)
-    {
-        var loggerId = logger.Id ?? throw new ValidationException("Cannot save a logger without an id");
-
-        var body = BuildLoggerRequestBody(logger);
-        var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genClient.Update_loggerAsync(loggerId, body, ct)).ConfigureAwait(false);
-        return MapLoggerResource(response.Data)
-            ?? throw new ValidationException("Failed to save logger");
-    }
-
     // ------------------------------------------------------------------
-    // Management: LogGroup CRUD (internal — public surface is via Management)
-    // ------------------------------------------------------------------
-
-    internal LogGroup NewGroup(string id, string? name = null, string? group = null)
-    {
-        return new LogGroup(
-            client: this,
-            id: id,
-            name: name ?? Helpers.KeyToDisplayName(id),
-            level: null,
-            group: group,
-            environments: new Dictionary<string, Dictionary<string, object?>>(),
-            createdAt: null,
-            updatedAt: null);
-    }
-
-    internal async Task<LogGroup> GetGroupAsync(string id, CancellationToken ct = default)
-    {
-        var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genClient.Get_log_groupAsync(id: id, cancellationToken: ct)).ConfigureAwait(false);
-        return MapLogGroupResource(response.Data)
-            ?? throw new NotFoundException($"LogGroup with id '{id}' not found");
-    }
-
-    internal async Task<List<LogGroup>> ListGroupsAsync(CancellationToken ct = default)
-    {
-        var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genClient.List_log_groupsAsync(ct)).ConfigureAwait(false);
-        if (response.Data is null) return new List<LogGroup>();
-        return response.Data.Select(r => MapLogGroupResource(r)!).Where(g => g is not null).ToList();
-    }
-
-    internal async Task DeleteGroupAsync(string id, CancellationToken ct = default)
-    {
-        await ApiExceptionMapper.ExecuteAsync(
-            () => _genClient.Delete_log_groupAsync(id, ct)).ConfigureAwait(false);
-    }
-
-    /// <summary>Internal: save a log group (create or update).</summary>
-    internal async Task<LogGroup> SaveLogGroupInternalAsync(LogGroup logGroup, CancellationToken ct = default)
-    {
-        var body = BuildLogGroupRequestBody(logGroup);
-        if (logGroup.CreatedAt is null)
-        {
-            // Create (unsaved log group — CreatedAt is null until first server round-trip)
-            var response = await ApiExceptionMapper.ExecuteAsync(
-                () => _genClient.Create_log_groupAsync(body, ct)).ConfigureAwait(false);
-            return MapLogGroupResource(response.Data)
-                ?? throw new ValidationException("Failed to create log group");
-        }
-        else
-        {
-            var groupId = logGroup.Id ?? throw new ValidationException("Cannot update a log group without an id");
-            var response = await ApiExceptionMapper.ExecuteAsync(
-                () => _genClient.Update_log_groupAsync(groupId, body, ct)).ConfigureAwait(false);
-            return MapLogGroupResource(response.Data)
-                ?? throw new ValidationException("Failed to update log group");
-        }
-    }
-
-    // ------------------------------------------------------------------
-    // Runtime: StartAsync
+    // Runtime: InstallAsync
     // ------------------------------------------------------------------
 
     /// <summary>
@@ -209,8 +105,8 @@ public sealed class LoggingClient
         await FlushLoggerBufferAsync(ct).ConfigureAwait(false);
 
         // 5. Fetch all loggers and groups from the server
-        var loggers = await ListAsync(ct).ConfigureAwait(false);
-        await ListGroupsAsync(ct).ConfigureAwait(false);
+        var loggers = _parent?.Manage.Loggers is { } mgmtL ? await mgmtL.ListAsync(ct).ConfigureAwait(false) : new List<Logger>();
+        if (_parent?.Manage.LogGroups is { } mgmtG) { await mgmtG.ListAsync(ct).ConfigureAwait(false); }
 
         // 6. Apply levels from server-managed loggers to adapters, seed level cache
         ApplyLevels(loggers);
@@ -509,7 +405,7 @@ public sealed class LoggingClient
             try
             {
                 // Scoped fetch: GET just the single changed logger
-                var logger = await GetAsync(loggerId).ConfigureAwait(false);
+                if (_parent?.Manage.Loggers is not { } mgmtL) return; var logger = await mgmtL.GetAsync(loggerId).ConfigureAwait(false);
                 ApplyLevels(new List<Logger> { logger });
 
                 // Only fire listeners if level changed
@@ -560,13 +456,14 @@ public sealed class LoggingClient
             try
             {
                 // Scoped fetch: GET just the single changed group
-                var group = await GetGroupAsync(groupId).ConfigureAwait(false);
+                if (_parent?.Manage.LogGroups is not { } mgmtG) return;
+                var group = await mgmtG.GetAsync(groupId).ConfigureAwait(false);
                 // A group level change affects all loggers in that group — re-apply all
-                var loggers = await ListAsync().ConfigureAwait(false);
+                var loggers = _parent?.Manage.Loggers is { } mgmtLn ? await mgmtLn.ListAsync().ConfigureAwait(false) : new List<Logger>();
                 ApplyLevels(loggers);
 
                 // Diff and fire for loggers whose effective level changed
-                var changedLoggers = new List<Logger>();
+                var changedLoggers = new List<(string Id, LogLevel? Level)>();
                 lock (_loggerCacheLock)
                 {
                     foreach (var logger in loggers)
@@ -576,14 +473,14 @@ public sealed class LoggingClient
                         if (!Equals(prev, logger.Level))
                         {
                             _loggerLevelCache[logger.Id] = logger.Level;
-                            changedLoggers.Add(logger);
+                            changedLoggers.Add((logger.Id, logger.Level));
                         }
                     }
                 }
-                foreach (var logger in changedLoggers)
+                foreach (var (id, level) in changedLoggers)
                 {
-                    var evt = new LoggerChangeEvent(logger.Id!, logger.Level, "websocket");
-                    FireListeners(logger.Id!, evt);
+                    var evt = new LoggerChangeEvent(id, level, "websocket");
+                    FireListeners(id, evt);
                 }
             }
             catch (Exception ex)
@@ -615,12 +512,12 @@ public sealed class LoggingClient
             try
             {
                 // Full refetch of both loggers and groups
-                var loggers = await ListAsync().ConfigureAwait(false);
-                await ListGroupsAsync().ConfigureAwait(false);
+                var loggers = _parent?.Manage.Loggers is { } mgmtLn ? await mgmtLn.ListAsync().ConfigureAwait(false) : new List<Logger>();
+                if (_parent?.Manage.LogGroups is { } mgmtGn) { await mgmtGn.ListAsync().ConfigureAwait(false); }
                 ApplyLevels(loggers);
 
                 // Diff and fire per-key listeners for changed loggers
-                var changedLoggers = new List<Logger>();
+                var changedLoggers = new List<(string Id, LogLevel? Level)>();
                 lock (_loggerCacheLock)
                 {
                     var allIds = new HashSet<string>(_loggerLevelCache.Keys);
@@ -638,9 +535,7 @@ public sealed class LoggingClient
                                 _loggerLevelCache[id] = newLevel;
                             else
                                 _loggerLevelCache.Remove(id);
-                            changedLoggers.Add(new Logger(this, id, id, newLevel, null, false,
-                                new List<Dictionary<string, object?>>(),
-                                new Dictionary<string, Dictionary<string, object?>>(), null, null));
+                            changedLoggers.Add((id, newLevel));
                         }
                     }
                 }
@@ -648,14 +543,14 @@ public sealed class LoggingClient
                 if (changedLoggers.Count == 0) return;
 
                 // Fire global listener exactly once
-                var globalEvt = new LoggerChangeEvent(changedLoggers[0].Id!, changedLoggers[0].Level, "websocket");
+                var globalEvt = new LoggerChangeEvent(changedLoggers[0].Id, changedLoggers[0].Level, "websocket");
                 FireGlobalListeners(globalEvt);
 
                 // Fire per-key listeners for each changed logger
-                foreach (var logger in changedLoggers)
+                foreach (var (changedId, level) in changedLoggers)
                 {
-                    var evt = new LoggerChangeEvent(logger.Id!, logger.Level, "websocket");
-                    FireScopedListeners(logger.Id!, evt);
+                    var evt = new LoggerChangeEvent(changedId, level, "websocket");
+                    FireScopedListeners(changedId, evt);
                 }
             }
             catch (Exception ex)
@@ -721,137 +616,6 @@ public sealed class LoggingClient
             try { cb(evt); }
             catch { /* Ignore listener exceptions */ }
         }
-    }
-
-    // ------------------------------------------------------------------
-    // Helpers: model mapping
-    // ------------------------------------------------------------------
-
-    private Logger? MapLoggerResource(GenLogging.LoggerResource? resource)
-    {
-        if (resource?.Attributes is null) return null;
-        var attrs = resource.Attributes;
-
-        LogLevel? level = null;
-        if (attrs.Level is not null)
-        {
-            try { level = LogLevelExtensions.ParseLogLevel(attrs.Level); }
-            catch { /* Unknown level */ }
-        }
-
-        var sources = new List<Dictionary<string, object?>>();
-        if (attrs.Sources is not null)
-        {
-            foreach (var s in attrs.Sources)
-            {
-                if (s is JsonElement je)
-                    sources.Add(NormalizeJsonToDict(je));
-            }
-        }
-
-        var environments = NormalizeEnvironments(attrs.Environments);
-
-        return new Logger(
-            client: this,
-            id: resource.Id ?? string.Empty,
-            name: attrs.Name ?? string.Empty,
-            level: level,
-            group: attrs.Group,
-            managed: attrs.Managed ?? false,
-            sources: sources,
-            environments: environments,
-            createdAt: attrs.Created_at?.DateTime,
-            updatedAt: attrs.Updated_at?.DateTime);
-    }
-
-    private LogGroup? MapLogGroupResource(GenLogging.LogGroupResource? resource)
-    {
-        if (resource?.Attributes is null) return null;
-        var attrs = resource.Attributes;
-
-        LogLevel? level = null;
-        if (attrs.Level is not null)
-        {
-            try { level = LogLevelExtensions.ParseLogLevel(attrs.Level); }
-            catch { /* Unknown level */ }
-        }
-
-        var environments = NormalizeEnvironments(attrs.Environments);
-
-        return new LogGroup(
-            client: this,
-            id: resource.Id ?? string.Empty,
-            name: attrs.Name ?? string.Empty,
-            level: level,
-            group: attrs.Parent_id,
-            environments: environments,
-            createdAt: attrs.Created_at?.DateTime,
-            updatedAt: attrs.Updated_at?.DateTime);
-    }
-
-    private static Dictionary<string, Dictionary<string, object?>> NormalizeEnvironments(object? environments)
-    {
-        var result = new Dictionary<string, Dictionary<string, object?>>();
-        if (environments is JsonElement je && je.ValueKind == JsonValueKind.Object)
-        {
-            foreach (var prop in je.EnumerateObject())
-                result[prop.Name] = NormalizeJsonToDict(prop.Value);
-        }
-        return result;
-    }
-
-    private static Dictionary<string, object?> NormalizeJsonToDict(JsonElement je)
-    {
-        if (je.ValueKind != JsonValueKind.Object) return new Dictionary<string, object?>();
-        var result = new Dictionary<string, object?>();
-        foreach (var prop in je.EnumerateObject())
-            result[prop.Name] = Config.Resolver.Normalize(prop.Value);
-        return result;
-    }
-
-    // ------------------------------------------------------------------
-    // Helpers: request body building
-    // ------------------------------------------------------------------
-
-    private static GenLogging.LoggerResponse BuildLoggerRequestBody(Logger logger) =>
-        new()
-        {
-            Data = new GenLogging.LoggerResource
-            {
-                Type = "logger",
-                Id = logger.Id,
-                Attributes = new GenLogging.Logger
-                {
-                    Name = logger.Name,
-                    Level = logger.Level?.ToWireString(),
-                    Group = logger.Group,
-                    Managed = logger.Managed,
-                    Environments = BuildEnvironmentsPayload(logger.Environments),
-                },
-            }
-        };
-
-    private static GenLogging.LogGroupResponse BuildLogGroupRequestBody(LogGroup logGroup) =>
-        new()
-        {
-            Data = new GenLogging.LogGroupResource
-            {
-                Type = "log_group",
-                Id = logGroup.Id,
-                Attributes = new GenLogging.LogGroup
-                {
-                    Name = logGroup.Name,
-                    Level = logGroup.Level?.ToWireString(),
-                    Parent_id = logGroup.Group,
-                    Environments = BuildEnvironmentsPayload(logGroup.Environments),
-                },
-            }
-        };
-
-    private static object? BuildEnvironmentsPayload(Dictionary<string, Dictionary<string, object?>> environments)
-    {
-        if (environments.Count == 0) return null;
-        return environments;
     }
 
     // ------------------------------------------------------------------

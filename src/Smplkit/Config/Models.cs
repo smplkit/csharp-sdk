@@ -6,7 +6,7 @@ namespace Smplkit.Config;
 /// </summary>
 public sealed class Config
 {
-    private readonly ConfigClient _client;
+    private readonly Smplkit.Management.ConfigsClient _client;
 
     /// <summary>Gets the config identifier (slug). Null for unsaved configs.</summary>
     public string? Id { get; internal set; }
@@ -33,7 +33,7 @@ public sealed class Config
     public DateTime? UpdatedAt { get; internal set; }
 
     internal Config(
-        ConfigClient client,
+        Smplkit.Management.ConfigsClient client,
         string? id,
         string name,
         string? description,

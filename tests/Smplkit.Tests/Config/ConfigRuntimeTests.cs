@@ -122,7 +122,7 @@ public class ConfigRuntimeTests
     }
 
     [Fact]
-    public void Get_ReturnsDefensiveCopy()
+    public void Get_ReturnsLiveProxy_ReadOnly()
     {
         var (client, _) = MakeClient(req =>
         {
@@ -131,10 +131,13 @@ public class ConfigRuntimeTests
             return Task.FromResult(Json("{}"));
         });
 
-        var v1 = client.Config.Get("user-svc");
-        v1["host"] = "tampered";
-        var v2 = client.Config.Get("user-svc");
-        Assert.NotEqual("tampered", v2["host"]);
+        // LiveConfigProxy implements IReadOnlyDictionary — no setter exposed,
+        // so customer mutation is impossible at the surface.
+        var proxy = client.Config.Get("user-svc");
+        Assert.IsType<Smplkit.Config.LiveConfigProxy>(proxy);
+        Assert.Equal("user-svc", proxy.ConfigId);
+        // Verify the proxy stays consistent across calls (identity-stable values).
+        Assert.Equal(proxy["host"], client.Config.Get("user-svc")["host"]);
     }
 
     public sealed class UserSvcModel

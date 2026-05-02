@@ -20,7 +20,13 @@ public sealed class Environment
     /// <summary>Gets or sets the display name.</summary>
     public string Name { get; set; }
 
-    /// <summary>Gets or sets the color (a <see cref="Smplkit.Management.Color"/> instance, or null).</summary>
+    /// <summary>
+    /// Gets or sets the color (a <see cref="Smplkit.Management.Color"/> instance, or null).
+    /// Hex strings assigned via the implicit <c>string → Color</c> conversion are validated
+    /// at the SDK boundary (see <see cref="Smplkit.Management.Color(string)"/> for the
+    /// accepted formats). Invalid hex throws <see cref="ArgumentException"/> at the
+    /// assignment site, before any wire call.
+    /// </summary>
     public Color? Color { get; set; }
 
     /// <summary>Gets or sets the classification (Standard or AdHoc).</summary>
