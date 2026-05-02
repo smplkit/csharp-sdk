@@ -355,7 +355,7 @@ public sealed class LoggingClient
         _loggerBuffer.Add(loggerName, null, smplLevel, _parent?.Service, _parent?.Environment);
 
         if (_loggerBuffer.PendingCount >= 50)
-            _lastLoggerBufferFlushTask = Task.Run(() => FlushLoggerBufferAsync());
+            _lastLoggerBufferFlushTask = FlushLoggerBufferAsync();
 
         // Still fire listeners for immediate in-process notification
         var evt = new LoggerChangeEvent(loggerName, level, "adapter");
@@ -408,36 +408,38 @@ public sealed class LoggingClient
         var loggerId = data.TryGetValue("id", out var k) ? k as string : null;
         DebugLog.Log("websocket", $"logger_changed event received, id={loggerId ?? "<unknown>"}");
         if (loggerId is null || !_started) return;
-        _lastLoggerChangedTask = Task.Run(async () =>
+        _lastLoggerChangedTask = HandleLoggerChangedAsync(loggerId);
+    }
+
+    private async Task HandleLoggerChangedAsync(string loggerId)
+    {
+        try
         {
-            try
-            {
-                // Scoped fetch: GET just the single changed logger
-                if (_parent?.Manage.Loggers is not { } mgmtL) return;
-                var logger = await mgmtL.GetAsync(loggerId).ConfigureAwait(false);
-                ApplyLevels(new List<Logger> { logger });
+            // Scoped fetch: GET just the single changed logger
+            if (_parent?.Manage.Loggers is not { } mgmtL) return;
+            var logger = await mgmtL.GetAsync(loggerId).ConfigureAwait(false);
+            ApplyLevels(new List<Logger> { logger });
 
-                // Only fire listeners if level changed
-                LogLevel? prevLevel;
-                lock (_loggerCacheLock)
-                {
-                    _loggerLevelCache.TryGetValue(loggerId, out prevLevel);
-                    _loggerLevelCache[loggerId] = logger.Level;
-                }
-
-                if (!Equals(prevLevel, logger.Level))
-                {
-                    var evt = new LoggerChangeEvent(loggerId, logger.Level, "websocket");
-                    FireListeners(loggerId, evt);
-                }
-            }
-            catch (Exception ex)
+            // Only fire listeners if level changed
+            LogLevel? prevLevel;
+            lock (_loggerCacheLock)
             {
-                System.Diagnostics.Trace.TraceWarning(
-                    "[smplkit] Logger refresh failed: {0}", ex.Message);
-                DebugLog.Log("websocket", $"Logger refresh failed: {ex}");
+                _loggerLevelCache.TryGetValue(loggerId, out prevLevel);
+                _loggerLevelCache[loggerId] = logger.Level;
             }
-        });
+
+            if (!Equals(prevLevel, logger.Level))
+            {
+                var evt = new LoggerChangeEvent(loggerId, logger.Level, "websocket");
+                FireListeners(loggerId, evt);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                "[smplkit] Logger refresh failed: {0}", ex.Message);
+            DebugLog.Log("websocket", $"Logger refresh failed: {ex}");
+        }
     }
 
     private void HandleLoggerDeleted(Dictionary<string, object?> data)
@@ -460,45 +462,47 @@ public sealed class LoggingClient
         var groupId = data.TryGetValue("id", out var k) ? k as string : null;
         DebugLog.Log("websocket", $"group_changed event received, id={groupId ?? "<unknown>"}");
         if (groupId is null || !_started) return;
-        _lastGroupChangedTask = Task.Run(async () =>
-        {
-            try
-            {
-                // Scoped fetch: GET just the single changed group
-                if (_parent?.Manage.LogGroups is not { } mgmtG) return;
-                var group = await mgmtG.GetAsync(groupId).ConfigureAwait(false);
-                // A group level change affects all loggers in that group — re-apply all
-                var loggers = _parent?.Manage.Loggers is { } mgmtLn ? await mgmtLn.ListAsync().ConfigureAwait(false) : new List<Logger>();
-                ApplyLevels(loggers);
+        _lastGroupChangedTask = HandleGroupChangedAsync(groupId);
+    }
 
-                // Diff and fire for loggers whose effective level changed
-                var changedLoggers = new List<(string Id, LogLevel? Level)>();
-                lock (_loggerCacheLock)
+    private async Task HandleGroupChangedAsync(string groupId)
+    {
+        try
+        {
+            // Scoped fetch: GET just the single changed group
+            if (_parent?.Manage.LogGroups is not { } mgmtG) return;
+            var group = await mgmtG.GetAsync(groupId).ConfigureAwait(false);
+            // A group level change affects all loggers in that group — re-apply all
+            var loggers = _parent?.Manage.Loggers is { } mgmtLn ? await mgmtLn.ListAsync().ConfigureAwait(false) : new List<Logger>();
+            ApplyLevels(loggers);
+
+            // Diff and fire for loggers whose effective level changed
+            var changedLoggers = new List<(string Id, LogLevel? Level)>();
+            lock (_loggerCacheLock)
+            {
+                foreach (var logger in loggers)
                 {
-                    foreach (var logger in loggers)
+                    if (logger.Id is null) continue;
+                    _loggerLevelCache.TryGetValue(logger.Id, out var prev);
+                    if (!Equals(prev, logger.Level))
                     {
-                        if (logger.Id is null) continue;
-                        _loggerLevelCache.TryGetValue(logger.Id, out var prev);
-                        if (!Equals(prev, logger.Level))
-                        {
-                            _loggerLevelCache[logger.Id] = logger.Level;
-                            changedLoggers.Add((logger.Id, logger.Level));
-                        }
+                        _loggerLevelCache[logger.Id] = logger.Level;
+                        changedLoggers.Add((logger.Id, logger.Level));
                     }
                 }
-                foreach (var (id, level) in changedLoggers)
-                {
-                    var evt = new LoggerChangeEvent(id, level, "websocket");
-                    FireListeners(id, evt);
-                }
             }
-            catch (Exception ex)
+            foreach (var (id, level) in changedLoggers)
             {
-                System.Diagnostics.Trace.TraceWarning(
-                    "[smplkit] Logger group refresh failed: {0}", ex.Message);
-                DebugLog.Log("websocket", $"Logger group refresh failed: {ex}");
+                var evt = new LoggerChangeEvent(id, level, "websocket");
+                FireListeners(id, evt);
             }
-        });
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                "[smplkit] Logger group refresh failed: {0}", ex.Message);
+            DebugLog.Log("websocket", $"Logger group refresh failed: {ex}");
+        }
     }
 
     private void HandleGroupDeleted(Dictionary<string, object?> data)
@@ -516,59 +520,61 @@ public sealed class LoggingClient
     {
         DebugLog.Log("websocket", "loggers_changed event received — full refetch");
         if (!_started) return;
-        _lastLoggersChangedTask = Task.Run(async () =>
+        _lastLoggersChangedTask = HandleLoggersChangedAsync();
+    }
+
+    private async Task HandleLoggersChangedAsync()
+    {
+        try
         {
-            try
+            // Full refetch of both loggers and groups
+            var loggers = _parent?.Manage.Loggers is { } mgmtLn ? await mgmtLn.ListAsync().ConfigureAwait(false) : new List<Logger>();
+            if (_parent?.Manage.LogGroups is { } mgmtGn) { await mgmtGn.ListAsync().ConfigureAwait(false); }
+            ApplyLevels(loggers);
+
+            // Diff and fire per-key listeners for changed loggers
+            var changedLoggers = new List<(string Id, LogLevel? Level)>();
+            lock (_loggerCacheLock)
             {
-                // Full refetch of both loggers and groups
-                var loggers = _parent?.Manage.Loggers is { } mgmtLn ? await mgmtLn.ListAsync().ConfigureAwait(false) : new List<Logger>();
-                if (_parent?.Manage.LogGroups is { } mgmtGn) { await mgmtGn.ListAsync().ConfigureAwait(false); }
-                ApplyLevels(loggers);
+                var allIds = new HashSet<string>(_loggerLevelCache.Keys);
+                foreach (var l in loggers)
+                    if (l.Id is not null) allIds.Add(l.Id);
 
-                // Diff and fire per-key listeners for changed loggers
-                var changedLoggers = new List<(string Id, LogLevel? Level)>();
-                lock (_loggerCacheLock)
+                foreach (var id in allIds)
                 {
-                    var allIds = new HashSet<string>(_loggerLevelCache.Keys);
-                    foreach (var l in loggers)
-                        if (l.Id is not null) allIds.Add(l.Id);
-
-                    foreach (var id in allIds)
+                    _loggerLevelCache.TryGetValue(id, out var prev);
+                    var current = loggers.FirstOrDefault(l => l.Id == id);
+                    var newLevel = current?.Level;
+                    if (!Equals(prev, newLevel))
                     {
-                        _loggerLevelCache.TryGetValue(id, out var prev);
-                        var current = loggers.FirstOrDefault(l => l.Id == id);
-                        var newLevel = current?.Level;
-                        if (!Equals(prev, newLevel))
-                        {
-                            if (current is not null)
-                                _loggerLevelCache[id] = newLevel;
-                            else
-                                _loggerLevelCache.Remove(id);
-                            changedLoggers.Add((id, newLevel));
-                        }
+                        if (current is not null)
+                            _loggerLevelCache[id] = newLevel;
+                        else
+                            _loggerLevelCache.Remove(id);
+                        changedLoggers.Add((id, newLevel));
                     }
                 }
-
-                if (changedLoggers.Count == 0) return;
-
-                // Fire global listener exactly once
-                var globalEvt = new LoggerChangeEvent(changedLoggers[0].Id, changedLoggers[0].Level, "websocket");
-                FireGlobalListeners(globalEvt);
-
-                // Fire per-key listeners for each changed logger
-                foreach (var (changedId, level) in changedLoggers)
-                {
-                    var evt = new LoggerChangeEvent(changedId, level, "websocket");
-                    FireScopedListeners(changedId, evt);
-                }
             }
-            catch (Exception ex)
+
+            if (changedLoggers.Count == 0) return;
+
+            // Fire global listener exactly once
+            var globalEvt = new LoggerChangeEvent(changedLoggers[0].Id, changedLoggers[0].Level, "websocket");
+            FireGlobalListeners(globalEvt);
+
+            // Fire per-key listeners for each changed logger
+            foreach (var (changedId, level) in changedLoggers)
             {
-                System.Diagnostics.Trace.TraceWarning(
-                    "[smplkit] Loggers bulk refresh failed: {0}", ex.Message);
-                DebugLog.Log("websocket", $"Loggers bulk refresh failed: {ex}");
+                var evt = new LoggerChangeEvent(changedId, level, "websocket");
+                FireScopedListeners(changedId, evt);
             }
-        });
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                "[smplkit] Loggers bulk refresh failed: {0}", ex.Message);
+            DebugLog.Log("websocket", $"Loggers bulk refresh failed: {ex}");
+        }
     }
 
     private void FireListeners(string loggerId, LoggerChangeEvent evt)

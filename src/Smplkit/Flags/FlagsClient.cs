@@ -91,7 +91,7 @@ public sealed class FlagsClient
         _handles[id] = handle;
         _flagBuffer.Add(id, "BOOLEAN", defaultValue, _parent?.Service, _parent?.Environment);
         if (_flagBuffer.PendingCount >= 50)
-            _lastFlagBufferFlushTask = Task.Run(() => FlushFlagsAsync());
+            _lastFlagBufferFlushTask = FlushFlagsAsync();
         return handle;
     }
 
@@ -114,7 +114,7 @@ public sealed class FlagsClient
         _handles[id] = handle;
         _flagBuffer.Add(id, "STRING", defaultValue, _parent?.Service, _parent?.Environment);
         if (_flagBuffer.PendingCount >= 50)
-            _lastFlagBufferFlushTask = Task.Run(() => FlushFlagsAsync());
+            _lastFlagBufferFlushTask = FlushFlagsAsync();
         return handle;
     }
 
@@ -137,7 +137,7 @@ public sealed class FlagsClient
         _handles[id] = handle;
         _flagBuffer.Add(id, "NUMERIC", defaultValue, _parent?.Service, _parent?.Environment);
         if (_flagBuffer.PendingCount >= 50)
-            _lastFlagBufferFlushTask = Task.Run(() => FlushFlagsAsync());
+            _lastFlagBufferFlushTask = FlushFlagsAsync();
         return handle;
     }
 
@@ -160,7 +160,7 @@ public sealed class FlagsClient
         _handles[id] = handle;
         _flagBuffer.Add(id, "JSON", defaultValue, _parent?.Service, _parent?.Environment);
         if (_flagBuffer.PendingCount >= 50)
-            _lastFlagBufferFlushTask = Task.Run(() => FlushFlagsAsync());
+            _lastFlagBufferFlushTask = FlushFlagsAsync();
         return handle;
     }
 
@@ -197,35 +197,7 @@ public sealed class FlagsClient
             if (_parent?.Service is { Length: > 0 } svc)
             {
                 var env = _parent?.Environment;
-                _initRegistrationTask = Task.Run(async () =>
-                {
-                    try
-                    {
-                        var items = new List<GenApp.ContextBulkItem>();
-                        if (!string.IsNullOrEmpty(env))
-                        {
-                            items.Add(new() { Type = "environment", Key = env });
-                        }
-                        items.Add(new()
-                        {
-                            Type = "service",
-                            Key = svc,
-                            Attributes = new Dictionary<string, object?> { ["name"] = svc },
-                        });
-                        await ApiExceptionMapper.ExecuteAsync(async () =>
-                            await _genAppClient.Bulk_register_contextsAsync(
-                                new GenApp.ContextBulkRegister
-                                {
-                                    Contexts = items,
-                                }).ConfigureAwait(false)).ConfigureAwait(false);
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Trace.TraceWarning(
-                            "[smplkit] Context registration failed: {0}", ex.Message);
-                        Debug.Log("registration", $"Context registration failed: {ex}");
-                    }
-                });
+                _initRegistrationTask = RegisterInitialContextsAsync(svc, env);
             }
 
             Debug.Log("websocket", "flags runtime initializing");
@@ -294,6 +266,41 @@ public sealed class FlagsClient
         lock (list)
         {
             list.Add(callback);
+        }
+    }
+
+    /// <summary>
+    /// Best-effort initial context registration: registers the configured
+    /// environment and service with the contexts service. Failures are logged
+    /// and swallowed; this is fired-and-forgotten from <see cref="EnsureInitialized"/>.
+    /// </summary>
+    private async Task RegisterInitialContextsAsync(string svc, string? env)
+    {
+        try
+        {
+            var items = new List<GenApp.ContextBulkItem>();
+            if (!string.IsNullOrEmpty(env))
+            {
+                items.Add(new() { Type = "environment", Key = env });
+            }
+            items.Add(new()
+            {
+                Type = "service",
+                Key = svc,
+                Attributes = new Dictionary<string, object?> { ["name"] = svc },
+            });
+            await ApiExceptionMapper.ExecuteAsync(async () =>
+                await _genAppClient.Bulk_register_contextsAsync(
+                    new GenApp.ContextBulkRegister
+                    {
+                        Contexts = items,
+                    }).ConfigureAwait(false)).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                "[smplkit] Context registration failed: {0}", ex.Message);
+            Debug.Log("registration", $"Context registration failed: {ex}");
         }
     }
 
@@ -409,7 +416,7 @@ public sealed class FlagsClient
             evalDict = ContextsToEvalDict(contexts);
             _contextBuffer.Observe(contexts);
             if (_contextBuffer.PendingCount >= ContextBatchFlushSize)
-                _lastContextBufferFlushTask = Task.Run(() => FlushContextsAsync());
+                _lastContextBufferFlushTask = FlushContextsAsync();
         }
         else
         {
