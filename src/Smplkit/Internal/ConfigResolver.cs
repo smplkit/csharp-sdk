@@ -30,8 +30,23 @@ internal static class ConfigResolver
     /// </summary>
     internal static ResolvedConfig Resolve(SmplClientOptions options)
     {
+        return Resolve(options, requireEnvironmentAndService: true);
+    }
+
+    /// <summary>
+    /// Resolves configuration for the management plane. Environment and service
+    /// are not required (management endpoints are global to an account).
+    /// </summary>
+    internal static ResolvedConfig ResolveForManagement(SmplClientOptions options)
+    {
+        return Resolve(options, requireEnvironmentAndService: false);
+    }
+
+    private static ResolvedConfig Resolve(SmplClientOptions options, bool requireEnvironmentAndService)
+    {
         return Resolve(
             options,
+            requireEnvironmentAndService: requireEnvironmentAndService,
             envApiKey: System.Environment.GetEnvironmentVariable("SMPLKIT_API_KEY"),
             envBaseDomain: System.Environment.GetEnvironmentVariable("SMPLKIT_BASE_DOMAIN"),
             envScheme: System.Environment.GetEnvironmentVariable("SMPLKIT_SCHEME"),
@@ -51,6 +66,22 @@ internal static class ConfigResolver
     /// </summary>
     internal static ResolvedConfig Resolve(
         SmplClientOptions options,
+        string? envApiKey,
+        string? envBaseDomain,
+        string? envScheme,
+        string? envEnvironment,
+        string? envService,
+        string? envDebug,
+        string? envDisableTelemetry,
+        string? envProfile,
+        string configPath,
+        Func<string, string> fileReader)
+        => Resolve(options, true, envApiKey, envBaseDomain, envScheme, envEnvironment,
+            envService, envDebug, envDisableTelemetry, envProfile, configPath, fileReader);
+
+    internal static ResolvedConfig Resolve(
+        SmplClientOptions options,
+        bool requireEnvironmentAndService,
         string? envApiKey,
         string? envBaseDomain,
         string? envScheme,
@@ -113,22 +144,22 @@ internal static class ConfigResolver
             disableTelemetry = options.DisableTelemetry.Value;
 
         // Validate required fields
-        if (string.IsNullOrEmpty(environment))
-            throw new SmplException(
+        if (requireEnvironmentAndService && string.IsNullOrEmpty(environment))
+            throw new SmplkitException(
                 "No environment provided. Set one of:\n" +
                 "  1. Pass Environment in SmplClientOptions\n" +
                 "  2. Set the SMPLKIT_ENVIRONMENT environment variable\n" +
                 $"  3. Add environment to the [{activeProfile}] section in ~/.smplkit");
 
-        if (string.IsNullOrEmpty(service))
-            throw new SmplException(
+        if (requireEnvironmentAndService && string.IsNullOrEmpty(service))
+            throw new SmplkitException(
                 "No service provided. Set one of:\n" +
                 "  1. Pass Service in SmplClientOptions\n" +
                 "  2. Set the SMPLKIT_SERVICE environment variable\n" +
                 $"  3. Add service to the [{activeProfile}] section in ~/.smplkit");
 
         if (string.IsNullOrEmpty(apiKey))
-            throw new SmplException(
+            throw new SmplkitException(
                 "No API key provided. Set one of:\n" +
                 "  1. Pass ApiKey in SmplClientOptions\n" +
                 "  2. Set the SMPLKIT_API_KEY environment variable\n" +
@@ -138,8 +169,8 @@ internal static class ConfigResolver
             ApiKey: apiKey!,
             BaseDomain: baseDomain,
             Scheme: scheme,
-            Environment: environment!,
-            Service: service!,
+            Environment: environment ?? string.Empty,
+            Service: service ?? string.Empty,
             Debug: debug,
             DisableTelemetry: disableTelemetry);
     }
@@ -207,7 +238,7 @@ internal static class ConfigResolver
 
             if (nonCommonSections.Count > 0 && !profile.Equals("default", StringComparison.OrdinalIgnoreCase))
             {
-                throw new SmplException(
+                throw new SmplkitException(
                     $"Profile [{profile}] not found in ~/.smplkit. " +
                     $"Available profiles: {string.Join(", ", nonCommonSections)}");
             }
@@ -304,7 +335,7 @@ internal static class ConfigResolver
         {
             "true" or "1" or "yes" => true,
             "false" or "0" or "no" => false,
-            _ => throw new SmplException(
+            _ => throw new SmplkitException(
                 $"Invalid boolean value for {key}: \"{value}\". " +
                 "Expected one of: true, false, 1, 0, yes, no"),
         };

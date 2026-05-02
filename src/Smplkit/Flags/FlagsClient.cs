@@ -61,16 +61,10 @@ public sealed class FlagsClient
         _contextBuffer = contextBuffer;
         _parent = parent;
         _metrics = metrics;
-        Management = new FlagsManagement(this);
     }
 
-    /// <summary>
-    /// Provides management (CRUD) operations for flags: create, get, list, and delete.
-    /// </summary>
-    public FlagsManagement Management { get; }
-
     // ------------------------------------------------------------------
-    // Management: typed factory methods (internal — public surface is via Management)
+    // Management: typed factory methods (called by Smplkit.Management.FlagsClient)
     // ------------------------------------------------------------------
 
     internal BooleanFlag NewBooleanFlag(string id, bool defaultValue, string? name = null, string? description = null)
@@ -142,7 +136,7 @@ public sealed class FlagsClient
         var response = await ApiExceptionMapper.ExecuteAsync(
             () => _genFlagsClient.Get_flagAsync(id: id, cancellationToken: ct)).ConfigureAwait(false);
         return MapFlagResource(response.Data)
-            ?? throw new SmplNotFoundException($"Flag with id '{id}' not found");
+            ?? throw new NotFoundException($"Flag with id '{id}' not found");
     }
 
     internal async Task<List<Flag>> ListAsync(CancellationToken ct = default)
@@ -169,17 +163,17 @@ public sealed class FlagsClient
             var response = await ApiExceptionMapper.ExecuteAsync(
                 () => _genFlagsClient.Create_flagAsync(body, ct)).ConfigureAwait(false);
             return MapFlagResource(response.Data)
-                ?? throw new SmplValidationException("Failed to create flag");
+                ?? throw new ValidationException("Failed to create flag");
         }
         else
         {
             // Update
-            var flagId = flag.Id ?? throw new SmplValidationException("Cannot update a flag without an id");
+            var flagId = flag.Id ?? throw new ValidationException("Cannot update a flag without an id");
             var body = BuildUpdateFlagBody(flagId, flag.Name, flag.Type, flag.Default, flag.Values, flag.Description, flag.Environments);
             var response = await ApiExceptionMapper.ExecuteAsync(
                 () => _genFlagsClient.Update_flagAsync(flagId, body, ct)).ConfigureAwait(false);
             return MapFlagResource(response.Data)
-                ?? throw new SmplValidationException("Failed to update flag");
+                ?? throw new ValidationException("Failed to update flag");
         }
     }
 

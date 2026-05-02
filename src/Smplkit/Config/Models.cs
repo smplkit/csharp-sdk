@@ -54,10 +54,7 @@ public sealed class Config
         UpdatedAt = updatedAt;
     }
 
-    /// <summary>
-    /// Saves this config to the server.
-    /// </summary>
-    /// <param name="ct">Cancellation token.</param>
+    /// <summary>Persists this config to the server.</summary>
     public async Task SaveAsync(CancellationToken ct = default)
     {
         var saved = await _client.SaveConfigInternalAsync(this, ct).ConfigureAwait(false);
@@ -71,23 +68,70 @@ public sealed class Config
         UpdatedAt = saved.UpdatedAt;
     }
 
+    /// <summary>Deletes this config from the server.</summary>
+    public Task DeleteAsync(CancellationToken ct = default)
+    {
+        if (Id is null)
+            throw new InvalidOperationException("Cannot delete an unsaved config.");
+        return _client.DeleteAsync(Id, ct);
+    }
+
+    private Dictionary<string, object?> ItemsTarget(string? environment)
+    {
+        if (environment is null) return Items;
+        if (!Environments.TryGetValue(environment, out var envValues))
+        {
+            envValues = new Dictionary<string, object?>();
+            Environments[environment] = envValues;
+        }
+        return envValues;
+    }
+
+    /// <summary>
+    /// Sets (or replaces) a typed item. With <paramref name="environment"/> = <c>null</c>,
+    /// sets the base item; otherwise sets a per-environment override.
+    /// </summary>
+    public void Set(ConfigItem item, string? environment = null)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        ItemsTarget(environment)[item.Name] = item.Value;
+    }
+
+    /// <summary>Convenience: set a STRING item (or environment override).</summary>
+    public void SetString(string name, string value, string? description = null, string? environment = null)
+        => Set(new ConfigItem(name, value, ItemType.String, description), environment);
+
+    /// <summary>Convenience: set a NUMBER item (or environment override).</summary>
+    public void SetNumber(string name, double value, string? description = null, string? environment = null)
+        => Set(new ConfigItem(name, value, ItemType.Number, description), environment);
+
+    /// <summary>Convenience: set a BOOLEAN item (or environment override).</summary>
+    public void SetBoolean(string name, bool value, string? description = null, string? environment = null)
+        => Set(new ConfigItem(name, value, ItemType.Boolean, description), environment);
+
+    /// <summary>Convenience: set a JSON item (or environment override).</summary>
+    public void SetJson(string name, object? value, string? description = null, string? environment = null)
+        => Set(new ConfigItem(name, value, ItemType.Json, description), environment);
+
+    /// <summary>
+    /// Removes an item by name. With <paramref name="environment"/> = <c>null</c>,
+    /// removes from base; otherwise removes the per-environment override only.
+    /// </summary>
+    public void Remove(string name, string? environment = null)
+    {
+        ItemsTarget(environment).Remove(name);
+    }
+
     /// <inheritdoc />
-    public override string ToString() =>
-        $"Config(Id={Id}, Name={Name})";
+    public override string ToString() => $"Config(Id={Id}, Name={Name})";
 }
 
 /// <summary>
 /// Describes a single config value change.
 /// </summary>
-/// <param name="ConfigId">The config id (e.g. <c>"user_service"</c>).</param>
-/// <param name="ItemKey">The item key within the config (e.g. <c>"timeout"</c>).</param>
-/// <param name="OldValue">The previous value.</param>
-/// <param name="NewValue">The updated value.</param>
-/// <param name="Source">The origin of the change.</param>
 public sealed record ConfigChangeEvent(
     string ConfigId,
     string ItemKey,
     object? OldValue,
     object? NewValue,
-    string Source
-);
+    string Source);

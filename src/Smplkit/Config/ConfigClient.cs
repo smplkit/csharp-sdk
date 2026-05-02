@@ -37,13 +37,7 @@ public sealed class ConfigClient
         _ensureWs = ensureWs;
         _parent = parent;
         _metrics = metrics;
-        Management = new ConfigManagement(this);
     }
-
-    /// <summary>
-    /// Provides management (CRUD) operations for configs: create, get, list, and delete.
-    /// </summary>
-    public ConfigManagement Management { get; }
 
     // ------------------------------------------------------------------
     // Management: factory (internal — public surface is via Management)
@@ -73,7 +67,7 @@ public sealed class ConfigClient
             () => _genClient.Get_configAsync(id: id, cancellationToken: ct)).ConfigureAwait(false);
 
         return MapResource(response.Data)
-            ?? throw new SmplNotFoundException($"Config with id '{id}' not found");
+            ?? throw new NotFoundException($"Config with id '{id}' not found");
     }
 
     internal async Task<List<Config>> ListAsync(CancellationToken ct = default)
@@ -110,15 +104,15 @@ public sealed class ConfigClient
             var response = await ApiExceptionMapper.ExecuteAsync(
                 () => _genClient.Create_configAsync(body, ct)).ConfigureAwait(false);
             return MapResource(response.Data)
-                ?? throw new SmplValidationException("Failed to create config");
+                ?? throw new ValidationException("Failed to create config");
         }
         else
         {
-            var configId = config.Id ?? throw new SmplValidationException("Cannot update a config without an id");
+            var configId = config.Id ?? throw new ValidationException("Cannot update a config without an id");
             var response = await ApiExceptionMapper.ExecuteAsync(
                 () => _genClient.Update_configAsync(configId, body, ct)).ConfigureAwait(false);
             return MapResource(response.Data)
-                ?? throw new SmplValidationException("Failed to update config");
+                ?? throw new ValidationException("Failed to update config");
         }
     }
 
@@ -131,13 +125,13 @@ public sealed class ConfigClient
     /// </summary>
     /// <param name="id">The config identifier.</param>
     /// <returns>A dictionary of resolved key-value pairs.</returns>
-    /// <exception cref="SmplNotFoundException">If no config with the given id exists.</exception>
+    /// <exception cref="NotFoundException">If no config with the given id exists.</exception>
     public Dictionary<string, object?> Get(string id)
     {
         EnsureInitialized();
 
         if (!_configCache.TryGetValue(id, out var values))
-            throw new SmplNotFoundException($"Config with id '{id}' not found in cache.");
+            throw new NotFoundException($"Config with id '{id}' not found in cache.");
 
         _metrics?.Record("config.resolutions", unit: "resolutions",
             dimensions: new Dictionary<string, string> { ["config"] = id });
@@ -158,7 +152,7 @@ public sealed class ConfigClient
         var nested = ExpandDotNotation(flat);
         var json = JsonSerializer.Serialize(nested, JsonOptions.Default);
         return JsonSerializer.Deserialize<T>(json, JsonOptions.Default)
-            ?? throw new SmplException($"Failed to deserialize config '{id}' to {typeof(T).Name}");
+            ?? throw new SmplkitException($"Failed to deserialize config '{id}' to {typeof(T).Name}");
     }
 
     // ------------------------------------------------------------------
@@ -176,7 +170,7 @@ public sealed class ConfigClient
             if (_runtimeConnected) return;
 
             var environment = _parent?.Environment
-                ?? throw new SmplException("No environment set.");
+                ?? throw new SmplkitException("No environment set.");
 
             var allConfigs = ListAsync().GetAwaiter().GetResult();
             RebuildCache(allConfigs, environment);
@@ -207,7 +201,7 @@ public sealed class ConfigClient
     public async Task RefreshAsync(CancellationToken ct = default)
     {
         var environment = _parent?.Environment
-            ?? throw new SmplException("No environment set.");
+            ?? throw new SmplkitException("No environment set.");
 
         var allConfigs = await ListAsync(ct).ConfigureAwait(false);
 

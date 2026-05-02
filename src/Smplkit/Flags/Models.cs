@@ -139,13 +139,123 @@ public class Flag
     }
 
     /// <summary>
-    /// Clears all rules for a specific environment. Call <see cref="SaveAsync"/> to persist.
+    /// Clears rules. With <paramref name="environment"/> = <c>null</c>, removes
+    /// rules from every environment configured on this flag. Call
+    /// <see cref="SaveAsync"/> to persist.
     /// </summary>
-    /// <param name="envKey">The environment key.</param>
-    public void ClearRules(string envKey)
+    public void ClearRules(string? environment = null)
     {
-        if (Environments.TryGetValue(envKey, out var envConfig))
+        if (environment is null)
+        {
+            foreach (var key in Environments.Keys.ToList())
+            {
+                if (Environments[key] is { } envConfig)
+                    envConfig["rules"] = new List<object?>();
+            }
+        }
+        else if (Environments.TryGetValue(environment, out var envConfig))
+        {
             envConfig["rules"] = new List<object?>();
+        }
+    }
+
+    /// <summary>
+    /// Sets the flag's default served value. With <paramref name="environment"/>
+    /// = <c>null</c>, updates the flag-level default; otherwise, sets the
+    /// per-environment default. Call <see cref="SaveAsync"/> to persist.
+    /// </summary>
+    public void SetDefault(object? value, string? environment = null)
+    {
+        if (environment is null)
+        {
+            Default = value;
+        }
+        else
+        {
+            if (!Environments.TryGetValue(environment, out var envConfig))
+            {
+                envConfig = new Dictionary<string, object?>();
+                Environments[environment] = envConfig;
+            }
+            envConfig["default"] = value;
+        }
+    }
+
+    /// <summary>
+    /// Clears the per-environment default override on <paramref name="environment"/>.
+    /// After clearing, the environment falls back to the flag's base default.
+    /// </summary>
+    public void ClearDefault(string environment)
+    {
+        if (Environments.TryGetValue(environment, out var envConfig))
+            envConfig["default"] = null;
+    }
+
+    /// <summary>
+    /// Enables rule evaluation. With <paramref name="environment"/> = <c>null</c>,
+    /// applies to every environment configured on this flag.
+    /// </summary>
+    public void EnableRules(string? environment = null)
+    {
+        if (environment is null)
+        {
+            foreach (var key in Environments.Keys.ToList())
+                SetEnvironmentEnabled(key, true);
+        }
+        else
+        {
+            SetEnvironmentEnabled(environment, true);
+        }
+    }
+
+    /// <summary>
+    /// Disables rule evaluation (kill switch — serves base/env default, skips rules).
+    /// </summary>
+    public void DisableRules(string? environment = null)
+    {
+        if (environment is null)
+        {
+            foreach (var key in Environments.Keys.ToList())
+                SetEnvironmentEnabled(key, false);
+        }
+        else
+        {
+            SetEnvironmentEnabled(environment, false);
+        }
+    }
+
+    /// <summary>Append a constrained value to the flag's values list.</summary>
+    public Flag AddValue(string name, object? value)
+    {
+        Values ??= new List<Dictionary<string, object?>>();
+        Values.Add(new Dictionary<string, object?> { ["name"] = name, ["value"] = value });
+        return this;
+    }
+
+    /// <summary>Remove the first values entry whose <c>value</c> field matches.</summary>
+    public Flag RemoveValue(object? value)
+    {
+        if (Values is null) return this;
+        var idx = Values.FindIndex(v =>
+            v.TryGetValue("value", out var existing) && Equals(existing, value));
+        if (idx >= 0) Values.RemoveAt(idx);
+        return this;
+    }
+
+    /// <summary>Set values to <c>null</c> (unconstrained).</summary>
+    public void ClearValues()
+    {
+        Values = null;
+    }
+
+    /// <summary>
+    /// Deletes this flag from the server.
+    /// </summary>
+    public Task DeleteAsync(CancellationToken ct = default)
+    {
+        if (Id is null)
+            throw new InvalidOperationException("Cannot delete an unsaved flag.");
+        return _client.DeleteAsync(Id, ct);
     }
 
     /// <summary>

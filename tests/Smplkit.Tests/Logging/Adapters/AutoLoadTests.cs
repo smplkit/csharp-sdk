@@ -33,7 +33,7 @@ public class AutoLoadTests
 
         try
         {
-            await client.Logging.StartAsync();
+            await client.Logging.InstallAsync();
         }
         catch
         {
@@ -56,7 +56,7 @@ public class AutoLoadTests
         // Start should only use the explicitly registered adapter
         try
         {
-            await client.Logging.StartAsync();
+            await client.Logging.InstallAsync();
         }
         catch
         {
@@ -75,7 +75,7 @@ public class AutoLoadTests
 
         try
         {
-            await client.Logging.StartAsync();
+            await client.Logging.InstallAsync();
         }
         catch
         {
@@ -132,7 +132,7 @@ public class AutoLoadTests
 
         try
         {
-            await client.Logging.StartAsync();
+            await client.Logging.InstallAsync();
         }
         catch
         {
@@ -166,7 +166,7 @@ public class AutoLoadTests
 
         try
         {
-            await client.Logging.StartAsync();
+            await client.Logging.InstallAsync();
         }
         catch
         {
@@ -219,7 +219,7 @@ public class AutoLoadTests
 
         try
         {
-            await client.Logging.StartAsync();
+            await client.Logging.InstallAsync();
         }
         catch
         {
@@ -241,8 +241,8 @@ public class AutoLoadTests
 
         client.Logging.RegisterAdapter(adapter.Object);
 
-        try { await client.Logging.StartAsync(); } catch { }
-        try { await client.Logging.StartAsync(); } catch { }
+        try { await client.Logging.InstallAsync(); } catch { }
+        try { await client.Logging.InstallAsync(); } catch { }
 
         // Discover should only be called once due to idempotency
         adapter.Verify(a => a.Discover(), Times.Once);
@@ -260,7 +260,7 @@ public class AutoLoadTests
 
         client.Logging.RegisterAdapter(failingAdapter.Object);
 
-        try { await client.Logging.StartAsync(); } catch { }
+        try { await client.Logging.InstallAsync(); } catch { }
 
         // Should not throw even though UninstallHook throws
         client.Dispose();
@@ -309,7 +309,7 @@ public class AutoLoadTests
         client.Logging.RegisterAdapter(failingAdapter.Object);
 
         // Should not throw even though ApplyLevel throws
-        try { await client.Logging.StartAsync(); } catch { }
+        try { await client.Logging.InstallAsync(); } catch { }
 
         failingAdapter.Verify(a => a.ApplyLevel("my-logger", LogLevel.Error), Times.Once);
     }
@@ -332,7 +332,7 @@ public class AutoLoadTests
         var events = new List<LoggerChangeEvent>();
         client.Logging.OnChange(e => events.Add(e));
 
-        try { await client.Logging.StartAsync(); } catch { }
+        try { await client.Logging.InstallAsync(); } catch { }
 
         // Simulate adapter detecting a new logger
         Assert.NotNull(capturedHook);
@@ -358,7 +358,7 @@ public class AutoLoadTests
         client.Logging.RegisterAdapter(failingAdapter.Object);
 
         // Should not throw even though InstallHook throws
-        try { await client.Logging.StartAsync(); } catch { }
+        try { await client.Logging.InstallAsync(); } catch { }
 
         failingAdapter.Verify(a => a.InstallHook(It.IsAny<Action<string, LogLevel>>()), Times.Once);
     }
@@ -410,7 +410,7 @@ public class AutoLoadTests
         client.Logging.RegisterAdapter(failingAdapter.Object);
         client.Logging.RegisterAdapter(workingAdapter.Object);
 
-        try { await client.Logging.StartAsync(); } catch { }
+        try { await client.Logging.InstallAsync(); } catch { }
 
         // Both adapters should have had Discover called
         failingAdapter.Verify(a => a.Discover(), Times.Once);

@@ -10,7 +10,7 @@ namespace Smplkit.Logging;
 /// <summary>
 /// Client for the smplkit Logging service. Provides operations for creating,
 /// reading, updating, and deleting loggers and log groups, as well as dynamic
-/// level control via <see cref="StartAsync"/>.
+/// level control via <see cref="InstallAsync"/>.
 /// </summary>
 public sealed class LoggingClient
 {
@@ -43,28 +43,22 @@ public sealed class LoggingClient
         _ensureWs = ensureWs;
         _parent = parent;
         _metrics = metrics;
-        Management = new LoggingManagement(this);
     }
-
-    /// <summary>
-    /// Provides management (CRUD) operations for loggers and log groups: create, get, list, and delete.
-    /// </summary>
-    public LoggingManagement Management { get; }
 
     // ------------------------------------------------------------------
     // Adapter registration
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Registers a logging adapter. Must be called before <see cref="StartAsync"/>.
+    /// Registers a logging adapter. Must be called before <see cref="InstallAsync"/>.
     /// When called, only explicitly registered adapters are used.
     /// </summary>
     /// <param name="adapter">The adapter to register.</param>
-    /// <exception cref="InvalidOperationException">If called after <see cref="StartAsync"/>.</exception>
+    /// <exception cref="InvalidOperationException">If called after <see cref="InstallAsync"/>.</exception>
     public void RegisterAdapter(ILoggingAdapter adapter)
     {
         if (_started)
-            throw new InvalidOperationException("Cannot register adapters after StartAsync()");
+            throw new InvalidOperationException("Cannot register adapters after InstallAsync()");
         _explicitAdapters = true;
         _adapters.Add(adapter);
     }
@@ -93,7 +87,7 @@ public sealed class LoggingClient
         var response = await ApiExceptionMapper.ExecuteAsync(
             () => _genClient.Get_loggerAsync(id: id, cancellationToken: ct)).ConfigureAwait(false);
         return MapLoggerResource(response.Data)
-            ?? throw new SmplNotFoundException($"Logger with id '{id}' not found");
+            ?? throw new NotFoundException($"Logger with id '{id}' not found");
     }
 
     internal async Task<List<Logger>> ListAsync(CancellationToken ct = default)
@@ -113,13 +107,13 @@ public sealed class LoggingClient
     /// <summary>Internal: save a logger (create or update). PUT has upsert semantics.</summary>
     internal async Task<Logger> SaveLoggerInternalAsync(Logger logger, CancellationToken ct = default)
     {
-        var loggerId = logger.Id ?? throw new SmplValidationException("Cannot save a logger without an id");
+        var loggerId = logger.Id ?? throw new ValidationException("Cannot save a logger without an id");
 
         var body = BuildLoggerRequestBody(logger);
         var response = await ApiExceptionMapper.ExecuteAsync(
             () => _genClient.Update_loggerAsync(loggerId, body, ct)).ConfigureAwait(false);
         return MapLoggerResource(response.Data)
-            ?? throw new SmplValidationException("Failed to save logger");
+            ?? throw new ValidationException("Failed to save logger");
     }
 
     // ------------------------------------------------------------------
@@ -144,7 +138,7 @@ public sealed class LoggingClient
         var response = await ApiExceptionMapper.ExecuteAsync(
             () => _genClient.Get_log_groupAsync(id: id, cancellationToken: ct)).ConfigureAwait(false);
         return MapLogGroupResource(response.Data)
-            ?? throw new SmplNotFoundException($"LogGroup with id '{id}' not found");
+            ?? throw new NotFoundException($"LogGroup with id '{id}' not found");
     }
 
     internal async Task<List<LogGroup>> ListGroupsAsync(CancellationToken ct = default)
@@ -171,15 +165,15 @@ public sealed class LoggingClient
             var response = await ApiExceptionMapper.ExecuteAsync(
                 () => _genClient.Create_log_groupAsync(body, ct)).ConfigureAwait(false);
             return MapLogGroupResource(response.Data)
-                ?? throw new SmplValidationException("Failed to create log group");
+                ?? throw new ValidationException("Failed to create log group");
         }
         else
         {
-            var groupId = logGroup.Id ?? throw new SmplValidationException("Cannot update a log group without an id");
+            var groupId = logGroup.Id ?? throw new ValidationException("Cannot update a log group without an id");
             var response = await ApiExceptionMapper.ExecuteAsync(
                 () => _genClient.Update_log_groupAsync(groupId, body, ct)).ConfigureAwait(false);
             return MapLogGroupResource(response.Data)
-                ?? throw new SmplValidationException("Failed to update log group");
+                ?? throw new ValidationException("Failed to update log group");
         }
     }
 
@@ -192,7 +186,7 @@ public sealed class LoggingClient
     /// adapters and subscribes to real-time level updates. Idempotent.
     /// </summary>
     /// <param name="ct">Cancellation token.</param>
-    public async Task StartAsync(CancellationToken ct = default)
+    public async Task InstallAsync(CancellationToken ct = default)
     {
         if (_started) return;
 

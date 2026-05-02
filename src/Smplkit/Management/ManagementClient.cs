@@ -12,8 +12,8 @@ namespace Smplkit.Management;
 // ---------------------------------------------------------------------------
 
 /// <summary>
-/// Provides CRUD operations for deployment environments.
-/// Accessible via <see cref="ManagementClient.Environments"/>.
+/// Provides CRUD operations for deployment environments. Accessible via
+/// <see cref="SmplManagementClient.Environments"/>.
 /// </summary>
 public sealed class EnvironmentsClient
 {
@@ -21,52 +21,46 @@ public sealed class EnvironmentsClient
 
     internal EnvironmentsClient(GenApp.AppClient appClient) => _appClient = appClient;
 
-    /// <summary>
-    /// Creates an unsaved <see cref="SmplEnvironment"/>. Call <see cref="SmplEnvironment.SaveAsync"/> to persist.
-    /// </summary>
-    /// <param name="id">The environment slug.</param>
-    /// <param name="name">Display name.</param>
-    /// <param name="color">Optional hex color string.</param>
-    /// <param name="classification">Standard or AdHoc.</param>
-    /// <returns>An unsaved <see cref="SmplEnvironment"/>.</returns>
-    public SmplEnvironment New(
+    /// <summary>Creates an unsaved <see cref="Environment"/>.</summary>
+    public Environment New(
         string id,
         string name,
-        string? color = null,
+        Color? color = null,
         EnvironmentClassification classification = EnvironmentClassification.Standard)
     {
-        return new SmplEnvironment(this, id: id, name: name, color: color,
+        return new Environment(this, id: id, name: name, color: color,
             classification: classification, createdAt: null, updatedAt: null);
     }
 
+    /// <summary>Convenience overload accepting a hex string for color (validated via <see cref="Color"/>).</summary>
+    public Environment New(
+        string id,
+        string name,
+        string color,
+        EnvironmentClassification classification = EnvironmentClassification.Standard)
+        => New(id, name, new Color(color), classification);
+
     /// <summary>Lists all environments.</summary>
-    /// <param name="ct">Cancellation token.</param>
-    public async Task<List<SmplEnvironment>> ListAsync(CancellationToken ct = default)
+    public async Task<List<Environment>> ListAsync(CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
             () => _appClient.List_environmentsAsync(ct)).ConfigureAwait(false);
-        return resp.Data.Select(r => MapResource(r)).ToList();
+        return resp.Data.Select(MapResource).ToList();
     }
 
-    /// <summary>Fetches an environment by its identifier.</summary>
-    /// <param name="id">The environment slug.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <exception cref="SmplNotFoundException">If no matching environment exists.</exception>
-    public async Task<SmplEnvironment> GetAsync(string id, CancellationToken ct = default)
+    /// <summary>Fetches an environment by id.</summary>
+    public async Task<Environment> GetAsync(string id, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
             () => _appClient.Get_environmentAsync(id, ct)).ConfigureAwait(false);
         return MapResource(resp.Data);
     }
 
-    /// <summary>Deletes an environment by its identifier.</summary>
-    /// <param name="id">The environment slug.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <exception cref="SmplNotFoundException">If no matching environment exists.</exception>
+    /// <summary>Deletes an environment by id.</summary>
     public Task DeleteAsync(string id, CancellationToken ct = default)
         => ApiExceptionMapper.ExecuteAsync(() => _appClient.Delete_environmentAsync(id, ct));
 
-    internal async Task<SmplEnvironment> SaveInternalAsync(SmplEnvironment env, CancellationToken ct)
+    internal async Task<Environment> SaveInternalAsync(Environment env, CancellationToken ct)
     {
         var body = BuildBody(env);
         GenApp.EnvironmentResponse resp;
@@ -83,20 +77,21 @@ public sealed class EnvironmentsClient
         return MapResource(resp.Data);
     }
 
-    private SmplEnvironment MapResource(GenApp.EnvironmentResource r)
+    private Environment MapResource(GenApp.EnvironmentResource r)
     {
         var attrs = r.Attributes;
-        return new SmplEnvironment(
+        Color? color = string.IsNullOrEmpty(attrs.Color) ? null : new Color(attrs.Color);
+        return new Environment(
             client: this,
             id: r.Id,
             name: attrs.Name ?? string.Empty,
-            color: attrs.Color,
+            color: color,
             classification: EnvironmentClassificationExtensions.ParseClassification(attrs.Classification),
             createdAt: attrs.Created_at?.DateTime,
             updatedAt: attrs.Updated_at?.DateTime);
     }
 
-    private static GenApp.EnvironmentResponse BuildBody(SmplEnvironment env) =>
+    private static GenApp.EnvironmentResponse BuildBody(Environment env) =>
         new()
         {
             Data = new GenApp.EnvironmentResource
@@ -106,7 +101,7 @@ public sealed class EnvironmentsClient
                 Attributes = new GenApp.Environment
                 {
                     Name = env.Name,
-                    Color = env.Color,
+                    Color = env.Color?.Hex,
                     Classification = env.Classification.ToWireString(),
                 },
             },
@@ -118,8 +113,8 @@ public sealed class EnvironmentsClient
 // ---------------------------------------------------------------------------
 
 /// <summary>
-/// Provides CRUD operations for context types.
-/// Accessible via <see cref="ManagementClient.ContextTypes"/>.
+/// Provides CRUD operations for context types. Accessible via
+/// <see cref="SmplManagementClient.ContextTypes"/>.
 /// </summary>
 public sealed class ContextTypesClient
 {
@@ -127,13 +122,7 @@ public sealed class ContextTypesClient
 
     internal ContextTypesClient(GenApp.AppClient appClient) => _appClient = appClient;
 
-    /// <summary>
-    /// Creates an unsaved <see cref="ContextType"/>. Call <see cref="ContextType.SaveAsync"/> to persist.
-    /// </summary>
-    /// <param name="id">The context type slug.</param>
-    /// <param name="name">Optional display name; defaults to id if null.</param>
-    /// <param name="attributes">Optional initial attribute map.</param>
-    /// <returns>An unsaved <see cref="ContextType"/>.</returns>
+    /// <summary>Creates an unsaved <see cref="ContextType"/>. <c>name</c> defaults to <c>id</c>.</summary>
     public ContextType New(
         string id,
         string? name = null,
@@ -144,18 +133,14 @@ public sealed class ContextTypesClient
     }
 
     /// <summary>Lists all context types.</summary>
-    /// <param name="ct">Cancellation token.</param>
     public async Task<List<ContextType>> ListAsync(CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
             () => _appClient.List_context_typesAsync(ct)).ConfigureAwait(false);
-        return resp.Data.Select(r => MapResource(r)).ToList();
+        return resp.Data.Select(MapResource).ToList();
     }
 
-    /// <summary>Fetches a context type by its identifier.</summary>
-    /// <param name="id">The context type slug.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <exception cref="SmplNotFoundException">If no matching context type exists.</exception>
+    /// <summary>Fetches a context type by id.</summary>
     public async Task<ContextType> GetAsync(string id, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
@@ -163,10 +148,7 @@ public sealed class ContextTypesClient
         return MapResource(resp.Data);
     }
 
-    /// <summary>Deletes a context type by its identifier.</summary>
-    /// <param name="id">The context type slug.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <exception cref="SmplNotFoundException">If no matching context type exists.</exception>
+    /// <summary>Deletes a context type by id.</summary>
     public Task DeleteAsync(string id, CancellationToken ct = default)
         => ApiExceptionMapper.ExecuteAsync(() => _appClient.Delete_context_typeAsync(id, ct));
 
@@ -211,7 +193,7 @@ public sealed class ContextTypesClient
                 if (prop.Value.ValueKind == JsonValueKind.Object)
                 {
                     foreach (var innerProp in prop.Value.EnumerateObject())
-                        meta[innerProp.Name] = Config.Resolver.Normalize(innerProp.Value);
+                        meta[innerProp.Name] = Smplkit.Config.Resolver.Normalize(innerProp.Value);
                 }
                 result[prop.Name] = meta;
             }
@@ -222,7 +204,6 @@ public sealed class ContextTypesClient
 
     private static GenApp.ContextTypeResponse BuildBody(ContextType ct)
     {
-        // Serialize attributes map as a JSON object string to pass through the opaque 'object' field
         var attrsJson = JsonSerializer.Serialize(ct.Attributes);
         using var doc = JsonDocument.Parse(attrsJson);
         return new GenApp.ContextTypeResponse
@@ -247,24 +228,9 @@ public sealed class ContextTypesClient
 
 /// <summary>
 /// Provides context registration and read/delete operations.
-/// Accessible via <see cref="ManagementClient.Contexts"/>.
+/// Accessible via <see cref="SmplManagementClient.Contexts"/>.
 /// </summary>
-/// <remarks>
-/// <para>
-/// Write path: <see cref="RegisterAsync(Context, bool, CancellationToken)"/> /
-/// <see cref="RegisterAsync(IEnumerable{Context}, bool, CancellationToken)"/>. With
-/// <c>flush: false</c> (default) contexts are queued for background flush — right for
-/// high-frequency runtime observation. With <c>flush: true</c> the call awaits the
-/// network round-trip — right for IaC scripts that need confirmation.
-/// </para>
-/// <para>
-/// Read path: <see cref="ListAsync"/>, <see cref="GetAsync(string, CancellationToken)"/>,
-/// <see cref="DeleteAsync(string, CancellationToken)"/>.
-/// The composite <c>"{type}:{key}"</c> id form is accepted everywhere an id appears;
-/// a two-argument <c>(type, key)</c> overload is also provided for ergonomics.
-/// </para>
-/// </remarks>
-public sealed class ContextsClient
+public sealed class ContextsClient : IContextSink
 {
     private readonly GenApp.AppClient _appClient;
     private readonly ContextRegistrationBuffer _buffer;
@@ -275,30 +241,22 @@ public sealed class ContextsClient
         _buffer = buffer;
     }
 
-    /// <summary>
-    /// Buffers a single context for registration; optionally flushes immediately.
-    /// </summary>
-    /// <param name="context">The context to register.</param>
-    /// <param name="flush">When true, sends buffered contexts to the server before returning.</param>
-    /// <param name="ct">Cancellation token.</param>
-    public Task RegisterAsync(Context context, bool flush = false, CancellationToken ct = default)
+    /// <summary>Buffers a single context for registration; optionally flushes immediately.</summary>
+    public Task RegisterAsync(Smplkit.Context context, bool flush = false, CancellationToken ct = default)
         => RegisterAsync(new[] { context }, flush, ct);
 
-    /// <summary>
-    /// Buffers contexts for registration; optionally flushes immediately.
-    /// </summary>
-    /// <param name="contexts">Contexts to register.</param>
-    /// <param name="flush">When true, sends buffered contexts to the server before returning.</param>
-    /// <param name="ct">Cancellation token.</param>
-    public async Task RegisterAsync(IEnumerable<Context> contexts, bool flush = false, CancellationToken ct = default)
+    /// <summary>Buffers contexts for registration; optionally flushes immediately.</summary>
+    public async Task RegisterAsync(IEnumerable<Smplkit.Context> contexts, bool flush = false, CancellationToken ct = default)
     {
         _buffer.Observe(contexts);
         if (flush)
             await FlushAsync(ct).ConfigureAwait(false);
     }
 
+    /// <summary>Returns the count of pending context registrations not yet flushed.</summary>
+    public int PendingCount => _buffer.PendingCount;
+
     /// <summary>Sends any pending context registrations to the server.</summary>
-    /// <param name="ct">Cancellation token.</param>
     public async Task FlushAsync(CancellationToken ct = default)
     {
         var batch = _buffer.Drain();
@@ -322,20 +280,15 @@ public sealed class ContextsClient
     }
 
     /// <summary>Lists all contexts of a given type.</summary>
-    /// <param name="type">The context type key (e.g., "user", "account").</param>
-    /// <param name="ct">Cancellation token.</param>
-    public async Task<List<ContextEntity>> ListAsync(string type, CancellationToken ct = default)
+    public async Task<List<Smplkit.Context>> ListAsync(string type, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
             () => _appClient.List_contextsAsync(filtercontext_type: type, cancellationToken: ct)).ConfigureAwait(false);
         return resp.Data.Select(MapResource).ToList();
     }
 
-    /// <summary>Fetches a context by its composite <c>"{type}:{key}"</c> identifier.</summary>
-    /// <param name="id">Composite id in <c>"{type}:{key}"</c> form.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <exception cref="SmplNotFoundException">If no matching context exists.</exception>
-    public async Task<ContextEntity> GetAsync(string id, CancellationToken ct = default)
+    /// <summary>Fetches a context by composite <c>"{type}:{key}"</c> id.</summary>
+    public async Task<Smplkit.Context> GetAsync(string id, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
             () => _appClient.Get_contextAsync(id, ct)).ConfigureAwait(false);
@@ -343,29 +296,29 @@ public sealed class ContextsClient
     }
 
     /// <summary>Fetches a context by type and key.</summary>
-    /// <param name="type">The context type key.</param>
-    /// <param name="key">The entity identifier.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <exception cref="SmplNotFoundException">If no matching context exists.</exception>
-    public Task<ContextEntity> GetAsync(string type, string key, CancellationToken ct = default)
+    public Task<Smplkit.Context> GetAsync(string type, string key, CancellationToken ct = default)
         => GetAsync($"{type}:{key}", ct);
 
-    /// <summary>Deletes a context by its composite <c>"{type}:{key}"</c> identifier.</summary>
-    /// <param name="id">Composite id in <c>"{type}:{key}"</c> form.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <exception cref="SmplNotFoundException">If no matching context exists.</exception>
+    /// <summary>Deletes a context by composite <c>"{type}:{key}"</c> id.</summary>
     public Task DeleteAsync(string id, CancellationToken ct = default)
         => ApiExceptionMapper.ExecuteAsync(() => _appClient.Delete_contextAsync(id, ct));
 
     /// <summary>Deletes a context by type and key.</summary>
-    /// <param name="type">The context type key.</param>
-    /// <param name="key">The entity identifier.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <exception cref="SmplNotFoundException">If no matching context exists.</exception>
     public Task DeleteAsync(string type, string key, CancellationToken ct = default)
         => DeleteAsync($"{type}:{key}", ct);
 
-    private static ContextEntity MapResource(GenApp.ContextResource r)
+    Task<Smplkit.Context> IContextSink.SaveContextAsync(Smplkit.Context ctx, CancellationToken ct)
+        => SaveContextInternalAsync(ctx, ct);
+
+    Task IContextSink.DeleteContextAsync(string id, CancellationToken ct) => DeleteAsync(id, ct);
+
+    private async Task<Smplkit.Context> SaveContextInternalAsync(Smplkit.Context ctx, CancellationToken ct)
+    {
+        await RegisterAsync(new[] { ctx }, flush: true, ct).ConfigureAwait(false);
+        return await GetAsync(ctx.Id, ct).ConfigureAwait(false);
+    }
+
+    private Smplkit.Context MapResource(GenApp.ContextResource r)
     {
         var composite = r.Id ?? "";
         var colonIdx = composite.IndexOf(':');
@@ -375,11 +328,12 @@ public sealed class ContextsClient
         var attrs = r.Attributes;
         var attrDict = ParseAttributeDict(attrs.Attributes);
 
-        return new ContextEntity(
+        return new Smplkit.Context(
+            sink: this,
             type: ctxType,
             key: ctxKey,
-            name: attrs.Name,
             attributes: attrDict,
+            name: attrs.Name,
             createdAt: attrs.Created_at?.DateTime,
             updatedAt: attrs.Updated_at?.DateTime);
     }
@@ -387,7 +341,7 @@ public sealed class ContextsClient
     private static Dictionary<string, object?> ParseAttributeDict(object? raw)
     {
         if (raw is JsonElement je && je.ValueKind == JsonValueKind.Object)
-            return je.EnumerateObject().ToDictionary(p => p.Name, p => Config.Resolver.Normalize(p.Value));
+            return je.EnumerateObject().ToDictionary(p => p.Name, p => Smplkit.Config.Resolver.Normalize(p.Value));
         return new Dictionary<string, object?>();
     }
 }
@@ -398,7 +352,7 @@ public sealed class ContextsClient
 
 /// <summary>
 /// Provides get/save operations for account-level settings.
-/// Accessible via <see cref="ManagementClient.AccountSettings"/>.
+/// Accessible via <see cref="SmplManagementClient.AccountSettings"/>.
 /// </summary>
 public sealed class AccountSettingsClient
 {
@@ -412,7 +366,6 @@ public sealed class AccountSettingsClient
     }
 
     /// <summary>Fetches the current account settings.</summary>
-    /// <param name="ct">Cancellation token.</param>
     public async Task<AccountSettings> GetAsync(CancellationToken ct = default)
     {
         var request = new HttpRequestMessage(HttpMethod.Get,
@@ -458,41 +411,6 @@ public sealed class AccountSettingsClient
         if (root.ValueKind != JsonValueKind.Object) return new Dictionary<string, object?>();
 
         return root.EnumerateObject()
-            .ToDictionary(p => p.Name, p => Config.Resolver.Normalize(p.Value));
-    }
-}
-
-// ---------------------------------------------------------------------------
-// ManagementClient (top-level facade)
-// ---------------------------------------------------------------------------
-
-/// <summary>
-/// Management plane for app-service-owned resources: environments, context types,
-/// contexts, and account settings. Accessible via <see cref="SmplClient.Management"/>.
-/// </summary>
-public sealed class ManagementClient
-{
-    /// <summary>Gets the environments sub-client.</summary>
-    public EnvironmentsClient Environments { get; }
-
-    /// <summary>Gets the context types sub-client.</summary>
-    public ContextTypesClient ContextTypes { get; }
-
-    /// <summary>Gets the contexts sub-client (registration + read/delete).</summary>
-    public ContextsClient Contexts { get; }
-
-    /// <summary>Gets the account settings sub-client.</summary>
-    public AccountSettingsClient AccountSettings { get; }
-
-    internal ManagementClient(
-        GenApp.AppClient appClient,
-        HttpClient httpClient,
-        ContextRegistrationBuffer buffer,
-        string appBaseUrl)
-    {
-        Environments = new EnvironmentsClient(appClient);
-        ContextTypes = new ContextTypesClient(appClient);
-        Contexts = new ContextsClient(appClient, buffer);
-        AccountSettings = new AccountSettingsClient(httpClient, appBaseUrl);
+            .ToDictionary(p => p.Name, p => Smplkit.Config.Resolver.Normalize(p.Value));
     }
 }

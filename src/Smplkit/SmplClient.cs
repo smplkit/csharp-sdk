@@ -3,29 +3,20 @@ using Smplkit.Errors;
 using Smplkit.Flags;
 using Smplkit.Internal;
 using Smplkit.Logging;
-using Smplkit.Management;
-using GenApp = Smplkit.Internal.Generated.App;
 using DebugLog = Smplkit.Internal.Debug;
 
 namespace Smplkit;
 
 /// <summary>
-/// Top-level client for the smplkit SDK. Provides access to service-specific
-/// sub-clients (<see cref="Config"/>, <see cref="Flags"/>, <see cref="Logging"/>).
+/// Top-level client for the smplkit runtime plane: flag evaluation, config reads,
+/// log emission. Construction may register the service, start metrics, open a
+/// WebSocket, and install the logging discovery hooks.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Usage:
-/// <code>
-/// using var client = new SmplClient(new SmplClientOptions
-/// {
-///     ApiKey = "sk_api_...",
-///     Environment = "production",
-/// });
-/// var flag = client.Flags.BooleanFlag("my-flag", false);
-/// bool value = flag.Get();
-/// </code>
-/// </para>
+/// <para>For pure CRUD work (setup scripts, CI tooling, admin tasks) prefer
+/// <see cref="SmplManagementClient"/>, which has zero side effects on construction.</para>
+/// <para>If you need both planes in one process, use <see cref="Manage"/> to
+/// access the management client wired against the same HTTP transport.</para>
 /// </remarks>
 public sealed class SmplClient : IDisposable
 {
@@ -35,66 +26,48 @@ public sealed class SmplClient : IDisposable
     private readonly string _appBaseUrl;
     private readonly GeneratedClientFactory _clients;
     private readonly MetricsReporter? _metrics;
+    private readonly ContextRegistrationBuffer _contextBuffer;
     private SharedWebSocket? _sharedWs;
     private readonly object _wsLock = new();
+    private readonly AsyncLocal<IReadOnlyList<Context>?> _ambientContext = new();
 
-    /// <summary>
-    /// Gets the resolved environment key.
-    /// </summary>
+    /// <summary>Gets the resolved environment key.</summary>
     public string Environment { get; }
 
-    /// <summary>
-    /// Gets the resolved service identifier.
-    /// </summary>
+    /// <summary>Gets the resolved service identifier.</summary>
     public string Service { get; }
 
-    /// <summary>
-    /// Gets the Config service client.
-    /// </summary>
+    /// <summary>Runtime config reads + listeners.</summary>
     public ConfigClient Config { get; }
 
-    /// <summary>
-    /// Gets the Flags service client.
-    /// </summary>
+    /// <summary>Flag evaluation + listeners.</summary>
     public FlagsClient Flags { get; }
 
-    /// <summary>
-    /// Gets the Logging service client.
-    /// </summary>
+    /// <summary>Runtime logging integration.</summary>
     public LoggingClient Logging { get; }
 
     /// <summary>
-    /// Gets the management client for app-service-owned resources: environments,
-    /// context types, contexts, and account settings.
+    /// Management client wired against the same HTTP transport as this runtime
+    /// client. Use this for setup scripts, CI tasks, and admin tooling without
+    /// constructing a separate <see cref="SmplManagementClient"/>.
     /// </summary>
-    public ManagementClient Management { get; }
+    public SmplManagementClient Manage { get; }
 
     /// <summary>
-    /// Initializes a new instance of <see cref="SmplClient"/> with automatic API key
-    /// resolution from the <c>SMPLKIT_API_KEY</c> environment variable or
-    /// <c>~/.smplkit</c> config file.
+    /// Initializes a new <see cref="SmplClient"/> with automatic config resolution.
     /// </summary>
     public SmplClient()
         : this(new SmplClientOptions(), new HttpClient(), ownsHttpClient: true)
     {
     }
 
-    /// <summary>
-    /// Initializes a new instance of <see cref="SmplClient"/> with the specified options.
-    /// </summary>
-    /// <param name="options">Client configuration options.</param>
+    /// <summary>Initializes a new <see cref="SmplClient"/> with the specified options.</summary>
     public SmplClient(SmplClientOptions options)
         : this(options, new HttpClient(), ownsHttpClient: true)
     {
     }
 
-    /// <summary>
-    /// Initializes a new instance of <see cref="SmplClient"/> with the specified options
-    /// and a caller-provided <see cref="HttpClient"/>. The caller retains ownership and
-    /// is responsible for disposing the <see cref="HttpClient"/>.
-    /// </summary>
-    /// <param name="options">Client configuration options.</param>
-    /// <param name="httpClient">An externally managed HTTP client (e.g., for testing).</param>
+    /// <summary>Initializes a new <see cref="SmplClient"/> with caller-owned <see cref="HttpClient"/>.</summary>
     public SmplClient(SmplClientOptions options, HttpClient httpClient)
         : this(options, httpClient, ownsHttpClient: false)
     {
@@ -105,53 +78,119 @@ public sealed class SmplClient : IDisposable
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(httpClient);
 
-        // 4-step resolution: defaults -> file -> env vars -> constructor args
-        var config = ConfigResolver.Resolve(options);
+        var resolved = ConfigResolver.Resolve(options);
 
         _httpClient = httpClient;
         _ownsHttpClient = ownsHttpClient;
-        _apiKey = config.ApiKey;
-        _appBaseUrl = ConfigResolver.ServiceUrl(config.Scheme, "app", config.BaseDomain);
-        Environment = config.Environment;
-        Service = config.Service;
+        _apiKey = resolved.ApiKey;
+        _appBaseUrl = ConfigResolver.ServiceUrl(resolved.Scheme, "app", resolved.BaseDomain);
+        Environment = resolved.Environment;
+        Service = resolved.Service;
 
-        // Apply resolved debug setting (only enable, never disable — multiple
-        // SmplClient instances or tests may coexist and we must not clobber
-        // an earlier explicit enable).
-        if (config.Debug)
+        if (resolved.Debug)
             DebugLog.Enabled = true;
 
-        // Create options with resolved values and build generated clients.
         var resolvedOptions = new SmplClientOptions
         {
-            ApiKey = config.ApiKey,
+            ApiKey = resolved.ApiKey,
             Timeout = options.Timeout,
-            BaseDomain = config.BaseDomain,
-            Scheme = config.Scheme,
+            BaseDomain = resolved.BaseDomain,
+            Scheme = resolved.Scheme,
         };
         _clients = new GeneratedClientFactory(_httpClient, resolvedOptions);
 
-        // Telemetry reporter (null when disabled)
-        _metrics = config.DisableTelemetry
+        _metrics = resolved.DisableTelemetry
             ? null
-            : new MetricsReporter(_httpClient, config.Environment, config.Service, appBaseUrl: _appBaseUrl);
+            : new MetricsReporter(_httpClient, resolved.Environment, resolved.Service, appBaseUrl: _appBaseUrl);
 
-        var contextBuffer = new ContextRegistrationBuffer(lruSize: 10_000, flushSize: 100);
+        _contextBuffer = new ContextRegistrationBuffer(lruSize: 10_000, flushSize: 100);
 
         Config = new ConfigClient(_clients, EnsureSharedWebSocket, this, _metrics);
-        Flags = new FlagsClient(_clients, _apiKey, EnsureSharedWebSocket, contextBuffer, this, _metrics);
+        Flags = new FlagsClient(_clients, _apiKey, EnsureSharedWebSocket, _contextBuffer, this, _metrics);
         Logging = new LoggingClient(_clients, _apiKey, EnsureSharedWebSocket, this, _metrics);
-        Management = new ManagementClient(_clients.App, _httpClient, contextBuffer, _appBaseUrl);
 
-        var maskedKey = config.ApiKey.Length > 10
-            ? config.ApiKey[..10] + "..."
-            : config.ApiKey + "...";
-        DebugLog.Log("lifecycle", $"SmplClient created (api_key={maskedKey}, environment={config.Environment}, service={config.Service})");
+        Manage = new SmplManagementClient(
+            _httpClient, _clients, _appBaseUrl, Flags, Config, Logging, _contextBuffer);
+
+        // Wire up ambient-context bridge for flag evaluation.
+        Flags.SetContextProvider(GetAmbientContext);
+
+        var maskedKey = resolved.ApiKey.Length > 10
+            ? resolved.ApiKey[..10] + "..."
+            : resolved.ApiKey + "...";
+        DebugLog.Log("lifecycle", $"SmplClient created (api_key={maskedKey}, environment={resolved.Environment}, service={resolved.Service})");
     }
 
     /// <summary>
-    /// Ensures the real-time connection is available.
+    /// Sets the active eval context for the calling async-flow / thread.
+    /// The returned <see cref="IDisposable"/> reverts the context when disposed
+    /// (e.g. <c>using (client.SetContext(ctx)) { ... }</c>).
     /// </summary>
+    /// <remarks>
+    /// In a real app, set the context once per request from middleware — not
+    /// scattered through your handlers. The method also queues the contexts
+    /// for background registration via the management plane.
+    /// </remarks>
+    public IDisposable SetContext(IEnumerable<Context> contexts)
+    {
+        ArgumentNullException.ThrowIfNull(contexts);
+        var list = contexts as IReadOnlyList<Context> ?? contexts.ToList();
+        var previous = _ambientContext.Value;
+        _ambientContext.Value = list;
+
+        // Queue contexts for background registration (best-effort).
+        try
+        {
+            _ = Manage.Contexts.RegisterAsync(list);
+        }
+        catch
+        {
+            // Best-effort registration; never throw from SetContext.
+        }
+
+        return new ContextScope(this, previous);
+    }
+
+    /// <summary>Convenience overload for a single context.</summary>
+    public IDisposable SetContext(Context context) => SetContext(new[] { context });
+
+    /// <summary>
+    /// Eagerly initializes flags + configs + the WebSocket. Logging is opt-in
+    /// via <see cref="LoggingClient.InstallAsync"/>.
+    /// </summary>
+    public async Task WaitUntilReadyAsync(TimeSpan? timeout = null, CancellationToken ct = default)
+    {
+        var deadline = timeout ?? TimeSpan.FromSeconds(10);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(deadline);
+
+        try
+        {
+            // Touch flags + configs to force initialization.
+            Flags.EnsureInitialized();
+            Config.EnsureInitialized();
+
+            // Wait for WebSocket connection.
+            var ws = EnsureSharedWebSocket();
+            var pollInterval = TimeSpan.FromMilliseconds(50);
+            while (ws.ConnectionStatus != "connected")
+            {
+                cts.Token.ThrowIfCancellationRequested();
+                await Task.Delay(pollInterval, cts.Token).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            throw new Smplkit.Errors.TimeoutException(
+                $"WaitUntilReadyAsync timed out after {deadline}. The SDK could not "
+                + "fully initialize within the deadline (flags, configs, or WebSocket).");
+        }
+    }
+
+    internal IReadOnlyList<Context> GetAmbientContext()
+        => _ambientContext.Value ?? Array.Empty<Context>();
+
+    /// <summary>Ensures the real-time connection is available.</summary>
     internal SharedWebSocket EnsureSharedWebSocket()
     {
         if (_sharedWs is not null) return _sharedWs;
@@ -164,9 +203,7 @@ public sealed class SmplClient : IDisposable
         }
     }
 
-    /// <summary>
-    /// Releases resources used by this client.
-    /// </summary>
+    /// <summary>Releases resources used by this client.</summary>
     public void Dispose()
     {
         DebugLog.Log("lifecycle", "SmplClient.Dispose() called");
@@ -183,5 +220,26 @@ public sealed class SmplClient : IDisposable
 
         if (_ownsHttpClient)
             _httpClient.Dispose();
+    }
+
+    /// <summary>Reverts the ambient eval context on dispose.</summary>
+    private sealed class ContextScope : IDisposable
+    {
+        private readonly SmplClient _owner;
+        private readonly IReadOnlyList<Context>? _previous;
+        private bool _disposed;
+
+        public ContextScope(SmplClient owner, IReadOnlyList<Context>? previous)
+        {
+            _owner = owner;
+            _previous = previous;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            _owner._ambientContext.Value = _previous;
+        }
     }
 }

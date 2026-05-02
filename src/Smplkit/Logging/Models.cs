@@ -1,5 +1,3 @@
-using System.Text.Json;
-
 namespace Smplkit.Logging;
 
 /// <summary>
@@ -61,10 +59,7 @@ public sealed class Logger
         UpdatedAt = updatedAt;
     }
 
-    /// <summary>
-    /// Saves this logger to the server.
-    /// </summary>
-    /// <param name="ct">Cancellation token.</param>
+    /// <summary>Persists this logger to the server.</summary>
     public async Task SaveAsync(CancellationToken ct = default)
     {
         var saved = await _client.SaveLoggerInternalAsync(this, ct).ConfigureAwait(false);
@@ -79,36 +74,47 @@ public sealed class Logger
         UpdatedAt = saved.UpdatedAt;
     }
 
-    /// <summary>Sets the log level. Call <see cref="SaveAsync"/> to persist.</summary>
-    /// <param name="level">The log level to set.</param>
-    public void SetLevel(LogLevel level) { Level = level; }
-
-    /// <summary>Clears the log level. Call <see cref="SaveAsync"/> to persist.</summary>
-    public void ClearLevel() { Level = null; }
-
-    /// <summary>Sets the log level for a specific environment. Call <see cref="SaveAsync"/> to persist.</summary>
-    /// <param name="env">The environment key.</param>
-    /// <param name="level">The log level to set.</param>
-    public void SetEnvironmentLevel(string env, LogLevel level)
+    /// <summary>Deletes this logger from the server.</summary>
+    public Task DeleteAsync(CancellationToken ct = default)
     {
-        Environments[env] = new Dictionary<string, object?> { ["level"] = level.ToWireString() };
+        if (Id is null)
+            throw new InvalidOperationException("Cannot delete an unsaved logger.");
+        return _client.DeleteAsync(Id, ct);
     }
 
-    /// <summary>Clears the log level for a specific environment. Call <see cref="SaveAsync"/> to persist.</summary>
-    /// <param name="env">The environment key.</param>
-    public void ClearEnvironmentLevel(string env) { Environments.Remove(env); }
+    /// <summary>
+    /// Sets the log level. With <paramref name="environment"/> = <c>null</c>,
+    /// sets the base level. Otherwise, sets the per-env override.
+    /// </summary>
+    public void SetLevel(LogLevel level, string? environment = null)
+    {
+        if (environment is null)
+            Level = level;
+        else
+            Environments[environment] = new Dictionary<string, object?> { ["level"] = level.ToWireString() };
+    }
 
-    /// <summary>Clears all environment-specific level overrides. Call <see cref="SaveAsync"/> to persist.</summary>
+    /// <summary>
+    /// Clears the log level. With <paramref name="environment"/> = <c>null</c>,
+    /// clears the base level. Otherwise, clears the per-env override only.
+    /// </summary>
+    public void ClearLevel(string? environment = null)
+    {
+        if (environment is null)
+            Level = null;
+        else
+            Environments.Remove(environment);
+    }
+
+    /// <summary>Clears all environment-specific level overrides.</summary>
     public void ClearAllEnvironmentLevels() { Environments.Clear(); }
 
     /// <inheritdoc />
-    public override string ToString() =>
-        $"Logger(Id={Id}, Level={Level})";
+    public override string ToString() => $"Logger(Id={Id}, Level={Level})";
 }
 
 /// <summary>
 /// Represents a log group resource from the smplkit Logging service.
-/// Modify properties and call <see cref="SaveAsync"/> to persist changes.
 /// </summary>
 public sealed class LogGroup
 {
@@ -155,10 +161,7 @@ public sealed class LogGroup
         UpdatedAt = updatedAt;
     }
 
-    /// <summary>
-    /// Saves this log group to the server.
-    /// </summary>
-    /// <param name="ct">Cancellation token.</param>
+    /// <summary>Persists this log group to the server.</summary>
     public async Task SaveAsync(CancellationToken ct = default)
     {
         var saved = await _client.SaveLogGroupInternalAsync(this, ct).ConfigureAwait(false);
@@ -171,38 +174,41 @@ public sealed class LogGroup
         UpdatedAt = saved.UpdatedAt;
     }
 
-    /// <summary>Sets the log level. Call <see cref="SaveAsync"/> to persist.</summary>
-    /// <param name="level">The log level to set.</param>
-    public void SetLevel(LogLevel level) { Level = level; }
-
-    /// <summary>Clears the log level. Call <see cref="SaveAsync"/> to persist.</summary>
-    public void ClearLevel() { Level = null; }
-
-    /// <summary>Sets the log level for a specific environment. Call <see cref="SaveAsync"/> to persist.</summary>
-    /// <param name="env">The environment key.</param>
-    /// <param name="level">The log level to set.</param>
-    public void SetEnvironmentLevel(string env, LogLevel level)
+    /// <summary>Deletes this log group from the server.</summary>
+    public Task DeleteAsync(CancellationToken ct = default)
     {
-        Environments[env] = new Dictionary<string, object?> { ["level"] = level.ToWireString() };
+        if (Id is null)
+            throw new InvalidOperationException("Cannot delete an unsaved log group.");
+        return _client.DeleteGroupAsync(Id, ct);
     }
 
-    /// <summary>Clears the log level for a specific environment. Call <see cref="SaveAsync"/> to persist.</summary>
-    /// <param name="env">The environment key.</param>
-    public void ClearEnvironmentLevel(string env) { Environments.Remove(env); }
+    /// <summary>
+    /// Sets the log level. With <paramref name="environment"/> = <c>null</c>,
+    /// sets the base level. Otherwise, sets the per-env override.
+    /// </summary>
+    public void SetLevel(LogLevel level, string? environment = null)
+    {
+        if (environment is null)
+            Level = level;
+        else
+            Environments[environment] = new Dictionary<string, object?> { ["level"] = level.ToWireString() };
+    }
 
-    /// <summary>Clears all environment-specific level overrides. Call <see cref="SaveAsync"/> to persist.</summary>
+    /// <summary>Clears the log level (base or per-env override).</summary>
+    public void ClearLevel(string? environment = null)
+    {
+        if (environment is null)
+            Level = null;
+        else
+            Environments.Remove(environment);
+    }
+
+    /// <summary>Clears all environment-specific level overrides.</summary>
     public void ClearAllEnvironmentLevels() { Environments.Clear(); }
 
     /// <inheritdoc />
-    public override string ToString() =>
-        $"LogGroup(Id={Id}, Level={Level})";
+    public override string ToString() => $"LogGroup(Id={Id}, Level={Level})";
 }
 
-/// <summary>
-/// Describes a logger change.
-/// </summary>
-/// <param name="Id">The logger id that changed.</param>
-/// <param name="Level">The new log level, or null if cleared.</param>
-/// <param name="Source">The origin of the change.</param>
-/// <param name="Deleted">True when the logger was deleted.</param>
+/// <summary>Describes a logger change.</summary>
 public sealed record LoggerChangeEvent(string Id, LogLevel? Level, string Source, bool Deleted = false);
