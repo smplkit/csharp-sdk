@@ -139,14 +139,9 @@ public sealed class SmplClient : IDisposable
         _ambientContext.Value = list;
 
         // Queue contexts for background registration (best-effort).
-        try
-        {
-            _ = Manage.Contexts.RegisterAsync(list);
-        }
-        catch
-        {
-            // Best-effort registration; never throw from SetContext.
-        }
+        // The discarded Task automatically captures any failure — the
+        // registration is best-effort and never propagates back to the caller.
+        _ = Manage.Contexts.RegisterAsync(list);
 
         return new ContextScope(this, previous);
     }

@@ -32,4 +32,14 @@ public class ConfigEnvironmentTests
         Assert.Equal(ItemType.String, item.Type);
         Assert.Equal("DB host", item.Description);
     }
+
+    [Fact]
+    public void ConfigItem_ToString_ContainsFields()
+    {
+        var item = new ConfigItem("host", "localhost", ItemType.String);
+        var s = item.ToString();
+        Assert.Contains("host", s);
+        Assert.Contains("localhost", s);
+        Assert.Contains("String", s);
+    }
 }

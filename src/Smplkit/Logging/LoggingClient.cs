@@ -744,9 +744,7 @@ public sealed class LoggingClient
         {
             foreach (var s in attrs.Sources)
             {
-                if (s is Dictionary<string, object?> dict)
-                    sources.Add(dict);
-                else if (s is JsonElement je)
+                if (s is JsonElement je)
                     sources.Add(NormalizeJsonToDict(je));
             }
         }
@@ -793,17 +791,13 @@ public sealed class LoggingClient
 
     private static Dictionary<string, Dictionary<string, object?>> NormalizeEnvironments(object? environments)
     {
-        if (environments is null) return new Dictionary<string, Dictionary<string, object?>>();
+        var result = new Dictionary<string, Dictionary<string, object?>>();
         if (environments is JsonElement je && je.ValueKind == JsonValueKind.Object)
         {
-            var result = new Dictionary<string, Dictionary<string, object?>>();
             foreach (var prop in je.EnumerateObject())
-            {
                 result[prop.Name] = NormalizeJsonToDict(prop.Value);
-            }
-            return result;
         }
-        return new Dictionary<string, Dictionary<string, object?>>();
+        return result;
     }
 
     private static Dictionary<string, object?> NormalizeJsonToDict(JsonElement je)

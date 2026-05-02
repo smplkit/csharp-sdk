@@ -1,5 +1,3 @@
-using System.Text.Json;
-
 namespace Smplkit.Flags;
 
 /// <summary>
@@ -292,8 +290,6 @@ public sealed class BooleanFlag : Flag
     {
         var value = base.Get(context);
         if (value is bool b) return b;
-        if (value is JsonElement je && je.ValueKind is JsonValueKind.True or JsonValueKind.False)
-            return je.GetBoolean();
         return Default is bool db ? db : false;
     }
 }
@@ -317,8 +313,6 @@ public sealed class StringFlag : Flag
     {
         var value = base.Get(context);
         if (value is string s) return s;
-        if (value is JsonElement je && je.ValueKind == JsonValueKind.String)
-            return je.GetString()!;
         return Default as string ?? string.Empty;
     }
 }
@@ -346,8 +340,6 @@ public sealed class NumberFlag : Flag
         if (value is long l) return l;
         if (value is float f) return f;
         if (value is decimal dec) return (double)dec;
-        if (value is JsonElement je && je.ValueKind == JsonValueKind.Number)
-            return je.TryGetInt64(out var jl) ? jl : je.GetDouble();
         return Default is double dd ? dd : 0.0;
     }
 }
