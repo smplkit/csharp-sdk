@@ -193,6 +193,12 @@ internal sealed class SharedWebSocket
     private static async Task<WebSocket> DefaultWsFactoryAsync(Uri uri, CancellationToken ct)
     {
         var cws = new ClientWebSocket();
+        // CloudFront's WAF blocks WebSocket upgrades that omit a User-Agent
+        // header. .NET's ClientWebSocket doesn't set one by default
+        // (browsers do), so we inject it explicitly to match the
+        // User-Agent the HTTP transport sends. Without this, the upgrade
+        // is rejected with HTTP 403 before reaching our backend.
+        cws.Options.SetRequestHeader("User-Agent", "smplkit-dotnet-sdk/0.0.0");
         await cws.ConnectAsync(uri, ct).ConfigureAwait(false);
         return cws;
     }
