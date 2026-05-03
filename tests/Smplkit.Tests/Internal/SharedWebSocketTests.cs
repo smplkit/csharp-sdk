@@ -12,6 +12,14 @@ namespace Smplkit.Tests.Internal;
 /// </summary>
 public class SharedWebSocketTests
 {
+    // Sentinel event appended to the receive queue so tests can deterministically
+    // wait for prior messages to be processed instead of using bare Task.Delay.
+    // Dispatch is FIFO, so when the sentinel handler fires, every earlier message
+    // has already been dispatched and processed.
+    private const string SyncEvent = "__test_sync__";
+    private const string SyncMessage = """{"event": "__test_sync__"}""";
+    private static readonly TimeSpan SyncTimeout = TimeSpan.FromSeconds(5);
+
     private static Mock<WebSocket> CreateMockWs(params string[] messages)
     {
         var mockWs = new Mock<WebSocket>();
@@ -41,6 +49,21 @@ public class SharedWebSocketTests
         return mockWs;
     }
 
+    private static Mock<WebSocket> CreateMockWsWithSync(params string[] messages)
+    {
+        var withSentinel = new string[messages.Length + 1];
+        Array.Copy(messages, withSentinel, messages.Length);
+        withSentinel[^1] = SyncMessage;
+        return CreateMockWs(withSentinel);
+    }
+
+    private static TaskCompletionSource RegisterSyncListener(SharedWebSocket ws)
+    {
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        ws.On(SyncEvent, _ => tcs.TrySetResult());
+        return tcs;
+    }
+
     // ---------------------------------------------------------------
     // ConnectionStatus
     // ---------------------------------------------------------------
@@ -65,15 +88,16 @@ public class SharedWebSocketTests
         var connectedMsg = """{"type": "connected"}""";
         var eventMsg = """{"event": "flag_changed", "key": "test-flag"}""";
 
-        var mockWs = CreateMockWs(connectedMsg, eventMsg);
+        var mockWs = CreateMockWsWithSync(connectedMsg, eventMsg);
         var ws = new SharedWebSocket("test-key",
             (_, _) => Task.FromResult<WebSocket>(mockWs.Object));
 
         ws.On("flag_changed", Handler);
         ws.Off("flag_changed", Handler);
+        var synced = RegisterSyncListener(ws);
 
         ws.Start();
-        await Task.Delay(200);
+        await synced.Task.WaitAsync(SyncTimeout);
         await ws.StopAsync();
 
         // Handler was removed, so no events
@@ -96,6 +120,7 @@ public class SharedWebSocketTests
     public async Task Dispatch_EventMessage_FiresListeners()
     {
         var events = new List<Dictionary<string, object?>>();
+        var fired = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var connectedMsg = """{"type": "connected"}""";
         var eventMsg = """{"event": "flag_changed", "key": "test-flag"}""";
@@ -104,10 +129,10 @@ public class SharedWebSocketTests
         var ws = new SharedWebSocket("test-key",
             (_, _) => Task.FromResult<WebSocket>(mockWs.Object));
 
-        ws.On("flag_changed", data => events.Add(data));
+        ws.On("flag_changed", data => { events.Add(data); fired.TrySetResult(); });
         ws.Start();
 
-        await Task.Delay(200);
+        await fired.Task.WaitAsync(SyncTimeout);
         await ws.StopAsync();
 
         Assert.Single(events);
@@ -118,6 +143,7 @@ public class SharedWebSocketTests
     public async Task Dispatch_TypeMessage_FiresListeners()
     {
         var events = new List<Dictionary<string, object?>>();
+        var fired = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var connectedMsg = """{"type": "connected"}""";
         var typeMsg = """{"type": "config_changed", "configKey": "my-config"}""";
@@ -126,10 +152,10 @@ public class SharedWebSocketTests
         var ws = new SharedWebSocket("test-key",
             (_, _) => Task.FromResult<WebSocket>(mockWs.Object));
 
-        ws.On("config_changed", data => events.Add(data));
+        ws.On("config_changed", data => { events.Add(data); fired.TrySetResult(); });
         ws.Start();
 
-        await Task.Delay(200);
+        await fired.Task.WaitAsync(SyncTimeout);
         await ws.StopAsync();
 
         Assert.Single(events);
@@ -141,14 +167,15 @@ public class SharedWebSocketTests
         var connectedMsg = """{"type": "connected"}""";
         var eventMsg = """{"event": "flag_changed", "key": "x"}""";
 
-        var mockWs = CreateMockWs(connectedMsg, eventMsg);
+        var mockWs = CreateMockWsWithSync(connectedMsg, eventMsg);
         var ws = new SharedWebSocket("test-key",
             (_, _) => Task.FromResult<WebSocket>(mockWs.Object));
 
         ws.On("flag_changed", _ => throw new InvalidOperationException("boom"));
+        var synced = RegisterSyncListener(ws);
         ws.Start();
 
-        await Task.Delay(200);
+        await synced.Task.WaitAsync(SyncTimeout);
         await ws.StopAsync();
         // No exception propagated
     }
@@ -161,13 +188,21 @@ public class SharedWebSocketTests
     public async Task ReceiveLoop_Ping_SendsPong()
     {
         var connectedMsg = """{"type": "connected"}""";
+        var pongSent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var mockWs = CreateMockWs(connectedMsg, "ping");
+        mockWs.Setup(ws => ws.SendAsync(
+                It.Is<ArraySegment<byte>>(b => Encoding.UTF8.GetString(b.Array!, b.Offset, b.Count) == "pong"),
+                WebSocketMessageType.Text,
+                true,
+                It.IsAny<CancellationToken>()))
+            .Returns(() => { pongSent.TrySetResult(); return Task.CompletedTask; });
+
         var ws = new SharedWebSocket("test-key",
             (_, _) => Task.FromResult<WebSocket>(mockWs.Object));
 
         ws.Start();
-        await Task.Delay(300);
+        await pongSent.Task.WaitAsync(SyncTimeout);
         await ws.StopAsync();
 
         mockWs.Verify(w => w.SendAsync(
@@ -185,30 +220,39 @@ public class SharedWebSocketTests
     public async Task ConnectAsync_ErrorMessage_ThrowsInvalidOperation()
     {
         var errorMsg = """{"type": "error", "message": "invalid key"}""";
+        var attempts = 0;
+        var secondAttempt = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        var mockWs = CreateMockWs(errorMsg);
-        var ws = new SharedWebSocket("test-key",
-            (_, _) => Task.FromResult<WebSocket>(mockWs.Object));
+        var ws = new SharedWebSocket("test-key", (_, _) =>
+        {
+            attempts++;
+            if (attempts >= 2) secondAttempt.TrySetResult();
+            return Task.FromResult<WebSocket>(CreateMockWs(errorMsg).Object);
+        });
 
         ws.Start();
-        await Task.Delay(300);
+        // Wait for the second connect attempt — proves the first threw and the
+        // error-handling path in ConnectAsync executed.
+        await secondAttempt.Task.WaitAsync(SyncTimeout);
         await ws.StopAsync();
-
-        // The error should cause reconnect attempts but not crash
-        // Connection status should reflect reconnecting or disconnected
     }
 
     [Fact]
     public async Task ConnectAsync_ErrorMessageNoMessage_ThrowsInvalidOperation()
     {
         var errorMsg = """{"type": "error"}""";
+        var attempts = 0;
+        var secondAttempt = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        var mockWs = CreateMockWs(errorMsg);
-        var ws = new SharedWebSocket("test-key",
-            (_, _) => Task.FromResult<WebSocket>(mockWs.Object));
+        var ws = new SharedWebSocket("test-key", (_, _) =>
+        {
+            attempts++;
+            if (attempts >= 2) secondAttempt.TrySetResult();
+            return Task.FromResult<WebSocket>(CreateMockWs(errorMsg).Object);
+        });
 
         ws.Start();
-        await Task.Delay(300);
+        await secondAttempt.Task.WaitAsync(SyncTimeout);
         await ws.StopAsync();
     }
 
@@ -220,6 +264,7 @@ public class SharedWebSocketTests
     public async Task RunWebSocketAsync_ReconnectsOnFailure()
     {
         int attempts = 0;
+        var thirdAttemptReached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var ws = new SharedWebSocket("test-key",
             (_, ct) =>
             {
@@ -227,15 +272,17 @@ public class SharedWebSocketTests
                 if (attempts <= 2)
                     throw new WebSocketException("Connection failed");
                 // Third attempt succeeds
+                thirdAttemptReached.TrySetResult();
                 var mockWs = CreateMockWs("""{"type": "connected"}""");
                 return Task.FromResult<WebSocket>(mockWs.Object);
             });
 
         ws.Start();
-        await Task.Delay(4000); // Wait for reconnection backoff
+        // Backoff sequence is 1s + 2s, so the third attempt happens ~3s in.
+        await thirdAttemptReached.Task.WaitAsync(TimeSpan.FromSeconds(10));
         await ws.StopAsync();
 
-        Assert.True(attempts >= 2);
+        Assert.True(attempts >= 3);
     }
 
     // ---------------------------------------------------------------
@@ -274,7 +321,7 @@ public class SharedWebSocketTests
             (_, _) => Task.FromResult<WebSocket>(mockWs.Object));
 
         ws.Start();
-        await Task.Delay(200);
+        await ws.WaitForInitialConnectAsync().WaitAsync(SyncTimeout);
         await ws.StopAsync();
 
         Assert.Equal("disconnected", ws.ConnectionStatus);
@@ -309,7 +356,7 @@ public class SharedWebSocketTests
             (_, _) => Task.FromResult<WebSocket>(mockWs.Object));
 
         ws.Start();
-        await Task.Delay(200);
+        await ws.WaitForInitialConnectAsync().WaitAsync(SyncTimeout);
         await ws.StopAsync();
 
         mockWs.Verify(w => w.CloseAsync(
@@ -341,7 +388,7 @@ public class SharedWebSocketTests
             (_, _) => Task.FromResult<WebSocket>(mockWs.Object));
 
         ws.Start();
-        await Task.Delay(200);
+        await ws.WaitForInitialConnectAsync().WaitAsync(SyncTimeout);
 
         // Should not throw
         await ws.StopAsync();
@@ -354,22 +401,26 @@ public class SharedWebSocketTests
     [Fact]
     public async Task ReceiveLoop_NullMessage_BreaksLoop()
     {
-        // Mock WS that immediately returns Close
+        // Mock WS that immediately returns Close after connecting.
+        // Track when we observe the second receive call (i.e. the loop reached
+        // the close branch after the connected message was processed).
         var mockWs = new Mock<WebSocket>();
         mockWs.Setup(ws => ws.State).Returns(WebSocketState.Open);
 
-        var first = true;
+        var receiveCount = 0;
+        var closeBranchReached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         mockWs.Setup(ws => ws.ReceiveAsync(It.IsAny<ArraySegment<byte>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((ArraySegment<byte> buffer, CancellationToken _) =>
             {
-                if (first)
+                var n = Interlocked.Increment(ref receiveCount);
+                if (n == 1)
                 {
-                    first = false;
                     var msg = """{"type": "connected"}""";
                     var bytes = Encoding.UTF8.GetBytes(msg);
                     Array.Copy(bytes, 0, buffer.Array!, buffer.Offset, bytes.Length);
                     return new WebSocketReceiveResult(bytes.Length, WebSocketMessageType.Text, true);
                 }
+                if (n == 2) closeBranchReached.TrySetResult();
                 return new WebSocketReceiveResult(0, WebSocketMessageType.Close, true);
             });
 
@@ -377,7 +428,7 @@ public class SharedWebSocketTests
             (_, _) => Task.FromResult<WebSocket>(mockWs.Object));
 
         ws.Start();
-        await Task.Delay(300);
+        await closeBranchReached.Task.WaitAsync(SyncTimeout);
         await ws.StopAsync();
     }
 
@@ -396,17 +447,19 @@ public class SharedWebSocketTests
         // Event that has no listener registered
         var eventMsg = """{"event": "unhandled_event", "data": "test"}""";
 
-        var mockWs = CreateMockWs(connectedMsg, eventMsg);
+        var mockWs = CreateMockWsWithSync(connectedMsg, eventMsg);
         var ws = new SharedWebSocket("test-key",
             (_, _) => Task.FromResult<WebSocket>(mockWs.Object));
 
         // Register listener for DIFFERENT event
         ws.On("flag_changed", _ => { });
+        // Dispatch is FIFO; awaiting the sentinel guarantees `unhandled_event`
+        // was already processed (taking the no-handler branch in Dispatch).
+        var synced = RegisterSyncListener(ws);
 
         ws.Start();
-        await Task.Delay(200);
+        await synced.Task.WaitAsync(SyncTimeout);
         await ws.StopAsync();
-        // No crash - Dispatch returns early when no listeners for "unhandled_event"
     }
 
     // ---------------------------------------------------------------
@@ -453,7 +506,7 @@ public class SharedWebSocketTests
             (_, _) => Task.FromResult<WebSocket>(mockWs.Object));
 
         ws.Start();
-        await Task.Delay(200);
+        await ws.WaitForInitialConnectAsync().WaitAsync(SyncTimeout);
 
         // StopAsync should handle the _wsTask timeout (line 121 catch)
         await ws.StopAsync();
@@ -491,7 +544,7 @@ public class SharedWebSocketTests
             (_, _) => Task.FromResult<WebSocket>(mockWs.Object));
 
         ws.Start();
-        await Task.Delay(200);
+        await ws.WaitForInitialConnectAsync().WaitAsync(SyncTimeout);
 
         Assert.Equal("connected", ws.ConnectionStatus);
 
@@ -566,13 +619,21 @@ public class SharedWebSocketTests
     [Fact]
     public async Task WaitForInitialConnectAsync_ReturnsFalse_WhenConnectionFails()
     {
-        // Factory always throws — should signal false via TrySetResult(false)
-        var ws = new SharedWebSocket("test-key",
-            (_, _) => throw new InvalidOperationException("connection failed"));
+        // Factory always throws — should signal false via TrySetResult(false).
+        // Track when the second connect attempt happens so we know the failure
+        // path completed (initial TCS resolved, backoff scheduled, retry kicked off).
+        var attempts = 0;
+        var secondAttempt = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var ws = new SharedWebSocket("test-key", (_, _) =>
+        {
+            attempts++;
+            if (attempts >= 2) secondAttempt.TrySetResult();
+            throw new InvalidOperationException("connection failed");
+        });
 
         ws.Start();
-        // Wait a bit for the background task to attempt and fail
-        await Task.Delay(300);
+        await secondAttempt.Task.WaitAsync(SyncTimeout);
         await ws.StopAsync();
 
         // After stopping, the initial connect TCS should be resolved
@@ -624,6 +685,7 @@ public class SharedWebSocketTests
     public async Task BuildWebSocketUrl_UsesCustomAppBaseUrl()
     {
         Uri? capturedUri = null;
+        var factoryCalled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var connectedMsg = """{"type": "connected"}""";
         var mockWs = CreateMockWs(connectedMsg);
 
@@ -632,12 +694,13 @@ public class SharedWebSocketTests
             wsFactory: (uri, _) =>
             {
                 capturedUri = uri;
+                factoryCalled.TrySetResult();
                 return Task.FromResult<WebSocket>(mockWs.Object);
             },
             appBaseUrl: "https://app.internal.example.com");
 
         ws.Start();
-        await Task.Delay(200);
+        await factoryCalled.Task.WaitAsync(SyncTimeout);
         await ws.StopAsync();
 
         Assert.NotNull(capturedUri);
@@ -648,6 +711,7 @@ public class SharedWebSocketTests
     public async Task BuildWebSocketUrl_HttpScheme_UsesWs()
     {
         Uri? capturedUri = null;
+        var factoryCalled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var connectedMsg = """{"type": "connected"}""";
         var mockWs = CreateMockWs(connectedMsg);
 
@@ -656,12 +720,13 @@ public class SharedWebSocketTests
             wsFactory: (uri, _) =>
             {
                 capturedUri = uri;
+                factoryCalled.TrySetResult();
                 return Task.FromResult<WebSocket>(mockWs.Object);
             },
             appBaseUrl: "http://app.localhost:8000");
 
         ws.Start();
-        await Task.Delay(200);
+        await factoryCalled.Task.WaitAsync(SyncTimeout);
         await ws.StopAsync();
 
         Assert.NotNull(capturedUri);
