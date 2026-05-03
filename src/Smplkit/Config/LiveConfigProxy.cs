@@ -91,8 +91,12 @@ public sealed class LiveConfigProxy : IReadOnlyDictionary<string, object?>
     {
         var flat = Snapshot();
         var nested = ExpandDotNotation(flat);
-        var json = JsonSerializer.Serialize(nested, JsonOptions.Default);
-        return JsonSerializer.Deserialize<T>(json, JsonOptions.Default)
+        // Use SnakeCase options: config item keys are snake_cased on the
+        // wire (e.g. "max_retries"), and the model is in PascalCase
+        // (MaxRetries). The default CamelCase policy can't bridge that
+        // gap and would silently leave fields at their default values.
+        var json = JsonSerializer.Serialize(nested, JsonOptions.SnakeCase);
+        return JsonSerializer.Deserialize<T>(json, JsonOptions.SnakeCase)
             ?? throw new SmplkitException(
                 $"Failed to deserialize config '{_configId}' to {typeof(T).Name}");
     }

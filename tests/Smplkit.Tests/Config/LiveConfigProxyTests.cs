@@ -169,6 +169,55 @@ public class LiveConfigProxyTests
         Assert.Equal(5432, typed.Database.Port);
     }
 
+    // Regression: config items come back snake_cased on the wire (e.g.
+    // "max_retries"); the typed model is PascalCase ("MaxRetries"). The
+    // default JsonOptions used CamelCase naming which couldn't bridge
+    // that gap and silently left every snake_cased property at its
+    // default value. Lock the snake_case mapping here so the bug can't
+    // return.
+    public sealed class SnakeModel
+    {
+        public int MaxRetries { get; set; }
+        public string? AppName { get; set; }
+        public bool EnableSignup { get; set; }
+    }
+
+    private const string SnakeKeysJson = """
+        {
+            "data": [
+                {
+                    "id": "snake-svc",
+                    "type": "config",
+                    "attributes": {
+                        "id": "snake-svc",
+                        "name": "Snake Service",
+                        "description": null,
+                        "parent": null,
+                        "items": {
+                            "max_retries": {"value": 7, "type": "NUMBER"},
+                            "app_name": {"value": "Acme", "type": "STRING"},
+                            "enable_signup": {"value": true, "type": "BOOLEAN"}
+                        },
+                        "environments": {},
+                        "created_at": "2024-01-15T10:30:00Z",
+                        "updated_at": "2024-01-15T10:30:00Z"
+                    }
+                }
+            ]
+        }
+        """;
+
+    [Fact]
+    public void Into_MapsSnakeCaseKeysToPascalCaseProperties()
+    {
+        var (client, _) = MakeClient(_ => Task.FromResult(Json(SnakeKeysJson)));
+        var proxy = client.Config.Get("snake-svc");
+        var typed = proxy.Into<SnakeModel>();
+        Assert.Equal(7, typed.MaxRetries);
+        Assert.Equal("Acme", typed.AppName);
+        Assert.True(typed.EnableSignup);
+    }
+
     [Fact]
     public async Task Live_ReflectsCacheUpdates()
     {
