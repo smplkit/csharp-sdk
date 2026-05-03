@@ -80,12 +80,9 @@ jobs:
     needs: [lint, test]
     runs-on: ubuntu-latest
     steps:
-      - name: Verify all checks passed
-        run: |
-          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
-            echo "One or more required jobs failed or were cancelled."
-            exit 1
-          fi
+      - uses: smplkit/.github-public/actions/ci-gate@main
+        with:
+          needs: ${{ toJson(needs) }}
 
   release:
     needs: [ci-gate]
@@ -105,92 +102,41 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Set up Node
-        if: github.event.inputs.manual_version == ''
-        uses: actions/setup-node@v6
+      - name: Prepare release
+        id: prep
+        uses: smplkit/.github-public/actions/sdk-release-prepare@main
         with:
-          node-version-file: ".nvmrc"
-
-      - name: Record latest tag before release
-        id: before
-        run: echo "tag=$(git describe --tags --abbrev=0 2>/dev/null || echo '')" >> "$GITHUB_OUTPUT"
-
-      - name: Run semantic-release
-        if: github.event.inputs.manual_version == ''
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx --yes semantic-release
-
-      - name: Manual tag and release (override path)
-        if: github.event.inputs.manual_version != ''
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          VERSION="${{ github.event.inputs.manual_version }}"
-          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
-            echo "::error::manual_version '${VERSION}' is not a valid semver string."
-            exit 1
-          fi
-          if gh api "repos/${GITHUB_REPOSITORY}/git/refs/tags/v${VERSION}" >/dev/null 2>&1; then
-            echo "::error::Tag v${VERSION} already exists. Refusing to overwrite."
-            exit 1
-          fi
-          gh release create "v${VERSION}" \
-            --target "${GITHUB_SHA}" \
-            --title "v${VERSION}" \
-            --notes "Manual release v${VERSION} dispatched via workflow_dispatch."
-          echo "Created release v${VERSION} at ${GITHUB_SHA}"
-
-      - name: Check if a new release was created
-        id: check
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if [ -n "${{ github.event.inputs.manual_version }}" ]; then
-            echo "released=true" >> "$GITHUB_OUTPUT"
-            echo "version=${{ github.event.inputs.manual_version }}" >> "$GITHUB_OUTPUT"
-            echo "Manual override release: v${{ github.event.inputs.manual_version }}"
-          else
-            LATEST_TAG=$(gh api repos/${{ github.repository }}/tags --jq '.[0].name' 2>/dev/null || echo '')
-            if [ "$LATEST_TAG" != "${{ steps.before.outputs.tag }}" ] && [ -n "$LATEST_TAG" ]; then
-              VERSION="${LATEST_TAG#v}"
-              echo "released=true" >> "$GITHUB_OUTPUT"
-              echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-              echo "New release detected: ${LATEST_TAG}"
-            else
-              echo "released=false" >> "$GITHUB_OUTPUT"
-              echo "No new release."
-            fi
-          fi
+          manual_version: ${{ github.event.inputs.manual_version }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup .NET
-        if: steps.check.outputs.released == 'true'
+        if: steps.prep.outputs.released == 'true'
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
 
       - name: Pack
-        if: steps.check.outputs.released == 'true'
+        if: steps.prep.outputs.released == 'true'
         run: >
           dotnet pack src/Smplkit/Smplkit.csproj -c Release
-          -p:PackageVersion=${{ steps.check.outputs.version }}
+          -p:PackageVersion=${{ steps.prep.outputs.version }}
           --output ./nupkg
 
       - name: Verify package
-        if: steps.check.outputs.released == 'true'
+        if: steps.prep.outputs.released == 'true'
         run: |
           ls nupkg/
           ls nupkg/Smplkit.Sdk.*.nupkg || { echo "ERROR: Expected Smplkit.Sdk nupkg not found"; exit 1; }
 
       - name: NuGet login (OIDC trusted publishing)
-        if: steps.check.outputs.released == 'true'
+        if: steps.prep.outputs.released == 'true'
         uses: NuGet/login@v1
         id: nuget-login
         with:
           user: smplkit
 
       - name: Publish to NuGet
-        if: steps.check.outputs.released == 'true'
+        if: steps.prep.outputs.released == 'true'
         run: >
           dotnet nuget push nupkg/*.nupkg
           --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}"
@@ -201,8 +147,8 @@ jobs:
         run: |
           echo "## Publish" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          if [ "${{ steps.check.outputs.released }}" = "true" ]; then
-            echo "**Version:** v${{ steps.check.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.prep.outputs.released }}" = "true" ]; then
+            echo "**Version:** v${{ steps.prep.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
             echo "**Published to NuGet:** yes" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "No release warranted by commits since last release." >> "$GITHUB_STEP_SUMMARY"
