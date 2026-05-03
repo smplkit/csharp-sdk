@@ -114,26 +114,15 @@ public class ContextTypeModelTests
 }
 
 // ---------------------------------------------------------------------------
-// ContextEntity model
+// Smplkit.Context model
 // ---------------------------------------------------------------------------
 
-public class ContextEntityModelTests
+public class ContextModelTests
 {
-    private static ContextEntity Make(string type = "user", string key = "u1",
-        string? name = null, Dictionary<string, object?>? attrs = null)
-    {
-        return (ContextEntity)Activator.CreateInstance(
-            typeof(ContextEntity),
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance,
-            null,
-            new object?[] { type, key, name, attrs ?? new Dictionary<string, object?>(), null, null },
-            null)!;
-    }
-
     [Fact]
     public void Id_IsComposite()
     {
-        var entity = Make("user", "u1");
+        var entity = new Smplkit.Context("user", "u1");
         Assert.Equal("user:u1", entity.Id);
     }
 
@@ -141,28 +130,46 @@ public class ContextEntityModelTests
     public void Properties_Set()
     {
         var attrs = new Dictionary<string, object?> { ["plan"] = "pro" };
-        var now = DateTime.UtcNow;
-        var entity = (ContextEntity)Activator.CreateInstance(
-            typeof(ContextEntity),
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance,
-            null,
-            new object?[] { "user", "u1", "Alice", attrs, now, now },
-            null)!;
+        var entity = new Smplkit.Context("user", "u1", attrs, name: "Alice");
 
         Assert.Equal("user", entity.Type);
         Assert.Equal("u1", entity.Key);
         Assert.Equal("Alice", entity.Name);
         Assert.Equal("pro", entity.Attributes["plan"]);
-        Assert.Equal(now, entity.CreatedAt);
-        Assert.Equal(now, entity.UpdatedAt);
     }
 
     [Fact]
     public void ToString_ContainsTypeAndKey()
     {
-        var entity = Make("account", "acct-1");
+        var entity = new Smplkit.Context("account", "acct-1");
         Assert.Contains("account", entity.ToString());
         Assert.Contains("acct-1", entity.ToString());
+    }
+
+    [Fact]
+    public void Constructor_NullType_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => new Smplkit.Context(null!, "u1"));
+    }
+
+    [Fact]
+    public void Constructor_NullKey_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => new Smplkit.Context("user", null!));
+    }
+
+    [Fact]
+    public async Task SaveAsync_WithoutClient_Throws()
+    {
+        var ctx = new Smplkit.Context("user", "u1");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => ctx.SaveAsync());
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WithoutClient_Throws()
+    {
+        var ctx = new Smplkit.Context("user", "u1");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => ctx.DeleteAsync());
     }
 }
 
@@ -272,16 +279,16 @@ public class AccountSettingsModelTests
 }
 
 // ---------------------------------------------------------------------------
-// SmplEnvironment model
+// Smplkit.Management.Environment model
 // ---------------------------------------------------------------------------
 
-public class SmplEnvironmentModelTests
+public class EnvironmentModelTests
 {
-    private static SmplEnvironment MakeEnv(string? id = "production", string name = "Production",
+    private static Smplkit.Management.Environment MakeEnv(string? id = "production", string name = "Production",
         EnvironmentClassification classification = EnvironmentClassification.Standard)
     {
-        return (SmplEnvironment)Activator.CreateInstance(
-            typeof(SmplEnvironment),
+        return (Smplkit.Management.Environment)Activator.CreateInstance(
+            typeof(Smplkit.Management.Environment),
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance,
             null,
             new object?[] { null, id, name, null, classification, null, null },

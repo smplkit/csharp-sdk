@@ -182,7 +182,7 @@ public class ConfigResolverTests
     public void File_MissingNamedProfile_Throws()
     {
         var ini = "[production]\napi_key = sk_prod\nenvironment = prod\nservice = svc\n";
-        var ex = Assert.Throws<SmplException>(() =>
+        var ex = Assert.Throws<SmplkitException>(() =>
             Resolve(MinimalOptions(profile: "nonexistent"), fileContent: ini));
         Assert.Contains("[nonexistent]", ex.Message);
         Assert.Contains("production", ex.Message);
@@ -223,7 +223,7 @@ public class ConfigResolverTests
     public void File_InvalidBoolean_Throws()
     {
         var ini = "[default]\napi_key = sk_test\nenvironment = prod\nservice = svc\ndebug = maybe\n";
-        var ex = Assert.Throws<SmplException>(() =>
+        var ex = Assert.Throws<SmplkitException>(() =>
             Resolve(MinimalOptions(), fileContent: ini));
         Assert.Contains("Invalid boolean", ex.Message);
         Assert.Contains("maybe", ex.Message);
@@ -370,7 +370,7 @@ public class ConfigResolverTests
     [Fact]
     public void EnvVar_InvalidDebugBoolean_Throws()
     {
-        var ex = Assert.Throws<SmplException>(() =>
+        var ex = Assert.Throws<SmplkitException>(() =>
             Resolve(
                 MinimalOptions(),
                 envApiKey: "sk_test",
@@ -519,7 +519,7 @@ public class ConfigResolverTests
     [Fact]
     public void Validation_MissingEnvironment_Throws()
     {
-        var ex = Assert.Throws<SmplException>(() =>
+        var ex = Assert.Throws<SmplkitException>(() =>
             Resolve(
                 MinimalOptions(apiKey: "sk_test", service: "svc")));
         Assert.Contains("No environment provided", ex.Message);
@@ -530,7 +530,7 @@ public class ConfigResolverTests
     [Fact]
     public void Validation_MissingService_Throws()
     {
-        var ex = Assert.Throws<SmplException>(() =>
+        var ex = Assert.Throws<SmplkitException>(() =>
             Resolve(
                 MinimalOptions(apiKey: "sk_test", environment: "prod")));
         Assert.Contains("No service provided", ex.Message);
@@ -541,7 +541,7 @@ public class ConfigResolverTests
     [Fact]
     public void Validation_MissingApiKey_Throws()
     {
-        var ex = Assert.Throws<SmplException>(() =>
+        var ex = Assert.Throws<SmplkitException>(() =>
             Resolve(
                 MinimalOptions(environment: "prod", service: "svc")));
         Assert.Contains("No API key provided", ex.Message);
@@ -552,7 +552,7 @@ public class ConfigResolverTests
     [Fact]
     public void Validation_ErrorShowsActiveProfile()
     {
-        var ex = Assert.Throws<SmplException>(() =>
+        var ex = Assert.Throws<SmplkitException>(() =>
             Resolve(
                 MinimalOptions(profile: "staging", environment: "prod", service: "svc")));
         Assert.Contains("[staging]", ex.Message);
@@ -562,7 +562,7 @@ public class ConfigResolverTests
     public void Validation_EnvironmentCheckedFirst()
     {
         // When both environment and service are missing, error is about environment
-        var ex = Assert.Throws<SmplException>(() =>
+        var ex = Assert.Throws<SmplkitException>(() =>
             Resolve(MinimalOptions(apiKey: "sk_test")));
         Assert.Contains("environment", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -571,7 +571,7 @@ public class ConfigResolverTests
     public void Validation_ServiceCheckedBeforeApiKey()
     {
         // When both service and api_key are missing, error is about service
-        var ex = Assert.Throws<SmplException>(() =>
+        var ex = Assert.Throws<SmplkitException>(() =>
             Resolve(MinimalOptions(environment: "prod")));
         Assert.Contains("service", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -621,7 +621,7 @@ public class ConfigResolverTests
     [InlineData("nope")]
     public void ParseBool_InvalidValues_Throws(string input)
     {
-        var ex = Assert.Throws<SmplException>(() => ConfigResolver.ParseBool(input, "test_key"));
+        var ex = Assert.Throws<SmplkitException>(() => ConfigResolver.ParseBool(input, "test_key"));
         Assert.Contains("Invalid boolean", ex.Message);
     }
 

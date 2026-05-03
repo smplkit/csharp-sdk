@@ -52,6 +52,11 @@ public sealed class FlagsClient
     // Exposed for tests to await the fire-and-forget context registration task
     internal Task? _initRegistrationTask;
 
+    // Exposed for tests to await fire-and-forget threshold-triggered flushes
+    // (otherwise the lambda body coverage races with process exit on CI).
+    internal Task? _lastFlagBufferFlushTask;
+    internal Task? _lastContextBufferFlushTask;
+
     internal FlagsClient(GeneratedClientFactory clients, string apiKey, Func<SharedWebSocket> ensureWs, ContextRegistrationBuffer contextBuffer, SmplClient? parent = null, MetricsReporter? metrics = null)
     {
         _genFlagsClient = clients.Flags;
@@ -61,126 +66,6 @@ public sealed class FlagsClient
         _contextBuffer = contextBuffer;
         _parent = parent;
         _metrics = metrics;
-        Management = new FlagsManagement(this);
-    }
-
-    /// <summary>
-    /// Provides management (CRUD) operations for flags: create, get, list, and delete.
-    /// </summary>
-    public FlagsManagement Management { get; }
-
-    // ------------------------------------------------------------------
-    // Management: typed factory methods (internal — public surface is via Management)
-    // ------------------------------------------------------------------
-
-    internal BooleanFlag NewBooleanFlag(string id, bool defaultValue, string? name = null, string? description = null)
-    {
-        return new BooleanFlag(
-            client: this,
-            id: id,
-            name: name ?? Helpers.KeyToDisplayName(id),
-            @default: defaultValue,
-            values: new List<Dictionary<string, object?>>
-            {
-                new() { ["name"] = "True", ["value"] = true },
-                new() { ["name"] = "False", ["value"] = false },
-            },
-            description: description,
-            environments: new Dictionary<string, Dictionary<string, object?>>(),
-            createdAt: null,
-            updatedAt: null);
-    }
-
-    internal StringFlag NewStringFlag(string id, string defaultValue, string? name = null, string? description = null, List<Dictionary<string, object?>>? values = null)
-    {
-        return new StringFlag(
-            client: this,
-            id: id,
-            name: name ?? Helpers.KeyToDisplayName(id),
-            @default: defaultValue,
-            values: values,
-            description: description,
-            environments: new Dictionary<string, Dictionary<string, object?>>(),
-            createdAt: null,
-            updatedAt: null);
-    }
-
-    internal NumberFlag NewNumberFlag(string id, double defaultValue, string? name = null, string? description = null, List<Dictionary<string, object?>>? values = null)
-    {
-        return new NumberFlag(
-            client: this,
-            id: id,
-            name: name ?? Helpers.KeyToDisplayName(id),
-            @default: defaultValue,
-            values: values,
-            description: description,
-            environments: new Dictionary<string, Dictionary<string, object?>>(),
-            createdAt: null,
-            updatedAt: null);
-    }
-
-    internal JsonFlag NewJsonFlag(string id, Dictionary<string, object?> defaultValue, string? name = null, string? description = null, List<Dictionary<string, object?>>? values = null)
-    {
-        return new JsonFlag(
-            client: this,
-            id: id,
-            name: name ?? Helpers.KeyToDisplayName(id),
-            @default: defaultValue,
-            values: values,
-            description: description,
-            environments: new Dictionary<string, Dictionary<string, object?>>(),
-            createdAt: null,
-            updatedAt: null);
-    }
-
-    // ------------------------------------------------------------------
-    // Management: CRUD by id (internal — public surface is via Management)
-    // ------------------------------------------------------------------
-
-    internal async Task<Flag> GetAsync(string id, CancellationToken ct = default)
-    {
-        var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genFlagsClient.Get_flagAsync(id: id, cancellationToken: ct)).ConfigureAwait(false);
-        return MapFlagResource(response.Data)
-            ?? throw new SmplNotFoundException($"Flag with id '{id}' not found");
-    }
-
-    internal async Task<List<Flag>> ListAsync(CancellationToken ct = default)
-    {
-        var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genFlagsClient.List_flagsAsync(cancellationToken: ct)).ConfigureAwait(false);
-        if (response.Data is null) return new List<Flag>();
-        return response.Data.Select(r => MapFlagResource(r)!).Where(f => f is not null).ToList();
-    }
-
-    internal async Task DeleteAsync(string id, CancellationToken ct = default)
-    {
-        await ApiExceptionMapper.ExecuteAsync(
-            () => _genFlagsClient.Delete_flagAsync(id, ct)).ConfigureAwait(false);
-    }
-
-    /// <summary>Internal: save a flag (create or update).</summary>
-    internal async Task<Flag> SaveFlagInternalAsync(Flag flag, CancellationToken ct = default)
-    {
-        if (flag.CreatedAt is null)
-        {
-            // Create (unsaved flag — CreatedAt is null until first server round-trip)
-            var body = BuildCreateFlagBody(flag.Id, flag.Name, flag.Type, flag.Default, flag.Description, flag.Values);
-            var response = await ApiExceptionMapper.ExecuteAsync(
-                () => _genFlagsClient.Create_flagAsync(body, ct)).ConfigureAwait(false);
-            return MapFlagResource(response.Data)
-                ?? throw new SmplValidationException("Failed to create flag");
-        }
-        else
-        {
-            // Update
-            var flagId = flag.Id ?? throw new SmplValidationException("Cannot update a flag without an id");
-            var body = BuildUpdateFlagBody(flagId, flag.Name, flag.Type, flag.Default, flag.Values, flag.Description, flag.Environments);
-            var response = await ApiExceptionMapper.ExecuteAsync(
-                () => _genFlagsClient.Update_flagAsync(flagId, body, ct)).ConfigureAwait(false);
-            return MapFlagResource(response.Data)
-                ?? throw new SmplValidationException("Failed to update flag");
-        }
     }
 
     // ------------------------------------------------------------------
@@ -196,7 +81,8 @@ public sealed class FlagsClient
     public BooleanFlag BooleanFlag(string id, bool defaultValue)
     {
         var handle = new BooleanFlag(
-            client: this, id: id, name: id,
+            evalClient: this, mgmtClient: _parent?.Manage.Flags,
+            id: id, name: id,
             @default: defaultValue,
             values: new List<Dictionary<string, object?>>(),
             description: null,
@@ -205,7 +91,7 @@ public sealed class FlagsClient
         _handles[id] = handle;
         _flagBuffer.Add(id, "BOOLEAN", defaultValue, _parent?.Service, _parent?.Environment);
         if (_flagBuffer.PendingCount >= 50)
-            Task.Run(() => FlushFlagsAsync());
+            _lastFlagBufferFlushTask = FlushFlagsAsync();
         return handle;
     }
 
@@ -218,7 +104,8 @@ public sealed class FlagsClient
     public StringFlag StringFlag(string id, string defaultValue)
     {
         var handle = new StringFlag(
-            client: this, id: id, name: id,
+            evalClient: this, mgmtClient: _parent?.Manage.Flags,
+            id: id, name: id,
             @default: defaultValue,
             values: new List<Dictionary<string, object?>>(),
             description: null,
@@ -227,7 +114,7 @@ public sealed class FlagsClient
         _handles[id] = handle;
         _flagBuffer.Add(id, "STRING", defaultValue, _parent?.Service, _parent?.Environment);
         if (_flagBuffer.PendingCount >= 50)
-            Task.Run(() => FlushFlagsAsync());
+            _lastFlagBufferFlushTask = FlushFlagsAsync();
         return handle;
     }
 
@@ -240,7 +127,8 @@ public sealed class FlagsClient
     public NumberFlag NumberFlag(string id, double defaultValue)
     {
         var handle = new NumberFlag(
-            client: this, id: id, name: id,
+            evalClient: this, mgmtClient: _parent?.Manage.Flags,
+            id: id, name: id,
             @default: defaultValue,
             values: new List<Dictionary<string, object?>>(),
             description: null,
@@ -249,7 +137,7 @@ public sealed class FlagsClient
         _handles[id] = handle;
         _flagBuffer.Add(id, "NUMERIC", defaultValue, _parent?.Service, _parent?.Environment);
         if (_flagBuffer.PendingCount >= 50)
-            Task.Run(() => FlushFlagsAsync());
+            _lastFlagBufferFlushTask = FlushFlagsAsync();
         return handle;
     }
 
@@ -262,7 +150,8 @@ public sealed class FlagsClient
     public JsonFlag JsonFlag(string id, Dictionary<string, object?> defaultValue)
     {
         var handle = new JsonFlag(
-            client: this, id: id, name: id,
+            evalClient: this, mgmtClient: _parent?.Manage.Flags,
+            id: id, name: id,
             @default: defaultValue,
             values: new List<Dictionary<string, object?>>(),
             description: null,
@@ -271,7 +160,7 @@ public sealed class FlagsClient
         _handles[id] = handle;
         _flagBuffer.Add(id, "JSON", defaultValue, _parent?.Service, _parent?.Environment);
         if (_flagBuffer.PendingCount >= 50)
-            Task.Run(() => FlushFlagsAsync());
+            _lastFlagBufferFlushTask = FlushFlagsAsync();
         return handle;
     }
 
@@ -308,35 +197,7 @@ public sealed class FlagsClient
             if (_parent?.Service is { Length: > 0 } svc)
             {
                 var env = _parent?.Environment;
-                _initRegistrationTask = Task.Run(async () =>
-                {
-                    try
-                    {
-                        var items = new List<GenApp.ContextBulkItem>();
-                        if (!string.IsNullOrEmpty(env))
-                        {
-                            items.Add(new() { Type = "environment", Key = env });
-                        }
-                        items.Add(new()
-                        {
-                            Type = "service",
-                            Key = svc,
-                            Attributes = new Dictionary<string, object?> { ["name"] = svc },
-                        });
-                        await ApiExceptionMapper.ExecuteAsync(async () =>
-                            await _genAppClient.Bulk_register_contextsAsync(
-                                new GenApp.ContextBulkRegister
-                                {
-                                    Contexts = items,
-                                }).ConfigureAwait(false)).ConfigureAwait(false);
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Trace.TraceWarning(
-                            "[smplkit] Context registration failed: {0}", ex.Message);
-                        Debug.Log("registration", $"Context registration failed: {ex}");
-                    }
-                });
+                _initRegistrationTask = RegisterInitialContextsAsync(svc, env);
             }
 
             Debug.Log("websocket", "flags runtime initializing");
@@ -405,6 +266,41 @@ public sealed class FlagsClient
         lock (list)
         {
             list.Add(callback);
+        }
+    }
+
+    /// <summary>
+    /// Best-effort initial context registration: registers the configured
+    /// environment and service with the contexts service. Failures are logged
+    /// and swallowed; this is fired-and-forgotten from <see cref="EnsureInitialized"/>.
+    /// </summary>
+    private async Task RegisterInitialContextsAsync(string svc, string? env)
+    {
+        try
+        {
+            var items = new List<GenApp.ContextBulkItem>();
+            if (!string.IsNullOrEmpty(env))
+            {
+                items.Add(new() { Type = "environment", Key = env });
+            }
+            items.Add(new()
+            {
+                Type = "service",
+                Key = svc,
+                Attributes = new Dictionary<string, object?> { ["name"] = svc },
+            });
+            await ApiExceptionMapper.ExecuteAsync(async () =>
+                await _genAppClient.Bulk_register_contextsAsync(
+                    new GenApp.ContextBulkRegister
+                    {
+                        Contexts = items,
+                    }).ConfigureAwait(false)).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                "[smplkit] Context registration failed: {0}", ex.Message);
+            Debug.Log("registration", $"Context registration failed: {ex}");
         }
     }
 
@@ -520,7 +416,7 @@ public sealed class FlagsClient
             evalDict = ContextsToEvalDict(contexts);
             _contextBuffer.Observe(contexts);
             if (_contextBuffer.PendingCount >= ContextBatchFlushSize)
-                Task.Run(() => FlushContextsAsync());
+                _lastContextBufferFlushTask = FlushContextsAsync();
         }
         else
         {
@@ -902,42 +798,10 @@ public sealed class FlagsClient
     }
 
     // ------------------------------------------------------------------
-    // Helpers: model mapping
+    // Helpers: runtime flag-store parsing (used by HandleFlag* + FetchAllFlagsAsync).
+    // CRUD wire helpers (MapFlagResource, BuildCreate/UpdateFlagBody) live in
+    // Smplkit.Management.FlagsClient — runtime owns only what eval needs.
     // ------------------------------------------------------------------
-
-    private Flag? MapFlagResource(GenFlags.FlagResource? resource)
-    {
-        if (resource?.Attributes is null) return null;
-        var attrs = resource.Attributes;
-
-        List<Dictionary<string, object?>>? values = null;
-        if (attrs.Values is not null)
-        {
-            values = new List<Dictionary<string, object?>>();
-            foreach (var v in attrs.Values)
-                values.Add(new Dictionary<string, object?> { ["name"] = v.Name, ["value"] = NormalizeValue(v.Value) });
-        }
-
-        var environments = ExtractEnvironments(attrs.Environments);
-
-        DateTime? createdAt = null;
-        if (attrs.Created_at is DateTimeOffset createdDto) createdAt = createdDto.DateTime;
-
-        DateTime? updatedAt = null;
-        if (attrs.Updated_at is DateTimeOffset updatedDto) updatedAt = updatedDto.DateTime;
-
-        return new Flag(
-            client: this,
-            id: resource.Id ?? string.Empty,
-            name: attrs.Name ?? string.Empty,
-            type: attrs.Type ?? "BOOLEAN",
-            @default: NormalizeValue(attrs.Default),
-            values: values,
-            description: attrs.Description,
-            environments: environments,
-            createdAt: createdAt,
-            updatedAt: updatedAt);
-    }
 
     private static Dictionary<string, object?>? ParseFlagDef(GenFlags.FlagResource? resource)
     {
@@ -998,94 +862,6 @@ public sealed class FlagsClient
         return result;
     }
 
-    // ------------------------------------------------------------------
-    // Helpers: request body building
-    // ------------------------------------------------------------------
-
-    private static GenFlags.FlagResponse BuildCreateFlagBody(
-        string? id, string name, string type, object? @default,
-        string? description, List<Dictionary<string, object?>>? values)
-    {
-        var flagValues = values?.Select(v => new GenFlags.FlagValue
-        {
-            Name = v.TryGetValue("name", out var n) ? n?.ToString() ?? "" : "",
-            Value = v.TryGetValue("value", out var val) ? val! : new object(),
-        }).ToList();
-
-        return new GenFlags.FlagResponse
-        {
-            Data = new GenFlags.FlagResource
-            {
-                Type = "flag",
-                Id = id,
-                Attributes = new GenFlags.Flag
-                {
-                    Name = name,
-                    Type = type,
-                    Default = @default ?? new object(),
-                    Description = description ?? "",
-                    Values = flagValues!,
-                    Environments = new Dictionary<string, GenFlags.FlagEnvironment>(),
-                },
-            }
-        };
-    }
-
-    private static GenFlags.FlagResponse BuildUpdateFlagBody(
-        string? id, string name, string type, object? @default,
-        List<Dictionary<string, object?>>? values, string? description,
-        Dictionary<string, Dictionary<string, object?>> environments)
-    {
-        var flagValues = values?.Select(v => new GenFlags.FlagValue
-        {
-            Name = v.TryGetValue("name", out var n) ? n?.ToString() ?? "" : "",
-            Value = v.TryGetValue("value", out var val) ? val! : new object(),
-        }).ToList();
-
-        var flagEnvs = new Dictionary<string, GenFlags.FlagEnvironment>();
-        foreach (var (envName, envData) in environments)
-        {
-            var flagEnv = new GenFlags.FlagEnvironment
-            {
-                Enabled = envData.TryGetValue("enabled", out var e) && e is bool eb && eb,
-                Default = envData.TryGetValue("default", out var d) ? d : null,
-            };
-            if (envData.TryGetValue("rules", out var rulesObj) && rulesObj is List<object?> rulesList)
-            {
-                flagEnv.Rules = rulesList
-                    .OfType<Dictionary<string, object?>>()
-                    .Select(r => new GenFlags.FlagRule
-                    {
-                        Description = r.TryGetValue("description", out var desc) ? desc?.ToString() : null,
-                        Logic = r.TryGetValue("logic", out var logic) ? logic ?? new object() : new object(),
-                        Value = r.TryGetValue("value", out var v) ? v! : new object(),
-                    }).ToList();
-            }
-            else
-            {
-                flagEnv.Rules = new List<GenFlags.FlagRule>();
-            }
-            flagEnvs[envName] = flagEnv;
-        }
-
-        return new GenFlags.FlagResponse
-        {
-            Data = new GenFlags.FlagResource
-            {
-                Type = "flag",
-                Id = id,
-                Attributes = new GenFlags.Flag
-                {
-                    Name = name,
-                    Type = type,
-                    Default = @default ?? new object(),
-                    Description = description ?? "",
-                    Values = flagValues!,
-                    Environments = flagEnvs,
-                },
-            }
-        };
-    }
 }
 
 // ------------------------------------------------------------------

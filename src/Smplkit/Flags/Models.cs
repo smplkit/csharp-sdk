@@ -1,5 +1,3 @@
-using System.Text.Json;
-
 namespace Smplkit.Flags;
 
 /// <summary>
@@ -9,7 +7,8 @@ namespace Smplkit.Flags;
 /// </summary>
 public class Flag
 {
-    private readonly FlagsClient _client;
+    private readonly FlagsClient? _evalClient;
+    private readonly Smplkit.Management.FlagsClient? _mgmtClient;
 
     /// <summary>Gets the flag identifier (slug). Null for unsaved flags.</summary>
     public string? Id { get; internal set; }
@@ -39,7 +38,8 @@ public class Flag
     public DateTime? UpdatedAt { get; internal set; }
 
     internal Flag(
-        FlagsClient client,
+        FlagsClient? evalClient,
+        Smplkit.Management.FlagsClient? mgmtClient,
         string? id,
         string name,
         string type,
@@ -50,7 +50,8 @@ public class Flag
         DateTime? createdAt,
         DateTime? updatedAt)
     {
-        _client = client;
+        _evalClient = evalClient;
+        _mgmtClient = mgmtClient;
         Id = id;
         Name = name;
         Type = type;
@@ -63,12 +64,18 @@ public class Flag
     }
 
     /// <summary>
-    /// Saves this flag to the server.
+    /// Saves this flag to the server. Requires a management client (i.e. the
+    /// flag was constructed via <c>mgmt.Flags.NewXxx</c> or returned from
+    /// <c>mgmt.Flags.GetAsync</c>/<c>ListAsync</c>, OR via a runtime
+    /// <c>client.Flags.XxxFlag(...)</c> handle whose parent has a management
+    /// plane available).
     /// </summary>
-    /// <param name="ct">Cancellation token.</param>
     public async Task SaveAsync(CancellationToken ct = default)
     {
-        var saved = await _client.SaveFlagInternalAsync(this, ct).ConfigureAwait(false);
+        if (_mgmtClient is null)
+            throw new InvalidOperationException(
+                "Cannot save a flag without a management client. Use mgmt.Flags.NewXXX(...) or fetch via mgmt.Flags.GetAsync(...).");
+        var saved = await _mgmtClient.SaveFlagInternalAsync(this, ct).ConfigureAwait(false);
         Id = saved.Id;
         Name = saved.Name;
         Default = saved.Default;
@@ -139,23 +146,139 @@ public class Flag
     }
 
     /// <summary>
-    /// Clears all rules for a specific environment. Call <see cref="SaveAsync"/> to persist.
+    /// Clears rules. With <paramref name="environment"/> = <c>null</c>, removes
+    /// rules from every environment configured on this flag. Call
+    /// <see cref="SaveAsync"/> to persist.
     /// </summary>
-    /// <param name="envKey">The environment key.</param>
-    public void ClearRules(string envKey)
+    public void ClearRules(string? environment = null)
     {
-        if (Environments.TryGetValue(envKey, out var envConfig))
+        if (environment is null)
+        {
+            foreach (var key in Environments.Keys.ToList())
+            {
+                if (Environments[key] is { } envConfig)
+                    envConfig["rules"] = new List<object?>();
+            }
+        }
+        else if (Environments.TryGetValue(environment, out var envConfig))
+        {
             envConfig["rules"] = new List<object?>();
+        }
     }
 
     /// <summary>
-    /// Evaluate this flag and return its current value.
+    /// Sets the flag's default served value. With <paramref name="environment"/>
+    /// = <c>null</c>, updates the flag-level default; otherwise, sets the
+    /// per-environment default. Call <see cref="SaveAsync"/> to persist.
+    /// </summary>
+    public void SetDefault(object? value, string? environment = null)
+    {
+        if (environment is null)
+        {
+            Default = value;
+        }
+        else
+        {
+            if (!Environments.TryGetValue(environment, out var envConfig))
+            {
+                envConfig = new Dictionary<string, object?>();
+                Environments[environment] = envConfig;
+            }
+            envConfig["default"] = value;
+        }
+    }
+
+    /// <summary>
+    /// Clears the per-environment default override on <paramref name="environment"/>.
+    /// After clearing, the environment falls back to the flag's base default.
+    /// </summary>
+    public void ClearDefault(string environment)
+    {
+        if (Environments.TryGetValue(environment, out var envConfig))
+            envConfig["default"] = null;
+    }
+
+    /// <summary>
+    /// Enables rule evaluation. With <paramref name="environment"/> = <c>null</c>,
+    /// applies to every environment configured on this flag.
+    /// </summary>
+    public void EnableRules(string? environment = null)
+    {
+        if (environment is null)
+        {
+            foreach (var key in Environments.Keys.ToList())
+                SetEnvironmentEnabled(key, true);
+        }
+        else
+        {
+            SetEnvironmentEnabled(environment, true);
+        }
+    }
+
+    /// <summary>
+    /// Disables rule evaluation (kill switch — serves base/env default, skips rules).
+    /// </summary>
+    public void DisableRules(string? environment = null)
+    {
+        if (environment is null)
+        {
+            foreach (var key in Environments.Keys.ToList())
+                SetEnvironmentEnabled(key, false);
+        }
+        else
+        {
+            SetEnvironmentEnabled(environment, false);
+        }
+    }
+
+    /// <summary>Append a constrained value to the flag's values list.</summary>
+    public Flag AddValue(string name, object? value)
+    {
+        Values ??= new List<Dictionary<string, object?>>();
+        Values.Add(new Dictionary<string, object?> { ["name"] = name, ["value"] = value });
+        return this;
+    }
+
+    /// <summary>Remove the first values entry whose <c>value</c> field matches.</summary>
+    public Flag RemoveValue(object? value)
+    {
+        if (Values is null) return this;
+        var idx = Values.FindIndex(v =>
+            v.TryGetValue("value", out var existing) && Equals(existing, value));
+        if (idx >= 0) Values.RemoveAt(idx);
+        return this;
+    }
+
+    /// <summary>Set values to <c>null</c> (unconstrained).</summary>
+    public void ClearValues()
+    {
+        Values = null;
+    }
+
+    /// <summary>
+    /// Deletes this flag from the server. Requires a management client.
+    /// </summary>
+    public Task DeleteAsync(CancellationToken ct = default)
+    {
+        if (_mgmtClient is null || Id is null)
+            throw new InvalidOperationException("Cannot delete a flag without a management client and id.");
+        return _mgmtClient.DeleteAsync(Id, ct);
+    }
+
+    /// <summary>
+    /// Evaluate this flag and return its current value. Requires a runtime
+    /// client (i.e. the flag handle was constructed via
+    /// <c>client.Flags.XxxFlag(...)</c>); flags fetched via the management plane
+    /// (<c>mgmt.Flags.GetAsync</c> / <c>ListAsync</c>) cannot be evaluated.
     /// </summary>
     /// <param name="context">Optional explicit context override.</param>
     /// <returns>The evaluated value.</returns>
     public object? Get(IReadOnlyList<Context>? context = null)
     {
-        return _client.EvaluateHandle(Id!, Default, context);
+        if (_evalClient is null)
+            throw new InvalidOperationException(
+                "Cannot evaluate a flag without a runtime client. Construct the handle via client.Flags.XxxFlag(...).");
+        return _evalClient.EvaluateHandle(Id!, Default, context);
     }
 
     /// <inheritdoc />
@@ -167,11 +290,12 @@ public class Flag
 public sealed class BooleanFlag : Flag
 {
     internal BooleanFlag(
-        FlagsClient client, string? id, string name,
+        FlagsClient? evalClient, Smplkit.Management.FlagsClient? mgmtClient,
+        string? id, string name,
         object? @default, List<Dictionary<string, object?>> values,
         string? description, Dictionary<string, Dictionary<string, object?>> environments,
         DateTime? createdAt, DateTime? updatedAt)
-        : base(client, id, name, "BOOLEAN", @default, values, description, environments, createdAt, updatedAt)
+        : base(evalClient, mgmtClient, id, name, "BOOLEAN", @default, values, description, environments, createdAt, updatedAt)
     {
     }
 
@@ -182,8 +306,6 @@ public sealed class BooleanFlag : Flag
     {
         var value = base.Get(context);
         if (value is bool b) return b;
-        if (value is JsonElement je && je.ValueKind is JsonValueKind.True or JsonValueKind.False)
-            return je.GetBoolean();
         return Default is bool db ? db : false;
     }
 }
@@ -192,11 +314,12 @@ public sealed class BooleanFlag : Flag
 public sealed class StringFlag : Flag
 {
     internal StringFlag(
-        FlagsClient client, string? id, string name,
+        FlagsClient? evalClient, Smplkit.Management.FlagsClient? mgmtClient,
+        string? id, string name,
         object? @default, List<Dictionary<string, object?>>? values,
         string? description, Dictionary<string, Dictionary<string, object?>> environments,
         DateTime? createdAt, DateTime? updatedAt)
-        : base(client, id, name, "STRING", @default, values, description, environments, createdAt, updatedAt)
+        : base(evalClient, mgmtClient, id, name, "STRING", @default, values, description, environments, createdAt, updatedAt)
     {
     }
 
@@ -207,8 +330,6 @@ public sealed class StringFlag : Flag
     {
         var value = base.Get(context);
         if (value is string s) return s;
-        if (value is JsonElement je && je.ValueKind == JsonValueKind.String)
-            return je.GetString()!;
         return Default as string ?? string.Empty;
     }
 }
@@ -217,11 +338,12 @@ public sealed class StringFlag : Flag
 public sealed class NumberFlag : Flag
 {
     internal NumberFlag(
-        FlagsClient client, string? id, string name,
+        FlagsClient? evalClient, Smplkit.Management.FlagsClient? mgmtClient,
+        string? id, string name,
         object? @default, List<Dictionary<string, object?>>? values,
         string? description, Dictionary<string, Dictionary<string, object?>> environments,
         DateTime? createdAt, DateTime? updatedAt)
-        : base(client, id, name, "NUMERIC", @default, values, description, environments, createdAt, updatedAt)
+        : base(evalClient, mgmtClient, id, name, "NUMERIC", @default, values, description, environments, createdAt, updatedAt)
     {
     }
 
@@ -236,8 +358,6 @@ public sealed class NumberFlag : Flag
         if (value is long l) return l;
         if (value is float f) return f;
         if (value is decimal dec) return (double)dec;
-        if (value is JsonElement je && je.ValueKind == JsonValueKind.Number)
-            return je.TryGetInt64(out var jl) ? jl : je.GetDouble();
         return Default is double dd ? dd : 0.0;
     }
 }
@@ -246,11 +366,12 @@ public sealed class NumberFlag : Flag
 public sealed class JsonFlag : Flag
 {
     internal JsonFlag(
-        FlagsClient client, string? id, string name,
+        FlagsClient? evalClient, Smplkit.Management.FlagsClient? mgmtClient,
+        string? id, string name,
         object? @default, List<Dictionary<string, object?>>? values,
         string? description, Dictionary<string, Dictionary<string, object?>> environments,
         DateTime? createdAt, DateTime? updatedAt)
-        : base(client, id, name, "JSON", @default, values, description, environments, createdAt, updatedAt)
+        : base(evalClient, mgmtClient, id, name, "JSON", @default, values, description, environments, createdAt, updatedAt)
     {
     }
 

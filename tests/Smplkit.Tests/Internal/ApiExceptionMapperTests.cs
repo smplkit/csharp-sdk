@@ -32,20 +32,20 @@ public class ApiExceptionMapperTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public async Task Generic_SmplException_RethrowsUnchanged()
+    public async Task Generic_SmplkitException_RethrowsUnchanged()
     {
-        var original = new SmplNotFoundException("not found");
+        var original = new NotFoundException("not found");
 
-        var ex = await Assert.ThrowsAsync<SmplNotFoundException>(
+        var ex = await Assert.ThrowsAsync<NotFoundException>(
             () => ApiExceptionMapper.ExecuteAsync<int>(() => throw original));
 
         Assert.Same(original, ex);
     }
 
     [Fact]
-    public async Task Generic_FormatException_ThrowsSmplValidationException()
+    public async Task Generic_FormatException_ThrowsValidationException()
     {
-        var ex = await Assert.ThrowsAsync<SmplValidationException>(
+        var ex = await Assert.ThrowsAsync<ValidationException>(
             () => ApiExceptionMapper.ExecuteAsync<int>(
                 () => throw new FormatException("Bad GUID")));
 
@@ -63,9 +63,9 @@ public class ApiExceptionMapperTests
     }
 
     [Fact]
-    public async Task Generic_ErrorApiException_ThrowsSmplException()
+    public async Task Generic_ErrorApiException_ThrowsSmplkitException()
     {
-        var ex = await Assert.ThrowsAsync<SmplException>(
+        var ex = await Assert.ThrowsAsync<SmplkitException>(
             () => ApiExceptionMapper.ExecuteAsync<int>(
                 () => throw new FakeApiException(500, """{"errors":[{"detail":"boom"}]}""")));
 
@@ -77,20 +77,20 @@ public class ApiExceptionMapperTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public async Task Void_SmplException_RethrowsUnchanged()
+    public async Task Void_SmplkitException_RethrowsUnchanged()
     {
-        var original = new SmplNotFoundException("not found");
+        var original = new NotFoundException("not found");
 
-        var ex = await Assert.ThrowsAsync<SmplNotFoundException>(
+        var ex = await Assert.ThrowsAsync<NotFoundException>(
             () => ApiExceptionMapper.ExecuteAsync(() => throw original));
 
         Assert.Same(original, ex);
     }
 
     [Fact]
-    public async Task Void_FormatException_ThrowsSmplValidationException()
+    public async Task Void_FormatException_ThrowsValidationException()
     {
-        var ex = await Assert.ThrowsAsync<SmplValidationException>(
+        var ex = await Assert.ThrowsAsync<ValidationException>(
             () => ApiExceptionMapper.ExecuteAsync(
                 () => throw new FormatException("Bad GUID")));
 
@@ -109,9 +109,9 @@ public class ApiExceptionMapperTests
     }
 
     [Fact]
-    public async Task Void_HttpRequestException_ThrowsSmplConnectionException()
+    public async Task Void_HttpRequestException_ThrowsConnectionException()
     {
-        var ex = await Assert.ThrowsAsync<SmplConnectionException>(
+        var ex = await Assert.ThrowsAsync<ConnectionException>(
             () => ApiExceptionMapper.ExecuteAsync(
                 () => throw new HttpRequestException("connection refused")));
 
@@ -120,9 +120,9 @@ public class ApiExceptionMapperTests
     }
 
     [Fact]
-    public async Task Generic_HttpRequestException_ThrowsSmplConnectionException()
+    public async Task Generic_HttpRequestException_ThrowsConnectionException()
     {
-        var ex = await Assert.ThrowsAsync<SmplConnectionException>(
+        var ex = await Assert.ThrowsAsync<ConnectionException>(
             () => ApiExceptionMapper.ExecuteAsync<int>(
                 () => throw new HttpRequestException("nodename nor servname provided, or not known (config.localhost:80)")));
 
@@ -131,9 +131,9 @@ public class ApiExceptionMapperTests
     }
 
     [Fact]
-    public async Task Void_TimeoutException_ThrowsSmplTimeoutException()
+    public async Task Void_TimeoutException_ThrowsTimeoutException()
     {
-        var ex = await Assert.ThrowsAsync<SmplTimeoutException>(
+        var ex = await Assert.ThrowsAsync<Smplkit.Errors.TimeoutException>(
             () => ApiExceptionMapper.ExecuteAsync(
                 () => throw new TaskCanceledException("timeout", null, CancellationToken.None)));
 
@@ -148,9 +148,9 @@ public class ApiExceptionMapperTests
     }
 
     [Fact]
-    public async Task Void_ErrorApiException_ThrowsSmplException()
+    public async Task Void_ErrorApiException_ThrowsSmplkitException()
     {
-        var ex = await Assert.ThrowsAsync<SmplNotFoundException>(
+        var ex = await Assert.ThrowsAsync<NotFoundException>(
             () => ApiExceptionMapper.ExecuteAsync(
                 () => throw new FakeApiException(404, """{"errors":[{"detail":"missing"}]}""")));
 

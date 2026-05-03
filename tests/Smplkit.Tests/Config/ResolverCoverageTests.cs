@@ -32,7 +32,7 @@ public class ResolverCoverageTests
         var httpClient = new HttpClient(handler);
         var smplClient = new SmplClient(TestData.DefaultOptions(), httpClient);
 
-        var config = smplClient.Config.New(key, name, description, parent);
+        var config = smplClient.Manage.Config.New(key, name, description, parent);
         config.Items = items;
         config.Environments = environments;
         config.Id = id;

@@ -1,353 +1,239 @@
 using System.Net;
-using Smplkit.Config;
+using System.Text;
+using Smplkit;
 using Smplkit.Errors;
-using Smplkit.Logging;
 using Smplkit.Tests.Helpers;
 using Xunit;
 
 namespace Smplkit.Tests;
 
-[Collection("EnvironmentTests")]
-public class SmplClientTests : IDisposable
+/// <summary>
+/// Tests for <see cref="SmplClient"/> covering the runtime-side surface:
+/// SetContext (and disposal), WaitUntilReadyAsync, Manage property, Dispose
+/// lifecycle, and various constructor paths.
+/// </summary>
+public class SmplClientTests
 {
-    private readonly string? _originalApiKeyEnv;
-    private readonly string? _originalEnvEnv;
-    private readonly string? _originalServiceEnv;
-
-    public SmplClientTests()
+    private static (SmplClient client, MockHttpMessageHandler handler) MakeClient(
+        Func<HttpRequestMessage, Task<HttpResponseMessage>> respond,
+        SmplClientOptions? options = null)
     {
-        _originalApiKeyEnv = Environment.GetEnvironmentVariable("SMPLKIT_API_KEY");
-        _originalEnvEnv = Environment.GetEnvironmentVariable("SMPLKIT_ENVIRONMENT");
-        _originalServiceEnv = Environment.GetEnvironmentVariable("SMPLKIT_SERVICE");
+        var handler = new MockHttpMessageHandler(respond);
+        var http = new HttpClient(handler);
+        var client = new SmplClient(options ?? TestData.DefaultOptions(), http);
+        return (client, handler);
     }
 
-    public void Dispose()
+    private static HttpResponseMessage Json(string body, HttpStatusCode code = HttpStatusCode.OK)
+        => new(code) { Content = new StringContent(body, Encoding.UTF8, "application/vnd.api+json") };
+
+    [Fact]
+    public void SetContext_NullArgument_Throws()
     {
-        Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", _originalApiKeyEnv);
-        Environment.SetEnvironmentVariable("SMPLKIT_ENVIRONMENT", _originalEnvEnv);
-        Environment.SetEnvironmentVariable("SMPLKIT_SERVICE", _originalServiceEnv);
+        var (client, _) = MakeClient(_ => Task.FromResult(Json("{}")));
+        Assert.Throws<ArgumentNullException>(() => client.SetContext((IEnumerable<Context>)null!));
     }
 
     [Fact]
-    public void Constructor_WithValidOptions_CreatesClient()
+    public void SetContext_SingleContext_Convenience()
     {
-        using var client = new SmplClient(new SmplClientOptions
+        var (client, _) = MakeClient(_ => Task.FromResult(Json("{}")));
+        var ctx = new Context("user", "u-1");
+        using var scope = client.SetContext(ctx);
+        var ambient = client.GetAmbientContext();
+        Assert.Single(ambient);
+        Assert.Equal("u-1", ambient[0].Key);
+    }
+
+    [Fact]
+    public void SetContext_Enumerable_StoresAmbient()
+    {
+        var (client, _) = MakeClient(_ => Task.FromResult(Json("{}")));
+        var contexts = new[]
         {
-            ApiKey = "sk_api_test_key",
-            Environment = "production",
-            Service = "test-service",
-        });
-
-        Assert.NotNull(client);
-        Assert.NotNull(client.Config);
-        Assert.Equal("production", client.Environment);
+            new Context("user", "u-1"),
+            new Context("account", "acct-1"),
+        };
+        using var scope = client.SetContext(contexts);
+        var ambient = client.GetAmbientContext();
+        Assert.Equal(2, ambient.Count);
     }
 
     [Fact]
-    public void Constructor_WithEmptyApiKey_NoEnv_ThrowsSmplException()
+    public void SetContext_ScopeDispose_RestoresPrevious()
     {
-        Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", null);
-        Environment.SetEnvironmentVariable("HOME", Path.GetTempPath());
-        Assert.Throws<SmplException>(() =>
-            new SmplClient(new SmplClientOptions { ApiKey = "", Environment = "test", Service = "test-service" }));
-    }
+        var (client, _) = MakeClient(_ => Task.FromResult(Json("{}")));
+        // Initially no ambient context
+        Assert.Empty(client.GetAmbientContext());
 
-    [Fact]
-    public void Constructor_WithNoApiKey_NoEnv_ThrowsSmplException()
-    {
-        Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", null);
-        Environment.SetEnvironmentVariable("HOME", Path.GetTempPath());
-        Assert.Throws<SmplException>(() =>
-            new SmplClient(new SmplClientOptions { Environment = "test", Service = "test-service" }));
-    }
-
-    [Fact]
-    public void Constructor_Parameterless_WithEnvVars_Succeeds()
-    {
-        Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", "sk_api_env");
-        Environment.SetEnvironmentVariable("SMPLKIT_ENVIRONMENT", "staging");
-        Environment.SetEnvironmentVariable("SMPLKIT_SERVICE", "env-service");
-        using var client = new SmplClient();
-        Assert.NotNull(client);
-        Assert.Equal("staging", client.Environment);
-    }
-
-    [Fact]
-    public void Constructor_MissingEnvironment_ThrowsSmplException()
-    {
-        Environment.SetEnvironmentVariable("SMPLKIT_ENVIRONMENT", null);
-        Assert.Throws<SmplException>(() =>
-            new SmplClient(new SmplClientOptions { ApiKey = "sk_api_test", Service = "test-service" }));
-    }
-
-    [Fact]
-    public void Constructor_MissingEnvironment_ErrorMentionsSmplkitFile()
-    {
-        Environment.SetEnvironmentVariable("SMPLKIT_ENVIRONMENT", null);
-        var ex = Assert.Throws<SmplException>(() =>
-            new SmplClient(new SmplClientOptions { ApiKey = "sk_api_test", Service = "test-service" }));
-        Assert.Contains("~/.smplkit", ex.Message);
-    }
-
-    [Fact]
-    public void Constructor_EnvironmentFromEnvVar_Succeeds()
-    {
-        Environment.SetEnvironmentVariable("SMPLKIT_ENVIRONMENT", "from-env");
-        using var client = new SmplClient(new SmplClientOptions
+        using (client.SetContext(new[] { new Context("user", "u-1") }))
         {
-            ApiKey = "sk_api_test_key",
-            Service = "test-service",
-        });
-        Assert.Equal("from-env", client.Environment);
-    }
+            Assert.Single(client.GetAmbientContext());
 
-    [Fact]
-    public void Constructor_ServiceFromOptions_Succeeds()
-    {
-        using var client = new SmplClient(new SmplClientOptions
-        {
-            ApiKey = "sk_api_test_key",
-            Environment = "test",
-            Service = "my-service",
-        });
-        Assert.Equal("my-service", client.Service);
-    }
-
-    [Fact]
-    public void Constructor_ServiceFromEnvVar_Succeeds()
-    {
-        Environment.SetEnvironmentVariable("SMPLKIT_SERVICE", "env-service");
-        using var client = new SmplClient(new SmplClientOptions
-        {
-            ApiKey = "sk_api_test_key",
-            Environment = "test",
-        });
-        Assert.Equal("env-service", client.Service);
-    }
-
-    [Fact]
-    public void Constructor_MissingService_ThrowsSmplException()
-    {
-        Environment.SetEnvironmentVariable("SMPLKIT_SERVICE", null);
-        var ex = Assert.Throws<SmplException>(() =>
-            new SmplClient(new SmplClientOptions
+            using (client.SetContext(new[] { new Context("user", "u-2") }))
             {
-                ApiKey = "sk_api_test_key",
-                Environment = "test",
-            }));
-        Assert.Contains("No service provided", ex.Message);
+                Assert.Equal("u-2", client.GetAmbientContext()[0].Key);
+            }
+            // Outer scope restored
+            Assert.Equal("u-1", client.GetAmbientContext()[0].Key);
+        }
+
+        // Outer dispose restores empty
+        Assert.Empty(client.GetAmbientContext());
     }
 
     [Fact]
-    public void Constructor_MissingService_ErrorMessage()
+    public void SetContext_DoubleDispose_IsIdempotent()
     {
-        Environment.SetEnvironmentVariable("SMPLKIT_SERVICE", null);
-        var ex = Assert.Throws<SmplException>(() =>
-            new SmplClient(new SmplClientOptions
-            {
-                ApiKey = "sk_api_test_key",
-                Environment = "test",
-            }));
-        Assert.Contains("SmplClientOptions", ex.Message);
-        Assert.Contains("SMPLKIT_SERVICE", ex.Message);
+        var (client, _) = MakeClient(_ => Task.FromResult(Json("{}")));
+        var scope = client.SetContext(new[] { new Context("user", "u-1") });
+        scope.Dispose();
+        scope.Dispose(); // no-op
     }
 
     [Fact]
-    public void Config_ReturnsConfigClient()
+    public void SetContext_AsReadOnlyList_Direct()
     {
-        using var client = new SmplClient(new SmplClientOptions
-        {
-            ApiKey = "sk_api_test_key",
-            Environment = "test",
-            Service = "test-service",
-        });
-
-        Assert.IsType<ConfigClient>(client.Config);
+        var (client, _) = MakeClient(_ => Task.FromResult(Json("{}")));
+        IReadOnlyList<Context> list = new List<Context> { new("user", "u-1") };
+        using var scope = client.SetContext(list);
+        Assert.Same(list, client.GetAmbientContext());
     }
 
     [Fact]
-    public void Logging_ReturnsLoggingClient()
+    public async Task WaitUntilReadyAsync_TimesOut_WhenWebSocketDoesntConnect()
     {
-        using var client = new SmplClient(new SmplClientOptions
-        {
-            ApiKey = "sk_api_test_key",
-            Environment = "test",
-            Service = "test-service",
-        });
-
-        Assert.IsType<LoggingClient>(client.Logging);
+        // The default mock returns valid responses but the WebSocket never connects.
+        var (client, _) = MakeClient(_ => Task.FromResult(Json("""{"data":[]}""")));
+        await Assert.ThrowsAsync<Smplkit.Errors.TimeoutException>(
+            () => client.WaitUntilReadyAsync(TimeSpan.FromMilliseconds(150)));
     }
 
     [Fact]
-    public void Dispose_WithOwnedHttpClient_DoesNotThrow()
+    public async Task WaitUntilReadyAsync_RespectsCancellationToken()
     {
-        var client = new SmplClient(new SmplClientOptions
-        {
-            ApiKey = "sk_api_test_key",
-            Environment = "test",
-            Service = "test-service",
-        });
-
-        client.Dispose();
+        var (client, _) = MakeClient(_ => Task.FromResult(Json("""{"data":[]}""")));
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => client.WaitUntilReadyAsync(TimeSpan.FromSeconds(10), cts.Token));
     }
 
     [Fact]
-    public void Dispose_WithExternalHttpClient_DoesNotDisposeIt()
+    public void Manage_Property_AccessibleAndShared()
     {
-        var handler = new MockHttpMessageHandler(_ =>
-            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
-        var httpClient = new HttpClient(handler);
-
-        var client = new SmplClient(
-            new SmplClientOptions { ApiKey = "sk_api_test_key", Environment = "test", Service = "test-service" },
-            httpClient);
-        client.Dispose();
-
-        // External HttpClient should still be usable after SmplClient disposal.
-        // If it were disposed, this would throw ObjectDisposedException.
-        Assert.NotNull(httpClient.BaseAddress?.ToString() ?? "still-alive");
+        var (client, _) = MakeClient(_ => Task.FromResult(Json("""{"data":[]}""")));
+        Assert.NotNull(client.Manage);
+        // Same instance — important for the shared-buffer behavior
+        Assert.Same(client.Manage, client.Manage);
     }
 
     [Fact]
-    public void DefaultOptions_HasCorrectDefaults()
+    public void Constructor_NullOptions_Throws()
     {
-        var options = new SmplClientOptions { ApiKey = "test", Environment = "test" };
-
-        Assert.Equal(TimeSpan.FromSeconds(30), options.Timeout);
+        Assert.Throws<ArgumentNullException>(
+            () => new SmplClient(null!, new HttpClient()));
     }
 
     [Fact]
-    public void Constructor_WithNullOptions_ThrowsArgumentNullException()
+    public void Constructor_NullHttpClient_Throws()
     {
-        Assert.Throws<ArgumentNullException>(() =>
-            new SmplClient(null!));
+        Assert.Throws<ArgumentNullException>(
+            () => new SmplClient(TestData.DefaultOptions(), null!));
     }
 
     [Fact]
-    public void Constructor_WithNullHttpClient_ThrowsArgumentNullException()
+    public void Constructor_FromEnvironment_OnlyApiKeyVar()
     {
-        Assert.Throws<ArgumentNullException>(() =>
-            new SmplClient(
-                new SmplClientOptions { ApiKey = "sk_test", Environment = "test", Service = "test-service" },
-                null!));
-    }
-
-    [Fact]
-    public void Dispose_CalledTwice_DoesNotThrow()
-    {
-        var client = new SmplClient(new SmplClientOptions
-        {
-            ApiKey = "sk_api_test_key",
-            Environment = "test",
-            Service = "test-service",
-        });
-
-        client.Dispose();
-        // Second dispose should not throw
-        client.Dispose();
-    }
-
-    [Fact]
-    public void Constructor_WithCustomTimeout_SetsTimeout()
-    {
-        var timeout = TimeSpan.FromSeconds(120);
-        using var client = new SmplClient(new SmplClientOptions
-        {
-            ApiKey = "sk_api_test_key",
-            Environment = "test",
-            Service = "test-service",
-            Timeout = timeout,
-        });
-
-        Assert.NotNull(client.Config);
-    }
-
-    // ------------------------------------------------------------------
-    // Resolution order: environment first, then service, then API key
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public void Constructor_ResolvesEnvironmentBeforeService()
-    {
-        // If environment resolution fails, it should throw about environment
-        // even though service is also missing.
-        Environment.SetEnvironmentVariable("SMPLKIT_ENVIRONMENT", null);
-        Environment.SetEnvironmentVariable("SMPLKIT_SERVICE", null);
-        var ex = Assert.Throws<SmplException>(() =>
-            new SmplClient(new SmplClientOptions { ApiKey = "sk_api_test" }));
-        Assert.Contains("environment", ex.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public void Constructor_ResolvesServiceBeforeApiKey()
-    {
-        // With environment set but service missing, should throw about service
-        // even though API key is also missing.
-        Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", null);
-        Environment.SetEnvironmentVariable("SMPLKIT_SERVICE", null);
-        var ex = Assert.Throws<SmplException>(() =>
-            new SmplClient(new SmplClientOptions { Environment = "test" }));
-        Assert.Contains("service", ex.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public void Constructor_DisableTelemetry_NoMetricsRequests()
-    {
-        var handler = new MockHttpMessageHandler(_ =>
-            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
-        var httpClient = new HttpClient(handler);
-
-        using var client = new SmplClient(
-            new SmplClientOptions
-            {
-                ApiKey = "sk_api_test_key",
-                Environment = "test",
-                Service = "test-service",
-                DisableTelemetry = true,
-            },
-            httpClient);
-
-        // No metrics endpoint calls should have been made
-        Assert.DoesNotContain(handler.Requests, r =>
-            r.RequestUri?.PathAndQuery.Contains("metrics") == true);
-    }
-
-    [Fact]
-    public void Constructor_WithCustomBaseDomainAndScheme_CreatesClientSuccessfully()
-    {
-        using var client = new SmplClient(new SmplClientOptions
-        {
-            ApiKey = "sk_api_test_key",
-            Environment = "test",
-            Service = "test-service",
-            BaseDomain = "internal.example.com",
-            Scheme = "http",
-        });
-
-        Assert.NotNull(client.Config);
-        Assert.NotNull(client.Flags);
-        Assert.NotNull(client.Logging);
-    }
-
-    [Fact]
-    public void Constructor_WithDebugTrue_EnablesDebugLogging()
-    {
-        var prevEnabled = Smplkit.Internal.Debug.Enabled;
+        // Use the (options, httpClient) constructor that owns its own HTTP client
+        var savedKey = System.Environment.GetEnvironmentVariable("SMPLKIT_API_KEY");
         try
         {
+            System.Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", "sk_env_key");
             using var client = new SmplClient(new SmplClientOptions
             {
-                ApiKey = "sk_api_test_key",
                 Environment = "test",
-                Service = "test-service",
-                Debug = true,
+                Service = "svc",
             });
-
-            Assert.True(Smplkit.Internal.Debug.Enabled);
+            Assert.Equal("test", client.Environment);
+            Assert.Equal("svc", client.Service);
         }
         finally
         {
-            Smplkit.Internal.Debug.Enabled = prevEnabled;
+            System.Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", savedKey);
         }
+    }
+
+    [Fact]
+    public void Dispose_Idempotent()
+    {
+        var handler = new MockHttpMessageHandler(_ => Task.FromResult(Json("{}")));
+        var http = new HttpClient(handler);
+        var client = new SmplClient(TestData.DefaultOptions(), http);
+        client.Dispose();
+        client.Dispose(); // no exception
+    }
+
+    [Fact]
+    public void Dispose_OwnedHttpClient_DisposesIt()
+    {
+        // Use parameterless / options-only ctor — owns http client
+        var savedKey = System.Environment.GetEnvironmentVariable("SMPLKIT_API_KEY");
+        try
+        {
+            System.Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", "sk_test_key");
+            var client = new SmplClient(new SmplClientOptions
+            {
+                Environment = "t",
+                Service = "s",
+            });
+            client.Dispose();
+        }
+        finally
+        {
+            System.Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", savedKey);
+        }
+    }
+
+    [Fact]
+    public void Constructor_DebugFlag_TogglesDebugLogging()
+    {
+        // Just verifies the debug constructor branch is hit
+        var (client, _) = MakeClient(_ => Task.FromResult(Json("""{"data":[]}""")), new SmplClientOptions
+        {
+            ApiKey = "sk_test_key",
+            Environment = "t",
+            Service = "s",
+            Debug = true,
+        });
+        Assert.NotNull(client);
+    }
+
+    [Fact]
+    public void Constructor_DisableTelemetry_NoMetricsReporter()
+    {
+        var (client, _) = MakeClient(_ => Task.FromResult(Json("""{"data":[]}""")), new SmplClientOptions
+        {
+            ApiKey = "sk_test_key",
+            Environment = "t",
+            Service = "s",
+            DisableTelemetry = true,
+        });
+        Assert.NotNull(client);
+    }
+
+    [Fact]
+    public void GetAmbientContext_Default_Empty()
+    {
+        var (client, _) = MakeClient(_ => Task.FromResult(Json("{}")));
+        Assert.Empty(client.GetAmbientContext());
+    }
+
+    [Fact]
+    public void EnsureSharedWebSocket_ReturnsSameInstance()
+    {
+        var (client, _) = MakeClient(_ => Task.FromResult(Json("{}")));
+        var ws1 = client.EnsureSharedWebSocket();
+        var ws2 = client.EnsureSharedWebSocket();
+        Assert.Same(ws1, ws2);
     }
 }

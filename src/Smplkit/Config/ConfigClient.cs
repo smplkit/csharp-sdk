@@ -37,112 +37,38 @@ public sealed class ConfigClient
         _ensureWs = ensureWs;
         _parent = parent;
         _metrics = metrics;
-        Management = new ConfigManagement(this);
-    }
-
-    /// <summary>
-    /// Provides management (CRUD) operations for configs: create, get, list, and delete.
-    /// </summary>
-    public ConfigManagement Management { get; }
-
-    // ------------------------------------------------------------------
-    // Management: factory (internal — public surface is via Management)
-    // ------------------------------------------------------------------
-
-    internal Config New(string id, string? name = null, string? description = null, string? parent = null)
-    {
-        return new Config(
-            client: this,
-            id: id,
-            name: name ?? Helpers.KeyToDisplayName(id),
-            description: description,
-            parent: parent,
-            items: new Dictionary<string, object?>(),
-            environments: new Dictionary<string, Dictionary<string, object?>>(),
-            createdAt: null,
-            updatedAt: null);
-    }
-
-    // ------------------------------------------------------------------
-    // Management: CRUD by id (internal — public surface is via Management)
-    // ------------------------------------------------------------------
-
-    internal async Task<Config> GetAsync(string id, CancellationToken ct = default)
-    {
-        var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genClient.Get_configAsync(id: id, cancellationToken: ct)).ConfigureAwait(false);
-
-        return MapResource(response.Data)
-            ?? throw new SmplNotFoundException($"Config with id '{id}' not found");
-    }
-
-    internal async Task<List<Config>> ListAsync(CancellationToken ct = default)
-    {
-        var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genClient.List_configsAsync(cancellationToken: ct)).ConfigureAwait(false);
-
-        if (response.Data is null)
-            return new List<Config>();
-
-        var results = new List<Config>(response.Data.Count);
-        foreach (var resource in response.Data)
-        {
-            var config = MapResource(resource);
-            if (config is not null)
-                results.Add(config);
-        }
-        return results;
-    }
-
-    internal async Task DeleteAsync(string id, CancellationToken ct = default)
-    {
-        await ApiExceptionMapper.ExecuteAsync(
-            () => _genClient.Delete_configAsync(id, ct)).ConfigureAwait(false);
-    }
-
-    /// <summary>Internal: save a config (create or update).</summary>
-    internal async Task<Config> SaveConfigInternalAsync(Config config, CancellationToken ct = default)
-    {
-        var body = BuildRequestBody(config);
-        if (config.CreatedAt is null)
-        {
-            // Create (unsaved config — CreatedAt is null until first server round-trip)
-            var response = await ApiExceptionMapper.ExecuteAsync(
-                () => _genClient.Create_configAsync(body, ct)).ConfigureAwait(false);
-            return MapResource(response.Data)
-                ?? throw new SmplValidationException("Failed to create config");
-        }
-        else
-        {
-            var configId = config.Id ?? throw new SmplValidationException("Cannot update a config without an id");
-            var response = await ApiExceptionMapper.ExecuteAsync(
-                () => _genClient.Update_configAsync(configId, body, ct)).ConfigureAwait(false);
-            return MapResource(response.Data)
-                ?? throw new SmplValidationException("Failed to update config");
-        }
     }
 
     // ------------------------------------------------------------------
     // Runtime: Get (resolved values)
+    //
+    // Wire CRUD code (factory, GetAsync, ListAsync, DeleteAsync, Save,
+    // request-body building, MapResource, ExtractRaw helpers) lives in
+    // Smplkit.Management.ConfigsClient. The runtime client routes its
+    // initial fetch / refresh / single-config refresh through the
+    // management plane via _parent.Manage.Config — there is no duplicated
+    // wire code here.
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Returns the resolved config values for the given id in the current environment.
+    /// Returns a <see cref="LiveConfigProxy"/> — a live, dict-like view of the
+    /// resolved config values for the given id. Always reflects the latest
+    /// server-pushed state; no <c>Subscribe</c> step is required.
     /// </summary>
     /// <param name="id">The config identifier.</param>
-    /// <returns>A dictionary of resolved key-value pairs.</returns>
-    /// <exception cref="SmplNotFoundException">If no config with the given id exists.</exception>
-    public Dictionary<string, object?> Get(string id)
+    /// <returns>A live, read-only proxy.</returns>
+    /// <exception cref="NotFoundException">If no config with the given id exists.</exception>
+    public LiveConfigProxy Get(string id)
     {
         EnsureInitialized();
 
-        if (!_configCache.TryGetValue(id, out var values))
-            throw new SmplNotFoundException($"Config with id '{id}' not found in cache.");
+        if (!_configCache.ContainsKey(id))
+            throw new NotFoundException($"Config with id '{id}' not found in cache.");
 
         _metrics?.Record("config.resolutions", unit: "resolutions",
             dimensions: new Dictionary<string, string> { ["config"] = id });
 
-        return new Dictionary<string, object?>(values);
+        return new LiveConfigProxy(this, id);
     }
 
     /// <summary>
@@ -152,14 +78,16 @@ public sealed class ConfigClient
     /// <typeparam name="T">The target type.</typeparam>
     /// <param name="id">The config identifier.</param>
     /// <returns>A deserialized instance of <typeparamref name="T"/>.</returns>
-    public T Get<T>(string id) where T : new()
-    {
-        var flat = Get(id);
-        var nested = ExpandDotNotation(flat);
-        var json = JsonSerializer.Serialize(nested, JsonOptions.Default);
-        return JsonSerializer.Deserialize<T>(json, JsonOptions.Default)
-            ?? throw new SmplException($"Failed to deserialize config '{id}' to {typeof(T).Name}");
-    }
+    public T Get<T>(string id) where T : new() => Get(id).Into<T>();
+
+    /// <summary>Internal: used by <see cref="LiveConfigProxy"/> to read cached values.</summary>
+    internal IReadOnlyDictionary<string, object?>? GetCachedValues(string id)
+        => _configCache.TryGetValue(id, out var values)
+            ? new Dictionary<string, object?>(values)
+            : null;
+
+    /// <summary>Internal: used by <see cref="LiveConfigProxy"/> to test cache without forcing init.</summary>
+    internal bool HasResolved(string id) => _runtimeConnected && _configCache.ContainsKey(id);
 
     // ------------------------------------------------------------------
     // Runtime: lazy initialization
@@ -176,9 +104,9 @@ public sealed class ConfigClient
             if (_runtimeConnected) return;
 
             var environment = _parent?.Environment
-                ?? throw new SmplException("No environment set.");
+                ?? throw new SmplkitException("No environment set.");
 
-            var allConfigs = ListAsync().GetAwaiter().GetResult();
+            var allConfigs = (_parent?.Manage.Config.ListAsync() ?? Task.FromResult(new List<Config>())).GetAwaiter().GetResult();
             RebuildCache(allConfigs, environment);
             _runtimeConnected = true;
 
@@ -207,9 +135,11 @@ public sealed class ConfigClient
     public async Task RefreshAsync(CancellationToken ct = default)
     {
         var environment = _parent?.Environment
-            ?? throw new SmplException("No environment set.");
+            ?? throw new SmplkitException("No environment set.");
 
-        var allConfigs = await ListAsync(ct).ConfigureAwait(false);
+        var allConfigs = _parent?.Manage.Config is { } mgmtConfig
+            ? await mgmtConfig.ListAsync(ct).ConfigureAwait(false)
+            : new List<Config>();
 
         var oldCache = _configCache;
         RebuildCache(allConfigs, environment);
@@ -306,8 +236,9 @@ public sealed class ConfigClient
 
         try
         {
-            // Scoped fetch: GET just the single changed config
-            var config = GetAsync(configId).GetAwaiter().GetResult();
+            // Scoped fetch: GET just the single changed config (via management plane)
+            if (_parent?.Manage.Config is not { } mgmtConfig) return;
+            var config = mgmtConfig.GetAsync(configId).GetAwaiter().GetResult();
 
             var oldCache = new Dictionary<string, Dictionary<string, object?>>(_configCache);
 
@@ -351,7 +282,7 @@ public sealed class ConfigClient
 
         try
         {
-            var allConfigs = ListAsync().GetAwaiter().GetResult();
+            var allConfigs = (_parent?.Manage.Config.ListAsync() ?? Task.FromResult(new List<Config>())).GetAwaiter().GetResult();
             var oldCache = _configCache;
             RebuildCache(allConfigs, environment);
             DiffAndFire(oldCache, _configCache, "websocket");
@@ -413,150 +344,4 @@ public sealed class ConfigClient
         }
     }
 
-    // ------------------------------------------------------------------
-    // Private helpers
-    // ------------------------------------------------------------------
-
-    private static Dictionary<string, object?> ExpandDotNotation(Dictionary<string, object?> flat)
-    {
-        var nested = new Dictionary<string, object?>();
-        foreach (var (key, value) in flat)
-        {
-            var parts = key.Split('.');
-            var current = nested;
-            for (int i = 0; i < parts.Length - 1; i++)
-            {
-                if (!current.TryGetValue(parts[i], out var next) || next is not Dictionary<string, object?> nextDict)
-                {
-                    nextDict = new Dictionary<string, object?>();
-                    current[parts[i]] = nextDict;
-                }
-                current = nextDict;
-            }
-            current[parts[^1]] = value;
-        }
-        return nested;
-    }
-
-    private static GenConfig.ConfigResponse BuildRequestBody(Config config) =>
-        new()
-        {
-            Data = new GenConfig.ConfigResource
-            {
-                Type = "config",
-                Id = config.Id,
-                Attributes = new GenConfig.Config
-                {
-                    Name = config.Name,
-                    Description = config.Description,
-                    Parent = config.Parent,
-                    Items = WrapItemsForRequest(config.Items),
-                    Environments = WrapEnvsForRequest(config.Environments),
-                },
-            },
-        };
-
-    private static IDictionary<string, GenConfig.ConfigItemDefinition>? WrapItemsForRequest(
-        Dictionary<string, object?>? items)
-    {
-        if (items is null || items.Count == 0) return null;
-
-        var result = new Dictionary<string, GenConfig.ConfigItemDefinition>(items.Count);
-        foreach (var (key, value) in items)
-        {
-            result[key] = new GenConfig.ConfigItemDefinition
-            {
-                Value = value!,
-                Type = InferType(value),
-            };
-        }
-        return result;
-    }
-
-    private static IDictionary<string, GenConfig.EnvironmentOverride>? WrapEnvsForRequest(
-        Dictionary<string, Dictionary<string, object?>>? environments)
-    {
-        if (environments is null || environments.Count == 0) return null;
-
-        var result = new Dictionary<string, GenConfig.EnvironmentOverride>(environments.Count);
-        foreach (var (envName, envData) in environments)
-        {
-            var values = new Dictionary<string, GenConfig.ConfigItemOverride>(envData.Count);
-            foreach (var (key, value) in envData)
-            {
-                values[key] = new GenConfig.ConfigItemOverride { Value = value! };
-            }
-            result[envName] = new GenConfig.EnvironmentOverride { Values = values };
-        }
-        return result;
-    }
-
-    private static GenConfig.ConfigItemDefinitionType? InferType(object? value) => value switch
-    {
-        string => GenConfig.ConfigItemDefinitionType.STRING,
-        bool => GenConfig.ConfigItemDefinitionType.BOOLEAN,
-        int or long or float or double or decimal => GenConfig.ConfigItemDefinitionType.NUMBER,
-        _ => null,
-    };
-
-    /// <summary>
-    /// Maps a response resource to a <see cref="Config"/>.
-    /// </summary>
-    private Config? MapResource(GenConfig.ConfigResource? resource)
-    {
-        if (resource?.Attributes is null)
-            return null;
-
-        var attrs = resource.Attributes;
-        var items = ExtractRawItems(attrs.Items);
-        var environments = ExtractRawEnvironments(attrs.Environments);
-
-        return new Config(
-            client: this,
-            id: resource.Id ?? string.Empty,
-            name: attrs.Name ?? string.Empty,
-            description: attrs.Description,
-            parent: attrs.Parent,
-            items: items,
-            environments: environments,
-            createdAt: attrs.Created_at?.DateTime,
-            updatedAt: attrs.Updated_at?.DateTime
-        );
-    }
-
-    private static Dictionary<string, object?> ExtractRawItems(
-        IDictionary<string, GenConfig.ConfigItemDefinition>? items)
-    {
-        if (items is null)
-            return new Dictionary<string, object?>();
-
-        var result = new Dictionary<string, object?>(items.Count);
-        foreach (var (key, definition) in items)
-        {
-            result[key] = Resolver.Normalize(definition.Value);
-        }
-        return result;
-    }
-
-    private static Dictionary<string, Dictionary<string, object?>> ExtractRawEnvironments(
-        IDictionary<string, GenConfig.EnvironmentOverride>? environments)
-    {
-        if (environments is null)
-            return new Dictionary<string, Dictionary<string, object?>>();
-
-        var result = new Dictionary<string, Dictionary<string, object?>>(environments.Count);
-        foreach (var (envName, envOverride) in environments)
-        {
-            var envValues = new Dictionary<string, object?>();
-            if (envOverride.Values is not null)
-            {
-                foreach (var (key, itemOverride) in envOverride.Values)
-                {
-                    envValues[key] = Resolver.Normalize(itemOverride.Value);
-                }
-            }
-            result[envName] = envValues;
-        }
-        return result;
-    }
 }

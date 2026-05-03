@@ -1,7 +1,8 @@
-.PHONY: install generate \
+.PHONY: install generate test \
 	config_runtime_showcase config_management_showcase \
 	flags_runtime_showcase flags_management_showcase \
-	logging_runtime_showcase logging_management_showcase
+	logging_runtime_showcase logging_management_showcase \
+	all_showcases
 
 install:
 	dotnet restore
@@ -10,20 +11,27 @@ install:
 generate:
 	./scripts/generate.sh
 
-config_runtime_showcase:
-	dotnet run --project examples/ConfigShowcase
+test:
+	dotnet test --collect:"XPlat Code Coverage"
 
 config_management_showcase:
-	dotnet run --project examples/ConfigShowcase -- management
+	dotnet run --project examples/ConfigManagementShowcase
 
-flags_runtime_showcase:
-	dotnet run --project examples/FlagsShowcase
+config_runtime_showcase:
+	dotnet run --project examples/ConfigRuntimeShowcase
 
 flags_management_showcase:
-	dotnet run --project examples/FlagsShowcase -- management
+	dotnet run --project examples/FlagsManagementShowcase
 
-logging_runtime_showcase:
-	dotnet run --project examples/LoggingShowcase
+flags_runtime_showcase:
+	dotnet run --project examples/FlagsRuntimeShowcase
 
 logging_management_showcase:
-	dotnet run --project examples/LoggingShowcase -- management
+	dotnet run --project examples/LoggingManagementShowcase
+
+logging_runtime_showcase:
+	dotnet run --project examples/LoggingRuntimeShowcase
+
+all_showcases: config_management_showcase config_runtime_showcase \
+	flags_management_showcase flags_runtime_showcase \
+	logging_management_showcase logging_runtime_showcase

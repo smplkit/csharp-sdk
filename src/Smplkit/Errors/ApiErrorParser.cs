@@ -13,18 +13,18 @@ internal static class ApiErrorParser
     /// </summary>
     /// <param name="statusCode">The HTTP status code.</param>
     /// <param name="body">The raw response body string.</param>
-    /// <returns>A typed <see cref="SmplException"/> subclass for the given status code.</returns>
-    internal static SmplException CreateException(int statusCode, string body)
+    /// <returns>A typed <see cref="SmplkitException"/> subclass for the given status code.</returns>
+    internal static SmplkitException CreateException(int statusCode, string body)
     {
         var errors = ParseErrors(body);
-        var message = SmplException.DeriveMessage(errors, statusCode);
+        var message = SmplkitException.DeriveMessage(errors, statusCode);
 
         return statusCode switch
         {
-            400 or 422 => new SmplValidationException(message, responseBody: body, statusCode: statusCode, errors: errors),
-            404 => new SmplNotFoundException(message, body, errors),
-            409 => new SmplConflictException(message, body, errors),
-            _ => new SmplException(message, statusCode: statusCode, responseBody: body, errors: errors),
+            400 or 422 => new ValidationException(message, responseBody: body, statusCode: statusCode, errors: errors),
+            404 => new NotFoundException(message, body, errors),
+            409 => new ConflictException(message, body, errors),
+            _ => new SmplkitException(message, statusCode: statusCode, responseBody: body, errors: errors),
         };
     }
 

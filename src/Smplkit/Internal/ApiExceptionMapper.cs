@@ -4,7 +4,7 @@ namespace Smplkit.Internal;
 
 /// <summary>
 /// Wraps generated client calls and maps NSwag <c>ApiException</c> and HTTP-layer
-/// exceptions to the SDK's typed <see cref="SmplException"/> hierarchy.
+/// exceptions to the SDK's typed <see cref="SmplkitException"/> hierarchy.
 /// </summary>
 internal static class ApiExceptionMapper
 {
@@ -17,17 +17,17 @@ internal static class ApiExceptionMapper
         {
             return await call().ConfigureAwait(false);
         }
-        catch (SmplException)
+        catch (SmplkitException)
         {
             throw;
         }
         catch (FormatException ex)
         {
-            throw new SmplValidationException($"Invalid identifier format{FormatHint(operationHint)}: {ex.Message}");
+            throw new ValidationException($"Invalid identifier format{FormatHint(operationHint)}: {ex.Message}");
         }
         catch (TaskCanceledException ex) when (!ex.CancellationToken.IsCancellationRequested)
         {
-            throw new SmplTimeoutException($"Request timed out{FormatHint(operationHint)}.", ex);
+            throw new Smplkit.Errors.TimeoutException($"Request timed out{FormatHint(operationHint)}.", ex);
         }
         catch (TaskCanceledException)
         {
@@ -35,7 +35,7 @@ internal static class ApiExceptionMapper
         }
         catch (HttpRequestException ex)
         {
-            throw new SmplConnectionException($"Connection failed{FormatHint(operationHint)}: {ex.Message}", ex);
+            throw new ConnectionException($"Connection failed{FormatHint(operationHint)}: {ex.Message}", ex);
         }
         catch (Exception ex) when (IsNSwagApiException(ex))
         {
@@ -55,17 +55,17 @@ internal static class ApiExceptionMapper
         {
             await call().ConfigureAwait(false);
         }
-        catch (SmplException)
+        catch (SmplkitException)
         {
             throw;
         }
         catch (FormatException ex)
         {
-            throw new SmplValidationException($"Invalid identifier format{FormatHint(operationHint)}: {ex.Message}");
+            throw new ValidationException($"Invalid identifier format{FormatHint(operationHint)}: {ex.Message}");
         }
         catch (TaskCanceledException ex) when (!ex.CancellationToken.IsCancellationRequested)
         {
-            throw new SmplTimeoutException($"Request timed out{FormatHint(operationHint)}.", ex);
+            throw new Smplkit.Errors.TimeoutException($"Request timed out{FormatHint(operationHint)}.", ex);
         }
         catch (TaskCanceledException)
         {
@@ -73,7 +73,7 @@ internal static class ApiExceptionMapper
         }
         catch (HttpRequestException ex)
         {
-            throw new SmplConnectionException($"Connection failed{FormatHint(operationHint)}: {ex.Message}", ex);
+            throw new ConnectionException($"Connection failed{FormatHint(operationHint)}: {ex.Message}", ex);
         }
         catch (Exception ex) when (IsNSwagApiException(ex))
         {
@@ -107,7 +107,7 @@ internal static class ApiExceptionMapper
     /// Extracts <c>Response</c> from an NSwag <c>ApiException</c> and
     /// delegates to <see cref="ApiErrorParser.CreateException"/>.
     /// </summary>
-    private static SmplException MapApiException(Exception ex, int statusCode, string operationHint)
+    private static SmplkitException MapApiException(Exception ex, int statusCode, string operationHint)
     {
         var response = ex.GetType().GetProperty("Response")!.GetValue(ex) as string ?? string.Empty;
         return ApiErrorParser.CreateException(statusCode, response);
