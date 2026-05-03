@@ -5,6 +5,11 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      manual_version:
+        description: "Force version"
+        required: false
+        default: ""
 
 jobs:
   lint:
@@ -101,6 +106,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node
+        if: github.event.inputs.manual_version == ''
         uses: actions/setup-node@v6
         with:
           node-version-file: ".nvmrc"
@@ -110,24 +116,51 @@ jobs:
         run: echo "tag=$(git describe --tags --abbrev=0 2>/dev/null || echo '')" >> "$GITHUB_OUTPUT"
 
       - name: Run semantic-release
+        if: github.event.inputs.manual_version == ''
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx --yes semantic-release
+
+      - name: Manual tag and release (override path)
+        if: github.event.inputs.manual_version != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ github.event.inputs.manual_version }}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::manual_version '${VERSION}' is not a valid semver string."
+            exit 1
+          fi
+          if gh api "repos/${GITHUB_REPOSITORY}/git/refs/tags/v${VERSION}" >/dev/null 2>&1; then
+            echo "::error::Tag v${VERSION} already exists. Refusing to overwrite."
+            exit 1
+          fi
+          gh release create "v${VERSION}" \
+            --target "${GITHUB_SHA}" \
+            --title "v${VERSION}" \
+            --notes "Manual release v${VERSION} dispatched via workflow_dispatch."
+          echo "Created release v${VERSION} at ${GITHUB_SHA}"
 
       - name: Check if a new release was created
         id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          LATEST_TAG=$(gh api repos/${{ github.repository }}/tags --jq '.[0].name' 2>/dev/null || echo '')
-          if [ "$LATEST_TAG" != "${{ steps.before.outputs.tag }}" ] && [ -n "$LATEST_TAG" ]; then
-            VERSION="${LATEST_TAG#v}"
+          if [ -n "${{ github.event.inputs.manual_version }}" ]; then
             echo "released=true" >> "$GITHUB_OUTPUT"
-            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-            echo "New release detected: ${LATEST_TAG}"
+            echo "version=${{ github.event.inputs.manual_version }}" >> "$GITHUB_OUTPUT"
+            echo "Manual override release: v${{ github.event.inputs.manual_version }}"
           else
-            echo "released=false" >> "$GITHUB_OUTPUT"
-            echo "No new release."
+            LATEST_TAG=$(gh api repos/${{ github.repository }}/tags --jq '.[0].name' 2>/dev/null || echo '')
+            if [ "$LATEST_TAG" != "${{ steps.before.outputs.tag }}" ] && [ -n "$LATEST_TAG" ]; then
+              VERSION="${LATEST_TAG#v}"
+              echo "released=true" >> "$GITHUB_OUTPUT"
+              echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+              echo "New release detected: ${LATEST_TAG}"
+            else
+              echo "released=false" >> "$GITHUB_OUTPUT"
+              echo "No new release."
+            fi
           fi
 
       - name: Setup .NET
