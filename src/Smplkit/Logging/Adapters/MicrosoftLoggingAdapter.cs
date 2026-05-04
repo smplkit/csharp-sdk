@@ -1,57 +1,75 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using MsLogLevel = Microsoft.Extensions.Logging.LogLevel;
 
 namespace Smplkit.Logging.Adapters;
 
 /// <summary>
 /// Logging adapter for Microsoft.Extensions.Logging.
-///
-/// Usage:
-/// <code>
-/// var adapter = new MicrosoftLoggingAdapter(innerFactory);
-/// // Use adapter.Factory instead of innerFactory to create loggers
-/// </code>
 /// </summary>
-public sealed class MicrosoftLoggingAdapter : ILoggingAdapter, IDisposable
+/// <remarks>
+/// <para>Sits in the host's logging pipeline as an <see cref="ILoggerProvider"/>
+/// (so every <c>ILoggerFactory.CreateLogger(name)</c> call is observable for
+/// auto-discovery) and as <see cref="IConfigureOptions{LoggerFilterOptions}"/> +
+/// <see cref="IOptionsChangeTokenSource{LoggerFilterOptions}"/> (so server-managed
+/// log levels propagate through the host's filter pipeline and gate output to
+/// every other registered provider — Console, Debug, Serilog-via-MEL, etc.).</para>
+/// <para>Wire it via <c>AddSmplkit</c>:</para>
+/// <code>
+/// services.AddLogging(b => b.AddSmplkit(client));
+/// </code>
+/// <para>Direct construction is supported for tests; production code should use
+/// the extension so all four DI registrations (provider, configure-options,
+/// change-token-source, smplkit adapter) happen in one call.</para>
+/// </remarks>
+public sealed class MicrosoftLoggingAdapter
+    : ILoggingAdapter, ILoggerProvider, IConfigureOptions<LoggerFilterOptions>, IOptionsChangeTokenSource<LoggerFilterOptions>
 {
-    private readonly ILoggerFactory _innerFactory;
-    private readonly Dictionary<string, TrackedLogger> _loggers = new();
+    private readonly HashSet<string> _knownCategories = new();
+    private readonly Dictionary<string, MsLogLevel> _appliedLevels = new();
     private readonly object _lock = new();
+    private CancellationTokenSource _trigger = new();
     private Action<string, LogLevel>? _hook;
-
-    /// <summary>
-    /// Initializes a new instance wrapping the given logger factory.
-    /// </summary>
-    /// <param name="innerFactory">The real <see cref="ILoggerFactory"/> to delegate to.</param>
-    public MicrosoftLoggingAdapter(ILoggerFactory innerFactory)
-    {
-        _innerFactory = innerFactory ?? throw new ArgumentNullException(nameof(innerFactory));
-        Factory = new TrackingLoggerFactory(this);
-    }
-
-    /// <summary>
-    /// Parameterless constructor. Creates a default logger factory internally.
-    /// </summary>
-    public MicrosoftLoggingAdapter()
-        : this(new LoggerFactory())
-    {
-    }
+    private bool _disposed;
 
     /// <inheritdoc />
     public string Name => "microsoft-logging";
 
+    // The change-token source applies to the default (unnamed) LoggerFilterOptions instance.
+    string IOptionsChangeTokenSource<LoggerFilterOptions>.Name => Options.DefaultName;
+
     /// <summary>
-    /// Gets the <see cref="ILoggerFactory"/> to use in your application.
+    /// Captures <paramref name="categoryName"/> for auto-discovery and returns
+    /// a no-op logger. Filtering is applied at the host level via the
+    /// <see cref="LoggerFilterOptions"/> rules emitted by <see cref="Configure"/>.
     /// </summary>
-    public ILoggerFactory Factory { get; }
+    public ILogger CreateLogger(string categoryName)
+    {
+        bool isNew;
+        lock (_lock)
+        {
+            isNew = _knownCategories.Add(categoryName);
+        }
+        if (isNew)
+            _hook?.Invoke(categoryName, LogLevel.Trace);
+        // Return our own no-op logger (NOT NullLogger.Instance — that's a
+        // sentinel some host configurations treat as "skip this provider",
+        // which would defeat our auto-discovery role). This logger reports
+        // IsEnabled=true so MEL's host-level filter rules govern; Log itself
+        // is a no-op because we are a level-controller, not a sink.
+        return PassThroughLogger.Instance;
+    }
 
     /// <inheritdoc />
     public IReadOnlyList<DiscoveredLogger> Discover()
     {
         lock (_lock)
         {
-            return _loggers.Values
-                .Select(t => new DiscoveredLogger(t.CategoryName, ToSmplLevel(t.MinLevel)))
+            return _knownCategories
+                .Select(c => new DiscoveredLogger(
+                    c,
+                    _appliedLevels.TryGetValue(c, out var l) ? ToSmplLevel(l) : LogLevel.Trace))
                 .ToList();
         }
     }
@@ -62,16 +80,10 @@ public sealed class MicrosoftLoggingAdapter : ILoggingAdapter, IDisposable
         var msLevel = ToMsLevel(level);
         lock (_lock)
         {
-            if (_loggers.TryGetValue(loggerName, out var tracked))
-            {
-                tracked.MinLevel = msLevel;
-            }
-            else
-            {
-                // Create a tracking entry even if the logger hasn't been created yet
-                _loggers[loggerName] = new TrackedLogger(loggerName, _innerFactory.CreateLogger(loggerName), msLevel);
-            }
+            _appliedLevels[loggerName] = msLevel;
+            _knownCategories.Add(loggerName);
         }
+        TriggerOptionsReload();
     }
 
     /// <inheritdoc />
@@ -86,41 +98,59 @@ public sealed class MicrosoftLoggingAdapter : ILoggingAdapter, IDisposable
         _hook = null;
     }
 
-    /// <summary>Disposes the inner factory if it is owned by this adapter.</summary>
-    public void Dispose()
+    /// <summary>
+    /// Adds a per-category filter rule for every logger whose level has been
+    /// applied. Categories observed via <see cref="CreateLogger"/> but not yet
+    /// assigned a managed level are NOT given a rule, so the host's existing
+    /// filter configuration applies to them unchanged.
+    /// </summary>
+    public void Configure(LoggerFilterOptions options)
     {
-        UninstallHook();
-        if (_innerFactory is IDisposable disposable)
-            disposable.Dispose();
-    }
-
-    internal ILogger GetOrCreateLogger(string categoryName)
-    {
-        TrackedLogger tracked;
-        bool isNew = false;
-
         lock (_lock)
         {
-            if (!_loggers.TryGetValue(categoryName, out tracked!))
+            foreach (var (category, msLevel) in _appliedLevels)
             {
-                var inner = _innerFactory.CreateLogger(categoryName);
-                tracked = new TrackedLogger(categoryName, inner, MsLogLevel.Trace);
-                _loggers[categoryName] = tracked;
-                isNew = true;
+                options.Rules.Add(new LoggerFilterRule(
+                    providerName: null,
+                    categoryName: category,
+                    logLevel: msLevel,
+                    filter: null));
             }
         }
-
-        if (isNew)
-        {
-            _hook?.Invoke(categoryName, ToSmplLevel(tracked.MinLevel));
-        }
-
-        return new LevelGatingLogger(tracked);
     }
 
-    // ------------------------------------------------------------------
-    // Level mapping
-    // ------------------------------------------------------------------
+    /// <inheritdoc />
+    public IChangeToken GetChangeToken()
+    {
+        lock (_lock)
+        {
+            return new CancellationChangeToken(_trigger.Token);
+        }
+    }
+
+    private void TriggerOptionsReload()
+    {
+        CancellationTokenSource old;
+        lock (_lock)
+        {
+            old = _trigger;
+            _trigger = new CancellationTokenSource();
+        }
+        old.Cancel();
+        old.Dispose();
+    }
+
+    /// <summary>Releases resources used by this adapter.</summary>
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        UninstallHook();
+        lock (_lock)
+        {
+            _trigger.Dispose();
+        }
+    }
 
     internal static MsLogLevel ToMsLevel(LogLevel level) => level switch
     {
@@ -146,70 +176,14 @@ public sealed class MicrosoftLoggingAdapter : ILoggingAdapter, IDisposable
         _ => LogLevel.Info,
     };
 
-    // ------------------------------------------------------------------
-    // Inner types
-    // ------------------------------------------------------------------
-
-    internal sealed class TrackedLogger
+    private sealed class PassThroughLogger : ILogger
     {
-        public string CategoryName { get; }
-        public ILogger Inner { get; }
-        public MsLogLevel MinLevel { get; set; }
-
-        public TrackedLogger(string categoryName, ILogger inner, MsLogLevel minLevel)
-        {
-            CategoryName = categoryName;
-            Inner = inner;
-            MinLevel = minLevel;
-        }
-    }
-
-    /// <summary>
-    /// An <see cref="ILogger"/> wrapper that applies dynamic level filtering.
-    /// </summary>
-    private sealed class LevelGatingLogger : ILogger
-    {
-        private readonly TrackedLogger _tracked;
-
-        public LevelGatingLogger(TrackedLogger tracked)
-        {
-            _tracked = tracked;
-        }
-
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull
-            => _tracked.Inner.BeginScope(state);
-
-        public bool IsEnabled(MsLogLevel logLevel)
-            => logLevel >= _tracked.MinLevel && _tracked.Inner.IsEnabled(logLevel);
-
+        public static readonly PassThroughLogger Instance = new();
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(MsLogLevel logLevel) => true;
         public void Log<TState>(MsLogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {
-            if (!IsEnabled(logLevel)) return;
-            _tracked.Inner.Log(logLevel, eventId, state, exception, formatter);
-        }
-    }
-
-    /// <summary>
-    /// An <see cref="ILoggerFactory"/> that enables dynamic level control for loggers.
-    /// </summary>
-    private sealed class TrackingLoggerFactory : ILoggerFactory
-    {
-        private readonly MicrosoftLoggingAdapter _adapter;
-
-        public TrackingLoggerFactory(MicrosoftLoggingAdapter adapter)
-        {
-            _adapter = adapter;
-        }
-
-        public ILogger CreateLogger(string categoryName)
-            => _adapter.GetOrCreateLogger(categoryName);
-
-        public void AddProvider(ILoggerProvider provider)
-            => _adapter._innerFactory.AddProvider(provider);
-
-        public void Dispose()
-        {
-            // The adapter owns disposal of the inner factory
+            // No-op — the smplkit adapter is a level controller, not an output sink.
         }
     }
 }

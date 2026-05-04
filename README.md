@@ -40,6 +40,7 @@ using var client = new SmplClient(new SmplClientOptions
 {
     ApiKey = "sk_api_...",
     Environment = "production",
+    Service = "my-service",
 });
 
 // Runtime: resolve config values for the current environment (lazy-loaded, cached)
@@ -50,16 +51,17 @@ var timeout = values["timeout"];
 var cfg = client.Config.Get<MyServiceConfig>("user_service");
 
 // Management: create, get, list, delete
-var newConfig = client.Config.Management.New(
+var newConfig = client.Manage.Config.New(
     id: "my_service",
     name: "My Service",
     description: "Configuration for my service");
-newConfig.Items = new Dictionary<string, object?> { ["timeout"] = 30, ["retries"] = 3 };
+newConfig.SetNumber("timeout", 30);
+newConfig.SetNumber("retries", 3);
 await newConfig.SaveAsync();
 
-var existing = await client.Config.Management.GetAsync("user_service");
-var all = await client.Config.Management.ListAsync();
-await client.Config.Management.DeleteAsync("my_service");
+var existing = await client.Manage.Config.GetAsync("user_service");
+var all = await client.Manage.Config.ListAsync();
+await client.Manage.Config.DeleteAsync("my_service");
 ```
 
 ## Flags
@@ -70,30 +72,35 @@ Feature flags with local JSON Logic evaluation, typed handles, and real-time upd
 using Smplkit;
 using Smplkit.Flags;
 
-using var client = new SmplClient(new SmplClientOptions { ApiKey = "sk_api_..." });
+using var client = new SmplClient(new SmplClientOptions
+{
+    ApiKey = "sk_api_...",
+    Environment = "production",
+    Service = "my-service",
+});
 
 // Declare typed flag handles with code-level defaults
-var checkout = client.Flags.BoolFlag("checkout-v2", false);
+var checkout = client.Flags.BooleanFlag("checkout-v2", false);
 var banner = client.Flags.StringFlag("banner-color", "red");
 var retries = client.Flags.NumberFlag("max-retries", 3);
 
-// Register a context provider (called on every flag evaluation)
-client.Flags.SetContextProvider(() => new List<Context>
+// Set ambient evaluation context once (e.g. from request middleware).
+// The returned IDisposable reverts the context when disposed.
+using var _ = client.SetContext(new[]
 {
-    new("user", currentUser.Id, new Dictionary<string, object?>
+    new Context("user", currentUser.Id, new Dictionary<string, object?>
     {
         ["plan"] = currentUser.Plan,
     }),
-    new("account", currentAccount.Id, new Dictionary<string, object?>
+    new Context("account", currentAccount.Id, new Dictionary<string, object?>
     {
         ["region"] = currentAccount.Region,
     }),
 });
 
-// Connect to an environment — fetches definitions, opens WebSocket
-await client.Flags.ConnectAsync("production");
-
-// Evaluate flags — local, typed, instant (no network per call)
+// Evaluate flags — local, typed, instant (no network per call).
+// Definitions are fetched and the WebSocket opens on first .Get(); no
+// explicit Connect call is required.
 if (checkout.Get())
     RenderNewCheckout();
 
@@ -107,17 +114,14 @@ var result = checkout.Get(new List<Context>
 });
 
 // Listen for real-time changes
-client.Flags.OnChange(e => Console.WriteLine($"Flag {e.Key} changed via {e.Source}"));
-
-// Disconnect when done
-await client.Flags.DisconnectAsync();
+client.Flags.OnChange(e => Console.WriteLine($"Flag {e.Id} changed via {e.Source}"));
 ```
 
 ### Flag Management
 
 ```csharp
 // Create a flag
-var flag = client.Flags.Management.NewBooleanFlag(
+var flag = client.Manage.Flags.NewBooleanFlag(
     "checkout-v2", defaultValue: false,
     name: "Checkout V2", description: "New checkout experience");
 
@@ -131,9 +135,108 @@ flag.AddRule(
 await flag.SaveAsync();
 
 // Fetch, list, delete
-var existing = await client.Flags.Management.GetAsync("checkout-v2");
-var all = await client.Flags.Management.ListAsync();
-await client.Flags.Management.DeleteAsync("checkout-v2");
+var existing = await client.Manage.Flags.GetAsync("checkout-v2");
+var all = await client.Manage.Flags.ListAsync();
+await client.Manage.Flags.DeleteAsync("checkout-v2");
+```
+
+## Logging
+
+Dynamic, server-managed log levels for every category in your host's logging
+pipeline. Wire smplkit into Microsoft.Extensions.Logging once and every
+`ILogger<T>` in your app — including ones created before smplkit starts —
+becomes auto-discovered and level-managed. Server-pushed level changes gate
+output across **every** registered provider (Console, Debug, file sinks,
+Serilog-via-MEL, etc.) — not just smplkit's own output.
+
+```csharp
+using Microsoft.Extensions.Logging;
+using Smplkit;
+using Smplkit.Logging.Adapters;
+
+using var client = new SmplClient(new SmplClientOptions
+{
+    ApiKey = "sk_api_...",
+    Environment = "production",
+    Service = "my-service",
+});
+
+using var loggerFactory = LoggerFactory.Create(builder =>
+{
+    builder.AddConsole();
+    builder.AddSmplkit(client);   // registers as ILoggerProvider +
+                                  // IConfigureOptions<LoggerFilterOptions> +
+                                  // IOptionsChangeTokenSource<...>
+});
+
+// Bulk-register every discovered category and apply current managed levels.
+await client.Logging.InstallAsync();
+
+// Any logger created in your app from this point on is auto-discovered.
+var dbLogger = loggerFactory.CreateLogger("MyApp.Db");
+dbLogger.LogInformation("Hello — server-managed level controls whether this is emitted");
+
+// Re-fetch managed levels and re-apply them (rarely needed; the WebSocket
+// pushes changes automatically).
+await client.Logging.RefreshAsync();
+
+// Listen for level changes
+client.Logging.OnChange(e =>
+    Console.WriteLine($"Logger {e.Id} level → {e.Level} via {e.Source}"));
+```
+
+Inside an ASP.NET Core / Generic Host app the wiring is the same — the
+`ILoggingBuilder` exposed by `services.AddLogging(b => …)` accepts
+`AddSmplkit(client)` directly.
+
+### Logger Management
+
+```csharp
+// Create / update a managed logger
+var logger = client.Manage.Loggers.New("MyApp.Db");
+logger.SetLevel(LogLevel.Warn);
+await logger.SaveAsync();
+
+// Fetch, list, delete
+var existing = await client.Manage.Loggers.GetAsync("MyApp.Db");
+var all = await client.Manage.Loggers.ListAsync();
+await client.Manage.Loggers.DeleteAsync("MyApp.Db");
+
+// Bulk-register explicit logger sources (e.g. seeding a fresh account or
+// migrating fixtures across services). Defaults to immediate POST; pass
+// flush=false to buffer multiple calls and FlushAsync to drain.
+await client.Manage.Loggers.RegisterAsync(new[]
+{
+    new LoggerSource("MyApp.Db", level: LogLevel.Info),
+    new LoggerSource("MyApp.Payments", level: LogLevel.Warn),
+});
+
+// Log groups follow the same shape (use to scope levels across many loggers).
+var billing = client.Manage.LogGroups.New("billing");
+billing.SetLevel(LogLevel.Debug);
+await billing.SaveAsync();
+```
+
+### Serilog
+
+Serilog's single-root logger model has no equivalent of MEL's per-provider
+factory, so smplkit-managed Serilog loggers must be wired explicitly via
+`SerilogAdapter.GetOrCreateSwitch`:
+
+```csharp
+using Serilog;
+using Smplkit.Logging.Adapters;
+
+var adapter = new SerilogAdapter();
+client.Logging.RegisterAdapter(adapter);
+
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Override("MyApp.Db", adapter.GetOrCreateSwitch("MyApp.Db"))
+    .MinimumLevel.Override("MyApp.Payments", adapter.GetOrCreateSwitch("MyApp.Payments"))
+    .WriteTo.Console()
+    .CreateLogger();
+
+await client.Logging.InstallAsync();
 ```
 
 ## Configuration

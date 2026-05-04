@@ -1,5 +1,10 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Smplkit;
+using Smplkit.Logging;
 using Smplkit.Logging.Adapters;
+using Smplkit.Tests.Helpers;
 using Xunit;
 using MsLogLevel = Microsoft.Extensions.Logging.LogLevel;
 
@@ -7,114 +12,174 @@ namespace Smplkit.Tests.Logging.Adapters;
 
 public class MicrosoftLoggingAdapterTests
 {
-    private static MicrosoftLoggingAdapter CreateAdapter()
-    {
-        return new MicrosoftLoggingAdapter(new LoggerFactory());
-    }
-
     [Fact]
     public void Name_ReturnsMicrosoftLogging()
     {
-        var adapter = CreateAdapter();
+        var adapter = new MicrosoftLoggingAdapter();
         Assert.Equal("microsoft-logging", adapter.Name);
     }
 
     [Fact]
-    public void Discover_ReturnsTrackedLoggers()
+    public void IOptionsChangeTokenSourceName_IsDefault()
     {
-        var adapter = CreateAdapter();
-
-        // Create loggers through the tracking factory
-        adapter.Factory.CreateLogger("App.Services.UserService");
-        adapter.Factory.CreateLogger("App.Services.OrderService");
-
-        var discovered = adapter.Discover();
-
-        Assert.Equal(2, discovered.Count);
-        Assert.Contains(discovered, d => d.Name == "App.Services.UserService");
-        Assert.Contains(discovered, d => d.Name == "App.Services.OrderService");
+        var adapter = new MicrosoftLoggingAdapter();
+        Assert.Equal(Options.DefaultName, ((IOptionsChangeTokenSource<LoggerFilterOptions>)adapter).Name);
     }
 
     [Fact]
     public void Discover_EmptyBeforeAnyLoggersCreated()
     {
-        var adapter = CreateAdapter();
-        var discovered = adapter.Discover();
-        Assert.Empty(discovered);
+        var adapter = new MicrosoftLoggingAdapter();
+        Assert.Empty(adapter.Discover());
     }
 
     [Fact]
-    public void ApplyLevel_SetsCorrectLevel()
+    public void CreateLogger_CapturesCategoryAndReturnsPassThroughLogger()
     {
-        var adapter = CreateAdapter();
+        var adapter = new MicrosoftLoggingAdapter();
+        var logger = adapter.CreateLogger("App.Foo");
 
-        // Create a logger first
-        adapter.Factory.CreateLogger("App.MyLogger");
+        // The returned logger reports IsEnabled=true so MEL's host filter rules
+        // (the ones we contribute via Configure) govern; Log itself is a no-op
+        // because we are a level controller, not a sink.
+        Assert.True(logger.IsEnabled(MsLogLevel.Trace));
+        Assert.True(logger.IsEnabled(MsLogLevel.Critical));
+        // And it is NOT the NullLogger sentinel (which some host paths skip).
+        Assert.NotSame(Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, logger);
 
-        adapter.ApplyLevel("App.MyLogger", LogLevel.Error);
-
-        var discovered = adapter.Discover();
-        var logger = discovered.Single(d => d.Name == "App.MyLogger");
-        Assert.Equal(LogLevel.Error, logger.Level);
-    }
-
-    [Fact]
-    public void ApplyLevel_CreatesEntryForUnknownLogger()
-    {
-        var adapter = CreateAdapter();
-
-        // Apply level to a logger that hasn't been created yet
-        adapter.ApplyLevel("App.FutureLogger", LogLevel.Warn);
+        // Log + BeginScope are no-ops by design; just exercise both.
+        logger.Log(MsLogLevel.Information, new EventId(0), state: 0, exception: null, formatter: (_, _) => "x");
+        var scope = logger.BeginScope("scope-state");
+        Assert.Null(scope);
 
         var discovered = adapter.Discover();
         Assert.Single(discovered);
-        Assert.Equal("App.FutureLogger", discovered[0].Name);
+        Assert.Equal("App.Foo", discovered[0].Name);
+        Assert.Equal(LogLevel.Trace, discovered[0].Level); // unrestricted until ApplyLevel
+    }
+
+    [Fact]
+    public void CreateLogger_DedupsByCategory()
+    {
+        var adapter = new MicrosoftLoggingAdapter();
+        adapter.CreateLogger("App.Foo");
+        adapter.CreateLogger("App.Foo");
+        adapter.CreateLogger("App.Foo");
+        Assert.Single(adapter.Discover());
+    }
+
+    [Fact]
+    public void ApplyLevel_ReportsBackOnDiscover()
+    {
+        var adapter = new MicrosoftLoggingAdapter();
+        adapter.CreateLogger("App.Foo");
+        adapter.ApplyLevel("App.Foo", LogLevel.Error);
+
+        var entry = adapter.Discover().Single();
+        Assert.Equal(LogLevel.Error, entry.Level);
+    }
+
+    [Fact]
+    public void ApplyLevel_ForUnknownCategory_RegistersIt()
+    {
+        var adapter = new MicrosoftLoggingAdapter();
+        adapter.ApplyLevel("App.Future", LogLevel.Warn);
+
+        var discovered = adapter.Discover();
+        Assert.Single(discovered);
+        Assert.Equal("App.Future", discovered[0].Name);
         Assert.Equal(LogLevel.Warn, discovered[0].Level);
     }
 
     [Fact]
-    public void InstallHook_DetectsNewLoggers()
+    public void Configure_EmitsRulesForAppliedCategoriesOnly()
     {
-        var adapter = CreateAdapter();
-        var detectedLoggers = new List<(string Name, LogLevel Level)>();
+        var adapter = new MicrosoftLoggingAdapter();
+        adapter.CreateLogger("App.Untouched"); // captured but no level applied
+        adapter.CreateLogger("App.Managed");
+        adapter.ApplyLevel("App.Managed", LogLevel.Warn);
 
-        adapter.InstallHook((name, level) => detectedLoggers.Add((name, level)));
+        var options = new LoggerFilterOptions();
+        ((IConfigureOptions<LoggerFilterOptions>)adapter).Configure(options);
 
-        adapter.Factory.CreateLogger("App.NewService");
-
-        Assert.Single(detectedLoggers);
-        Assert.Equal("App.NewService", detectedLoggers[0].Name);
+        Assert.Single(options.Rules);
+        var rule = options.Rules[0];
+        Assert.Null(rule.ProviderName); // applies to every provider
+        Assert.Equal("App.Managed", rule.CategoryName);
+        Assert.Equal(MsLogLevel.Warning, rule.LogLevel);
     }
 
     [Fact]
-    public void InstallHook_DoesNotFireForExistingLoggers()
+    public void GetChangeToken_FiresWhenApplyLevelCalled()
     {
-        var adapter = CreateAdapter();
+        var adapter = new MicrosoftLoggingAdapter();
+        var token = ((IOptionsChangeTokenSource<LoggerFilterOptions>)adapter).GetChangeToken();
+        Assert.False(token.HasChanged);
 
-        // Create a logger before installing hook
-        adapter.Factory.CreateLogger("App.ExistingService");
+        adapter.ApplyLevel("App.Foo", LogLevel.Info);
 
-        var detectedLoggers = new List<(string Name, LogLevel Level)>();
-        adapter.InstallHook((name, level) => detectedLoggers.Add((name, level)));
-
-        // Re-requesting same logger should NOT fire hook
-        adapter.Factory.CreateLogger("App.ExistingService");
-
-        Assert.Empty(detectedLoggers);
+        Assert.True(token.HasChanged);
     }
 
     [Fact]
-    public void UninstallHook_StopsDetection()
+    public void GetChangeToken_RotatesAfterTrigger()
     {
-        var adapter = CreateAdapter();
-        var detectedLoggers = new List<(string Name, LogLevel Level)>();
+        var adapter = new MicrosoftLoggingAdapter();
+        var t1 = ((IOptionsChangeTokenSource<LoggerFilterOptions>)adapter).GetChangeToken();
+        adapter.ApplyLevel("a", LogLevel.Info);
+        var t2 = ((IOptionsChangeTokenSource<LoggerFilterOptions>)adapter).GetChangeToken();
 
-        adapter.InstallHook((name, level) => detectedLoggers.Add((name, level)));
+        Assert.True(t1.HasChanged);
+        Assert.False(t2.HasChanged);
+
+        adapter.ApplyLevel("b", LogLevel.Info);
+        Assert.True(t2.HasChanged);
+    }
+
+    [Fact]
+    public void InstallHook_FiresOnNewCategories()
+    {
+        var adapter = new MicrosoftLoggingAdapter();
+        var detected = new List<string>();
+        adapter.InstallHook((name, _) => detected.Add(name));
+
+        adapter.CreateLogger("App.New");
+
+        Assert.Single(detected);
+        Assert.Equal("App.New", detected[0]);
+    }
+
+    [Fact]
+    public void InstallHook_DoesNotFireForExistingCategories()
+    {
+        var adapter = new MicrosoftLoggingAdapter();
+        adapter.CreateLogger("App.PreExisting");
+
+        var detected = new List<string>();
+        adapter.InstallHook((name, _) => detected.Add(name));
+
+        adapter.CreateLogger("App.PreExisting"); // already known
+        Assert.Empty(detected);
+    }
+
+    [Fact]
+    public void UninstallHook_StopsNotifications()
+    {
+        var adapter = new MicrosoftLoggingAdapter();
+        var detected = new List<string>();
+        adapter.InstallHook((name, _) => detected.Add(name));
         adapter.UninstallHook();
 
-        adapter.Factory.CreateLogger("App.AfterUninstall");
+        adapter.CreateLogger("App.AfterUninstall");
+        Assert.Empty(detected);
+    }
 
-        Assert.Empty(detectedLoggers);
+    [Fact]
+    public void Dispose_IsIdempotent()
+    {
+        var adapter = new MicrosoftLoggingAdapter();
+        adapter.Dispose();
+        adapter.Dispose(); // should not throw
     }
 
     [Theory]
@@ -125,155 +190,120 @@ public class MicrosoftLoggingAdapterTests
     [InlineData(LogLevel.Error, MsLogLevel.Error)]
     [InlineData(LogLevel.Fatal, MsLogLevel.Critical)]
     [InlineData(LogLevel.Silent, MsLogLevel.None)]
-    public void LevelMapping_AllLevelsMapCorrectly(LogLevel smplLevel, MsLogLevel expectedMs)
+    public void LevelMapping_RoundtripsCorrectly(LogLevel smplLevel, MsLogLevel expectedMs)
     {
         Assert.Equal(expectedMs, MicrosoftLoggingAdapter.ToMsLevel(smplLevel));
         Assert.Equal(smplLevel, MicrosoftLoggingAdapter.ToSmplLevel(expectedMs));
     }
 
     [Fact]
-    public void Factory_CreateLogger_ReturnsSameLoggerForSameName()
-    {
-        var adapter = CreateAdapter();
-
-        var logger1 = adapter.Factory.CreateLogger("App.Service");
-        var logger2 = adapter.Factory.CreateLogger("App.Service");
-
-        // Both should work and refer to the same tracked logger
-        Assert.NotNull(logger1);
-        Assert.NotNull(logger2);
-
-        // Only one entry in discover
-        var discovered = adapter.Discover();
-        Assert.Single(discovered);
-    }
-
-    [Fact]
-    public void Factory_AddProvider_DelegatesToInnerFactory()
-    {
-        var adapter = CreateAdapter();
-
-        // Should not throw
-        adapter.Factory.AddProvider(new NullLoggerProvider());
-    }
-
-    [Fact]
-    public void Dispose_CleansUp()
-    {
-        var adapter = CreateAdapter();
-        adapter.InstallHook((_, _) => { });
-
-        adapter.Dispose();
-
-        // Hook should be uninstalled — creating a new logger should not fire
-        var detected = new List<string>();
-        // We can't reinstall after dispose, but the adapter should be in a clean state
-    }
-
-    [Fact]
-    public void LevelGatingLogger_LogsWhenEnabled()
-    {
-        var loggedMessages = new List<string>();
-        var innerFactory = LoggerFactory.Create(builder =>
-        {
-            builder.SetMinimumLevel(MsLogLevel.Trace);
-            builder.AddProvider(new CollectingLoggerProvider(loggedMessages));
-        });
-        var adapter = new MicrosoftLoggingAdapter(innerFactory);
-        var logger = adapter.Factory.CreateLogger("App.TestLogging");
-
-        // With a provider registered and min level Trace, Information should be enabled
-        Assert.True(logger.IsEnabled(MsLogLevel.Information));
-
-        logger.Log(MsLogLevel.Information, "test message");
-        Assert.Single(loggedMessages);
-        Assert.Equal("test message", loggedMessages[0]);
-    }
-
-    [Fact]
-    public void LevelGatingLogger_SkipsWhenDisabled()
-    {
-        var loggedMessages = new List<string>();
-        var innerFactory = LoggerFactory.Create(builder =>
-        {
-            builder.SetMinimumLevel(MsLogLevel.Trace);
-            builder.AddProvider(new CollectingLoggerProvider(loggedMessages));
-        });
-        var adapter = new MicrosoftLoggingAdapter(innerFactory);
-        var logger = adapter.Factory.CreateLogger("App.GatedLogger");
-
-        // Set level to Error via the adapter
-        adapter.ApplyLevel("App.GatedLogger", LogLevel.Error);
-
-        // Debug should be disabled by the gating layer
-        Assert.False(logger.IsEnabled(MsLogLevel.Debug));
-
-        // Logging below the minimum should be a no-op
-        logger.Log(MsLogLevel.Debug, "should be skipped");
-        Assert.Empty(loggedMessages);
-    }
-
-    [Fact]
-    public void LevelGatingLogger_BeginScope_Delegates()
-    {
-        var innerFactory = LoggerFactory.Create(builder =>
-        {
-            builder.SetMinimumLevel(MsLogLevel.Trace);
-            builder.AddProvider(new CollectingLoggerProvider(new List<string>()));
-        });
-        var adapter = new MicrosoftLoggingAdapter(innerFactory);
-        var logger = adapter.Factory.CreateLogger("App.ScopeTest");
-
-        using var scope = logger.BeginScope("test-scope");
-        // Should not throw; scope may be null depending on inner factory
-    }
-
-    [Fact]
-    public void Factory_Dispose_DoesNotThrow()
-    {
-        var adapter = CreateAdapter();
-        // Dispose the factory (not the adapter)
-        (adapter.Factory as IDisposable)?.Dispose();
-    }
-
-    [Fact]
     public void ToMsLevel_DefaultCase_ReturnsInformation()
     {
-        // Cast an invalid value to hit the default case
-        var result = MicrosoftLoggingAdapter.ToMsLevel((LogLevel)999);
-        Assert.Equal(MsLogLevel.Information, result);
+        Assert.Equal(MsLogLevel.Information, MicrosoftLoggingAdapter.ToMsLevel((LogLevel)999));
     }
 
     [Fact]
     public void ToSmplLevel_DefaultCase_ReturnsInfo()
     {
-        // Cast an invalid value to hit the default case
-        var result = MicrosoftLoggingAdapter.ToSmplLevel((MsLogLevel)999);
-        Assert.Equal(LogLevel.Info, result);
+        Assert.Equal(LogLevel.Info, MicrosoftLoggingAdapter.ToSmplLevel((MsLogLevel)999));
     }
 
-    private sealed class NullLoggerProvider : ILoggerProvider
+    [Fact]
+    public void EndToEnd_AppliedLevelGatesAllProviders()
     {
-        public ILogger CreateLogger(string categoryName) => Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
-        public void Dispose() { }
+        // Build a real LoggerFactory with our adapter in the pipeline alongside
+        // a collecting provider. Apply a Warning level for "App.Db" and verify
+        // the collector does NOT receive Information events for that category.
+        var collected = new List<(string Category, MsLogLevel Level, string Message)>();
+        var collectingProvider = new CollectingLoggerProvider(collected);
+
+        // Construct a SmplClient just so AddSmplkit has something to attach to.
+        // We don't call InstallAsync — the adapter functions independently of
+        // the runtime client for this filter-pipeline test.
+        var http = new HttpClient(new MockHttpMessageHandler(_ =>
+            Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/vnd.api+json"),
+            })));
+        using var client = new SmplClient(TestData.DefaultOptions(), http);
+
+        using var loggerFactory = LoggerFactory.Create(builder =>
+        {
+            builder.SetMinimumLevel(MsLogLevel.Trace);
+            builder.AddProvider(collectingProvider);
+            builder.AddSmplkit(client);
+        });
+
+        // Find the registered adapter via the smplkit client.
+        var adaptersField = typeof(LoggingClient)
+            .GetField("_adapters", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var list = (List<ILoggingAdapter>)adaptersField.GetValue(client.Logging)!;
+        var adapter = (MicrosoftLoggingAdapter)list.Single();
+
+        // Apply Warning level via the adapter — this should propagate through
+        // LoggerFilterOptions to gate ALL providers.
+        adapter.ApplyLevel("App.Db", LogLevel.Warn);
+
+        var dbLogger = loggerFactory.CreateLogger("App.Db");
+        dbLogger.Log(MsLogLevel.Information, "info-event"); // below Warning → dropped
+        dbLogger.Log(MsLogLevel.Error, "error-event");      // above Warning → emitted
+
+        Assert.DoesNotContain(collected, e => e.Message == "info-event");
+        Assert.Contains(collected, e => e.Message == "error-event" && e.Level == MsLogLevel.Error);
+    }
+
+    [Fact]
+    public void EndToEnd_UnmanagedCategory_RespectsHostFilters()
+    {
+        // A category that the adapter has not been told about should follow
+        // the host's existing minimum-level configuration, not be silently
+        // gated by us.
+        var collected = new List<(string Category, MsLogLevel Level, string Message)>();
+        var collectingProvider = new CollectingLoggerProvider(collected);
+
+        var http = new HttpClient(new MockHttpMessageHandler(_ =>
+            Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/vnd.api+json"),
+            })));
+        using var client = new SmplClient(TestData.DefaultOptions(), http);
+
+        using var loggerFactory = LoggerFactory.Create(builder =>
+        {
+            builder.SetMinimumLevel(MsLogLevel.Information);
+            builder.AddProvider(collectingProvider);
+            builder.AddSmplkit(client);
+        });
+
+        var orphan = loggerFactory.CreateLogger("App.Unmanaged");
+        orphan.Log(MsLogLevel.Debug, "debug-event");      // below host's Information → dropped
+        orphan.Log(MsLogLevel.Information, "info-event"); // at host's level → emitted
+
+        Assert.DoesNotContain(collected, e => e.Message == "debug-event");
+        Assert.Contains(collected, e => e.Message == "info-event");
     }
 
     private sealed class CollectingLoggerProvider : ILoggerProvider
     {
-        private readonly List<string> _messages;
-        public CollectingLoggerProvider(List<string> messages) => _messages = messages;
-        public ILogger CreateLogger(string categoryName) => new CollectingLogger(_messages);
+        private readonly List<(string Category, MsLogLevel Level, string Message)> _events;
+        public CollectingLoggerProvider(List<(string, MsLogLevel, string)> events) => _events = events;
+        public ILogger CreateLogger(string categoryName) => new CollectingLogger(categoryName, _events);
         public void Dispose() { }
 
         private sealed class CollectingLogger : ILogger
         {
-            private readonly List<string> _messages;
-            public CollectingLogger(List<string> messages) => _messages = messages;
+            private readonly string _category;
+            private readonly List<(string Category, MsLogLevel Level, string Message)> _events;
+            public CollectingLogger(string category, List<(string, MsLogLevel, string)> events)
+            {
+                _category = category;
+                _events = events;
+            }
             public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
             public bool IsEnabled(MsLogLevel logLevel) => true;
             public void Log<TState>(MsLogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
             {
-                _messages.Add(formatter(state, exception));
+                _events.Add((_category, logLevel, formatter(state, exception)));
             }
         }
     }

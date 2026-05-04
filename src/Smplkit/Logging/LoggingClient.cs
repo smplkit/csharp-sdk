@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Smplkit.Errors;
 using Smplkit.Internal;
 using Smplkit.Logging.Adapters;
@@ -21,7 +23,6 @@ public sealed class LoggingClient
     private volatile bool _started;
     private SharedWebSocket? _wsManager;
     private readonly List<ILoggingAdapter> _adapters = new();
-    private bool _explicitAdapters;
     private readonly List<Action<LoggerChangeEvent>> _globalListeners = new();
     private readonly Dictionary<string, List<Action<LoggerChangeEvent>>> _scopedListeners = new();
     private readonly object _listenerLock = new();
@@ -59,15 +60,22 @@ public sealed class LoggingClient
 
     /// <summary>
     /// Registers a logging adapter. Must be called before <see cref="InstallAsync"/>.
-    /// When called, only explicitly registered adapters are used.
     /// </summary>
+    /// <remarks>
+    /// For Microsoft.Extensions.Logging, prefer the
+    /// <see cref="SmplkitLoggingBuilderExtensions.AddSmplkit"/> extension on
+    /// <see cref="ILoggingBuilder"/> — it constructs the adapter, registers it
+    /// in DI as <see cref="ILoggerProvider"/> +
+    /// <see cref="IConfigureOptions{LoggerFilterOptions}"/> +
+    /// <see cref="IOptionsChangeTokenSource{LoggerFilterOptions}"/>, and calls
+    /// this method in one step.
+    /// </remarks>
     /// <param name="adapter">The adapter to register.</param>
     /// <exception cref="InvalidOperationException">If called after <see cref="InstallAsync"/>.</exception>
     public void RegisterAdapter(ILoggingAdapter adapter)
     {
         if (_started)
             throw new InvalidOperationException("Cannot register adapters after InstallAsync()");
-        _explicitAdapters = true;
         _adapters.Add(adapter);
     }
 
@@ -94,11 +102,10 @@ public sealed class LoggingClient
     {
         if (_started) return;
 
-        // 1. Auto-load adapters if none registered explicitly
-        if (!_explicitAdapters)
-            AutoLoadAdapters();
-
-        // 2. Discover existing loggers from each adapter and add to buffer
+        // 1. Discover existing loggers from each adapter and add to buffer.
+        //    Adapters must be wired in explicitly — for Microsoft.Extensions.Logging,
+        //    via the AddSmplkit ILoggingBuilder extension; for Serilog, via
+        //    SerilogAdapter.GetOrCreateSwitch(...) wired into LoggerConfiguration.
         DebugLog.Log("websocket", "logging runtime initializing");
         var discovered = DiscoverAll();
         DebugLog.Log("discovery", $"discovered {discovered.Count} loggers from adapters");
@@ -241,38 +248,6 @@ public sealed class LoggingClient
                 System.Diagnostics.Trace.TraceWarning(
                     "[smplkit] Adapter {0} hook installation failed: {1}", adapter.Name, ex.Message);
             }
-        }
-    }
-
-    private void AutoLoadAdapters()
-    {
-        var builtins = new[]
-        {
-            ("Smplkit.Logging.Adapters.MicrosoftLoggingAdapter", "Microsoft.Extensions.Logging"),
-            ("Smplkit.Logging.Adapters.SerilogAdapter", "Serilog"),
-        };
-        foreach (var (adapterType, probeAssembly) in builtins)
-        {
-            var adapter = TryLoadAdapter(adapterType, probeAssembly);
-            if (adapter != null)
-                _adapters.Add(adapter);
-        }
-    }
-
-    internal static ILoggingAdapter? TryLoadAdapter(string adapterTypeName, string probeAssembly)
-    {
-        try
-        {
-            System.Reflection.Assembly.Load(probeAssembly);
-            var type = Type.GetType(adapterTypeName + ", Smplkit");
-            if (type != null)
-                return (ILoggingAdapter)Activator.CreateInstance(type)!;
-            return null;
-        }
-        catch
-        {
-            // Framework not available — skip
-            return null;
         }
     }
 
@@ -527,53 +502,69 @@ public sealed class LoggingClient
     {
         try
         {
-            // Full refetch of both loggers and groups
-            var loggers = _parent?.Manage.Loggers is { } mgmtLn ? await mgmtLn.ListAsync().ConfigureAwait(false) : new List<Logger>();
-            if (_parent?.Manage.LogGroups is { } mgmtGn) { await mgmtGn.ListAsync().ConfigureAwait(false); }
-            ApplyLevels(loggers);
-
-            // Diff and fire per-key listeners for changed loggers
-            var changedLoggers = new List<(string Id, LogLevel? Level)>();
-            lock (_loggerCacheLock)
-            {
-                var allIds = new HashSet<string>(_loggerLevelCache.Keys);
-                foreach (var l in loggers)
-                    if (l.Id is not null) allIds.Add(l.Id);
-
-                foreach (var id in allIds)
-                {
-                    _loggerLevelCache.TryGetValue(id, out var prev);
-                    var current = loggers.FirstOrDefault(l => l.Id == id);
-                    var newLevel = current?.Level;
-                    if (!Equals(prev, newLevel))
-                    {
-                        if (current is not null)
-                            _loggerLevelCache[id] = newLevel;
-                        else
-                            _loggerLevelCache.Remove(id);
-                        changedLoggers.Add((id, newLevel));
-                    }
-                }
-            }
-
-            if (changedLoggers.Count == 0) return;
-
-            // Fire global listener exactly once
-            var globalEvt = new LoggerChangeEvent(changedLoggers[0].Id, changedLoggers[0].Level, "websocket");
-            FireGlobalListeners(globalEvt);
-
-            // Fire per-key listeners for each changed logger
-            foreach (var (changedId, level) in changedLoggers)
-            {
-                var evt = new LoggerChangeEvent(changedId, level, "websocket");
-                FireScopedListeners(changedId, evt);
-            }
+            await RefetchAndApplyAsync("websocket").ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             System.Diagnostics.Trace.TraceWarning(
                 "[smplkit] Loggers bulk refresh failed: {0}", ex.Message);
             DebugLog.Log("websocket", $"Loggers bulk refresh failed: {ex}");
+        }
+    }
+
+    /// <summary>
+    /// Re-fetches managed loggers and log groups from the server and re-applies
+    /// their levels onto every registered adapter. Fires change listeners with
+    /// <c>Source = "manual"</c> for any logger whose effective level differs
+    /// from the cached value. Errors propagate to the caller — the websocket
+    /// path swallows them, but a user-initiated refresh does not.
+    /// </summary>
+    /// <param name="ct">Cancellation token.</param>
+    public Task RefreshAsync(CancellationToken ct = default)
+        => RefetchAndApplyAsync("manual", ct);
+
+    private async Task RefetchAndApplyAsync(string source, CancellationToken ct = default)
+    {
+        // Full refetch of both loggers and groups
+        var loggers = _parent?.Manage.Loggers is { } mgmtLn ? await mgmtLn.ListAsync(ct).ConfigureAwait(false) : new List<Logger>();
+        if (_parent?.Manage.LogGroups is { } mgmtGn) { await mgmtGn.ListAsync(ct).ConfigureAwait(false); }
+        ApplyLevels(loggers);
+
+        // Diff and fire per-key listeners for changed loggers
+        var changedLoggers = new List<(string Id, LogLevel? Level)>();
+        lock (_loggerCacheLock)
+        {
+            var allIds = new HashSet<string>(_loggerLevelCache.Keys);
+            foreach (var l in loggers)
+                if (l.Id is not null) allIds.Add(l.Id);
+
+            foreach (var id in allIds)
+            {
+                _loggerLevelCache.TryGetValue(id, out var prev);
+                var current = loggers.FirstOrDefault(l => l.Id == id);
+                var newLevel = current?.Level;
+                if (!Equals(prev, newLevel))
+                {
+                    if (current is not null)
+                        _loggerLevelCache[id] = newLevel;
+                    else
+                        _loggerLevelCache.Remove(id);
+                    changedLoggers.Add((id, newLevel));
+                }
+            }
+        }
+
+        if (changedLoggers.Count == 0) return;
+
+        // Fire global listener exactly once
+        var globalEvt = new LoggerChangeEvent(changedLoggers[0].Id, changedLoggers[0].Level, source);
+        FireGlobalListeners(globalEvt);
+
+        // Fire per-key listeners for each changed logger
+        foreach (var (changedId, level) in changedLoggers)
+        {
+            var evt = new LoggerChangeEvent(changedId, level, source);
+            FireScopedListeners(changedId, evt);
         }
     }
 

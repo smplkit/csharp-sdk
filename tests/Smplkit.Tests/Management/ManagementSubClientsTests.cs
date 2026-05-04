@@ -255,6 +255,81 @@ public class ManagementSubClientsTests
         Assert.Equal(HttpMethod.Post, captured!.Method);
     }
 
+    [Fact]
+    public async Task LoggersClient_RegisterAsync_FlushFalse_BuffersWithoutHttp()
+    {
+        var requests = 0;
+        var (mgmt, _) = Make(req =>
+        {
+            requests++;
+            return Task.FromResult(Json("{}"));
+        });
+
+        await mgmt.Loggers.RegisterAsync(
+            new[] { new LoggerSource("a", level: LogLevel.Info) },
+            flush: false);
+
+        Assert.Equal(0, requests);
+        Assert.Equal(1, mgmt.Loggers.PendingCount);
+    }
+
+    [Fact]
+    public async Task LoggersClient_FlushAsync_DrainsBufferInOneBulkRequest()
+    {
+        var requests = 0;
+        var (mgmt, _) = Make(req =>
+        {
+            requests++;
+            return Task.FromResult(Json("{}"));
+        });
+
+        await mgmt.Loggers.RegisterAsync(
+            new[] { new LoggerSource("a", level: LogLevel.Info) }, flush: false);
+        await mgmt.Loggers.RegisterAsync(
+            new[] { new LoggerSource("b", resolvedLevel: LogLevel.Warn) }, flush: false);
+        Assert.Equal(2, mgmt.Loggers.PendingCount);
+
+        await mgmt.Loggers.FlushAsync();
+
+        Assert.Equal(1, requests);
+        Assert.Equal(0, mgmt.Loggers.PendingCount);
+    }
+
+    [Fact]
+    public async Task LoggersClient_FlushAsync_EmptyBuffer_NoHttp()
+    {
+        var requests = 0;
+        var (mgmt, _) = Make(req =>
+        {
+            requests++;
+            return Task.FromResult(Json("{}"));
+        });
+
+        await mgmt.Loggers.FlushAsync();
+
+        Assert.Equal(0, requests);
+    }
+
+    [Fact]
+    public async Task LoggersClient_RegisterAsync_FlushTrue_DrainsPriorBuffer()
+    {
+        var requests = 0;
+        var (mgmt, _) = Make(req =>
+        {
+            requests++;
+            return Task.FromResult(Json("{}"));
+        });
+
+        await mgmt.Loggers.RegisterAsync(
+            new[] { new LoggerSource("a", level: LogLevel.Info) }, flush: false);
+        await mgmt.Loggers.RegisterAsync(
+            new[] { new LoggerSource("b", resolvedLevel: LogLevel.Warn) }, flush: true);
+
+        // One HTTP call sends both items.
+        Assert.Equal(1, requests);
+        Assert.Equal(0, mgmt.Loggers.PendingCount);
+    }
+
     // ------------------------------------------------------------------
     // LogGroups sub-client (mgmt.LogGroups)
     // ------------------------------------------------------------------

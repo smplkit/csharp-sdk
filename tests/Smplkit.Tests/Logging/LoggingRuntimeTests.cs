@@ -14,7 +14,7 @@ namespace Smplkit.Tests.Logging;
 /// Tests for the runtime <see cref="LoggingClient"/>: InstallAsync, listener
 /// registration, the websocket-style handler delegates, the registration buffer
 /// flush, ApplyLevels, FireListeners (with throwing listener resilience),
-/// AutoLoadAdapters lookup, and Close lifecycle.
+/// RefreshAsync, and Close lifecycle.
 /// </summary>
 public class LoggingRuntimeTests
 {
@@ -521,23 +521,6 @@ public class LoggingRuntimeTests
         method.Invoke(client.Logging, Array.Empty<object>());
     }
 
-    [Fact]
-    public void TryLoadAdapter_UnknownAssembly_ReturnsNull()
-    {
-        var loaded = LoggingClient.TryLoadAdapter("Smplkit.Logging.Adapters.NonExistent",
-            "ThisAssemblyDoesNotExist.AtAll");
-        Assert.Null(loaded);
-    }
-
-    [Fact]
-    public void TryLoadAdapter_KnownAssemblyButBadType_ReturnsNull()
-    {
-        // Microsoft.Extensions.Logging is referenced (part of build), but no such adapter type
-        var loaded = LoggingClient.TryLoadAdapter("Smplkit.Logging.Adapters.DoesNotExist",
-            "Microsoft.Extensions.Logging");
-        Assert.Null(loaded);
-    }
-
     // The async websocket handlers (Task.Run inside) — invoke and wait.
 
     [Fact]
@@ -939,5 +922,130 @@ public class LoggingRuntimeTests
         client.Logging.RegisterAdapter(fake);
         await client.Logging.InstallAsync();
         Assert.NotEmpty(fake.AppliedLevels);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_ReappliesServerLevelsToAdapters()
+    {
+        // First /loggers fetch returns INFO; second returns ERROR.
+        // RefreshAsync should re-fetch and re-apply the new level.
+        int loggersCalls = 0;
+        var (client, _) = MakeClient(req =>
+        {
+            var path = req.RequestUri!.AbsolutePath;
+            if (path.EndsWith("/loggers") && req.Method == HttpMethod.Get)
+            {
+                loggersCalls++;
+                var level = loggersCalls == 1 ? "INFO" : "ERROR";
+                return Task.FromResult(Json(
+                    "{\"data\":[{\"id\":\"showcase\",\"type\":\"logger\",\"attributes\":"
+                    + "{\"name\":\"showcase\",\"level\":\"" + level
+                    + "\",\"managed\":true,\"environments\":{}}}]}"));
+            }
+            if (path.EndsWith("/log_groups")) return Task.FromResult(Json("""{"data":[]}"""));
+            return Task.FromResult(Json("{}"));
+        });
+
+        var fake = new FakeAdapter();
+        client.Logging.RegisterAdapter(fake);
+        await client.Logging.InstallAsync();
+
+        // Install applied INFO once.
+        Assert.Single(fake.AppliedLevels);
+        Assert.Equal(("showcase", LogLevel.Info), fake.AppliedLevels[0]);
+
+        await client.Logging.RefreshAsync();
+
+        // Refresh re-fetched and re-applied ERROR.
+        Assert.Equal(2, fake.AppliedLevels.Count);
+        Assert.Equal(("showcase", LogLevel.Error), fake.AppliedLevels[1]);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_FiresChangeListeners_OnDiff()
+    {
+        int loggersCalls = 0;
+        var (client, _) = MakeClient(req =>
+        {
+            var path = req.RequestUri!.AbsolutePath;
+            if (path.EndsWith("/loggers") && req.Method == HttpMethod.Get)
+            {
+                loggersCalls++;
+                var level = loggersCalls == 1 ? "INFO" : "ERROR";
+                return Task.FromResult(Json(
+                    "{\"data\":[{\"id\":\"showcase\",\"type\":\"logger\",\"attributes\":"
+                    + "{\"name\":\"showcase\",\"level\":\"" + level
+                    + "\",\"managed\":true,\"environments\":{}}}]}"));
+            }
+            if (path.EndsWith("/log_groups")) return Task.FromResult(Json("""{"data":[]}"""));
+            return Task.FromResult(Json("{}"));
+        });
+
+        var fake = new FakeAdapter();
+        client.Logging.RegisterAdapter(fake);
+        await client.Logging.InstallAsync();
+
+        LoggerChangeEvent? globalEvt = null;
+        LoggerChangeEvent? scopedEvt = null;
+        client.Logging.OnChange(e => globalEvt = e);
+        client.Logging.OnChange("showcase", e => scopedEvt = e);
+
+        await client.Logging.RefreshAsync();
+
+        Assert.NotNull(globalEvt);
+        Assert.NotNull(scopedEvt);
+        Assert.Equal("manual", globalEvt!.Source);
+        Assert.Equal("manual", scopedEvt!.Source);
+        Assert.Equal(LogLevel.Error, scopedEvt.Level);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_NoChange_DoesNotFireListeners()
+    {
+        // Server returns same INFO level on every call.
+        var (client, _) = MakeClient(req =>
+        {
+            var path = req.RequestUri!.AbsolutePath;
+            if (path.EndsWith("/loggers")) return Task.FromResult(Json(LoggerListJson));
+            if (path.EndsWith("/log_groups")) return Task.FromResult(Json(LogGroupListJson));
+            return Task.FromResult(Json("{}"));
+        });
+
+        var fake = new FakeAdapter();
+        client.Logging.RegisterAdapter(fake);
+        await client.Logging.InstallAsync();
+
+        var fired = 0;
+        client.Logging.OnChange(_ => fired++);
+
+        await client.Logging.RefreshAsync();
+
+        Assert.Equal(0, fired);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_PropagatesErrors()
+    {
+        // First fetch (during install) succeeds; subsequent fetches fail.
+        int loggersCalls = 0;
+        var (client, _) = MakeClient(req =>
+        {
+            var path = req.RequestUri!.AbsolutePath;
+            if (path.EndsWith("/loggers") && req.Method == HttpMethod.Get)
+            {
+                loggersCalls++;
+                if (loggersCalls == 1) return Task.FromResult(Json(LoggerListJson));
+                return Task.FromResult(Json("""{"errors":[{"detail":"boom"}]}""", HttpStatusCode.InternalServerError));
+            }
+            if (path.EndsWith("/log_groups")) return Task.FromResult(Json(LogGroupListJson));
+            return Task.FromResult(Json("{}"));
+        });
+
+        var fake = new FakeAdapter();
+        client.Logging.RegisterAdapter(fake);
+        await client.Logging.InstallAsync();
+
+        await Assert.ThrowsAnyAsync<SmplkitException>(
+            () => client.Logging.RefreshAsync());
     }
 }

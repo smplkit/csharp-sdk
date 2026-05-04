@@ -15,10 +15,18 @@ namespace Smplkit.Management;
 public sealed class LoggersClient
 {
     private readonly GenLogging.LoggingClient _genClient;
+    private readonly List<LoggerSource> _buffered = new();
+    private readonly object _bufferLock = new();
 
     internal LoggersClient(GeneratedClientFactory clients)
     {
         _genClient = clients.Logging;
+    }
+
+    /// <summary>Returns the count of pending logger registrations not yet flushed.</summary>
+    public int PendingCount
+    {
+        get { lock (_bufferLock) return _buffered.Count; }
     }
 
     /// <summary>
@@ -81,10 +89,41 @@ public sealed class LoggersClient
 
     /// <summary>
     /// Registers explicit logger sources with per-source service and environment overrides.
+    /// Sources are appended to a pending buffer. When <paramref name="flush"/> is
+    /// <c>true</c> (the default), the buffer is drained and bulk-registered with
+    /// the server in a single request before the call returns. With
+    /// <paramref name="flush"/> = <c>false</c>, sources stay in the buffer until
+    /// a subsequent <see cref="FlushAsync"/> or a <c>flush=true</c> register call.
     /// </summary>
-    public async Task RegisterAsync(IEnumerable<LoggerSource> sources, CancellationToken ct = default)
+    /// <param name="sources">Logger sources to register.</param>
+    /// <param name="flush">Whether to send the buffer immediately. Defaults to <c>true</c>.</param>
+    /// <param name="ct">Cancellation token.</param>
+    public async Task RegisterAsync(IEnumerable<LoggerSource> sources, bool flush = true, CancellationToken ct = default)
     {
-        var items = sources.Select(s => new GenLogging.LoggerBulkItem
+        lock (_bufferLock)
+        {
+            _buffered.AddRange(sources);
+        }
+        if (flush)
+            await FlushAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends any pending logger registrations to the server in a single bulk
+    /// request. Returns immediately if the buffer is empty.
+    /// </summary>
+    /// <param name="ct">Cancellation token.</param>
+    public async Task FlushAsync(CancellationToken ct = default)
+    {
+        List<LoggerSource> batch;
+        lock (_bufferLock)
+        {
+            if (_buffered.Count == 0) return;
+            batch = new List<LoggerSource>(_buffered);
+            _buffered.Clear();
+        }
+
+        var items = batch.Select(s => new GenLogging.LoggerBulkItem
         {
             Id = s.Name,
             Level = s.Level?.ToWireString(),

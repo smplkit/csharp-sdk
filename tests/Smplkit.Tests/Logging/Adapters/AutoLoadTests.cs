@@ -25,10 +25,11 @@ public class AutoLoadTests
     }
 
     [Fact]
-    public async Task AutoLoad_FindsAvailableAdapters()
+    public async Task InstallAsync_NoAdaptersRegistered_DoesNotThrow()
     {
-        // Both Microsoft.Extensions.Logging and Serilog are test dependencies,
-        // so auto-load should find them. We verify StartAsync completes without error.
+        // With auto-load removed, InstallAsync with zero registered adapters
+        // is a valid path — discovery, hook install, and apply-levels all become
+        // no-ops, and InstallAsync proceeds to the websocket subscription stage.
         var (client, _) = CreateClient();
 
         try
@@ -37,14 +38,13 @@ public class AutoLoadTests
         }
         catch
         {
-            // WebSocket will fail, but auto-load and adapter pipeline should succeed
+            // WebSocket may fail in this test harness — the relevant assertion
+            // is that everything up to that point ran without throwing.
         }
-
-        // If we got here without an unhandled exception, auto-load worked
     }
 
     [Fact]
-    public async Task RegisterAdapter_DisablesAutoLoad()
+    public async Task RegisterAdapter_ExplicitAdapter_GetsDiscoverAndHook()
     {
         var (client, _) = CreateClient();
         var mockAdapter = new Mock<ILoggingAdapter>();
@@ -53,7 +53,6 @@ public class AutoLoadTests
 
         client.Logging.RegisterAdapter(mockAdapter.Object);
 
-        // Start should only use the explicitly registered adapter
         try
         {
             await client.Logging.InstallAsync();
@@ -63,7 +62,6 @@ public class AutoLoadTests
             // WebSocket will fail
         }
 
-        // The mock adapter's Discover and InstallHook should have been called
         mockAdapter.Verify(a => a.Discover(), Times.Once);
         mockAdapter.Verify(a => a.InstallHook(It.IsAny<Action<string, LogLevel>>()), Times.Once);
     }
@@ -361,37 +359,6 @@ public class AutoLoadTests
         try { await client.Logging.InstallAsync(); } catch { }
 
         failingAdapter.Verify(a => a.InstallHook(It.IsAny<Action<string, LogLevel>>()), Times.Once);
-    }
-
-    [Fact]
-    public void TryLoadAdapter_ReturnsNull_ForMissingFramework()
-    {
-        var adapter = LoggingClient.TryLoadAdapter(
-            "Smplkit.Logging.Adapters.MicrosoftLoggingAdapter",
-            "NonExistent.Framework.That.Does.Not.Exist");
-
-        Assert.Null(adapter);
-    }
-
-    [Fact]
-    public void TryLoadAdapter_ReturnsAdapter_ForAvailableFramework()
-    {
-        var adapter = LoggingClient.TryLoadAdapter(
-            "Smplkit.Logging.Adapters.MicrosoftLoggingAdapter",
-            "Microsoft.Extensions.Logging");
-
-        Assert.NotNull(adapter);
-        Assert.Equal("microsoft-logging", adapter!.Name);
-    }
-
-    [Fact]
-    public void TryLoadAdapter_ReturnsNull_ForBadTypeName()
-    {
-        var adapter = LoggingClient.TryLoadAdapter(
-            "Smplkit.Logging.Adapters.NonExistentAdapter",
-            "Microsoft.Extensions.Logging");
-
-        Assert.Null(adapter);
     }
 
     [Fact]
