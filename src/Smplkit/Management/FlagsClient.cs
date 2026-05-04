@@ -121,8 +121,10 @@ public sealed class FlagsClient
     {
         if (flag.CreatedAt is null)
         {
-            // Create — POST /flags
-            var body = BuildCreateFlagBody(flag.Id, flag.Name, flag.Type, flag.Default, flag.Description, flag.Values);
+            // Create — POST /flags. Send the full environments map so a
+            // caller that built the flag with EnableRules + AddRule before
+            // first save doesn't silently lose them.
+            var body = BuildCreateFlagBody(flag.Id, flag.Name, flag.Type, flag.Default, flag.Description, flag.Values, flag.Environments);
             var response = await ApiExceptionMapper.ExecuteAsync(
                 () => _genFlagsClient.Create_flagAsync(body, ct)).ConfigureAwait(false);
             return MapFlagResource(response.Data)
@@ -235,7 +237,8 @@ public sealed class FlagsClient
 
     private static GenFlags.FlagResponse BuildCreateFlagBody(
         string? id, string name, string type, object? @default,
-        string? description, List<Dictionary<string, object?>>? values)
+        string? description, List<Dictionary<string, object?>>? values,
+        Dictionary<string, Dictionary<string, object?>> environments)
     {
         var flagValues = values?.Select(v => new GenFlags.FlagValue
         {
@@ -256,7 +259,7 @@ public sealed class FlagsClient
                     Default = @default ?? new object(),
                     Description = description ?? "",
                     Values = flagValues!,
-                    Environments = new Dictionary<string, GenFlags.FlagEnvironment>(),
+                    Environments = BuildEnvironmentsWire(environments),
                 },
             }
         };
@@ -273,6 +276,28 @@ public sealed class FlagsClient
             Value = v.TryGetValue("value", out var val) ? val! : new object(),
         }).ToList();
 
+        return new GenFlags.FlagResponse
+        {
+            Data = new GenFlags.FlagResource
+            {
+                Type = "flag",
+                Id = id,
+                Attributes = new GenFlags.Flag
+                {
+                    Name = name,
+                    Type = type,
+                    Default = @default ?? new object(),
+                    Description = description ?? "",
+                    Values = flagValues!,
+                    Environments = BuildEnvironmentsWire(environments),
+                },
+            }
+        };
+    }
+
+    private static Dictionary<string, GenFlags.FlagEnvironment> BuildEnvironmentsWire(
+        Dictionary<string, Dictionary<string, object?>> environments)
+    {
         var flagEnvs = new Dictionary<string, GenFlags.FlagEnvironment>();
         foreach (var (envName, envData) in environments)
         {
@@ -298,23 +323,6 @@ public sealed class FlagsClient
             }
             flagEnvs[envName] = flagEnv;
         }
-
-        return new GenFlags.FlagResponse
-        {
-            Data = new GenFlags.FlagResource
-            {
-                Type = "flag",
-                Id = id,
-                Attributes = new GenFlags.Flag
-                {
-                    Name = name,
-                    Type = type,
-                    Default = @default ?? new object(),
-                    Description = description ?? "",
-                    Values = flagValues!,
-                    Environments = flagEnvs,
-                },
-            }
-        };
+        return flagEnvs;
     }
 }

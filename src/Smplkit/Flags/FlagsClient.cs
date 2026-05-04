@@ -281,7 +281,11 @@ public sealed class FlagsClient
             var items = new List<GenApp.ContextBulkItem>();
             if (!string.IsNullOrEmpty(env))
             {
-                items.Add(new() { Type = "environment", Key = env });
+                // ContextBulkItem.Attributes is generated as `object` with no
+                // null-omit serializer hint, so leaving it default sends
+                // "attributes": null and the server rejects with
+                // "Input should be a valid dictionary". Send an empty dict.
+                items.Add(new() { Type = "environment", Key = env, Attributes = new Dictionary<string, object?>() });
             }
             items.Add(new()
             {
