@@ -1,3 +1,5 @@
+using GenApp = Smplkit.Internal.Generated.App;
+
 namespace Smplkit.Management;
 
 /// <summary>
@@ -21,18 +23,18 @@ public enum EnvironmentClassification
 /// <summary>Extension methods for <see cref="EnvironmentClassification"/>.</summary>
 public static class EnvironmentClassificationExtensions
 {
-    /// <summary>Returns the wire-format string ("STANDARD" or "AD_HOC").</summary>
-    public static string ToWireString(this EnvironmentClassification classification) => classification switch
+    /// <summary>Returns the generated wire enum used by the app client.</summary>
+    public static GenApp.EnvironmentClassification ToWireString(this EnvironmentClassification classification) => classification switch
     {
-        EnvironmentClassification.Standard => "STANDARD",
-        EnvironmentClassification.AdHoc => "AD_HOC",
+        EnvironmentClassification.Standard => GenApp.EnvironmentClassification.STANDARD,
+        EnvironmentClassification.AdHoc => GenApp.EnvironmentClassification.AD_HOC,
         _ => throw new ArgumentOutOfRangeException(nameof(classification)),
     };
 
-    /// <summary>Parses the wire-format string. Unknown values default to <see cref="EnvironmentClassification.Standard"/>.</summary>
-    public static EnvironmentClassification ParseClassification(string? wire) => wire switch
+    /// <summary>Maps the generated wire enum to the public SDK enum. Unknown / null values default to <see cref="EnvironmentClassification.Standard"/>.</summary>
+    public static EnvironmentClassification ParseClassification(GenApp.EnvironmentClassification? wire) => wire switch
     {
-        "AD_HOC" => EnvironmentClassification.AdHoc,
+        GenApp.EnvironmentClassification.AD_HOC => EnvironmentClassification.AdHoc,
         _ => EnvironmentClassification.Standard,
     };
 }

@@ -11,17 +11,16 @@ namespace Smplkit.Tests.Management;
 public class EnvironmentClassificationTests
 {
     [Theory]
-    [InlineData(EnvironmentClassification.Standard, "STANDARD")]
-    [InlineData(EnvironmentClassification.AdHoc, "AD_HOC")]
-    public void ToWireString_ReturnsExpected(EnvironmentClassification classification, string expected)
+    [InlineData(EnvironmentClassification.Standard, Smplkit.Internal.Generated.App.EnvironmentClassification.STANDARD)]
+    [InlineData(EnvironmentClassification.AdHoc, Smplkit.Internal.Generated.App.EnvironmentClassification.AD_HOC)]
+    public void ToWireString_ReturnsExpected(EnvironmentClassification classification, Smplkit.Internal.Generated.App.EnvironmentClassification expected)
         => Assert.Equal(expected, classification.ToWireString());
 
     [Theory]
-    [InlineData("STANDARD", EnvironmentClassification.Standard)]
-    [InlineData("AD_HOC", EnvironmentClassification.AdHoc)]
-    [InlineData("unknown", EnvironmentClassification.Standard)]
+    [InlineData(Smplkit.Internal.Generated.App.EnvironmentClassification.STANDARD, EnvironmentClassification.Standard)]
+    [InlineData(Smplkit.Internal.Generated.App.EnvironmentClassification.AD_HOC, EnvironmentClassification.AdHoc)]
     [InlineData(null, EnvironmentClassification.Standard)]
-    public void ParseClassification_ReturnsExpected(string? wire, EnvironmentClassification expected)
+    public void ParseClassification_ReturnsExpected(Smplkit.Internal.Generated.App.EnvironmentClassification? wire, EnvironmentClassification expected)
         => Assert.Equal(expected, EnvironmentClassificationExtensions.ParseClassification(wire));
 
     [Fact]
