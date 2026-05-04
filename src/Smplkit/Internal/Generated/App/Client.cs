@@ -11585,7 +11585,8 @@ namespace Smplkit.Internal.Generated.App
         public string? Color { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("classification")]
-        public string? Classification { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<EnvironmentClassification>))]
+        public EnvironmentClassification Classification { get; set; } = Smplkit.Internal.Generated.App.EnvironmentClassification.AD_HOC;
 
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
         public System.DateTimeOffset? Created_at { get; set; } = default!;
@@ -13077,6 +13078,18 @@ namespace Smplkit.Internal.Generated.App
 
         [System.Runtime.Serialization.EnumMember(Value = @"email")]
         Email = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum EnvironmentClassification
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"STANDARD")]
+        STANDARD = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"AD_HOC")]
+        AD_HOC = 1,
 
     }
 
