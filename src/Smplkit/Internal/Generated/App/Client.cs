@@ -38,7 +38,7 @@ namespace Smplkit.Internal.Generated.App
         /// Initiates the OIDC authorization flow by redirecting the user to the provider's login page.
         /// </remarks>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task Begin_oidc_loginAsync(OidcProvider provider, string? mode = null, string? source = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task Begin_oidc_loginAsync(OidcProvider provider, string? mode = null, string? source = null, string? entry_point = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -958,7 +958,7 @@ namespace Smplkit.Internal.Generated.App
         /// Initiates the OIDC authorization flow by redirecting the user to the provider's login page.
         /// </remarks>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task Begin_oidc_loginAsync(OidcProvider provider, string? mode = null, string? source = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task Begin_oidc_loginAsync(OidcProvider provider, string? mode = null, string? source = null, string? entry_point = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (provider == null)
                 throw new System.ArgumentNullException("provider");
@@ -984,6 +984,10 @@ namespace Smplkit.Internal.Generated.App
                     if (source != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("source")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(source, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (entry_point != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("entry_point")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(entry_point, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -10673,6 +10677,18 @@ namespace Smplkit.Internal.Generated.App
         [System.Text.Json.Serialization.JsonPropertyName("product_subscriptions")]
         public object? Product_subscriptions { get; set; } = default!;
 
+        /// <summary>
+        /// Registration entry point (from account.data)
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("entry_point")]
+        public string? Entry_point { get; set; } = default!;
+
+        /// <summary>
+        /// Whether sample data is active (from account.settings)
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("show_sample_data")]
+        public bool? Show_sample_data { get; set; } = default!;
+
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
         [System.Text.Json.Serialization.JsonExtensionData]
@@ -12592,6 +12608,13 @@ namespace Smplkit.Internal.Generated.App
         [System.Text.Json.Serialization.JsonPropertyName("password")]
         public string Password { get; set; } = default!;
 
+        /// <summary>
+        /// Registration entry point. Allowed: login, get_started, live_demo, unknown. Defaults to unknown when omitted.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("entry_point")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<RegisterRequestEntry_point>))]
+        public RegisterRequestEntry_point? Entry_point { get; set; } = default!;
+
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
         [System.Text.Json.Serialization.JsonExtensionData]
@@ -13177,6 +13200,24 @@ namespace Smplkit.Internal.Generated.App
 
         [System.Runtime.Serialization.EnumMember(Value = @"product")]
         Product = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum RegisterRequestEntry_point
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"login")]
+        Login = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"get_started")]
+        Get_started = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"live_demo")]
+        Live_demo = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"unknown")]
+        Unknown = 3,
 
     }
 
