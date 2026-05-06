@@ -1,3 +1,4 @@
+using Smplkit.Audit;
 using Smplkit.Config;
 using Smplkit.Errors;
 using Smplkit.Flags;
@@ -45,6 +46,13 @@ public sealed class SmplClient : IDisposable
 
     /// <summary>Runtime logging integration.</summary>
     public LoggingClient Logging { get; }
+
+    /// <summary>
+    /// Audit-product surface (ADR-047). Use <c>client.Audit.Events.Create(...)</c>
+    /// to record an event; the call is fire-and-forget and returns immediately
+    /// while a background task issues the POST and retries transient failures.
+    /// </summary>
+    public AuditClient Audit { get; }
 
     /// <summary>
     /// Management client wired against the same HTTP transport as this runtime
@@ -113,6 +121,7 @@ public sealed class SmplClient : IDisposable
         Config = new ConfigClient(_clients, EnsureSharedWebSocket, this, _metrics);
         Flags = new FlagsClient(_clients, _apiKey, EnsureSharedWebSocket, _contextBuffer, this, _metrics);
         Logging = new LoggingClient(_clients, _apiKey, EnsureSharedWebSocket, this, _metrics);
+        Audit = new AuditClient(_clients.Audit);
 
         // Wire up ambient-context bridge for flag evaluation.
         Flags.SetContextProvider(GetAmbientContext);
@@ -206,6 +215,7 @@ public sealed class SmplClient : IDisposable
         DebugLog.Log("lifecycle", "SmplClient.Dispose() called");
         Flags.Close();
         Logging.Close();
+        Audit.DisposeAsync().AsTask().GetAwaiter().GetResult();
 
         if (_sharedWs is not null)
         {

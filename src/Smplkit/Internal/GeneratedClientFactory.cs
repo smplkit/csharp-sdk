@@ -1,4 +1,5 @@
 using GenApp = Smplkit.Internal.Generated.App;
+using GenAudit = Smplkit.Internal.Generated.Audit;
 using GenConfig = Smplkit.Internal.Generated.Config;
 using GenFlags = Smplkit.Internal.Generated.Flags;
 using GenLogging = Smplkit.Internal.Generated.Logging;
@@ -26,6 +27,9 @@ internal sealed class GeneratedClientFactory
     /// <summary>Gets the generated Logging API client.</summary>
     internal GenLogging.LoggingClient Logging { get; }
 
+    /// <summary>Gets the generated Audit API client.</summary>
+    internal GenAudit.AuditClient Audit { get; }
+
     /// <summary>
     /// Configures the shared <see cref="HttpClient"/> and creates generated client instances.
     /// </summary>
@@ -49,5 +53,6 @@ internal sealed class GeneratedClientFactory
         Flags = new GenFlags.FlagsClient($"{scheme}://flags.{domain}", httpClient) { ReadResponseAsString = true };
         App = new GenApp.AppClient($"{scheme}://app.{domain}", httpClient) { ReadResponseAsString = true };
         Logging = new GenLogging.LoggingClient($"{scheme}://logging.{domain}", httpClient) { ReadResponseAsString = true };
+        Audit = new GenAudit.AuditClient($"{scheme}://audit.{domain}", httpClient) { ReadResponseAsString = true };
     }
 }
