@@ -688,7 +688,7 @@ namespace Smplkit.Internal.Generated.App
         /// List Products
         /// </summary>
         /// <remarks>
-        /// Return all flag-enabled products with their plans and limits.
+        /// Return all flag-enabled products with their plans, limits, and marketing content.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -8190,7 +8190,7 @@ namespace Smplkit.Internal.Generated.App
         /// List Products
         /// </summary>
         /// <remarks>
-        /// Return all flag-enabled products with their plans and limits.
+        /// Return all flag-enabled products with their plans, limits, and marketing content.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -12534,6 +12534,12 @@ namespace Smplkit.Internal.Generated.App
 
         [System.Text.Json.Serialization.JsonPropertyName("description")]
         public string Description { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("tagline")]
+        public string? Tagline { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("features")]
+        public System.Collections.Generic.List<string> Features { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("coming_soon")]
         public bool Coming_soon { get; set; } = false;
