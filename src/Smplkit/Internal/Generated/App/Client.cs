@@ -773,28 +773,6 @@ namespace Smplkit.Internal.Generated.App
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// List Bundles
-        /// </summary>
-        /// <remarks>
-        /// Return all bundle definitions as JSON:API resources. Public, unauthenticated.
-        /// </remarks>
-        /// <returns>Successful Response</returns>
-        /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<BundleListResponse> List_bundlesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
-
-        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <summary>
-        /// Create Bundle Subscription
-        /// </summary>
-        /// <remarks>
-        /// Create a bundle subscription covering all three products at a shared plan tier.
-        /// </remarks>
-        /// <returns>Successful Response</returns>
-        /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<BundleResponse> Create_bundleAsync(CreateBundleBody body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
-
-        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <summary>
         /// List Payment Methods
         /// </summary>
         /// <remarks>
@@ -9172,247 +9150,6 @@ namespace Smplkit.Internal.Generated.App
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// List Bundles
-        /// </summary>
-        /// <remarks>
-        /// Return all bundle definitions as JSON:API resources. Public, unauthenticated.
-        /// </remarks>
-        /// <returns>Successful Response</returns>
-        /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<BundleListResponse> List_bundlesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
-        {
-            var client_ = _httpClient;
-            var disposeClient_ = false;
-            try
-            {
-                using (var request_ = new System.Net.Http.HttpRequestMessage())
-                {
-                    request_.Method = new System.Net.Http.HttpMethod("GET");
-                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
-
-                    var urlBuilder_ = new System.Text.StringBuilder();
-                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
-                    // Operation Path: "api/v1/bundles"
-                    urlBuilder_.Append("api/v1/bundles");
-
-                    PrepareRequest(client_, request_, urlBuilder_);
-
-                    var url_ = urlBuilder_.ToString();
-                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
-
-                    PrepareRequest(client_, request_, url_);
-
-                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-                    var disposeResponse_ = true;
-                    try
-                    {
-                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
-                        foreach (var item_ in response_.Headers)
-                            headers_[item_.Key] = item_.Value;
-                        if (response_.Content != null && response_.Content.Headers != null)
-                        {
-                            foreach (var item_ in response_.Content.Headers)
-                                headers_[item_.Key] = item_.Value;
-                        }
-
-                        ProcessResponse(client_, response_);
-
-                        var status_ = (int)response_.StatusCode;
-                        if (status_ == 200)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<BundleListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            return objectResponse_.Object;
-                        }
-                        else
-                        if (status_ == 400)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Validation error or malformed request", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        if (status_ == 401)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Missing or invalid authentication", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        if (status_ == 404)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Resource not found", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        if (status_ == 429)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Rate limit exceeded", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        {
-                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
-                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
-                        }
-                    }
-                    finally
-                    {
-                        if (disposeResponse_)
-                            response_.Dispose();
-                    }
-                }
-            }
-            finally
-            {
-                if (disposeClient_)
-                    client_.Dispose();
-            }
-        }
-
-        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <summary>
-        /// Create Bundle Subscription
-        /// </summary>
-        /// <remarks>
-        /// Create a bundle subscription covering all three products at a shared plan tier.
-        /// </remarks>
-        /// <returns>Successful Response</returns>
-        /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<BundleResponse> Create_bundleAsync(CreateBundleBody body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
-        {
-            if (body == null)
-                throw new System.ArgumentNullException("body");
-
-            var client_ = _httpClient;
-            var disposeClient_ = false;
-            try
-            {
-                using (var request_ = new System.Net.Http.HttpRequestMessage())
-                {
-                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
-                    var content_ = new System.Net.Http.ByteArrayContent(json_);
-                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/vnd.api+json");
-                    request_.Content = content_;
-                    request_.Method = new System.Net.Http.HttpMethod("POST");
-                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
-
-                    var urlBuilder_ = new System.Text.StringBuilder();
-                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
-                    // Operation Path: "api/v1/bundles"
-                    urlBuilder_.Append("api/v1/bundles");
-
-                    PrepareRequest(client_, request_, urlBuilder_);
-
-                    var url_ = urlBuilder_.ToString();
-                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
-
-                    PrepareRequest(client_, request_, url_);
-
-                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-                    var disposeResponse_ = true;
-                    try
-                    {
-                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
-                        foreach (var item_ in response_.Headers)
-                            headers_[item_.Key] = item_.Value;
-                        if (response_.Content != null && response_.Content.Headers != null)
-                        {
-                            foreach (var item_ in response_.Content.Headers)
-                                headers_[item_.Key] = item_.Value;
-                        }
-
-                        ProcessResponse(client_, response_);
-
-                        var status_ = (int)response_.StatusCode;
-                        if (status_ == 201)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<BundleResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            return objectResponse_.Object;
-                        }
-                        else
-                        if (status_ == 400)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Validation error or malformed request", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        if (status_ == 401)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Missing or invalid authentication", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        if (status_ == 404)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Resource not found", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        if (status_ == 429)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Rate limit exceeded", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        {
-                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
-                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
-                        }
-                    }
-                    finally
-                    {
-                        if (disposeResponse_)
-                            response_.Dispose();
-                    }
-                }
-            }
-            finally
-            {
-                if (disposeClient_)
-                    client_.Dispose();
-            }
-        }
-
-        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <summary>
         /// List Payment Methods
         /// </summary>
         /// <remarks>
@@ -10689,6 +10426,30 @@ namespace Smplkit.Internal.Generated.App
         [System.Text.Json.Serialization.JsonPropertyName("show_sample_data")]
         public bool? Show_sample_data { get; set; } = default!;
 
+        /// <summary>
+        /// Custom discount percentage that overrides the volume schedule. Null means the volume schedule applies.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("discount_override_pct")]
+        public int? Discount_override_pct { get; set; } = default!;
+
+        /// <summary>
+        /// Free-form note explaining why the override was set.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("discount_override_reason")]
+        public string? Discount_override_reason { get; set; } = default!;
+
+        /// <summary>
+        /// UUID of the admin user who set the override.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("discount_override_set_by_user_id")]
+        public string? Discount_override_set_by_user_id { get; set; } = default!;
+
+        /// <summary>
+        /// Timestamp when the override was last changed.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("discount_override_set_at")]
+        public System.DateTimeOffset? Discount_override_set_at { get; set; } = default!;
+
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
         [System.Text.Json.Serialization.JsonExtensionData]
@@ -10956,146 +10717,6 @@ namespace Smplkit.Internal.Generated.App
 
         [System.Text.Json.Serialization.JsonPropertyName("expires_in")]
         public int Expires_in { get; set; } = default!;
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class BundleAttributes
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("bundle")]
-        public string Bundle { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("plan")]
-        public string Plan { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("products")]
-        public System.Collections.Generic.List<string> Products { get; set; } = new System.Collections.Generic.List<string>();
-
-        [System.Text.Json.Serialization.JsonPropertyName("subscriptions")]
-        public System.Collections.Generic.List<string> Subscriptions { get; set; } = new System.Collections.Generic.List<string>();
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class BundleListResponse
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("data")]
-        public System.Collections.Generic.List<CatalogBundleResource> Data { get; set; } = new System.Collections.Generic.List<CatalogBundleResource>();
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class BundleResource
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("id")]
-        public string? Id { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("type")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<BundleResourceType>))]
-        public BundleResourceType Type { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
-        public BundleAttributes Attributes { get; set; } = new BundleAttributes();
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class BundleResponse
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("data")]
-        public BundleResource Data { get; set; } = new BundleResource();
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class CatalogBundleAttributes
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("display_name")]
-        public string Display_name { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("plan")]
-        public string Plan { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("products")]
-        public System.Collections.Generic.List<string> Products { get; set; } = new System.Collections.Generic.List<string>();
-
-        [System.Text.Json.Serialization.JsonPropertyName("price_monthly_cents")]
-        public int Price_monthly_cents { get; set; } = default!;
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class CatalogBundleResource
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("id")]
-        public string? Id { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("type")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<CatalogBundleResourceType>))]
-        public CatalogBundleResourceType Type { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
-        public CatalogBundleAttributes Attributes { get; set; } = new CatalogBundleAttributes();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -11380,67 +11001,6 @@ namespace Smplkit.Internal.Generated.App
 
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public ContextTypeResource Data { get; set; } = new ContextTypeResource();
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class CreateBundleAttributes
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("bundle")]
-        public string Bundle { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("payment_method")]
-        public string? Payment_method { get; set; } = default!;
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class CreateBundleBody
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("data")]
-        public CreateBundleData Data { get; set; } = new CreateBundleData();
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class CreateBundleData
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("type")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<CreateBundleDataType>))]
-        public CreateBundleDataType Type { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
-        public CreateBundleAttributes Attributes { get; set; } = new CreateBundleAttributes();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -12263,6 +11823,30 @@ namespace Smplkit.Internal.Generated.App
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class NextTierMeta
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("products_needed")]
+        public int Products_needed { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("discount_pct")]
+        public int Discount_pct { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("additional_savings_cents")]
+        public int Additional_savings_cents { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public enum OidcProvider
     {
 
@@ -12837,14 +12421,48 @@ namespace Smplkit.Internal.Generated.App
         [System.Text.Json.Serialization.JsonPropertyName("stripe_managed")]
         public bool Stripe_managed { get; set; } = default!;
 
-        [System.Text.Json.Serialization.JsonPropertyName("bundle")]
-        public string? Bundle { get; set; } = default!;
-
         [System.Text.Json.Serialization.JsonPropertyName("current_period_end")]
         public string? Current_period_end { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("client_secret")]
         public string? Client_secret { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Discount and totals summary attached to GET /api/v1/subscriptions.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SubscriptionListMeta
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("subtotal_cents")]
+        public int Subtotal_cents { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("discount_pct")]
+        public int Discount_pct { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("discount_amount_cents")]
+        public int Discount_amount_cents { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("discount_source")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<SubscriptionListMetaDiscount_source>))]
+        public SubscriptionListMetaDiscount_source Discount_source { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("total_cents")]
+        public int Total_cents { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("next_tier")]
+        public NextTierMeta? Next_tier { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -12863,6 +12481,9 @@ namespace Smplkit.Internal.Generated.App
 
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public System.Collections.Generic.List<SubscriptionResource> Data { get; set; } = new System.Collections.Generic.List<SubscriptionResource>();
+
+        [System.Text.Json.Serialization.JsonPropertyName("meta")]
+        public SubscriptionListMeta? Meta { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -13057,24 +12678,6 @@ namespace Smplkit.Internal.Generated.App
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum BundleResourceType
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"bundle")]
-        Bundle = 0,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum CatalogBundleResourceType
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"bundle")]
-        Bundle = 0,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public enum ContextResourceType
     {
 
@@ -13089,15 +12692,6 @@ namespace Smplkit.Internal.Generated.App
 
         [System.Runtime.Serialization.EnumMember(Value = @"context_type")]
         Context_type = 0,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum CreateBundleDataType
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"bundle")]
-        Bundle = 0,
 
     }
 
@@ -13251,6 +12845,18 @@ namespace Smplkit.Internal.Generated.App
 
         [System.Runtime.Serialization.EnumMember(Value = @"setup_intent")]
         Setup_intent = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum SubscriptionListMetaDiscount_source
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"volume")]
+        Volume = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"override")]
+        Override = 1,
 
     }
 
