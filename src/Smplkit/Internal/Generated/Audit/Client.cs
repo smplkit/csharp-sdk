@@ -32,7 +32,7 @@ namespace Smplkit.Internal.Generated.Audit
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// Create Event
+        /// Record Event
         /// </summary>
         /// <remarks>
         /// Record an audit event for the authenticated account.
@@ -46,7 +46,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// </remarks>
         /// <returns>Idempotent retry — original event returned</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<EventResponse> Create_eventAsync(EventResponse body, string? idempotency_Key = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<EventResponse> Record_eventAsync(EventResponse body, string? idempotency_Key = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -145,7 +145,7 @@ namespace Smplkit.Internal.Generated.Audit
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// Create Event
+        /// Record Event
         /// </summary>
         /// <remarks>
         /// Record an audit event for the authenticated account.
@@ -159,7 +159,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// </remarks>
         /// <returns>Idempotent retry — original event returned</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<EventResponse> Create_eventAsync(EventResponse body, string? idempotency_Key = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<EventResponse> Record_eventAsync(EventResponse body, string? idempotency_Key = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (body == null)
                 throw new System.ArgumentNullException("body");
