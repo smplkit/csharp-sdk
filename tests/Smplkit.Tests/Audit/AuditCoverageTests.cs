@@ -42,12 +42,16 @@ public class AuditCoverageTests
         // Missing ResourceType
         Assert.Throws<ArgumentException>(() => client.Events.Create(new CreateEventInput
         {
-            Action = "x", ResourceType = "", ResourceId = "1",
+            Action = "x",
+            ResourceType = "",
+            ResourceId = "1",
         }));
         // Missing ResourceId
         Assert.Throws<ArgumentException>(() => client.Events.Create(new CreateEventInput
         {
-            Action = "x", ResourceType = "user", ResourceId = "",
+            Action = "x",
+            ResourceType = "user",
+            ResourceId = "",
         }));
         http.Dispose();
     }
@@ -208,7 +212,9 @@ public class AuditCoverageTests
             {
                 client.Events.Create(new CreateEventInput
                 {
-                    Action = "x.created", ResourceType = "x", ResourceId = i.ToString(),
+                    Action = "x.created",
+                    ResourceType = "x",
+                    ResourceId = i.ToString(),
                 });
             }
             await client.Events.FlushAsync(TimeSpan.FromSeconds(3));
@@ -238,7 +244,9 @@ public class AuditCoverageTests
         {
             client.Events.Create(new CreateEventInput
             {
-                Action = "x.created", ResourceType = "x", ResourceId = "1",
+                Action = "x.created",
+                ResourceType = "x",
+                ResourceId = "1",
             });
             // Force a drain pass via flush; otherwise the worker waits for its
             // 5s tick or the watermark.
@@ -275,7 +283,9 @@ public class AuditCoverageTests
         {
             client.Events.Create(new CreateEventInput
             {
-                Action = "x.created", ResourceType = "x", ResourceId = "1",
+                Action = "x.created",
+                ResourceType = "x",
+                ResourceId = "1",
             });
             // 5 attempts × max 250ms backoff × 2^4 = up to 8s — give it 10s.
             var deadline = DateTime.UtcNow.AddSeconds(10);
