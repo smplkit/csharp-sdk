@@ -30,6 +30,13 @@ internal sealed class AuditEventBuffer : IAsyncDisposable
     private long _droppedCount;
     private bool _closed;
     private bool _disposed;
+    // _inFlight is the number of items the worker has dequeued but
+    // not yet finished POSTing. FlushAsync must wait on both queue
+    // empty AND _inFlight == 0 — otherwise it can return while a
+    // just-dequeued item is still in the middle of its HTTP round-
+    // trip, and an immediately following ListAsync call would miss
+    // the event.
+    private int _inFlight;
 
     public AuditEventBuffer(GenAudit.AuditClient gen)
     {
@@ -60,15 +67,15 @@ internal sealed class AuditEventBuffer : IAsyncDisposable
         }
     }
 
-    /// <summary>Block until the queue is empty or the timeout elapses.</summary>
+    /// <summary>Block until the buffer is idle or the timeout elapses.</summary>
     public async Task FlushAsync(TimeSpan timeout)
     {
         var deadline = DateTime.UtcNow + timeout;
         while (true)
         {
-            bool empty;
-            lock (_lock) empty = _queue.Count == 0;
-            if (empty) return;
+            bool idle;
+            lock (_lock) idle = _queue.Count == 0 && _inFlight == 0;
+            if (idle) return;
             if (DateTime.UtcNow >= deadline)
             {
                 Console.Error.WriteLine($"[smplkit.audit] flush timed out after {timeout.TotalMilliseconds}ms");
@@ -153,6 +160,7 @@ internal sealed class AuditEventBuffer : IAsyncDisposable
                     return;
                 }
                 _queue.RemoveFirst();
+                _inFlight++;
             }
 
             int status = 0;
@@ -175,6 +183,7 @@ internal sealed class AuditEventBuffer : IAsyncDisposable
                     _droppedCount += _queue.Count + 1;
                     _queue.Clear();
                     _closed = true;
+                    _inFlight--;
                 }
                 Console.Error.WriteLine("[smplkit.audit] HttpClient disposed; remaining events dropped");
                 return;
@@ -185,9 +194,16 @@ internal sealed class AuditEventBuffer : IAsyncDisposable
             }
 
             var requeue = HandleOutcome(head, status);
+            lock (_lock)
+            {
+                _inFlight--;
+                if (requeue != null)
+                {
+                    _queue.AddFirst(requeue);
+                }
+            }
             if (requeue != null)
             {
-                lock (_lock) _queue.AddFirst(requeue);
                 return;
             }
         }

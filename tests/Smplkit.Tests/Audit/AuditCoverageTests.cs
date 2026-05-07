@@ -30,7 +30,7 @@ public class AuditCoverageTests
     {
         var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)));
         var client = new AuditClient(gen);
-        Assert.Throws<ArgumentNullException>(() => client.Events.Create(null!));
+        Assert.Throws<ArgumentNullException>(() => client.Events.Record(null!));
     }
 
     [Fact]
@@ -39,14 +39,14 @@ public class AuditCoverageTests
         var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)));
         var client = new AuditClient(gen);
         // Missing ResourceType
-        Assert.Throws<ArgumentException>(() => client.Events.Create(new CreateEventInput
+        Assert.Throws<ArgumentException>(() => client.Events.Record(new CreateEventInput
         {
             Action = "x",
             ResourceType = "",
             ResourceId = "1",
         }));
         // Missing ResourceId
-        Assert.Throws<ArgumentException>(() => client.Events.Create(new CreateEventInput
+        Assert.Throws<ArgumentException>(() => client.Events.Record(new CreateEventInput
         {
             Action = "x",
             ResourceType = "user",
@@ -70,7 +70,7 @@ public class AuditCoverageTests
             };
         });
         await using var client = new AuditClient(gen);
-        client.Events.Create(new CreateEventInput
+        client.Events.Record(new CreateEventInput
         {
             Action = "invoice.created",
             ResourceType = "invoice",
@@ -111,7 +111,7 @@ public class AuditCoverageTests
             };
         });
         await using var client = new AuditClient(gen);
-        client.Events.Create(new CreateEventInput
+        client.Events.Record(new CreateEventInput
         {
             Action = "invoice.updated",
             ResourceType = "invoice",
@@ -241,7 +241,7 @@ public class AuditCoverageTests
             // exercises the eviction branch in Enqueue.
             for (int i = 0; i < 1100; i++)
             {
-                client.Events.Create(new CreateEventInput
+                client.Events.Record(new CreateEventInput
                 {
                     Action = "x.created",
                     ResourceType = "x",
@@ -272,7 +272,7 @@ public class AuditCoverageTests
         Console.SetError(TextWriter.Null);
         try
         {
-            client.Events.Create(new CreateEventInput
+            client.Events.Record(new CreateEventInput
             {
                 Action = "x.created",
                 ResourceType = "x",
@@ -310,7 +310,7 @@ public class AuditCoverageTests
         Console.SetError(TextWriter.Null);
         try
         {
-            client.Events.Create(new CreateEventInput
+            client.Events.Record(new CreateEventInput
             {
                 Action = "x.created",
                 ResourceType = "x",
@@ -365,7 +365,7 @@ public class AuditCoverageTests
         Console.SetError(TextWriter.Null);
         try
         {
-            client.Events.Create(new CreateEventInput
+            client.Events.Record(new CreateEventInput
             {
                 Action = "x.created",
                 ResourceType = "x",
@@ -433,7 +433,7 @@ public class AuditCoverageTests
             // than the 5s flush budget can drain.
             for (int i = 0; i < 200; i++)
             {
-                client.Events.Create(new CreateEventInput
+                client.Events.Record(new CreateEventInput
                 {
                     Action = "x.created",
                     ResourceType = "x",
@@ -476,7 +476,7 @@ public class AuditCoverageTests
         {
             for (int i = 0; i < 50; i++)
             {
-                client.Events.Create(new CreateEventInput
+                client.Events.Record(new CreateEventInput
                 {
                     Action = "x.created",
                     ResourceType = "x",

@@ -33,7 +33,7 @@ public sealed record AuditEvent(
 );
 
 /// <summary>
-/// Input for <see cref="AuditEvents.Create"/>.
+/// Input for <see cref="AuditEvents.Record"/>.
 ///
 /// <para><c>ResourceType</c> beginning with <c>smpl.</c> is reserved
 /// for smplkit-emitted events; the server returns 403 for customer

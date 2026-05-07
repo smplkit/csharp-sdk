@@ -48,7 +48,7 @@ public sealed class SmplClient : IDisposable
     public LoggingClient Logging { get; }
 
     /// <summary>
-    /// Audit-product surface (ADR-047). Use <c>client.Audit.Events.Create(...)</c>
+    /// Audit-product surface (ADR-047). Use <c>client.Audit.Events.Record(...)</c>
     /// to record an event; the call is fire-and-forget and returns immediately
     /// while a background task issues the POST and retries transient failures.
     /// </summary>

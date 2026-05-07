@@ -39,7 +39,7 @@ public class AuditClientTests
         var sw = System.Diagnostics.Stopwatch.StartNew();
         for (int i = 0; i < 20; i++)
         {
-            client.Events.Create(new CreateEventInput
+            client.Events.Record(new CreateEventInput
             {
                 Action = "user.created",
                 ResourceType = "user",
@@ -65,7 +65,7 @@ public class AuditClientTests
     {
         var (gen, _, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)));
         var client = new AuditClient(gen);
-        Assert.Throws<ArgumentException>(() => client.Events.Create(new CreateEventInput
+        Assert.Throws<ArgumentException>(() => client.Events.Record(new CreateEventInput
         {
             Action = "",
             ResourceType = "user",
@@ -90,7 +90,7 @@ public class AuditClientTests
         });
         await using var client = new AuditClient(gen);
 
-        client.Events.Create(new CreateEventInput
+        client.Events.Record(new CreateEventInput
         {
             Action = "user.created",
             ResourceType = "user",

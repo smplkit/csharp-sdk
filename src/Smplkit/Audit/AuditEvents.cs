@@ -5,7 +5,7 @@ namespace Smplkit.Audit;
 /// <summary>
 /// Audit events surface — accessed via <see cref="AuditClient.Events"/>.
 ///
-/// <para><see cref="Create"/> is fire-and-forget per ADR-047 §2.6 — the
+/// <para><see cref="Record"/> is fire-and-forget per ADR-047 §2.6 — the
 /// call enqueues the event onto an in-memory bounded buffer and returns
 /// immediately. Reads (<see cref="ListAsync"/>, <see cref="GetAsync"/>)
 /// are async and synchronous on the wire.</para>
@@ -22,7 +22,7 @@ public sealed class AuditEvents
     }
 
     /// <summary>Enqueue an audit event for asynchronous delivery. Returns immediately.</summary>
-    public void Create(CreateEventInput input)
+    public void Record(CreateEventInput input)
     {
         ArgumentNullException.ThrowIfNull(input);
         if (string.IsNullOrEmpty(input.Action))
