@@ -28,16 +28,15 @@ public class AuditCoverageTests
     [Fact]
     public void Create_RejectsNullInput()
     {
-        var (gen, http) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)));
+        var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)));
         var client = new AuditClient(gen);
         Assert.Throws<ArgumentNullException>(() => client.Events.Create(null!));
-        http.Dispose();
     }
 
     [Fact]
     public void Create_RejectsAllMissingRequiredFields()
     {
-        var (gen, http) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)));
+        var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)));
         var client = new AuditClient(gen);
         // Missing ResourceType
         Assert.Throws<ArgumentException>(() => client.Events.Create(new CreateEventInput
@@ -53,14 +52,13 @@ public class AuditCoverageTests
             ResourceType = "user",
             ResourceId = "",
         }));
-        http.Dispose();
     }
 
     [Fact]
     public async Task Create_ForwardsAllOptionalAttributes()
     {
         string? capturedBody = null;
-        var (gen, http) = MakeGen(async req =>
+        var (gen, _) = MakeGen(async req =>
         {
             if (req.Content != null)
             {
@@ -91,14 +89,13 @@ public class AuditCoverageTests
         Assert.NotNull(capturedBody);
         Assert.Contains("\"total_cents\":4900", capturedBody);
         Assert.Contains("\"request_id\":\"req-1\"", capturedBody);
-        http.Dispose();
     }
 
     [Fact]
     public async Task ListAsync_PassesAllFilterParameters()
     {
         var capturedUrls = new List<string>();
-        var (gen, http) = MakeGen(req =>
+        var (gen, _) = MakeGen(req =>
         {
             capturedUrls.Add(req.RequestUri!.ToString());
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
@@ -123,7 +120,6 @@ public class AuditCoverageTests
         Assert.Contains("filter%5Baction%5D=user.created", url);
         Assert.Contains("page%5Bsize%5D=25", url);
         Assert.Contains("page%5Bafter%5D=cursor-abc", url);
-        http.Dispose();
     }
 
     [Fact]
@@ -132,14 +128,13 @@ public class AuditCoverageTests
         const string body = """
             {"data":{"id":"11111111-2222-3333-4444-555555555555","type":"event","attributes":{"action":"x","resource_type":"x","resource_id":"1","occurred_at":"2026-05-06T12:00:00Z","created_at":"2026-05-06T12:00:01Z","actor_type":"USER","actor_id":null,"actor_label":"","snapshot":{"flag": false},"data":{},"idempotency_key":"k"}}}
             """;
-        var (gen, http) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(body, Encoding.UTF8, "application/vnd.api+json"),
         }));
         await using var client = new AuditClient(gen);
         var ev = await client.Events.GetAsync(Guid.Parse("11111111-2222-3333-4444-555555555555"));
         Assert.Equal(false, ev.Snapshot?["flag"]);
-        http.Dispose();
     }
 
     [Fact]
@@ -166,7 +161,7 @@ public class AuditCoverageTests
               }
             }
             """;
-        var (gen, http) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(body, Encoding.UTF8, "application/vnd.api+json"),
         }));
@@ -184,14 +179,13 @@ public class AuditCoverageTests
         Assert.Equal("a", tags[0]);
         Assert.NotNull(ev.ActorId);
         Assert.Equal("USER", ev.ActorType);
-        http.Dispose();
     }
 
     [Fact]
     public async Task Buffer_OverflowEvictsOldest()
     {
         var posts = 0;
-        var (gen, http) = MakeGen(async req =>
+        var (gen, _) = MakeGen(async req =>
         {
             await Task.Delay(20);
             Interlocked.Increment(ref posts);
@@ -205,9 +199,8 @@ public class AuditCoverageTests
         Console.SetError(TextWriter.Null);
         try
         {
-            // Burst of 200 events; default MaxBufferSize=1000 doesn't overflow,
-            // but 1100 does. Use a smaller burst that still hits the >= MaxBufferSize
-            // branch by leveraging that the worker is async.
+            // 1100 events overflows the default MaxBufferSize=1000, which
+            // exercises the eviction branch in Enqueue.
             for (int i = 0; i < 1100; i++)
             {
                 client.Events.Create(new CreateEventInput
@@ -225,14 +218,13 @@ public class AuditCoverageTests
         }
         // We don't assert post count exactly; the goal is exercising the
         // overflow-eviction branch.
-        http.Dispose();
     }
 
     [Fact]
     public async Task Buffer_DropsPermanent4xx()
     {
         var attempts = 0;
-        var (gen, http) = MakeGen(req =>
+        var (gen, _) = MakeGen(req =>
         {
             Interlocked.Increment(ref attempts);
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadRequest));
@@ -264,14 +256,13 @@ public class AuditCoverageTests
             Console.SetError(origStderr);
         }
         Assert.Equal(1, attempts); // exactly 1: permanent failure → no retry
-        http.Dispose();
     }
 
     [Fact]
     public async Task Buffer_RetriesAndGivesUpAfterMaxAttempts()
     {
         var attempts = 0;
-        var (gen, http) = MakeGen(req =>
+        var (gen, _) = MakeGen(req =>
         {
             Interlocked.Increment(ref attempts);
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
@@ -287,8 +278,13 @@ public class AuditCoverageTests
                 ResourceType = "x",
                 ResourceId = "1",
             });
-            // 5 attempts × max 250ms backoff × 2^4 = up to 8s — give it 10s.
-            var deadline = DateTime.UtcNow.AddSeconds(10);
+            // Trigger an immediate first-attempt wake; otherwise the worker
+            // sleeps the full 5s tick before its first try, eating the test
+            // budget under coverage instrumentation.
+            await client.Events.FlushAsync(TimeSpan.FromMilliseconds(50));
+            // Backoffs sum to 250+500+1000+2000 = 3.75s — generous 15s ceiling
+            // to absorb coverage-collector overhead.
+            var deadline = DateTime.UtcNow.AddSeconds(15);
             while (attempts < AuditEventBuffer.MaxAttempts && DateTime.UtcNow < deadline)
             {
                 await Task.Delay(50);
@@ -299,17 +295,115 @@ public class AuditCoverageTests
             Console.SetError(origStderr);
         }
         Assert.True(attempts >= AuditEventBuffer.MaxAttempts, $"got {attempts}, expected >= {AuditEventBuffer.MaxAttempts}");
-        http.Dispose();
     }
 
     [Fact]
     public async Task DisposeAsync_IsIdempotent()
     {
-        var (gen, http) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)));
+        var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)));
         var client = new AuditClient(gen);
         await client.DisposeAsync();
         // Second dispose should not throw.
         await client.DisposeAsync();
-        http.Dispose();
+    }
+
+    [Fact]
+    public async Task Buffer_NonApiExceptionTreatedAsTransient()
+    {
+        // The mock throws HttpRequestException — a realistic transient
+        // network failure that propagates through Create_eventAsync as
+        // something other than ApiException or ObjectDisposedException.
+        // Exercises the generic catch arm in DrainOnceAsync.
+        var attempts = 0;
+        var (gen, _) = MakeGen(req =>
+        {
+            Interlocked.Increment(ref attempts);
+            throw new HttpRequestException("simulated network failure");
+        });
+        await using var client = new AuditClient(gen);
+        var origStderr = Console.Error;
+        Console.SetError(TextWriter.Null);
+        try
+        {
+            client.Events.Create(new CreateEventInput
+            {
+                Action = "x.created",
+                ResourceType = "x",
+                ResourceId = "1",
+            });
+            await client.Events.FlushAsync(TimeSpan.FromMilliseconds(50));
+            var deadline = DateTime.UtcNow.AddSeconds(15);
+            while (attempts < 2 && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(50);
+            }
+        }
+        finally
+        {
+            Console.SetError(origStderr);
+        }
+        // Multiple attempts means the catch-all routed status=0 → retry.
+        Assert.True(attempts >= 2, $"expected at least 2 attempts, got {attempts}");
+    }
+
+    [Fact]
+    public async Task EventResource_ScalarSnapshotCollapsesToNull()
+    {
+        // A non-object snapshot (here, a JSON string) hits the
+        // "raw is JsonElement but not Object" path in ConvertJsonObject,
+        // which returns null per ADR-047 (snapshot is structured-only).
+        const string body = """
+            {"data":{"id":"11111111-2222-3333-4444-555555555555","type":"event","attributes":{"action":"x","resource_type":"x","resource_id":"1","occurred_at":"2026-05-06T12:00:00Z","created_at":"2026-05-06T12:00:01Z","actor_type":"USER","actor_id":null,"actor_label":"","snapshot":"unexpected-string","data":{},"idempotency_key":"k"}}}
+            """;
+        var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(body, Encoding.UTF8, "application/vnd.api+json"),
+        }));
+        await using var client = new AuditClient(gen);
+        var ev = await client.Events.GetAsync(Guid.Parse("11111111-2222-3333-4444-555555555555"));
+        Assert.Null(ev.Snapshot);
+    }
+
+    [Fact]
+    public async Task Buffer_DropsRemainingWhenHttpClientDisposed()
+    {
+        // Bug guard: if the underlying HttpClient is disposed while items are
+        // still queued, retrying every send would burn MaxAttempts × backoff
+        // (~3.75s) per item — 1000+ events would take roughly an hour. The
+        // ObjectDisposedException branch must drain the queue and stop fast.
+        var mock = new MockHttpMessageHandler(req => Task.FromResult(
+            new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = new StringContent(SuccessJson, Encoding.UTF8, "application/vnd.api+json"),
+            }));
+        var http = new HttpClient(mock);
+        var gen = new GenAudit.AuditClient("https://audit.example.com", http) { ReadResponseAsString = true };
+        var client = new AuditClient(gen);
+        var origStderr = Console.Error;
+        Console.SetError(TextWriter.Null);
+        try
+        {
+            for (int i = 0; i < 50; i++)
+            {
+                client.Events.Create(new CreateEventInput
+                {
+                    Action = "x.created",
+                    ResourceType = "x",
+                    ResourceId = i.ToString(),
+                });
+            }
+            // Yank the HttpClient out from under the worker, then await
+            // dispose — should return promptly (well under MaxAttempts × backoff).
+            http.Dispose();
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            await client.DisposeAsync();
+            sw.Stop();
+            Assert.True(sw.Elapsed < TimeSpan.FromSeconds(5),
+                $"dispose should be fast after HttpClient teardown; took {sw.Elapsed}");
+        }
+        finally
+        {
+            Console.SetError(origStderr);
+        }
     }
 }

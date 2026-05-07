@@ -25,7 +25,7 @@ public class AuditClientTests
     public async Task Create_ReturnsImmediately_ThenPostsInBackground()
     {
         var posts = 0;
-        var (gen, http, _) = MakeGen(async req =>
+        var (gen, _, _) = MakeGen(async req =>
         {
             await Task.Delay(50).ConfigureAwait(false);
             Interlocked.Increment(ref posts);
@@ -58,13 +58,12 @@ public class AuditClientTests
             await Task.Delay(20);
         }
         Assert.True(posts >= 1);
-        http.Dispose();
     }
 
     [Fact]
     public void Create_RejectsMissingFields()
     {
-        var (gen, http, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)));
+        var (gen, _, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)));
         var client = new AuditClient(gen);
         Assert.Throws<ArgumentException>(() => client.Events.Create(new CreateEventInput
         {
@@ -72,14 +71,13 @@ public class AuditClientTests
             ResourceType = "user",
             ResourceId = "u-1",
         }));
-        http.Dispose();
     }
 
     [Fact]
     public async Task Create_PassesIdempotencyKeyHeader()
     {
         string? capturedKey = null;
-        var (gen, http, mock) = MakeGen(req =>
+        var (gen, _, _) = MakeGen(req =>
         {
             if (req.Headers.TryGetValues("Idempotency-Key", out var values))
             {
@@ -106,14 +104,13 @@ public class AuditClientTests
             await Task.Delay(20);
         }
         Assert.Equal("key-abc", capturedKey);
-        http.Dispose();
     }
 
     [Fact]
     public async Task GetAsync_RoundTripsAnEvent()
     {
         var eventId = Guid.Parse("11111111-2222-3333-4444-555555555555");
-        var (gen, http, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        var (gen, _, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(
                 "{\"data\":{\"id\":\"11111111-2222-3333-4444-555555555555\",\"type\":\"event\",\"attributes\":{\"action\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"snapshot\":null,\"data\":{},\"idempotency_key\":\"k\"}}}",
@@ -124,15 +121,21 @@ public class AuditClientTests
         var ev = await client.Events.GetAsync(eventId);
         Assert.Equal(eventId, ev.Id);
         Assert.Equal("x.created", ev.Action);
+        Assert.Equal("x", ev.ResourceType);
+        Assert.Equal("1", ev.ResourceId);
+        Assert.Equal(DateTimeOffset.Parse("2026-05-06T12:00:00Z"), ev.OccurredAt);
+        Assert.Equal(DateTimeOffset.Parse("2026-05-06T12:00:01Z"), ev.CreatedAt);
         Assert.Equal("API_KEY", ev.ActorType);
         Assert.Null(ev.ActorId);
-        http.Dispose();
+        Assert.Equal(string.Empty, ev.ActorLabel);
+        Assert.Empty(ev.Data);
+        Assert.Equal("k", ev.IdempotencyKey);
     }
 
     [Fact]
     public async Task ListAsync_ParsesNextCursor()
     {
-        var (gen, http, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        var (gen, _, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(
                 "{\"data\":[{\"id\":\"11111111-2222-3333-4444-555555555555\",\"type\":\"event\",\"attributes\":{\"action\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"snapshot\":null,\"data\":{},\"idempotency_key\":\"k\"}}],\"meta\":{\"page_size\":1},\"links\":{\"next\":\"/api/v1/events?page[size]=1&page[after]=tok-xyz\"}}",
@@ -143,17 +146,15 @@ public class AuditClientTests
         var page = await client.Events.ListAsync(new ListEventsInput { PageSize = 1 });
         Assert.Single(page.Events);
         Assert.Equal("tok-xyz", page.NextCursor);
-        http.Dispose();
     }
 
     [Fact]
     public async Task GetAsync_404_ThrowsApiException()
     {
-        var (gen, http, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)));
+        var (gen, _, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)));
         await using var client = new AuditClient(gen);
 
         await Assert.ThrowsAsync<GenAudit.ApiException>(
             () => client.Events.GetAsync(Guid.NewGuid()));
-        http.Dispose();
     }
 }

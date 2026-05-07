@@ -26,7 +26,6 @@ internal sealed class AuditEventBuffer : IAsyncDisposable
     private readonly LinkedList<PendingEvent> _queue = new();
     private readonly object _lock = new();
     private readonly SemaphoreSlim _wake = new(0, 1);
-    private readonly CancellationTokenSource _cts = new();
     private readonly Task _runner;
     private long _droppedCount;
     private bool _closed;
@@ -88,11 +87,9 @@ internal sealed class AuditEventBuffer : IAsyncDisposable
         await FlushAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
         lock (_lock) _closed = true;
         TrySignalWake();
-        // Worker exits cleanly when ``_closed && _queue.Count == 0`` —
-        // no need to cancel the ambient token, which would force us into
-        // the catch-OperationCanceledException defensive path.
+        // Worker exits via the `_closed && _queue.Count == 0` check, so no
+        // cancellation token is needed.
         await _runner.ConfigureAwait(false);
-        _cts.Dispose();
         _wake.Dispose();
     }
 
@@ -123,11 +120,7 @@ internal sealed class AuditEventBuffer : IAsyncDisposable
                 }
             }
             if (shouldExit) return;
-            try
-            {
-                await _wake.WaitAsync(sleepMs, _cts.Token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) { return; }
+            await _wake.WaitAsync(sleepMs).ConfigureAwait(false);
         }
     }
 
@@ -159,6 +152,20 @@ internal sealed class AuditEventBuffer : IAsyncDisposable
             catch (GenAudit.ApiException apiEx)
             {
                 status = apiEx.StatusCode;
+            }
+            catch (ObjectDisposedException)
+            {
+                // The underlying HttpClient was disposed out from under us.
+                // Retrying will keep failing forever; flush the queue and stop
+                // the worker rather than burning MaxAttempts × backoff per item.
+                lock (_lock)
+                {
+                    _droppedCount += _queue.Count + 1;
+                    _queue.Clear();
+                    _closed = true;
+                }
+                Console.Error.WriteLine("[smplkit.audit] HttpClient disposed; remaining events dropped");
+                return;
             }
             catch
             {
