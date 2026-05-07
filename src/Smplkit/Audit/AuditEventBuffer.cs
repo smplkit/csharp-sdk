@@ -158,7 +158,7 @@ internal sealed class AuditEventBuffer : IAsyncDisposable
             int status = 0;
             try
             {
-                await _gen.Create_eventAsync(head.Body, head.IdempotencyKey).ConfigureAwait(false);
+                await _gen.Record_eventAsync(head.Body, head.IdempotencyKey).ConfigureAwait(false);
                 status = 201;
             }
             catch (GenAudit.ApiException apiEx)
