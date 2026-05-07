@@ -55,6 +55,10 @@ public sealed class AuditEvents
             ? new Dictionary<string, object>(
                 input.Data.Select(kv => new KeyValuePair<string, object>(kv.Key, kv.Value!)))
             : new Dictionary<string, object>();
+        if (input.DoNotForward)
+        {
+            attrs.Do_not_forward = true;
+        }
 
         var resource = new GenAudit.EventResource
         {
@@ -126,7 +130,8 @@ public sealed class AuditEvents
             a.Actor_label ?? string.Empty,
             ConvertJsonObject(a.Snapshot),
             ConvertJsonObject(a.Data) ?? new Dictionary<string, object?>(),
-            a.Idempotency_key ?? string.Empty
+            a.Idempotency_key ?? string.Empty,
+            a.Do_not_forward
         );
     }
 
