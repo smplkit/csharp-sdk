@@ -104,6 +104,7 @@ public sealed class SmplClient : IDisposable
             Timeout = options.Timeout,
             BaseDomain = resolved.BaseDomain,
             Scheme = resolved.Scheme,
+            ExtraHeaders = options.ExtraHeaders,
         };
         _clients = new GeneratedClientFactory(_httpClient, resolvedOptions);
 

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using GenApp = Smplkit.Internal.Generated.App;
 using GenAudit = Smplkit.Internal.Generated.Audit;
 using GenConfig = Smplkit.Internal.Generated.Config;
@@ -46,6 +47,15 @@ internal sealed class GeneratedClientFactory
             httpClient.DefaultRequestHeaders.Add("Accept", JsonApiMediaType);
 
         Auth.ApplyBearerToken(httpClient, options.ApiKey!);
+
+        if (options.ExtraHeaders is { } extra)
+        {
+            var sdkOwned = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                { "Authorization", "Accept", "Content-Type", "User-Agent" };
+            foreach (var (k, v) in extra)
+                if (!sdkOwned.Contains(k))
+                    httpClient.DefaultRequestHeaders.TryAddWithoutValidation(k, v);
+        }
 
         var scheme = options.Scheme ?? "https";
         var domain = options.BaseDomain ?? "smplkit.com";

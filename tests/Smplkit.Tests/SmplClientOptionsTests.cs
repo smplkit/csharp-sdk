@@ -166,4 +166,26 @@ public class SmplClientOptionsTests
 
         Assert.True(options.Debug);
     }
+
+    [Fact]
+    public void ExtraHeaders_DefaultIsNull()
+    {
+        var options = new SmplClientOptions { ApiKey = "sk_test", Environment = "test" };
+
+        Assert.Null(options.ExtraHeaders);
+    }
+
+    [Fact]
+    public void ExtraHeaders_CanBeSet()
+    {
+        var headers = new Dictionary<string, string> { ["X-Custom"] = "hello" };
+        var options = new SmplClientOptions
+        {
+            ApiKey = "sk_test",
+            Environment = "test",
+            ExtraHeaders = headers,
+        };
+
+        Assert.Equal("hello", options.ExtraHeaders!["X-Custom"]);
+    }
 }

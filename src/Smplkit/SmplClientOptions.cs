@@ -73,4 +73,11 @@ public sealed class SmplClientOptions
     /// Defaults to <c>false</c> if unset everywhere.
     /// </summary>
     public bool? Debug { get; init; }
+
+    /// <summary>
+    /// Gets additional HTTP headers sent on every request.
+    /// SDK-owned headers (Authorization, Accept, Content-Type, User-Agent) take precedence
+    /// and cannot be overridden through this property.
+    /// </summary>
+    public IDictionary<string, string>? ExtraHeaders { get; init; }
 }
