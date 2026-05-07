@@ -111,7 +111,8 @@ public class AuditForwardersTests
         await Assert.ThrowsAsync<GenAudit.ApiException>(() =>
             client.Forwarders.CreateAsync(new CreateForwarderInput
             {
-                Name = "x", ForwarderType = "http",
+                Name = "x",
+                ForwarderType = "http",
                 Http = new ForwarderHttp { Url = "https://x" },
             }));
     }
@@ -136,7 +137,9 @@ public class AuditForwardersTests
         await using var client = new AuditClient(gen);
         var first = await client.Forwarders.ListAsync(new ListForwardersInput
         {
-            ForwarderType = "datadog", Enabled = true, PageSize = 1,
+            ForwarderType = "datadog",
+            Enabled = true,
+            PageSize = 1,
         });
         Assert.Single(first.Forwarders);
         Assert.Equal("tok-2", first.NextCursor);
@@ -187,7 +190,8 @@ public class AuditForwardersTests
         await using var client = new AuditClient(gen);
         var fwd = await client.Forwarders.UpdateAsync(FwdId, new CreateForwarderInput
         {
-            Name = "Renamed", ForwarderType = "datadog",
+            Name = "Renamed",
+            ForwarderType = "datadog",
             Http = new ForwarderHttp { Url = "https://x" },
         });
         Assert.Equal("PUT", method);
@@ -231,7 +235,9 @@ public class AuditForwardersTests
         await using var client = new AuditClient(gen);
         var page = await client.Forwarders.ListDeliveriesAsync(FwdId, new ListDeliveriesInput
         {
-            Status = "succeeded", CreatedAtRange = "[2020-01-01T00:00:00Z,*)", PageSize = 1,
+            Status = "succeeded",
+            CreatedAtRange = "[2020-01-01T00:00:00Z,*)",
+            PageSize = 1,
         });
         Assert.Single(page.Deliveries);
         Assert.Equal("Succeeded", page.Deliveries[0].Status);
@@ -370,7 +376,9 @@ public class AuditForwardersTests
         await using var client = new AuditClient(gen);
         client.Events.Record(new CreateEventInput
         {
-            Action = "u.created", ResourceType = "u", ResourceId = "1",
+            Action = "u.created",
+            ResourceType = "u",
+            ResourceId = "1",
             DoNotForward = true,
         });
         await client.Events.FlushAsync(TimeSpan.FromSeconds(2));
