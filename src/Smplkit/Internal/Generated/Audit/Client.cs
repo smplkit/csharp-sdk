@@ -1972,9 +1972,12 @@ namespace Smplkit.Internal.Generated.Audit
     /// <summary>
     /// The destination HTTP request shape stored encrypted on a forwarder.
     /// <br/>
-    /// <br/>``success_status`` is either a single integer status (e.g. ``200``) or
-    /// <br/>a class string like ``"2xx"``. Anything outside the matched set is
-    /// <br/>treated as a delivery failure.
+    /// <br/>``success_status`` is a string: either a single status code (e.g.
+    /// <br/>``"200"``, ``"204"``) or a class (e.g. ``"2xx"``, ``"3xx"``). The
+    /// <br/>string-only contract is intentional — a Pydantic ``int | str`` union
+    /// <br/>confused several SDK code generators (Java in particular wrote the
+    /// <br/>default ``"2xx"`` unquoted into a typed enum). String covers both
+    /// <br/>shapes universally with a single wire type.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ForwarderHttp
@@ -1993,7 +1996,7 @@ namespace Smplkit.Internal.Generated.Audit
         public string? Body { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("success_status")]
-        public Success_status Success_status { get; set; } = default!;
+        public string Success_status { get; set; } = "2xx";
 
     }
 
@@ -2170,7 +2173,7 @@ namespace Smplkit.Internal.Generated.Audit
         public string? Body { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("success_status")]
-        public Success_status2 Success_status { get; set; } = default!;
+        public string Success_status { get; set; } = "2xx";
 
         [System.Text.Json.Serialization.JsonPropertyName("timeout_ms")]
         public int? Timeout_ms { get; set; } = default!;
@@ -2272,36 +2275,6 @@ namespace Smplkit.Internal.Generated.Audit
 
         [System.Runtime.Serialization.EnumMember(Value = @"skipped_do_not_forward")]
         Skipped_do_not_forward = 3,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class Success_status
-    {
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class Success_status2
-    {
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
 
     }
 
