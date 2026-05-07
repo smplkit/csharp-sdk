@@ -30,6 +30,7 @@ bld/
 TestResults/
 coverage/
 *.trx
+*.cobertura.xml
 
 ## IDE
 .vs/
