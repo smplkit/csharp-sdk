@@ -92,6 +92,44 @@ public class AuditCoverageTests
     }
 
     [Fact]
+    public async Task Create_OmittedDataDefaultsToEmptyDict()
+    {
+        // Regression: System.Text.Json emits ``"data": null`` for an unset
+        // reference property by default, and the server's Pydantic gate
+        // rejects null with HTTP 400. The wrapper must pin Data to at
+        // least an empty dict on the wire.
+        string? capturedBody = null;
+        var (gen, _) = MakeGen(async req =>
+        {
+            if (req.Content != null)
+            {
+                capturedBody = await req.Content.ReadAsStringAsync().ConfigureAwait(false);
+            }
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = new StringContent(SuccessJson, Encoding.UTF8, "application/vnd.api+json"),
+            };
+        });
+        await using var client = new AuditClient(gen);
+        client.Events.Create(new CreateEventInput
+        {
+            Action = "invoice.updated",
+            ResourceType = "invoice",
+            ResourceId = "inv-1",
+            // Data deliberately omitted.
+        });
+        await client.Events.FlushAsync(TimeSpan.FromSeconds(2));
+        var deadline = DateTime.UtcNow.AddSeconds(2);
+        while (capturedBody is null && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(20);
+        }
+        Assert.NotNull(capturedBody);
+        Assert.Contains("\"data\":{}", capturedBody);
+        Assert.DoesNotContain("\"data\":null", capturedBody);
+    }
+
+    [Fact]
     public async Task ListAsync_PassesAllFilterParameters()
     {
         var capturedUrls = new List<string>();

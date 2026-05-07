@@ -47,11 +47,14 @@ public sealed class AuditEvents
             attrs.Snapshot = new Dictionary<string, object>(
                 input.Snapshot.Select(kv => new KeyValuePair<string, object>(kv.Key, kv.Value!)));
         }
-        if (input.Data != null)
-        {
-            attrs.Data = new Dictionary<string, object>(
-                input.Data.Select(kv => new KeyValuePair<string, object>(kv.Key, kv.Value!)));
-        }
+        // Server-side validation rejects ``data: null`` (the field is
+        // required-non-null in the OpenAPI schema). System.Text.Json
+        // emits ``"data": null`` for an unset reference property by
+        // default, so always populate Data with at least an empty dict.
+        attrs.Data = input.Data != null
+            ? new Dictionary<string, object>(
+                input.Data.Select(kv => new KeyValuePair<string, object>(kv.Key, kv.Value!)))
+            : new Dictionary<string, object>();
 
         var resource = new GenAudit.EventResource
         {
