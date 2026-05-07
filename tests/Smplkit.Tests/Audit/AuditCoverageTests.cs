@@ -282,9 +282,11 @@ public class AuditCoverageTests
             // sleeps the full 5s tick before its first try, eating the test
             // budget under coverage instrumentation.
             await client.Events.FlushAsync(TimeSpan.FromMilliseconds(50));
-            // Backoffs sum to 250+500+1000+2000 = 3.75s — generous 15s ceiling
-            // to absorb coverage-collector overhead.
-            var deadline = DateTime.UtcNow.AddSeconds(15);
+            // Backoffs sum to 250+500+1000+2000 = 3.75s natively, but coverlet
+            // instrumentation on CI Linux runners can stretch each NSwag call
+            // by a multiple. Use a generous ceiling so the test isn't flaky
+            // — it still exits early when we hit MaxAttempts.
+            var deadline = DateTime.UtcNow.AddSeconds(60);
             while (attempts < AuditEventBuffer.MaxAttempts && DateTime.UtcNow < deadline)
             {
                 await Task.Delay(50);
@@ -332,7 +334,9 @@ public class AuditCoverageTests
                 ResourceId = "1",
             });
             await client.Events.FlushAsync(TimeSpan.FromMilliseconds(50));
-            var deadline = DateTime.UtcNow.AddSeconds(15);
+            // Coverlet on CI can stretch each NSwag call dramatically;
+            // use a generous ceiling and exit early on success.
+            var deadline = DateTime.UtcNow.AddSeconds(60);
             while (attempts < 2 && DateTime.UtcNow < deadline)
             {
                 await Task.Delay(50);
