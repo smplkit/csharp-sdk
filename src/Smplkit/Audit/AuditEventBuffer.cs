@@ -84,11 +84,13 @@ internal sealed class AuditEventBuffer : IAsyncDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        // Best-effort drain inside the flush window, then drop anything
+        // still queued. Bounding dispose is preferable to letting it
+        // block until the queue empties — a saturated buffer at close
+        // time would otherwise pin the caller for minutes.
         await FlushAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
         lock (_lock) _closed = true;
         TrySignalWake();
-        // Worker exits via the `_closed && _queue.Count == 0` check, so no
-        // cancellation token is needed.
         await _runner.ConfigureAwait(false);
         _wake.Dispose();
     }
@@ -112,7 +114,12 @@ internal sealed class AuditEventBuffer : IAsyncDisposable
             int sleepMs = FlushIntervalMs;
             lock (_lock)
             {
-                shouldExit = _closed && _queue.Count == 0;
+                // Once DisposeAsync flips _closed we exit on the next loop
+                // turn — anything left in the queue is dropped. The
+                // pre-close FlushAsync(5s) is the best-effort drain
+                // window; past that, bounded dispose wins over hopeful
+                // delivery.
+                shouldExit = _closed;
                 if (_queue.First != null && _queue.First.Value.NextRetryAt > DateTime.MinValue)
                 {
                     var until = (int)(_queue.First.Value.NextRetryAt - DateTime.UtcNow).TotalMilliseconds;
@@ -131,6 +138,11 @@ internal sealed class AuditEventBuffer : IAsyncDisposable
             PendingEvent? head;
             lock (_lock)
             {
+                // Honor _closed mid-drain too — without this, the inner
+                // loop will keep dispatching queued items even after
+                // DisposeAsync has flipped _closed, blowing past the
+                // bounded-dispose window.
+                if (_closed) return;
                 if (_queue.First == null)
                 {
                     return;

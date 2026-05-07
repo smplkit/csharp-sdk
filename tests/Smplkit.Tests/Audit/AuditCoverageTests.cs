@@ -407,6 +407,55 @@ public class AuditCoverageTests
     }
 
     [Fact]
+    public async Task DisposeAsync_IsBoundedEvenWithSaturatedBuffer()
+    {
+        // The worker exits on _closed alone (set by DisposeAsync after
+        // its 5s flush window), not on _closed && queue empty. That
+        // means dispose is bounded by the flush timeout regardless of
+        // how many items are still queued — a saturated buffer at close
+        // time can't pin the caller indefinitely.
+        var (gen, _) = MakeGen(async req =>
+        {
+            // Slow handler — drains far slower than enqueue rate so the
+            // queue stays saturated through the dispose path.
+            await Task.Delay(100);
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = new StringContent(SuccessJson, Encoding.UTF8, "application/vnd.api+json"),
+            };
+        });
+        var client = new AuditClient(gen);
+        var origStderr = Console.Error;
+        Console.SetError(TextWriter.Null);
+        try
+        {
+            // 200 items × 100ms = 20s of server-side work — far more
+            // than the 5s flush budget can drain.
+            for (int i = 0; i < 200; i++)
+            {
+                client.Events.Create(new CreateEventInput
+                {
+                    Action = "x.created",
+                    ResourceType = "x",
+                    ResourceId = i.ToString(),
+                });
+            }
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            await client.DisposeAsync();
+            sw.Stop();
+            // Bounded: ~5s flush + worker's last-iteration request
+            // (≤100ms) + scheduling overhead. Generous 8s ceiling.
+            Assert.True(
+                sw.Elapsed < TimeSpan.FromSeconds(8),
+                $"DisposeAsync should be bounded by the flush window; took {sw.Elapsed}");
+        }
+        finally
+        {
+            Console.SetError(origStderr);
+        }
+    }
+
+    [Fact]
     public async Task Buffer_DropsRemainingWhenHttpClientDisposed()
     {
         // Bug guard: if the underlying HttpClient is disposed while items are
