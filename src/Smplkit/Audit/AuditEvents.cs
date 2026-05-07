@@ -151,12 +151,13 @@ public sealed class AuditEvents
         return el.ValueKind switch
         {
             System.Text.Json.JsonValueKind.String => el.GetString(),
-            System.Text.Json.JsonValueKind.Number => el.TryGetInt64(out var l) ? l : el.GetDouble(),
+            System.Text.Json.JsonValueKind.Number => el.TryGetInt64(out var l) ? (object)l : el.GetDouble(),
             System.Text.Json.JsonValueKind.True => true,
             System.Text.Json.JsonValueKind.False => false,
             System.Text.Json.JsonValueKind.Null => null,
             System.Text.Json.JsonValueKind.Object => ConvertJsonObject(el),
             System.Text.Json.JsonValueKind.Array => el.EnumerateArray().Select(JsonElementToObject).ToList(),
+            // Undefined and any future value kinds — surface the raw token text.
             _ => el.GetRawText(),
         };
     }

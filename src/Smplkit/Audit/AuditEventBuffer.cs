@@ -30,6 +30,7 @@ internal sealed class AuditEventBuffer : IAsyncDisposable
     private readonly Task _runner;
     private long _droppedCount;
     private bool _closed;
+    private bool _disposed;
 
     public AuditEventBuffer(GenAudit.AuditClient gen)
     {
@@ -82,14 +83,17 @@ internal sealed class AuditEventBuffer : IAsyncDisposable
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
+        if (_disposed) return;
+        _disposed = true;
         await FlushAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
         lock (_lock) _closed = true;
         TrySignalWake();
-        _cts.Cancel();
-        try { await _runner.ConfigureAwait(false); }
-        catch (OperationCanceledException) { /* shutting down */ }
-        _wake.Dispose();
+        // Worker exits cleanly when ``_closed && _queue.Count == 0`` —
+        // no need to cancel the ambient token, which would force us into
+        // the catch-OperationCanceledException defensive path.
+        await _runner.ConfigureAwait(false);
         _cts.Dispose();
+        _wake.Dispose();
     }
 
     private void TrySignalWake()
