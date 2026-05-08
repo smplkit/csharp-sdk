@@ -14,8 +14,10 @@ namespace Smplkit.Audit;
 /// <param name="ActorType"><c>USER</c>, <c>API_KEY</c>, or <c>SYSTEM</c>.</param>
 /// <param name="ActorId">UUID of the user or API key; null for <c>API_KEY</c> or <c>SYSTEM</c>.</param>
 /// <param name="ActorLabel">Denormalized display string captured at write time.</param>
-/// <param name="Snapshot">Full state snapshot, or null.</param>
-/// <param name="Data">Free-form contextual extras.</param>
+/// <param name="Data">Free-form contextual extras. Any resource snapshot
+/// recorded with the event lives inside <c>Data</c>; smplkit's internal
+/// convention nests it at <c>Data["snapshot"]</c>, but the shape is
+/// unconstrained.</param>
 /// <param name="IdempotencyKey">Caller-supplied or server-derived idempotency key.</param>
 /// <param name="DoNotForward">When true, the event was recorded but not forwarded to any SIEM forwarder.</param>
 public sealed record AuditEvent(
@@ -28,7 +30,6 @@ public sealed record AuditEvent(
     string ActorType,
     Guid? ActorId,
     string ActorLabel,
-    IDictionary<string, object?>? Snapshot,
     IDictionary<string, object?> Data,
     string IdempotencyKey,
     bool DoNotForward
@@ -51,9 +52,11 @@ public sealed class CreateEventInput
     public required string ResourceId { get; set; }
     /// <summary>Optional. Defaults to server-side <c>now()</c> if null.</summary>
     public DateTimeOffset? OccurredAt { get; set; }
-    /// <summary>Optional full resource snapshot (ADR-047 §2.5).</summary>
-    public IDictionary<string, object?>? Snapshot { get; set; }
-    /// <summary>Optional contextual extras (request id, IP, etc.).</summary>
+    /// <summary>
+    /// Optional contextual extras. To record a resource snapshot, nest
+    /// it inside <c>Data</c> -- smplkit's internal convention is
+    /// <c>Data["snapshot"]</c>, but the shape is unconstrained.
+    /// </summary>
     public IDictionary<string, object?>? Data { get; set; }
     /// <summary>Optional. Server derives a content hash if null.</summary>
     public string? IdempotencyKey { get; set; }

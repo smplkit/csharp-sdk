@@ -1614,8 +1614,12 @@ namespace Smplkit.Internal.Generated.Audit
     /// <br/>    - resource_type (required)
     /// <br/>    - resource_id (required)
     /// <br/>    - occurred_at (optional; defaults to ``created_at``)
-    /// <br/>    - snapshot (optional)
     /// <br/>    - data (optional; defaults to ``{}``)
+    /// <br/>
+    /// <br/>There is no top-level ``snapshot`` attribute. Customers wishing to
+    /// <br/>record a resource snapshot place it inside ``data`` -- smplkit's
+    /// <br/>internal convention nests it at ``data.snapshot``, but customers may
+    /// <br/>follow their own convention.
     /// <br/>
     /// <br/>Attribute set on GET responses includes everything above plus the
     /// <br/>server-populated fields: ``created_at``, ``actor_type``, ``actor_id``,
@@ -1636,9 +1640,6 @@ namespace Smplkit.Internal.Generated.Audit
 
         [System.Text.Json.Serialization.JsonPropertyName("occurred_at")]
         public System.DateTimeOffset? Occurred_at { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("snapshot")]
-        public object? Snapshot { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public object Data { get; set; } = default!;

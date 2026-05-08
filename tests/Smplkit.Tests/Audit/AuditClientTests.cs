@@ -10,7 +10,7 @@ namespace Smplkit.Tests.Audit;
 
 public class AuditClientTests
 {
-    private const string SuccessJson = "{\"data\":{\"id\":\"00000000-0000-0000-0000-000000000001\",\"type\":\"event\",\"attributes\":{\"action\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"snapshot\":null,\"data\":{},\"idempotency_key\":\"\"}}}";
+    private const string SuccessJson = "{\"data\":{\"id\":\"00000000-0000-0000-0000-000000000001\",\"type\":\"event\",\"attributes\":{\"action\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"data\":{},\"idempotency_key\":\"\"}}}";
 
     private static (GenAudit.AuditClient gen, HttpClient http, MockHttpMessageHandler mock) MakeGen(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> handler)
@@ -113,7 +113,7 @@ public class AuditClientTests
         var (gen, _, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(
-                "{\"data\":{\"id\":\"11111111-2222-3333-4444-555555555555\",\"type\":\"event\",\"attributes\":{\"action\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"snapshot\":null,\"data\":{},\"idempotency_key\":\"k\"}}}",
+                "{\"data\":{\"id\":\"11111111-2222-3333-4444-555555555555\",\"type\":\"event\",\"attributes\":{\"action\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"data\":{},\"idempotency_key\":\"k\"}}}",
                 Encoding.UTF8, "application/vnd.api+json"),
         }));
         await using var client = new AuditClient(gen);
@@ -138,7 +138,7 @@ public class AuditClientTests
         var (gen, _, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(
-                "{\"data\":[{\"id\":\"11111111-2222-3333-4444-555555555555\",\"type\":\"event\",\"attributes\":{\"action\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"snapshot\":null,\"data\":{},\"idempotency_key\":\"k\"}}],\"meta\":{\"page_size\":1},\"links\":{\"next\":\"/api/v1/events?page[size]=1&page[after]=tok-xyz\"}}",
+                "{\"data\":[{\"id\":\"11111111-2222-3333-4444-555555555555\",\"type\":\"event\",\"attributes\":{\"action\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"data\":{},\"idempotency_key\":\"k\"}}],\"meta\":{\"page_size\":1},\"links\":{\"next\":\"/api/v1/events?page[size]=1&page[after]=tok-xyz\"}}",
                 Encoding.UTF8, "application/vnd.api+json"),
         }));
         await using var client = new AuditClient(gen);
