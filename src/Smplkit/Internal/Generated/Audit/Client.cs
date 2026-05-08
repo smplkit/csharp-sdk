@@ -128,7 +128,10 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>
         /// <br/>Returns 404 if no forwarder with that id exists in the caller's
         /// <br/>account, including if the forwarder is soft-deleted. Header values
-        /// <br/>in the response are always redacted regardless of caller permission.
+        /// <br/>in the response are returned in plaintext so callers can perform a
+        /// <br/>GET-modify-PUT round-trip without re-entering secrets (ADR-014).
+        /// <br/>The persisted ``forwarder_delivery.request`` log column is what
+        /// <br/>keeps redaction; that read path is unaffected by this route.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -141,12 +144,9 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// Full-replace update. PUT semantics — every field is overwritten.
         /// <br/>
-        /// <br/>The header values must be re-supplied; the GET path redacts them, but
-        /// <br/>a PUT body that contains ``"&lt;redacted&gt;"`` would persist that literal.
-        /// <br/>Customers must round-trip the actual secret back. This is the standard
-        /// <br/>get-mutate-put pattern (see CLAUDE.md "Updating Resources via the
-        /// <br/>API"); the SDK helpers track the un-redacted secret client-side so
-        /// <br/>customers don't usually need to re-enter it.
+        /// <br/>The GET path returns plaintext header values, so the standard
+        /// <br/>get-mutate-put round-trip (ADR-014) preserves secrets without any
+        /// <br/>extra work from the caller: GET, change one field, PUT the result.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -858,7 +858,10 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>
         /// <br/>Returns 404 if no forwarder with that id exists in the caller's
         /// <br/>account, including if the forwarder is soft-deleted. Header values
-        /// <br/>in the response are always redacted regardless of caller permission.
+        /// <br/>in the response are returned in plaintext so callers can perform a
+        /// <br/>GET-modify-PUT round-trip without re-entering secrets (ADR-014).
+        /// <br/>The persisted ``forwarder_delivery.request`` log column is what
+        /// <br/>keeps redaction; that read path is unaffected by this route.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -941,12 +944,9 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// Full-replace update. PUT semantics — every field is overwritten.
         /// <br/>
-        /// <br/>The header values must be re-supplied; the GET path redacts them, but
-        /// <br/>a PUT body that contains ``"&lt;redacted&gt;"`` would persist that literal.
-        /// <br/>Customers must round-trip the actual secret back. This is the standard
-        /// <br/>get-mutate-put pattern (see CLAUDE.md "Updating Resources via the
-        /// <br/>API"); the SDK helpers track the un-redacted secret client-side so
-        /// <br/>customers don't usually need to re-enter it.
+        /// <br/>The GET path returns plaintext header values, so the standard
+        /// <br/>get-mutate-put round-trip (ADR-014) preserves secrets without any
+        /// <br/>extra work from the caller: GET, change one field, PUT the result.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
