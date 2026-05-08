@@ -14,7 +14,7 @@ namespace Smplkit.Tests.Audit;
 /// </summary>
 public class AuditCoverageTests
 {
-    private const string SuccessJson = "{\"data\":{\"id\":\"00000000-0000-0000-0000-000000000001\",\"type\":\"event\",\"attributes\":{\"action\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"snapshot\":null,\"data\":{},\"idempotency_key\":\"\"}}}";
+    private const string SuccessJson = "{\"data\":{\"id\":\"00000000-0000-0000-0000-000000000001\",\"type\":\"event\",\"attributes\":{\"action\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"data\":{},\"idempotency_key\":\"\"}}}";
 
     private static (GenAudit.AuditClient gen, HttpClient http) MakeGen(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> handler)
@@ -76,8 +76,11 @@ public class AuditCoverageTests
             ResourceType = "invoice",
             ResourceId = "inv-1",
             OccurredAt = new DateTimeOffset(2026, 5, 6, 12, 0, 0, TimeSpan.Zero),
-            Snapshot = new Dictionary<string, object?> { ["total_cents"] = 4900 },
-            Data = new Dictionary<string, object?> { ["request_id"] = "req-1" },
+            Data = new Dictionary<string, object?>
+            {
+                ["snapshot"] = new Dictionary<string, object?> { ["total_cents"] = 4900 },
+                ["request_id"] = "req-1",
+            },
             IdempotencyKey = "k-1",
         });
         await client.Events.FlushAsync(TimeSpan.FromSeconds(2));
@@ -161,10 +164,10 @@ public class AuditCoverageTests
     }
 
     [Fact]
-    public async Task EventResource_JsonElement_FalseValue()
+    public async Task EventResource_JsonElement_FalseValueInsideData()
     {
         const string body = """
-            {"data":{"id":"11111111-2222-3333-4444-555555555555","type":"event","attributes":{"action":"x","resource_type":"x","resource_id":"1","occurred_at":"2026-05-06T12:00:00Z","created_at":"2026-05-06T12:00:01Z","actor_type":"USER","actor_id":null,"actor_label":"","snapshot":{"flag": false},"data":{},"idempotency_key":"k"}}}
+            {"data":{"id":"11111111-2222-3333-4444-555555555555","type":"event","attributes":{"action":"x","resource_type":"x","resource_id":"1","occurred_at":"2026-05-06T12:00:00Z","created_at":"2026-05-06T12:00:01Z","actor_type":"USER","actor_id":null,"actor_label":"","data":{"snapshot":{"flag": false}},"idempotency_key":"k"}}}
             """;
         var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
@@ -172,11 +175,12 @@ public class AuditCoverageTests
         }));
         await using var client = new AuditClient(gen);
         var ev = await client.Events.GetAsync(Guid.Parse("11111111-2222-3333-4444-555555555555"));
-        Assert.Equal(false, ev.Snapshot?["flag"]);
+        var snap = (IDictionary<string, object?>)ev.Data["snapshot"]!;
+        Assert.Equal(false, snap["flag"]);
     }
 
     [Fact]
-    public async Task EventResource_JsonElement_SnapshotAndData_ExpandToDictionary()
+    public async Task EventResource_JsonElement_DataExpandsToDictionary()
     {
         const string body = """
             {
@@ -192,8 +196,7 @@ public class AuditCoverageTests
                   "actor_type": "USER",
                   "actor_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
                   "actor_label": "alice@example.com",
-                  "snapshot": {"name": "Alice", "age": 30, "active": true, "score": 1.5, "deleted": null, "tags": ["a", "b"], "nested": {"k": "v"}},
-                  "data": {"req_id": "abc"},
+                  "data": {"snapshot": {"name": "Alice", "age": 30, "active": true, "score": 1.5, "deleted": null, "tags": ["a", "b"], "nested": {"k": "v"}}, "req_id": "abc"},
                   "idempotency_key": "k"
                 }
               }
@@ -205,16 +208,17 @@ public class AuditCoverageTests
         }));
         await using var client = new AuditClient(gen);
         var ev = await client.Events.GetAsync(Guid.Parse("11111111-2222-3333-4444-555555555555"));
-        Assert.NotNull(ev.Snapshot);
-        Assert.Equal("Alice", ev.Snapshot!["name"]);
+        var snap = (IDictionary<string, object?>)ev.Data["snapshot"]!;
+        Assert.Equal("Alice", snap["name"]);
         // Numeric values come back as long-or-double from the JsonElement expander.
-        Assert.Equal("30", ev.Snapshot["age"]?.ToString());
-        Assert.Equal(true, ev.Snapshot["active"]);
-        Assert.Equal(1.5, ev.Snapshot["score"]);
-        Assert.Null(ev.Snapshot["deleted"]);
-        var tags = (List<object?>)ev.Snapshot["tags"]!;
+        Assert.Equal("30", snap["age"]?.ToString());
+        Assert.Equal(true, snap["active"]);
+        Assert.Equal(1.5, snap["score"]);
+        Assert.Null(snap["deleted"]);
+        var tags = (List<object?>)snap["tags"]!;
         Assert.Equal(2, tags.Count);
         Assert.Equal("a", tags[0]);
+        Assert.Equal("abc", ev.Data["req_id"]);
         Assert.NotNull(ev.ActorId);
         Assert.Equal("USER", ev.ActorType);
     }
@@ -389,13 +393,13 @@ public class AuditCoverageTests
     }
 
     [Fact]
-    public async Task EventResource_ScalarSnapshotCollapsesToNull()
+    public async Task EventResource_ScalarDataCollapsesToEmpty()
     {
-        // A non-object snapshot (here, a JSON string) hits the
+        // A non-object data value (here, a JSON string) hits the
         // "raw is JsonElement but not Object" path in ConvertJsonObject,
-        // which returns null per ADR-047 (snapshot is structured-only).
+        // which falls through to an empty dictionary at the wrapper.
         const string body = """
-            {"data":{"id":"11111111-2222-3333-4444-555555555555","type":"event","attributes":{"action":"x","resource_type":"x","resource_id":"1","occurred_at":"2026-05-06T12:00:00Z","created_at":"2026-05-06T12:00:01Z","actor_type":"USER","actor_id":null,"actor_label":"","snapshot":"unexpected-string","data":{},"idempotency_key":"k"}}}
+            {"data":{"id":"11111111-2222-3333-4444-555555555555","type":"event","attributes":{"action":"x","resource_type":"x","resource_id":"1","occurred_at":"2026-05-06T12:00:00Z","created_at":"2026-05-06T12:00:01Z","actor_type":"USER","actor_id":null,"actor_label":"","data":"unexpected-string","idempotency_key":"k"}}}
             """;
         var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
@@ -403,7 +407,7 @@ public class AuditCoverageTests
         }));
         await using var client = new AuditClient(gen);
         var ev = await client.Events.GetAsync(Guid.Parse("11111111-2222-3333-4444-555555555555"));
-        Assert.Null(ev.Snapshot);
+        Assert.Empty(ev.Data);
     }
 
     [Fact]

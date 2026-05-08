@@ -42,11 +42,6 @@ public sealed class AuditEvents
         {
             attrs.Occurred_at = input.OccurredAt.Value;
         }
-        if (input.Snapshot != null)
-        {
-            attrs.Snapshot = new Dictionary<string, object>(
-                input.Snapshot.Select(kv => new KeyValuePair<string, object>(kv.Key, kv.Value!)));
-        }
         // Server-side validation rejects ``data: null`` (the field is
         // required-non-null in the OpenAPI schema). System.Text.Json
         // emits ``"data": null`` for an unset reference property by
@@ -128,7 +123,6 @@ public sealed class AuditEvents
             a.Actor_type ?? string.Empty,
             a.Actor_id,
             a.Actor_label ?? string.Empty,
-            ConvertJsonObject(a.Snapshot),
             ConvertJsonObject(a.Data) ?? new Dictionary<string, object?>(),
             a.Idempotency_key ?? string.Empty,
             a.Do_not_forward

@@ -31,13 +31,13 @@ client.Audit.Events.Record(new CreateEventInput
     ResourceType = "invoice",
     ResourceId = someResourceId,
     OccurredAt = DateTimeOffset.UtcNow,
-    Snapshot = new Dictionary<string, object?>
-    {
-        ["total_cents"] = 4900,
-        ["currency"] = "USD",
-    },
     Data = new Dictionary<string, object?>
     {
+        ["snapshot"] = new Dictionary<string, object?>
+        {
+            ["total_cents"] = 4900,
+            ["currency"] = "USD",
+        },
         ["request_id"] = "req-abc",
     },
 });

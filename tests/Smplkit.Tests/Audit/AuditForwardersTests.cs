@@ -370,7 +370,7 @@ public class AuditForwardersTests
                     + "\"occurred_at\":\"2026-05-07T12:00:00Z\","
                     + "\"created_at\":\"2026-05-07T12:00:01Z\","
                     + "\"actor_type\":\"API_KEY\",\"actor_label\":\"\","
-                    + "\"snapshot\":null,\"data\":{},\"idempotency_key\":\"\"}}}"),
+                    + "\"data\":{},\"idempotency_key\":\"\"}}}"),
             };
         });
         await using var client = new AuditClient(gen);
@@ -400,7 +400,7 @@ public class AuditForwardersTests
             Guid.Empty, "a", "rt", "rid",
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             "USER", null, "label",
-            null, new Dictionary<string, object?>(), "k", true);
+            new Dictionary<string, object?>(), "k", true);
         Assert.True(ev.DoNotForward);
 
         var fwd = new Forwarder(
