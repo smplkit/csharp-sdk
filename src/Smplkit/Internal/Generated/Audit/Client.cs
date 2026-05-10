@@ -2219,6 +2219,38 @@ namespace Smplkit.Internal.Generated.Audit
 
     }
 
+    /// <summary>
+    /// Attribute set for a usage resource.
+    /// <br/>
+    /// <br/>The shape mirrors the ``/api/v1/usage`` contract used by config, flags,
+    /// <br/>and logging — three fields, no per-product extras. Per-period limits
+    /// <br/>live in the product catalog (``GET /api/v1/products``); the usage
+    /// <br/>endpoint reports counts only.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class UsageAttributes
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("limit_key")]
+        public string Limit_key { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("period")]
+        public string Period { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("value")]
+        public int Value { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class UsageResource
     {
@@ -2230,7 +2262,7 @@ namespace Smplkit.Internal.Generated.Audit
         public string Type { get; set; } = "usage";
 
         [System.Text.Json.Serialization.JsonPropertyName("attributes")]
-        public object Attributes { get; set; } = new object();
+        public UsageAttributes Attributes { get; set; } = new UsageAttributes();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
