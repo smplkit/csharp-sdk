@@ -31,8 +31,14 @@ public sealed class FlagsClient
     // Runtime state
     private string? _environment;
     private readonly ConcurrentDictionary<string, Dictionary<string, object?>> _flagStore = new();
-    private volatile bool _connected;
+    internal volatile bool _connected;
     private readonly object _initLock = new();
+
+    // Backoff retry state for start/EnsureInitialized
+    internal const double MaxStartRetryDelayS = 60.0;
+    internal double _startRetryDelayS = 1.0;
+    internal long _nextStartAttemptAt = 0L;
+    internal bool _wsSubscribed;
     private readonly ResolutionCache _cache = new(CacheMaxSize);
     private Func<IReadOnlyList<Context>>? _contextProvider;
     private readonly ContextRegistrationBuffer _contextBuffer;
@@ -91,7 +97,7 @@ public sealed class FlagsClient
         _handles[id] = handle;
         _flagBuffer.Add(id, "BOOLEAN", defaultValue, _parent?.Service, _parent?.Environment);
         if (_flagBuffer.PendingCount >= 50)
-            _lastFlagBufferFlushTask = FlushFlagsAsync();
+            _lastFlagBufferFlushTask = SafeFlushFlagsAsync();
         return handle;
     }
 
@@ -114,7 +120,7 @@ public sealed class FlagsClient
         _handles[id] = handle;
         _flagBuffer.Add(id, "STRING", defaultValue, _parent?.Service, _parent?.Environment);
         if (_flagBuffer.PendingCount >= 50)
-            _lastFlagBufferFlushTask = FlushFlagsAsync();
+            _lastFlagBufferFlushTask = SafeFlushFlagsAsync();
         return handle;
     }
 
@@ -137,7 +143,7 @@ public sealed class FlagsClient
         _handles[id] = handle;
         _flagBuffer.Add(id, "NUMERIC", defaultValue, _parent?.Service, _parent?.Environment);
         if (_flagBuffer.PendingCount >= 50)
-            _lastFlagBufferFlushTask = FlushFlagsAsync();
+            _lastFlagBufferFlushTask = SafeFlushFlagsAsync();
         return handle;
     }
 
@@ -160,9 +166,14 @@ public sealed class FlagsClient
         _handles[id] = handle;
         _flagBuffer.Add(id, "JSON", defaultValue, _parent?.Service, _parent?.Environment);
         if (_flagBuffer.PendingCount >= 50)
-            _lastFlagBufferFlushTask = FlushFlagsAsync();
+            _lastFlagBufferFlushTask = SafeFlushFlagsAsync();
         return handle;
     }
+
+    /// <summary>
+    /// Number of flag declarations currently queued for registration. Exposed for tests.
+    /// </summary>
+    internal int PendingFlagRegistrations => _flagBuffer.PendingCount;
 
     // ------------------------------------------------------------------
     // Runtime: context provider
@@ -184,16 +195,24 @@ public sealed class FlagsClient
 
     /// <summary>
     /// Ensures flag data is loaded before first use.
+    /// Idempotent — safe to call on every evaluation. If the flags service is
+    /// unhealthy the first time (e.g. a pod starts before the schema is loaded),
+    /// pending declarations are kept in the buffer, <c>_connected</c> stays
+    /// <c>false</c>, and the next call retries after an exponential back-off
+    /// (1 s → 60 s cap). Evaluations during the window fall back to handle defaults.
     /// </summary>
     internal void EnsureInitialized()
     {
         if (_connected) return;
+        if (Environment.TickCount64 < Interlocked.Read(ref _nextStartAttemptAt)) return;
         lock (_initLock)
         {
             if (_connected) return;
+            if (Environment.TickCount64 < _nextStartAttemptAt) return;
+
             _environment = _parent?.Environment;
 
-            // Fire-and-forget environment + service context registration
+            // Fire-and-forget environment + service context registration (best-effort, once).
             if (_parent?.Service is { Length: > 0 } svc)
             {
                 var env = _parent?.Environment;
@@ -201,20 +220,47 @@ public sealed class FlagsClient
             }
 
             Debug.Log("websocket", "flags runtime initializing");
-            FlushFlagsAsync().GetAwaiter().GetResult();
-            FetchAllFlagsAsync().GetAwaiter().GetResult();
+            try
+            {
+                // Flush declarations BEFORE fetching definitions; items stay queued
+                // until the POST succeeds so a 500 doesn't lose them.
+                FlushFlagsAsync().GetAwaiter().GetResult();
+                FetchAllFlagsAsync().GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                ScheduleStartRetry(ex);
+                return;
+            }
+
             _connected = true;
+            _startRetryDelayS = 1.0;
+            _nextStartAttemptAt = 0L;
             _cache.Clear();
 
             _flagFlushTimer = new Timer(_ => FlushTimerCallback(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
 
-            Debug.Log("registration", "registering flag_changed, flag_deleted, and flags_changed handlers");
             _wsManager = _ensureWs();
-            _wsManager.On("flag_changed", HandleFlagChanged);
-            _wsManager.On("flag_deleted", HandleFlagDeleted);
-            _wsManager.On("flags_changed", HandleFlagsChanged);
+            if (!_wsSubscribed)
+            {
+                Debug.Log("registration", "registering flag_changed, flag_deleted, and flags_changed handlers");
+                _wsManager.On("flag_changed", HandleFlagChanged);
+                _wsManager.On("flag_deleted", HandleFlagDeleted);
+                _wsManager.On("flags_changed", HandleFlagsChanged);
+                _wsSubscribed = true;
+            }
             Debug.Log("websocket", "flags runtime connected");
         }
+    }
+
+    private void ScheduleStartRetry(Exception ex)
+    {
+        var delayS = _startRetryDelayS;
+        _nextStartAttemptAt = Environment.TickCount64 + (long)(delayS * 1000.0);
+        _startRetryDelayS = Math.Min(delayS * 2.0, MaxStartRetryDelayS);
+        System.Diagnostics.Trace.TraceWarning(
+            "[smplkit] Flags start failed (will retry in {0:F1}s): {1}", delayS, ex.Message);
+        Debug.Log("registration", $"Flags start failed: {ex}");
     }
 
     // ------------------------------------------------------------------
@@ -347,35 +393,49 @@ public sealed class FlagsClient
     }
 
     /// <summary>
-    /// Timer callback: flush the flag buffer. FlushFlagsAsync handles all exceptions internally.
+    /// Timer callback: flush the flag buffer. Errors are swallowed — items
+    /// stay queued for the next attempt.
     /// </summary>
     internal void FlushTimerCallback()
     {
-        FlushFlagsAsync().GetAwaiter().GetResult();
+        SafeFlushFlagsAsync().GetAwaiter().GetResult();
     }
 
     /// <summary>
     /// Sends any pending flag registrations to the server.
-    /// Failures are silently ignored — registration is best-effort.
+    /// Uses peek+commit so items remain queued when the POST fails; they are
+    /// removed only after a successful response. Throws on any HTTP or network
+    /// error so callers can decide how to handle the failure.
     /// </summary>
     /// <param name="ct">Cancellation token.</param>
     internal async Task FlushFlagsAsync(CancellationToken ct = default)
     {
-        var batch = _flagBuffer.Drain();
+        var batch = _flagBuffer.Peek();
         if (batch.Count == 0) return;
+        var items = batch.Select(e => new GenFlags.FlagBulkItem
+        {
+            Id = e.Id,
+            Type = e.Type,
+            Default = e.DefaultValue ?? new object(),
+            Service = e.Service,
+            Environment = e.Environment,
+        }).ToList();
+        var request = new GenFlags.FlagBulkRequest { Flags = items };
+        await ApiExceptionMapper.ExecuteAsync(
+            () => _genFlagsClient.Bulk_register_flagsAsync(request, ct)).ConfigureAwait(false);
+        _flagBuffer.Commit(batch.Select(e => e.Id));
+    }
+
+    /// <summary>
+    /// Safe wrapper around <see cref="FlushFlagsAsync"/>: swallows errors and
+    /// logs a warning. Items stay queued for the next attempt. Used by the
+    /// periodic timer and the threshold-triggered flush paths.
+    /// </summary>
+    private async Task SafeFlushFlagsAsync(CancellationToken ct = default)
+    {
         try
         {
-            var items = batch.Select(e => new GenFlags.FlagBulkItem
-            {
-                Id = e.Id,
-                Type = e.Type,
-                Default = e.DefaultValue ?? new object(),
-                Service = e.Service,
-                Environment = e.Environment,
-            }).ToList();
-            var request = new GenFlags.FlagBulkRequest { Flags = items };
-            await ApiExceptionMapper.ExecuteAsync(
-                () => _genFlagsClient.Bulk_register_flagsAsync(request, ct)).ConfigureAwait(false);
+            await FlushFlagsAsync(ct).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -399,6 +459,7 @@ public sealed class FlagsClient
             _wsManager.Off("flags_changed", HandleFlagsChanged);
             _wsManager = null;
         }
+        _wsSubscribed = false;
     }
 
     // ------------------------------------------------------------------
@@ -1016,6 +1077,37 @@ internal sealed class FlagRegistrationBuffer
         }
     }
 
+    /// <summary>
+    /// Returns a snapshot of pending entries without removing them.
+    /// Used by the send path: call <see cref="Commit"/> after a successful POST.
+    /// </summary>
+    internal List<FlagRegistrationEntry> Peek()
+    {
+        lock (_lock)
+        {
+            return new List<FlagRegistrationEntry>(_pending);
+        }
+    }
+
+    /// <summary>
+    /// Removes entries with the specified ids from the pending list.
+    /// Call this after a successful bulk-register POST. Any entries added
+    /// between the preceding <see cref="Peek"/> and this call are left intact.
+    /// </summary>
+    internal void Commit(IEnumerable<string> ids)
+    {
+        var committed = new HashSet<string>(ids);
+        if (committed.Count == 0) return;
+        lock (_lock)
+        {
+            _pending.RemoveAll(e => committed.Contains(e.Id));
+        }
+    }
+
+    /// <summary>
+    /// Returns and clears all pending entries unconditionally.
+    /// Used only by tests and teardown paths where retaining on failure is not needed.
+    /// </summary>
     internal List<FlagRegistrationEntry> Drain()
     {
         lock (_lock)
