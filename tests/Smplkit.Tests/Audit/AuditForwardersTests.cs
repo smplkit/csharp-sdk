@@ -76,7 +76,7 @@ public class AuditForwardersTests
         var fwd = await client.Forwarders.CreateAsync(new CreateForwarderInput
         {
             Name = "Datadog production",
-            ForwarderType = "datadog",
+            ForwarderType = ForwarderType.Datadog,
             Http = new ForwarderHttp
             {
                 Url = "https://siem.example.com/in",
@@ -112,7 +112,7 @@ public class AuditForwardersTests
             client.Forwarders.CreateAsync(new CreateForwarderInput
             {
                 Name = "x",
-                ForwarderType = "http",
+                ForwarderType = ForwarderType.Http,
                 Http = new ForwarderHttp { Url = "https://x" },
             }));
     }
@@ -137,7 +137,7 @@ public class AuditForwardersTests
         await using var client = new AuditClient(gen);
         var first = await client.Forwarders.ListAsync(new ListForwardersInput
         {
-            ForwarderType = "datadog",
+            ForwarderType = ForwarderType.Datadog,
             Enabled = true,
             PageSize = 1,
         });
@@ -191,7 +191,7 @@ public class AuditForwardersTests
         var fwd = await client.Forwarders.UpdateAsync(FwdId, new CreateForwarderInput
         {
             Name = "Renamed",
-            ForwarderType = "datadog",
+            ForwarderType = ForwarderType.Datadog,
             Http = new ForwarderHttp { Url = "https://x" },
         });
         Assert.Equal("PUT", method);
@@ -404,12 +404,12 @@ public class AuditForwardersTests
         Assert.True(ev.DoNotForward);
 
         var fwd = new Forwarder(
-            FwdId, "n", "s", "ft", true,
+            FwdId, "n", "s", ForwarderType.Http, true,
             new Dictionary<string, object?>(), "tx",
             new ForwarderHttp { Url = "u" },
             new Dictionary<string, object?>(),
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, 1);
-        Assert.Equal("ft", fwd.ForwarderType);
+        Assert.Equal(ForwarderType.Http, fwd.ForwarderType);
         Assert.True(fwd.Enabled);
         Assert.NotNull(fwd.Filter);
         Assert.Equal("tx", fwd.Transform);
@@ -485,5 +485,123 @@ public class AuditForwardersTests
         Assert.Equal(string.Empty, fwd.Http.Url);
         Assert.Empty(fwd.Http.Headers);
         Assert.Empty(fwd.Data);
+    }
+
+    // ----------------------------------------------------------------------
+    // ForwarderType — wire round-trip + extension methods
+    //
+    // The wrapper has two enum surfaces: the public Smplkit.Audit.ForwarderType
+    // (what customers see) and the codegen's internal one. Round-tripping
+    // every value through Create+Get exercises BOTH switch arms in
+    // AuditForwarders.ToGenForwarderType / FromGenForwarderType.
+    // ----------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(ForwarderType.Http, "http")]
+    [InlineData(ForwarderType.Datadog, "datadog")]
+    [InlineData(ForwarderType.SplunkHec, "splunk_hec")]
+    [InlineData(ForwarderType.SumoLogic, "sumo_logic")]
+    [InlineData(ForwarderType.NewRelic, "new_relic")]
+    [InlineData(ForwarderType.Honeycomb, "honeycomb")]
+    [InlineData(ForwarderType.Elastic, "elastic")]
+    public async Task ForwarderType_RoundTripsThroughCreateAndGet(ForwarderType type, string wire)
+    {
+        string? capturedBody = null;
+        var (gen, _) = MakeGen(async req =>
+        {
+            if (req.Method == HttpMethod.Post)
+            {
+                capturedBody = await req.Content!.ReadAsStringAsync();
+            }
+            // Server echoes the same wire value back on read.
+            return new HttpResponseMessage(req.Method == HttpMethod.Post ? HttpStatusCode.Created : HttpStatusCode.OK)
+            {
+                Content = JsonApi(
+                    "{\"data\":{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\",\"attributes\":{"
+                    + "\"name\":\"n\",\"slug\":\"n\",\"forwarder_type\":\"" + wire + "\",\"enabled\":true,"
+                    + "\"http\":{\"method\":\"POST\",\"url\":\"u\",\"headers\":[],\"success_status\":\"2xx\"},"
+                    + "\"data\":{}}}}"),
+            };
+        });
+        await using var client = new AuditClient(gen);
+
+        var created = await client.Forwarders.CreateAsync(new CreateForwarderInput
+        {
+            Name = "n",
+            ForwarderType = type,
+            Http = new ForwarderHttp { Url = "u" },
+        });
+        // POST body went out — read converts back to the typed wrapper
+        // enum (FromGen converter chose the matching arm). The wire
+        // serialization of the codegen enum is delegated to the codegen's
+        // JsonStringEnumConverter; we don't pin its exact spelling here.
+        Assert.NotNull(capturedBody);
+        Assert.Equal(type, created.ForwarderType);
+    }
+
+    [Fact]
+    public void ForwarderTypeExtensions_ToWireValue_RoundTrips()
+    {
+        Assert.Equal("http", ForwarderType.Http.ToWireValue());
+        Assert.Equal("splunk_hec", ForwarderType.SplunkHec.ToWireValue());
+        Assert.Equal("elastic", ForwarderType.Elastic.ToWireValue());
+    }
+
+    [Theory]
+    [InlineData("http", ForwarderType.Http)]
+    [InlineData("datadog", ForwarderType.Datadog)]
+    [InlineData("splunk_hec", ForwarderType.SplunkHec)]
+    [InlineData("sumo_logic", ForwarderType.SumoLogic)]
+    [InlineData("new_relic", ForwarderType.NewRelic)]
+    [InlineData("honeycomb", ForwarderType.Honeycomb)]
+    [InlineData("elastic", ForwarderType.Elastic)]
+    public void ForwarderTypeExtensions_FromWireValue_AcceptsKnown(string wire, ForwarderType expected)
+    {
+        Assert.Equal(expected, ForwarderTypeExtensions.FromWireValue(wire));
+    }
+
+    [Fact]
+    public void ForwarderTypeExtensions_FromWireValue_ThrowsOnUnknown()
+    {
+        var ex = Assert.Throws<ArgumentException>(
+            () => ForwarderTypeExtensions.FromWireValue("definitely-not-a-real-type"));
+        Assert.Contains("Unknown ForwarderType", ex.Message);
+    }
+
+    [Fact]
+    public async Task ForwarderType_ConverterDefaultArmsThrowOnOutOfRange()
+    {
+        // The wrapper's switch converters in AuditForwarders include a
+        // defensive default arm that throws on an unrecognized enum
+        // value. Cover both arms by feeding them an out-of-range cast:
+        //
+        //   ToGen: pass (ForwarderType)999 through Create.
+        //   FromGen: respond with a forwarder_type the codegen
+        //            deserializes to an out-of-range value (we feed it
+        //            a malformed string the codegen rejects, surfacing
+        //            an exception before our converter sees it; cover
+        //            the FromGen default arm by direct invocation via
+        //            reflection on the private static method).
+        var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        await using var client = new AuditClient(gen);
+
+        // ToGen default arm.
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            client.Forwarders.CreateAsync(new CreateForwarderInput
+            {
+                Name = "n",
+                ForwarderType = (ForwarderType)999,
+                Http = new ForwarderHttp { Url = "u" },
+            }));
+
+        // FromGen default arm — invoke via reflection on the private
+        // static method with an out-of-range codegen enum value.
+        var method = typeof(AuditForwarders).GetMethod(
+            "FromGenForwarderType",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(method);
+        var ex = Assert.Throws<System.Reflection.TargetInvocationException>(
+            () => method!.Invoke(null, new object[] { (GenAudit.ForwarderType)999 }));
+        Assert.IsType<ArgumentOutOfRangeException>(ex.InnerException);
     }
 }

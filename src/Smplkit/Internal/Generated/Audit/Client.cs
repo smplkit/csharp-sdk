@@ -2252,7 +2252,8 @@ namespace Smplkit.Internal.Generated.Audit
         public string Name { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("forwarder_type")]
-        public string Forwarder_type { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ForwarderType>))]
+        public ForwarderType Forwarder_type { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("enabled")]
         public bool Enabled { get; set; } = true;
@@ -2543,6 +2544,47 @@ namespace Smplkit.Internal.Generated.Audit
             get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
             set { _additionalProperties = value; }
         }
+
+    }
+
+    /// <summary>
+    /// Supported forwarder destination types.
+    /// <br/>
+    /// <br/>Carried as a typed enum so the OpenAPI spec emits an ``enum``
+    /// <br/>constraint and the auto-generated SDK clients (in all 6 languages)
+    /// <br/>surface a typed enum to customers rather than free-form strings.
+    /// <br/>Subclassing ``str`` keeps JSON serialization byte-identical to the
+    /// <br/>prior ``str`` field — no migration of stored ``forwarder.type``
+    /// <br/>values needed.
+    /// <br/>
+    /// <br/>Adding a new destination here requires a corresponding implementation
+    /// <br/>in ``app.services.forwarding`` and a regeneration of the OpenAPI
+    /// <br/>spec so the SDK clients pick up the new variant.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum ForwarderType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"http")]
+        Http = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"datadog")]
+        Datadog = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"splunk_hec")]
+        Splunk_hec = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"sumo_logic")]
+        Sumo_logic = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"new_relic")]
+        New_relic = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"honeycomb")]
+        Honeycomb = 5,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"elastic")]
+        Elastic = 6,
 
     }
 

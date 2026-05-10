@@ -75,7 +75,7 @@ try
     fwd = await client.Audit.Forwarders.CreateAsync(new CreateForwarderInput
     {
         Name = "showcase-" + Guid.NewGuid().ToString("N").Substring(0, 6),
-        ForwarderType = "http",
+        ForwarderType = ForwarderType.Http,
         Http = new ForwarderHttp
         {
             Url = "https://httpbin.org/post",

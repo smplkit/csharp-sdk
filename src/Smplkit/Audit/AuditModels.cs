@@ -122,7 +122,7 @@ public sealed record Forwarder(
     Guid Id,
     string Name,
     string Slug,
-    string ForwarderType,
+    ForwarderType ForwarderType,
     bool Enabled,
     IDictionary<string, object?>? Filter,
     string? Transform,
@@ -139,8 +139,8 @@ public sealed class CreateForwarderInput
 {
     /// <summary>Display name. Server derives the slug from this.</summary>
     public required string Name { get; set; }
-    /// <summary>One of <c>http</c>, <c>datadog</c>, <c>splunk_hec</c>, <c>sumo_logic</c>, <c>new_relic</c>, <c>honeycomb</c>, <c>elastic</c>.</summary>
-    public required string ForwarderType { get; set; }
+    /// <summary>The destination type — see <see cref="Smplkit.Audit.ForwarderType"/>.</summary>
+    public required ForwarderType ForwarderType { get; set; }
     /// <summary>Destination HTTP configuration.</summary>
     public required ForwarderHttp Http { get; set; }
     /// <summary>Whether the forwarder is active. Defaults to true.</summary>
@@ -157,7 +157,7 @@ public sealed class CreateForwarderInput
 public sealed class ListForwardersInput
 {
     /// <summary>Filter by exact-match forwarder type.</summary>
-    public string? ForwarderType { get; set; }
+    public ForwarderType? ForwarderType { get; set; }
     /// <summary>Filter by enabled flag.</summary>
     public bool? Enabled { get; set; }
     /// <summary>Page size.</summary>

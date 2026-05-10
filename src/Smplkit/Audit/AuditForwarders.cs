@@ -32,8 +32,11 @@ public sealed class AuditForwarders
         ListForwardersInput? input = null, CancellationToken ct = default)
     {
         input ??= new ListForwardersInput();
+        // Generated client takes the filter as string?; convert the
+        // typed enum to its wire slug.
+        var filterType = input.ForwarderType?.ToWireValue();
         var resp = await _gen.List_forwardersAsync(
-            input.ForwarderType, input.Enabled, input.PageSize, input.PageAfter, ct
+            filterType, input.Enabled, input.PageSize, input.PageAfter, ct
         ).ConfigureAwait(false);
         var rows = (resp.Data ?? new List<GenAudit.ForwarderResource>()).Select(FromResource).ToList();
         return new ListForwardersPage(rows, ExtractCursor(resp.Links?.Next));
@@ -101,7 +104,7 @@ public sealed class AuditForwarders
         var attrs = new GenAudit.Forwarder
         {
             Name = input.Name,
-            Forwarder_type = input.ForwarderType,
+            Forwarder_type = ToGenForwarderType(input.ForwarderType),
             Enabled = input.Enabled,
             Http = ToGenHttp(input.Http),
         };
@@ -153,7 +156,7 @@ public sealed class AuditForwarders
             string.IsNullOrEmpty(r.Id) ? Guid.Empty : Guid.Parse(r.Id),
             a.Name ?? string.Empty,
             a.Slug ?? string.Empty,
-            a.Forwarder_type ?? string.Empty,
+            FromGenForwarderType(a.Forwarder_type),
             a.Enabled,
             ConvertJson(a.Filter),
             a.Transform,
@@ -164,6 +167,34 @@ public sealed class AuditForwarders
             a.Deleted_at,
             a.Version);
     }
+
+    /// <summary>Convert the wrapper's public enum to the codegen's internal one.</summary>
+    private static GenAudit.ForwarderType ToGenForwarderType(ForwarderType src) =>
+        src switch
+        {
+            ForwarderType.Http => GenAudit.ForwarderType.Http,
+            ForwarderType.Datadog => GenAudit.ForwarderType.Datadog,
+            ForwarderType.SplunkHec => GenAudit.ForwarderType.Splunk_hec,
+            ForwarderType.SumoLogic => GenAudit.ForwarderType.Sumo_logic,
+            ForwarderType.NewRelic => GenAudit.ForwarderType.New_relic,
+            ForwarderType.Honeycomb => GenAudit.ForwarderType.Honeycomb,
+            ForwarderType.Elastic => GenAudit.ForwarderType.Elastic,
+            _ => throw new ArgumentOutOfRangeException(nameof(src), src, null),
+        };
+
+    /// <summary>Convert the codegen's internal enum to the wrapper's public one.</summary>
+    private static ForwarderType FromGenForwarderType(GenAudit.ForwarderType src) =>
+        src switch
+        {
+            GenAudit.ForwarderType.Http => ForwarderType.Http,
+            GenAudit.ForwarderType.Datadog => ForwarderType.Datadog,
+            GenAudit.ForwarderType.Splunk_hec => ForwarderType.SplunkHec,
+            GenAudit.ForwarderType.Sumo_logic => ForwarderType.SumoLogic,
+            GenAudit.ForwarderType.New_relic => ForwarderType.NewRelic,
+            GenAudit.ForwarderType.Honeycomb => ForwarderType.Honeycomb,
+            GenAudit.ForwarderType.Elastic => ForwarderType.Elastic,
+            _ => throw new ArgumentOutOfRangeException(nameof(src), src, null),
+        };
 
     private static ForwarderHttp HttpFromGen(GenAudit.ForwarderHttp? src)
     {
