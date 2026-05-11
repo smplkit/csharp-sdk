@@ -858,12 +858,12 @@ public class LoggingRuntimeTests
     }
 
     [Fact]
-    public async Task MapLoggerResource_UnknownLevelString_ReturnsNullLevel()
+    public async Task MapLoggerResource_MissingLevel_ReturnsNullLevel()
     {
         var body = """
             {"data":[{
                 "id":"x","type":"logger","attributes":{
-                    "name":"x","level":"INVALID-LEVEL","managed":true,"environments":{}
+                    "name":"x","managed":true,"environments":{}
                 }
             }]}
             """;
@@ -877,16 +877,16 @@ public class LoggingRuntimeTests
 
         var loggers = await client.Manage.Loggers.ListAsync();
         Assert.Single(loggers);
-        Assert.Null(loggers[0].Level); // unknown level -> null
+        Assert.Null(loggers[0].Level); // missing level -> null
     }
 
     [Fact]
-    public async Task MapLogGroupResource_UnknownLevelString_ReturnsNullLevel()
+    public async Task MapLogGroupResource_MissingLevel_ReturnsNullLevel()
     {
         var body = """
             {"data":[{
                 "id":"g","type":"log_group","attributes":{
-                    "name":"g","level":"INVALID-LEVEL","environments":{}
+                    "name":"g","environments":{}
                 }
             }]}
             """;

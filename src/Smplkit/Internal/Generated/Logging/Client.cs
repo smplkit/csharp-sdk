@@ -35,8 +35,12 @@ namespace Smplkit.Internal.Generated.Logging
         /// List Loggers
         /// </summary>
         /// <remarks>
-        /// List all loggers for the authenticated account. Optionally filter by managed status,
-        /// <br/>service, or last-seen time window.
+        /// List loggers for this account.
+        /// <br/>
+        /// <br/>Supports `filter[managed]` to narrow to managed (or unmanaged) loggers,
+        /// <br/>`filter[service]` to keep only loggers observed in a specific service,
+        /// <br/>and `filter[last_seen]` (interval notation `[&lt;from&gt;,*)`) to keep only
+        /// <br/>loggers with a source observation at or after the given timestamp.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -47,7 +51,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// Get Logger
         /// </summary>
         /// <remarks>
-        /// Return a logger by its key.
+        /// Retrieve a logger by its key.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -58,19 +62,23 @@ namespace Smplkit.Internal.Generated.Logging
         /// Update or Create Logger
         /// </summary>
         /// <remarks>
-        /// Create or update a logger (upsert). If the logger does not exist it is created.
-        /// <br/>Fields absent from the body are preserved on update; explicit null clears them.
+        /// Create or replace a logger at the given key.
+        /// <br/>
+        /// <br/>If the logger does not yet exist, it is created. Fields omitted from
+        /// <br/>the request body are preserved; explicit `null` clears them. Setting
+        /// <br/>`level`, `group`, or `environments` on an unmanaged logger promotes
+        /// <br/>it to managed automatically.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<LoggerResponse> Update_loggerAsync(string id, LoggerResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<LoggerResponse> Update_loggerAsync(string id, LoggerRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
         /// Delete Logger
         /// </summary>
         /// <remarks>
-        /// Delete a logger by its key.
+        /// Delete a logger.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -81,7 +89,11 @@ namespace Smplkit.Internal.Generated.Logging
         /// Bulk Register Loggers
         /// </summary>
         /// <remarks>
-        /// Register loggers discovered by an SDK. Creates new loggers or updates source observations on existing ones.
+        /// Register loggers discovered by an SDK.
+        /// <br/>
+        /// <br/>Creates new logger entries for previously unseen keys and refreshes
+        /// <br/>the per-(service, environment) observation for keys already known.
+        /// <br/>Returns the number of items processed.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -92,7 +104,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// List Log Groups
         /// </summary>
         /// <remarks>
-        /// List all log groups for the authenticated account.
+        /// List log groups for this account.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -103,18 +115,21 @@ namespace Smplkit.Internal.Generated.Logging
         /// Create Log Group
         /// </summary>
         /// <remarks>
-        /// Create a new log group. The caller provides the key in data.id, or it is auto-generated from name.
+        /// Create a log group.
+        /// <br/>
+        /// <br/>The caller may supply a key in `data.id`; if omitted, the server
+        /// <br/>generates one from `name`.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<LogGroupResponse> Create_log_groupAsync(LogGroupResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<LogGroupResponse> Create_log_groupAsync(LogGroupRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
         /// Get Log Group
         /// </summary>
         /// <remarks>
-        /// Return a log group by its key.
+        /// Retrieve a log group by its key.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -125,18 +140,21 @@ namespace Smplkit.Internal.Generated.Logging
         /// Update Log Group
         /// </summary>
         /// <remarks>
-        /// Replace a log group entirely.
+        /// Replace a log group. Every writable field is overwritten.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<LogGroupResponse> Update_log_groupAsync(string id, LogGroupResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<LogGroupResponse> Update_log_groupAsync(string id, LogGroupRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
         /// Delete Log Group
         /// </summary>
         /// <remarks>
-        /// Delete a log group by its key.
+        /// Delete a log group.
+        /// <br/>
+        /// <br/>Loggers that referenced this group are detached; they remain in the
+        /// <br/>account with no group assignment.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -147,7 +165,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// List Logger Sources
         /// </summary>
         /// <remarks>
-        /// List all sources (service/environment observations) for a specific logger.
+        /// List the service / environment observations recorded for a logger.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -158,7 +176,10 @@ namespace Smplkit.Internal.Generated.Logging
         /// List All Logger Sources
         /// </summary>
         /// <remarks>
-        /// List all logger sources across all loggers. Optionally filter by environment or service.
+        /// List every logger source observation for this account.
+        /// <br/>
+        /// <br/>Supports `filter[environment]` and `filter[service]` to narrow to a
+        /// <br/>specific environment or service.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -169,7 +190,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// List Services
         /// </summary>
         /// <remarks>
-        /// Return the distinct service names observed across all logger sources for the account.
+        /// List the services that have reported a logger for this account.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -180,7 +201,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// List Logging Usage
         /// </summary>
         /// <remarks>
-        /// Return current resource usage counts for the authenticated account.
+        /// Report the current-period usage counters for this account.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -241,8 +262,12 @@ namespace Smplkit.Internal.Generated.Logging
         /// List Loggers
         /// </summary>
         /// <remarks>
-        /// List all loggers for the authenticated account. Optionally filter by managed status,
-        /// <br/>service, or last-seen time window.
+        /// List loggers for this account.
+        /// <br/>
+        /// <br/>Supports `filter[managed]` to narrow to managed (or unmanaged) loggers,
+        /// <br/>`filter[service]` to keep only loggers observed in a specific service,
+        /// <br/>and `filter[last_seen]` (interval notation `[&lt;from&gt;,*)`) to keep only
+        /// <br/>loggers with a source observation at or after the given timestamp.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -373,7 +398,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// Get Logger
         /// </summary>
         /// <remarks>
-        /// Return a logger by its key.
+        /// Retrieve a logger by its key.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -494,12 +519,16 @@ namespace Smplkit.Internal.Generated.Logging
         /// Update or Create Logger
         /// </summary>
         /// <remarks>
-        /// Create or update a logger (upsert). If the logger does not exist it is created.
-        /// <br/>Fields absent from the body are preserved on update; explicit null clears them.
+        /// Create or replace a logger at the given key.
+        /// <br/>
+        /// <br/>If the logger does not yet exist, it is created. Fields omitted from
+        /// <br/>the request body are preserved; explicit `null` clears them. Setting
+        /// <br/>`level`, `group`, or `environments` on an unmanaged logger promotes
+        /// <br/>it to managed automatically.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<LoggerResponse> Update_loggerAsync(string id, LoggerResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<LoggerResponse> Update_loggerAsync(string id, LoggerRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -623,7 +652,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// Delete Logger
         /// </summary>
         /// <remarks>
-        /// Delete a logger by its key.
+        /// Delete a logger.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -738,7 +767,11 @@ namespace Smplkit.Internal.Generated.Logging
         /// Bulk Register Loggers
         /// </summary>
         /// <remarks>
-        /// Register loggers discovered by an SDK. Creates new loggers or updates source observations on existing ones.
+        /// Register loggers discovered by an SDK.
+        /// <br/>
+        /// <br/>Creates new logger entries for previously unseen keys and refreshes
+        /// <br/>the per-(service, environment) observation for keys already known.
+        /// <br/>Returns the number of items processed.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -862,7 +895,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// List Log Groups
         /// </summary>
         /// <remarks>
-        /// List all log groups for the authenticated account.
+        /// List log groups for this account.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -979,11 +1012,14 @@ namespace Smplkit.Internal.Generated.Logging
         /// Create Log Group
         /// </summary>
         /// <remarks>
-        /// Create a new log group. The caller provides the key in data.id, or it is auto-generated from name.
+        /// Create a log group.
+        /// <br/>
+        /// <br/>The caller may supply a key in `data.id`; if omitted, the server
+        /// <br/>generates one from `name`.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<LogGroupResponse> Create_log_groupAsync(LogGroupResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<LogGroupResponse> Create_log_groupAsync(LogGroupRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (body == null)
                 throw new System.ArgumentNullException("body");
@@ -1103,7 +1139,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// Get Log Group
         /// </summary>
         /// <remarks>
-        /// Return a log group by its key.
+        /// Retrieve a log group by its key.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1224,11 +1260,11 @@ namespace Smplkit.Internal.Generated.Logging
         /// Update Log Group
         /// </summary>
         /// <remarks>
-        /// Replace a log group entirely.
+        /// Replace a log group. Every writable field is overwritten.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<LogGroupResponse> Update_log_groupAsync(string id, LogGroupResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<LogGroupResponse> Update_log_groupAsync(string id, LogGroupRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -1352,7 +1388,10 @@ namespace Smplkit.Internal.Generated.Logging
         /// Delete Log Group
         /// </summary>
         /// <remarks>
-        /// Delete a log group by its key.
+        /// Delete a log group.
+        /// <br/>
+        /// <br/>Loggers that referenced this group are detached; they remain in the
+        /// <br/>account with no group assignment.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1467,7 +1506,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// List Logger Sources
         /// </summary>
         /// <remarks>
-        /// List all sources (service/environment observations) for a specific logger.
+        /// List the service / environment observations recorded for a logger.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1589,7 +1628,10 @@ namespace Smplkit.Internal.Generated.Logging
         /// List All Logger Sources
         /// </summary>
         /// <remarks>
-        /// List all logger sources across all loggers. Optionally filter by environment or service.
+        /// List every logger source observation for this account.
+        /// <br/>
+        /// <br/>Supports `filter[environment]` and `filter[service]` to narrow to a
+        /// <br/>specific environment or service.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1716,7 +1758,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// List Services
         /// </summary>
         /// <remarks>
-        /// Return the distinct service names observed across all logger sources for the account.
+        /// List the services that have reported a logger for this account.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1833,7 +1875,7 @@ namespace Smplkit.Internal.Generated.Logging
         /// List Logging Usage
         /// </summary>
         /// <remarks>
-        /// Return current resource usage counts for the authenticated account.
+        /// Report the current-period usage counters for this account.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -2131,25 +2173,51 @@ namespace Smplkit.Internal.Generated.Logging
 
     }
 
+    /// <summary>
+    /// A named collection of loggers that share a level configuration.
+    /// <br/>
+    /// <br/>Assigning a logger to a group ties the logger's effective level to
+    /// <br/>the group's level (and per-environment overrides). Loggers can move
+    /// <br/>between groups or be detached from a group entirely.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class LogGroup
     {
 
+        /// <summary>
+        /// Human-readable label for the group.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = default!;
 
+        /// <summary>
+        /// Default level applied to every logger in the group. `null` leaves member loggers to inherit from elsewhere.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("level")]
-        public string? Level { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<LogGroupLevel>))]
+        public LogGroupLevel? Level { get; set; } = default!;
 
+        /// <summary>
+        /// Reserved for nested groups. Must be `null` in this version; nested groups are not yet supported.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("parent_id")]
         public string? Parent_id { get; set; } = default!;
 
+        /// <summary>
+        /// Per-environment level overrides keyed by environment name. Each value is an object with an optional `level` field, e.g. `{"production": {"level": "ERROR"}}`. Member loggers inherit the per-environment level unless they set their own override.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("environments")]
         public object? Environments { get; set; } = default!;
 
+        /// <summary>
+        /// When the group was created.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
         public System.DateTimeOffset? Created_at { get; set; } = default!;
 
+        /// <summary>
+        /// When the group was last modified.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("updated_at")]
         public System.DateTimeOffset? Updated_at { get; set; } = default!;
 
@@ -2164,6 +2232,9 @@ namespace Smplkit.Internal.Generated.Logging
 
     }
 
+    /// <summary>
+    /// JSON:API collection response for log groups.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class LogGroupListResponse
     {
@@ -2182,6 +2253,34 @@ namespace Smplkit.Internal.Generated.Logging
 
     }
 
+    /// <summary>
+    /// JSON:API request envelope for creating or updating a log group.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class LogGroupRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public LogGroupResource Data { get; set; } = new LogGroupResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API resource envelope for a log group.
+    /// <br/>
+    /// <br/>`id` is the group's key (e.g. `database-loggers`). On a create
+    /// <br/>request the id may be supplied; if omitted, the server generates
+    /// <br/>one from `name`.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class LogGroupResource
     {
@@ -2206,6 +2305,9 @@ namespace Smplkit.Internal.Generated.Logging
 
     }
 
+    /// <summary>
+    /// JSON:API single-resource response envelope for a log group.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class LogGroupResponse
     {
@@ -2224,34 +2326,71 @@ namespace Smplkit.Internal.Generated.Logging
 
     }
 
+    /// <summary>
+    /// A logger configured for the account.
+    /// <br/>
+    /// <br/>Loggers are organized by dot-separated key (for example, `sqlalchemy.engine`),
+    /// <br/>matching the hierarchical naming convention used by most logging
+    /// <br/>frameworks. A managed logger applies the configured level to every
+    /// <br/>runtime where the logger appears; unmanaged loggers are tracked only
+    /// <br/>as observations from SDKs.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Logger
     {
 
+        /// <summary>
+        /// Human-readable label for the logger.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = default!;
 
+        /// <summary>
+        /// Account-wide log level applied to this logger. `null` means no override at the logger level — the level is inherited from the logger's group or the framework default.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("level")]
-        public string? Level { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<LoggerLevel>))]
+        public LoggerLevel? Level { get; set; } = default!;
 
+        /// <summary>
+        /// Key of the log group this logger belongs to, or `null` if the logger is not grouped. Assigning a logger to a group promotes it to managed; assigning a group cascades to unmanaged descendants by clearing their group reference.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("group")]
         public string? Group { get; set; } = default!;
 
+        /// <summary>
+        /// When `true`, the logger is part of the account's managed configuration and counts toward the managed-loggers usage counter. Setting `level`, `group`, or `environments` on an unmanaged logger promotes it to managed automatically.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("managed")]
         public bool? Managed { get; set; } = default!;
 
+        /// <summary>
+        /// Service / environment observations reported by SDKs for this logger. Each entry carries the service name, environment, the level the SDK saw, the resolved level after framework inheritance, and timestamps for the first and most recent sighting.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("sources")]
         public System.Collections.Generic.List<object>? Sources { get; set; } = default!;
 
+        /// <summary>
+        /// Per-environment level overrides keyed by environment name. Each value is an object with an optional `level` field, e.g. `{"production": {"level": "WARN"}}`. An environment may be present with no `level` to record that the logger applies there without changing the resolved level.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("environments")]
         public object? Environments { get; set; } = default!;
 
+        /// <summary>
+        /// Per-environment summary of what runtimes are reporting for this logger. Keyed by environment name; each entry is one of `{"status": "none"}`, `{"status": "agrees", "level": "&lt;LEVEL&gt;"}`, or `{"status": "varies"}`. `agrees` means every observed source in that environment reports the same resolved level; `varies` means at least two sources disagree.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("effective_levels")]
         public object? Effective_levels { get; set; } = default!;
 
+        /// <summary>
+        /// When the logger was first created or discovered.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
         public System.DateTimeOffset? Created_at { get; set; } = default!;
 
+        /// <summary>
+        /// When the logger was last modified.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("updated_at")]
         public System.DateTimeOffset? Updated_at { get; set; } = default!;
 
@@ -2266,36 +2405,39 @@ namespace Smplkit.Internal.Generated.Logging
 
     }
 
+    /// <summary>
+    /// One logger discovered by an SDK during a bulk registration call.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class LoggerBulkItem
     {
 
         /// <summary>
-        /// Normalized logger name
+        /// Dot-separated logger key as the SDK saw it.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("id")]
         public string Id { get; set; } = default!;
 
         /// <summary>
-        /// The explicitly-set level on this logger. Null if inherited.
+        /// Level explicitly set on the logger by application code. `null` when the level is inherited.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("level")]
         public string? Level { get; set; } = default!;
 
         /// <summary>
-        /// The effective level after framework inheritance. Never null in compliant SDKs.
+        /// Effective level after framework inheritance. SDKs should always report this; the server falls back to `level` when `resolved_level` is missing.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("resolved_level")]
         public string? Resolved_level { get; set; } = default!;
 
         /// <summary>
-        /// Service name that discovered this logger
+        /// Service name that observed the logger.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("service")]
         public string? Service { get; set; } = default!;
 
         /// <summary>
-        /// Environment where this logger was observed
+        /// Environment where the logger was observed.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("environment")]
         public string? Environment { get; set; } = default!;
@@ -2311,10 +2453,16 @@ namespace Smplkit.Internal.Generated.Logging
 
     }
 
+    /// <summary>
+    /// Payload for bulk registration of loggers discovered by an SDK.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class LoggerBulkRequest
     {
 
+        /// <summary>
+        /// Loggers to register or refresh observations for.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("loggers")]
         public System.Collections.Generic.List<LoggerBulkItem> Loggers { get; set; } = new System.Collections.Generic.List<LoggerBulkItem>();
 
@@ -2329,10 +2477,16 @@ namespace Smplkit.Internal.Generated.Logging
 
     }
 
+    /// <summary>
+    /// Result of a bulk registration call.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class LoggerBulkResponse
     {
 
+        /// <summary>
+        /// Number of loggers that were created or had a source observation refreshed.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("registered")]
         public int Registered { get; set; } = default!;
 
@@ -2347,6 +2501,9 @@ namespace Smplkit.Internal.Generated.Logging
 
     }
 
+    /// <summary>
+    /// JSON:API collection response for loggers.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class LoggerListResponse
     {
@@ -2365,6 +2522,34 @@ namespace Smplkit.Internal.Generated.Logging
 
     }
 
+    /// <summary>
+    /// JSON:API request envelope for creating or updating a logger.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class LoggerRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public LoggerResource Data { get; set; } = new LoggerResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API resource envelope for a logger.
+    /// <br/>
+    /// <br/>`id` is the logger's dot-separated key (e.g. `sqlalchemy.engine`).
+    /// <br/>On a `PUT /api/v1/loggers/{id}` create, the id is taken from the URL
+    /// <br/>path; on update, an `id` in the body renames the logger.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class LoggerResource
     {
@@ -2389,6 +2574,9 @@ namespace Smplkit.Internal.Generated.Logging
 
     }
 
+    /// <summary>
+    /// JSON:API single-resource response envelope for a logger.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class LoggerResponse
     {
@@ -2407,31 +2595,62 @@ namespace Smplkit.Internal.Generated.Logging
 
     }
 
+    /// <summary>
+    /// A single service / environment observation of a logger.
+    /// <br/>
+    /// <br/>A source row exists for every (service, environment) pair that has
+    /// <br/>reported the logger via the bulk registration endpoint. The row's
+    /// <br/>levels reflect what the SDK saw on the most recent report.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class LoggerSource
     {
 
+        /// <summary>
+        /// Service that reported the logger.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("service")]
         public string Service { get; set; } = default!;
 
+        /// <summary>
+        /// Environment the service was running in when it reported the logger.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("environment")]
         public string Environment { get; set; } = default!;
 
+        /// <summary>
+        /// Level explicitly set on the logger in the source runtime. `null` when the runtime inherits its level.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("level")]
         public string? Level { get; set; } = default!;
 
+        /// <summary>
+        /// Effective level the runtime resolved for the logger.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("resolved_level")]
         public string Resolved_level { get; set; } = default!;
 
+        /// <summary>
+        /// When this service / environment combination first reported the logger.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("first_observed")]
         public System.DateTimeOffset? First_observed { get; set; } = default!;
 
+        /// <summary>
+        /// Most recent report received for this service / environment combination.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("last_seen")]
         public System.DateTimeOffset? Last_seen { get; set; } = default!;
 
+        /// <summary>
+        /// When the source row was created.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
         public System.DateTimeOffset? Created_at { get; set; } = default!;
 
+        /// <summary>
+        /// When the source row was last refreshed.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("updated_at")]
         public System.DateTimeOffset? Updated_at { get; set; } = default!;
 
@@ -2446,6 +2665,9 @@ namespace Smplkit.Internal.Generated.Logging
 
     }
 
+    /// <summary>
+    /// JSON:API collection response for logger sources.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class LoggerSourceListResponse
     {
@@ -2464,6 +2686,9 @@ namespace Smplkit.Internal.Generated.Logging
 
     }
 
+    /// <summary>
+    /// JSON:API resource envelope for a logger source observation.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class LoggerSourceResource
     {
@@ -2488,6 +2713,9 @@ namespace Smplkit.Internal.Generated.Logging
 
     }
 
+    /// <summary>
+    /// A discovered service has no attributes beyond its name (the `id`).
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ServiceAttributes
     {
@@ -2503,6 +2731,9 @@ namespace Smplkit.Internal.Generated.Logging
 
     }
 
+    /// <summary>
+    /// JSON:API collection response for discovered services.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ServiceListResponse
     {
@@ -2521,6 +2752,14 @@ namespace Smplkit.Internal.Generated.Logging
 
     }
 
+    /// <summary>
+    /// JSON:API resource envelope for a discovered service.
+    /// <br/>
+    /// <br/>`id` is the service name as reported by an SDK during bulk
+    /// <br/>registration. The resource carries no additional attributes — it
+    /// <br/>represents the existence of the service in the account's
+    /// <br/>observations, nothing more.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ServiceResource
     {
@@ -2545,16 +2784,28 @@ namespace Smplkit.Internal.Generated.Logging
 
     }
 
+    /// <summary>
+    /// Usage counter for a single metered limit.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class UsageAttributes
     {
 
+        /// <summary>
+        /// Identifier of the metered limit, e.g. `logging.managed_loggers` or `logging.groups`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("limit_key")]
         public string Limit_key { get; set; } = default!;
 
+        /// <summary>
+        /// Period the counter covers. `current` is the only supported value.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("period")]
         public string Period { get; set; } = default!;
 
+        /// <summary>
+        /// Count for the period.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("value")]
         public int Value { get; set; } = default!;
 
@@ -2569,6 +2820,9 @@ namespace Smplkit.Internal.Generated.Logging
 
     }
 
+    /// <summary>
+    /// JSON:API collection response for usage counters.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class UsageListResponse
     {
@@ -2587,6 +2841,9 @@ namespace Smplkit.Internal.Generated.Logging
 
     }
 
+    /// <summary>
+    /// JSON:API resource envelope for a single usage counter.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class UsageResource
     {
@@ -2608,6 +2865,60 @@ namespace Smplkit.Internal.Generated.Logging
             get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
             set { _additionalProperties = value; }
         }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum LogGroupLevel
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"TRACE")]
+        TRACE = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"DEBUG")]
+        DEBUG = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"INFO")]
+        INFO = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"WARN")]
+        WARN = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"ERROR")]
+        ERROR = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"FATAL")]
+        FATAL = 5,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"SILENT")]
+        SILENT = 6,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum LoggerLevel
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"TRACE")]
+        TRACE = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"DEBUG")]
+        DEBUG = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"INFO")]
+        INFO = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"WARN")]
+        WARN = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"ERROR")]
+        ERROR = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"FATAL")]
+        FATAL = 5,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"SILENT")]
+        SILENT = 6,
 
     }
 
