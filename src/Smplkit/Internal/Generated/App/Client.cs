@@ -114,7 +114,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<UserResponse> Update_current_userAsync(UserResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<UserResponse> Update_current_userAsync(UserRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -136,7 +136,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<AccountResponse> Update_accountAsync(AccountResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<AccountResponse> Update_accountAsync(AccountRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -154,7 +154,7 @@ namespace Smplkit.Internal.Generated.App
         /// Wipe Account Data
         /// </summary>
         /// <remarks>
-        /// Delete every config, flag, logger, log group, context, context type, environment, and customer API key (except the caller's current key) on the account. The ``common`` config is preserved as a structural anchor but its items are reset. Requires ``OWNER`` role and a ``{"confirm": true}`` body — anything else returns 400. Pass ``"generate_sample_data": true`` to re-seed the account with the standard sample dataset after the wipe completes (best-effort; seed failures are logged but do not fail the wipe). Returns 204 on success; if any sub-delete fails the response is 500.
+        /// Delete every config, flag, logger, log group, context, context type, environment, and customer API key (except the caller's current key) on the account. The `common` config is preserved as a structural anchor but its items are reset. Requires `OWNER` role and a body of `{"confirm": true}` — any other value returns 400. Pass `"generate_sample_data": true` to re-seed the account with the standard sample dataset after the wipe (best-effort; seeding failures are logged but do not fail the wipe). Returns 204 on success; 500 if any sub-delete fails.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -235,7 +235,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<EnvironmentResponse> Create_environmentAsync(EnvironmentResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<EnvironmentResponse> Create_environmentAsync(EnvironmentRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -257,7 +257,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<EnvironmentResponse> Update_environmentAsync(string id, EnvironmentResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<EnvironmentResponse> Update_environmentAsync(string id, EnvironmentRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -279,7 +279,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ApiKeyResponse> Create_api_keyAsync(ApiKeyResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiKeyResponse> Create_api_keyAsync(ApiKeyRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -312,7 +312,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ApiKeyResponse> Update_api_keyAsync(System.Guid id, ApiKeyResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiKeyResponse> Update_api_keyAsync(System.Guid id, ApiKeyRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -356,7 +356,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ContextTypeResponse> Create_context_typeAsync(ContextTypeResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ContextTypeResponse> Create_context_typeAsync(ContextTypeRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -378,7 +378,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ContextTypeResponse> Update_context_typeAsync(string id, ContextTypeResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ContextTypeResponse> Update_context_typeAsync(string id, ContextTypeRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -429,11 +429,11 @@ namespace Smplkit.Internal.Generated.App
         /// Update Context
         /// </summary>
         /// <remarks>
-        /// Update a context instance by composite id (type:key). Only the human-readable display name is mutable through this endpoint; context_type and observed attributes are written by the SDK ingestion path.
+        /// Update a context instance by composite id (type:key). Only the human-readable display name is mutable here; `context_type` and observed `attributes` are written by SDK registration and ignored on this endpoint.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ContextResponse> Update_contextAsync(string id, ContextResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ContextResponse> Update_contextAsync(string id, ContextRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -466,7 +466,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ServiceResponse> Create_serviceAsync(ServiceResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ServiceResponse> Create_serviceAsync(ServiceRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -488,7 +488,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ServiceResponse> Update_serviceAsync(string id, ServiceResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ServiceResponse> Update_serviceAsync(string id, ServiceRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -583,10 +583,9 @@ namespace Smplkit.Internal.Generated.App
         /// List Metric Names
         /// </summary>
         /// <remarks>
-        /// Return distinct metric names (with a representative unit) for this account.
-        /// <br/>
-        /// <br/>Used by the dashboard to discover which product sections to render.
-        /// <br/>Plain JSON response (not JSON:API) — this is metadata, not a metric resource.
+        /// Return distinct metric names recorded for the account, each with a
+        /// <br/>representative unit. Plain-JSON response (not JSON:API) — this is
+        /// <br/>metadata for discovery, not a metric resource.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -659,7 +658,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<UserResponse> Update_user_roleAsync(System.Guid id, UserResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<UserResponse> Update_user_roleAsync(System.Guid id, UserRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -787,7 +786,7 @@ namespace Smplkit.Internal.Generated.App
         /// Add Payment Method
         /// </summary>
         /// <remarks>
-        /// Register a Stripe payment method (``pm_...``) as a persistent resource. The frontend obtains the Stripe ID via SetupIntent + Stripe Elements, then POSTs it here. Body shape and server behavior per ADR-044 §5.1.
+        /// Register a Stripe payment method (`pm_...`) on the account. The client first creates the Stripe payment method using a SetupIntent and Stripe Elements, then submits its identifier here to persist it.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -809,18 +808,18 @@ namespace Smplkit.Internal.Generated.App
         /// Update Payment Method
         /// </summary>
         /// <remarks>
-        /// Update the mutable fields (``billing_details``, ``exp_month``, ``exp_year``). The ``default`` field is not mutable via PUT — see ADR-044 §5.2; use the ``set_default`` action instead.
+        /// Update the mutable fields of a payment method (`billing_details`, `exp_month`, `exp_year`). The `default` flag is not mutable via PUT — use the `set_default` action instead.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<PaymentMethodResponse> Update_payment_methodAsync(System.Guid id, PaymentMethodResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<PaymentMethodResponse> Update_payment_methodAsync(System.Guid id, PaymentMethodRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
         /// Delete Payment Method
         /// </summary>
         /// <remarks>
-        /// Detach the payment method from Stripe and soft-delete the local row. Returns 409 if this is the only PM and the account has an active paid subscription. If the deleted row was default, the oldest remaining row is promoted.
+        /// Delete a payment method. Returns 409 if this is the only payment method on file and the account has an active paid subscription. If the deleted payment method was the default, the oldest remaining payment method is promoted to default.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -831,7 +830,7 @@ namespace Smplkit.Internal.Generated.App
         /// Set Default Payment Method
         /// </summary>
         /// <remarks>
-        /// Mark this payment method as the account's default. Idempotent — a no-op 200 if already default.
+        /// Mark this payment method as the account's default. Idempotent: returns 200 with no changes when the payment method is already the default.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -853,11 +852,13 @@ namespace Smplkit.Internal.Generated.App
         /// Get Invoice
         /// </summary>
         /// <remarks>
-        /// Return a single invoice by ID. Supports content negotiation via Accept header:
+        /// Return a single invoice by id. Supports content negotiation via the
+        /// <br/>`Accept` header:
         /// <br/>
-        /// <br/>- ``application/pdf`` — PDF bytes proxy-streamed from Stripe
-        /// <br/>- ``application/vnd.api+json`` / ``application/json`` / absent — JSON:API resource
-        /// <br/>- Any other value — 406 Not Acceptable
+        /// <br/>- `application/pdf` — streams the invoice PDF.
+        /// <br/>- `application/vnd.api+json`, `application/json`, or absent — returns
+        /// <br/>  the JSON:API invoice resource.
+        /// <br/>- Any other value — `406 Not Acceptable`.
         /// </remarks>
         /// <returns>Successful response. Content type depends on the Accept header: application/vnd.api+json returns a JSON:API invoice resource; application/pdf streams the invoice PDF from Stripe.</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -868,11 +869,9 @@ namespace Smplkit.Internal.Generated.App
         /// Execute Setup Intent
         /// </summary>
         /// <remarks>
-        /// Create a Stripe SetupIntent for saving a payment method.
-        /// <br/>
-        /// <br/>Returns a ``client_secret`` that the frontend passes to Stripe's
-        /// <br/>Payment Element so the customer can securely enter card details
-        /// <br/>without an immediate charge.
+        /// Create a Stripe SetupIntent for adding a payment method without an
+        /// <br/>immediate charge. Returns the `client_secret` to pass to Stripe Elements
+        /// <br/>in the browser.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1814,7 +1813,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<UserResponse> Update_current_userAsync(UserResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<UserResponse> Update_current_userAsync(UserRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (body == null)
                 throw new System.ArgumentNullException("body");
@@ -2055,7 +2054,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<AccountResponse> Update_accountAsync(AccountResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<AccountResponse> Update_accountAsync(AccountRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (body == null)
                 throw new System.ArgumentNullException("body");
@@ -2286,7 +2285,7 @@ namespace Smplkit.Internal.Generated.App
         /// Wipe Account Data
         /// </summary>
         /// <remarks>
-        /// Delete every config, flag, logger, log group, context, context type, environment, and customer API key (except the caller's current key) on the account. The ``common`` config is preserved as a structural anchor but its items are reset. Requires ``OWNER`` role and a ``{"confirm": true}`` body — anything else returns 400. Pass ``"generate_sample_data": true`` to re-seed the account with the standard sample dataset after the wipe completes (best-effort; seed failures are logged but do not fail the wipe). Returns 204 on success; if any sub-delete fails the response is 500.
+        /// Delete every config, flag, logger, log group, context, context type, environment, and customer API key (except the caller's current key) on the account. The `common` config is preserved as a structural anchor but its items are reset. Requires `OWNER` role and a body of `{"confirm": true}` — any other value returns 400. Pass `"generate_sample_data": true` to re-seed the account with the standard sample dataset after the wipe (best-effort; seeding failures are logged but do not fail the wipe). Returns 204 on success; 500 if any sub-delete fails.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -3117,7 +3116,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<EnvironmentResponse> Create_environmentAsync(EnvironmentResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<EnvironmentResponse> Create_environmentAsync(EnvironmentRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (body == null)
                 throw new System.ArgumentNullException("body");
@@ -3362,7 +3361,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<EnvironmentResponse> Update_environmentAsync(string id, EnvironmentResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<EnvironmentResponse> Update_environmentAsync(string id, EnvironmentRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -3605,7 +3604,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ApiKeyResponse> Create_api_keyAsync(ApiKeyResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ApiKeyResponse> Create_api_keyAsync(ApiKeyRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (body == null)
                 throw new System.ArgumentNullException("body");
@@ -3973,7 +3972,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ApiKeyResponse> Update_api_keyAsync(System.Guid id, ApiKeyResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ApiKeyResponse> Update_api_keyAsync(System.Guid id, ApiKeyRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -4456,7 +4455,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ContextTypeResponse> Create_context_typeAsync(ContextTypeResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ContextTypeResponse> Create_context_typeAsync(ContextTypeRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (body == null)
                 throw new System.ArgumentNullException("body");
@@ -4701,7 +4700,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ContextTypeResponse> Update_context_typeAsync(string id, ContextTypeResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ContextTypeResponse> Update_context_typeAsync(string id, ContextTypeRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -5308,11 +5307,11 @@ namespace Smplkit.Internal.Generated.App
         /// Update Context
         /// </summary>
         /// <remarks>
-        /// Update a context instance by composite id (type:key). Only the human-readable display name is mutable through this endpoint; context_type and observed attributes are written by the SDK ingestion path.
+        /// Update a context instance by composite id (type:key). Only the human-readable display name is mutable here; `context_type` and observed `attributes` are written by SDK registration and ignored on this endpoint.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ContextResponse> Update_contextAsync(string id, ContextResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ContextResponse> Update_contextAsync(string id, ContextRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -5672,7 +5671,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ServiceResponse> Create_serviceAsync(ServiceResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ServiceResponse> Create_serviceAsync(ServiceRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (body == null)
                 throw new System.ArgumentNullException("body");
@@ -5917,7 +5916,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ServiceResponse> Update_serviceAsync(string id, ServiceResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ServiceResponse> Update_serviceAsync(string id, ServiceRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -7049,10 +7048,9 @@ namespace Smplkit.Internal.Generated.App
         /// List Metric Names
         /// </summary>
         /// <remarks>
-        /// Return distinct metric names (with a representative unit) for this account.
-        /// <br/>
-        /// <br/>Used by the dashboard to discover which product sections to render.
-        /// <br/>Plain JSON response (not JSON:API) — this is metadata, not a metric resource.
+        /// Return distinct metric names recorded for the account, each with a
+        /// <br/>representative unit. Plain-JSON response (not JSON:API) — this is
+        /// <br/>metadata for discovery, not a metric resource.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -7812,7 +7810,7 @@ namespace Smplkit.Internal.Generated.App
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<UserResponse> Update_user_roleAsync(System.Guid id, UserResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<UserResponse> Update_user_roleAsync(System.Guid id, UserRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -9270,7 +9268,7 @@ namespace Smplkit.Internal.Generated.App
         /// Add Payment Method
         /// </summary>
         /// <remarks>
-        /// Register a Stripe payment method (``pm_...``) as a persistent resource. The frontend obtains the Stripe ID via SetupIntent + Stripe Elements, then POSTs it here. Body shape and server behavior per ADR-044 §5.1.
+        /// Register a Stripe payment method (`pm_...`) on the account. The client first creates the Stripe payment method using a SetupIntent and Stripe Elements, then submits its identifier here to persist it.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -9515,11 +9513,11 @@ namespace Smplkit.Internal.Generated.App
         /// Update Payment Method
         /// </summary>
         /// <remarks>
-        /// Update the mutable fields (``billing_details``, ``exp_month``, ``exp_year``). The ``default`` field is not mutable via PUT — see ADR-044 §5.2; use the ``set_default`` action instead.
+        /// Update the mutable fields of a payment method (`billing_details`, `exp_month`, `exp_year`). The `default` flag is not mutable via PUT — use the `set_default` action instead.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<PaymentMethodResponse> Update_payment_methodAsync(System.Guid id, PaymentMethodResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<PaymentMethodResponse> Update_payment_methodAsync(System.Guid id, PaymentMethodRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -9643,7 +9641,7 @@ namespace Smplkit.Internal.Generated.App
         /// Delete Payment Method
         /// </summary>
         /// <remarks>
-        /// Detach the payment method from Stripe and soft-delete the local row. Returns 409 if this is the only PM and the account has an active paid subscription. If the deleted row was default, the oldest remaining row is promoted.
+        /// Delete a payment method. Returns 409 if this is the only payment method on file and the account has an active paid subscription. If the deleted payment method was the default, the oldest remaining payment method is promoted to default.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -9758,7 +9756,7 @@ namespace Smplkit.Internal.Generated.App
         /// Set Default Payment Method
         /// </summary>
         /// <remarks>
-        /// Mark this payment method as the account's default. Idempotent — a no-op 200 if already default.
+        /// Mark this payment method as the account's default. Idempotent: returns 200 with no changes when the payment method is already the default.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -9998,11 +9996,13 @@ namespace Smplkit.Internal.Generated.App
         /// Get Invoice
         /// </summary>
         /// <remarks>
-        /// Return a single invoice by ID. Supports content negotiation via Accept header:
+        /// Return a single invoice by id. Supports content negotiation via the
+        /// <br/>`Accept` header:
         /// <br/>
-        /// <br/>- ``application/pdf`` — PDF bytes proxy-streamed from Stripe
-        /// <br/>- ``application/vnd.api+json`` / ``application/json`` / absent — JSON:API resource
-        /// <br/>- Any other value — 406 Not Acceptable
+        /// <br/>- `application/pdf` — streams the invoice PDF.
+        /// <br/>- `application/vnd.api+json`, `application/json`, or absent — returns
+        /// <br/>  the JSON:API invoice resource.
+        /// <br/>- Any other value — `406 Not Acceptable`.
         /// </remarks>
         /// <returns>Successful response. Content type depends on the Accept header: application/vnd.api+json returns a JSON:API invoice resource; application/pdf streams the invoice PDF from Stripe.</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -10143,11 +10143,9 @@ namespace Smplkit.Internal.Generated.App
         /// Execute Setup Intent
         /// </summary>
         /// <remarks>
-        /// Create a Stripe SetupIntent for saving a payment method.
-        /// <br/>
-        /// <br/>Returns a ``client_secret`` that the frontend passes to Stripe's
-        /// <br/>Payment Element so the customer can securely enter card details
-        /// <br/>without an immediate charge.
+        /// Create a Stripe SetupIntent for adding a payment method without an
+        /// <br/>immediate charge. Returns the `client_secret` to pass to Stripe Elements
+        /// <br/>in the browser.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -10389,45 +10387,70 @@ namespace Smplkit.Internal.Generated.App
         }
     }
 
+    /// <summary>
+    /// A tenant of smplkit — the unit of isolation that owns all of a
+    /// <br/>customer's resources (environments, contexts, API keys, and so on).
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Account
     {
 
+        /// <summary>
+        /// Human-readable name for the account.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = default!;
 
+        /// <summary>
+        /// Stable URL-safe identifier for the account, derived from the account name at creation. Used in console URLs and other places that prefer a human-readable handle.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("key")]
-        public string Key { get; set; } = default!;
+        public string? Key { get; set; } = default!;
 
+        /// <summary>
+        /// `true` once the account has been linked to a billing provider customer record.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("has_stripe_customer")]
         public bool Has_stripe_customer { get; set; } = false;
 
+        /// <summary>
+        /// When the account is scheduled to expire. `null` for accounts with no expiry.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("expires_at")]
         public System.DateTimeOffset? Expires_at { get; set; } = default!;
 
+        /// <summary>
+        /// When the account was created.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
         public System.DateTimeOffset? Created_at { get; set; } = default!;
 
+        /// <summary>
+        /// When the account was deleted. `null` for active accounts.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("deleted_at")]
         public System.DateTimeOffset? Deleted_at { get; set; } = default!;
 
+        /// <summary>
+        /// Map of product key to the account's subscription summary for that product, including plan, status, and entitlement limits.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("product_subscriptions")]
         public object? Product_subscriptions { get; set; } = default!;
 
         /// <summary>
-        /// Registration entry point (from account.data)
+        /// How the account first reached smplkit (e.g. `LOGIN`, `GET_STARTED`, `LIVE_DEMO`).
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("entry_point")]
         public string? Entry_point { get; set; } = default!;
 
         /// <summary>
-        /// Whether sample data is active (from account.settings)
+        /// Whether the account is currently configured to display the sample dataset alongside the customer's own resources.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("show_sample_data")]
         public bool? Show_sample_data { get; set; } = default!;
 
         /// <summary>
-        /// Custom discount percentage that overrides the volume schedule. Null means the volume schedule applies.
+        /// Custom discount percentage applied to the account in place of the volume-based discount schedule. `null` means the volume schedule applies.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("discount_override_pct")]
         public int? Discount_override_pct { get; set; } = default!;
@@ -10439,13 +10462,13 @@ namespace Smplkit.Internal.Generated.App
         public string? Discount_override_reason { get; set; } = default!;
 
         /// <summary>
-        /// UUID of the admin user who set the override.
+        /// UUID of the user who set the override.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("discount_override_set_by_user_id")]
         public string? Discount_override_set_by_user_id { get; set; } = default!;
 
         /// <summary>
-        /// Timestamp when the override was last changed.
+        /// When the override was last changed.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("discount_override_set_at")]
         public System.DateTimeOffset? Discount_override_set_at { get; set; } = default!;
@@ -10461,6 +10484,32 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API request envelope for creating or updating an account.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AccountRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public AccountResource Data { get; set; } = new AccountResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API resource envelope for an account.
+    /// <br/>
+    /// <br/>`id` must not be specified for create requests (the server assigns it).
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class AccountResource
     {
@@ -10486,6 +10535,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API single-resource response envelope for an account.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class AccountResponse
     {
@@ -10505,20 +10557,20 @@ namespace Smplkit.Internal.Generated.App
     }
 
     /// <summary>
-    /// Confirmation envelope for ``POST /accounts/current/actions/wipe``.
+    /// Confirmation envelope for the wipe-account action.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class AccountWipeRequest
     {
 
         /// <summary>
-        /// Must be ``true`` to proceed. Anything else returns 400. The frontend gates the call behind a confirmation dialog; this field is the server-side seatbelt.
+        /// Must be `true` for the wipe to proceed. Any other value returns 400.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("confirm")]
         public bool Confirm { get; set; } = default!;
 
         /// <summary>
-        /// When ``true``, the wipe re-seeds the account with the same Acme Commerce sample dataset that new accounts are bootstrapped with. Best-effort: any seeding failures are logged but do not fail the wipe.
+        /// When `true`, re-seed the account with the standard sample dataset after wiping. Best-effort: any seeding failure is logged but does not fail the wipe.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("generate_sample_data")]
         public bool Generate_sample_data { get; set; } = false;
@@ -10535,19 +10587,25 @@ namespace Smplkit.Internal.Generated.App
     }
 
     /// <summary>
-    /// Attributes for POST /api/v1/payment_methods.
+    /// Attributes accepted when registering a new payment method.
     /// <br/>
-    /// <br/>Distinct from ``PaymentMethod`` because this shape takes the Stripe
-    /// <br/>``pm_...`` ID at registration time; the persistent resource does not
-    /// <br/>expose that ID.
+    /// <br/>The customer first creates a Stripe payment method client-side using
+    /// <br/>Stripe Elements, then submits its `pm_...` identifier here to persist
+    /// <br/>it on the account.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class AddPaymentMethodAttributes
     {
 
+        /// <summary>
+        /// Identifier of the Stripe payment method to register on the account, e.g. `pm_1234567890abcdef`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("stripe_payment_method_id")]
         public string Stripe_payment_method_id { get; set; } = default!;
 
+        /// <summary>
+        /// When `true`, make the newly registered payment method the account's default. The first payment method on an account is always set as default regardless of this field.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("default")]
         public bool Default { get; set; } = false;
 
@@ -10562,6 +10620,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API request envelope for registering a new payment method.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class AddPaymentMethodBody
     {
@@ -10580,6 +10641,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// Resource object for the add-payment-method request.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class AddPaymentMethodData
     {
@@ -10602,39 +10666,71 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// An API key used by SDKs, scripts, and other programmatic clients to
+    /// <br/>authenticate with the smplkit API on behalf of the account.
+    /// <br/>
+    /// <br/>The full key value is returned in plaintext on the create response and
+    /// <br/>is otherwise unavailable — record it somewhere safe immediately after
+    /// <br/>creation.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ApiKey
     {
 
+        /// <summary>
+        /// Human-readable name for the key.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = default!;
 
+        /// <summary>
+        /// Lifecycle state of the key. `ACTIVE` keys may be used to authenticate; `REVOKED` keys are rejected.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("status")]
         public string? Status { get; set; } = default!;
 
+        /// <summary>
+        /// The bearer token value. Returned in plaintext on the create response so the caller can capture it; subsequent reads return the same value for round-tripping.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("key")]
         public string? Key { get; set; } = default!;
 
+        /// <summary>
+        /// Scope restrictions applied to the key. Empty object grants full account access; populated forms are reserved for future scope syntax.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("scopes")]
         public object Scopes { get; set; } = default!;
 
+        /// <summary>
+        /// UUID of the user who created the key.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("created_by")]
         public string? Created_by { get; set; } = default!;
 
+        /// <summary>
+        /// Optional expiry timestamp. After this time, the key is rejected. Omit for keys that do not expire.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("expires_at")]
         public System.DateTimeOffset? Expires_at { get; set; } = default!;
 
+        /// <summary>
+        /// When the key was most recently used to authenticate.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("last_used_at")]
         public System.DateTimeOffset? Last_used_at { get; set; } = default!;
 
+        /// <summary>
+        /// When the key was created.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
         public System.DateTimeOffset? Created_at { get; set; } = default!;
 
+        /// <summary>
+        /// When the key was last modified.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("updated_at")]
         public System.DateTimeOffset? Updated_at { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("data")]
-        public object Data { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -10647,6 +10743,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API collection response for API keys.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ApiKeyListResponse
     {
@@ -10665,6 +10764,32 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API request envelope for creating or updating an API key.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ApiKeyRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public ApiKeyResource Data { get; set; } = new ApiKeyResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API resource envelope for an API key.
+    /// <br/>
+    /// <br/>`id` must not be specified for create requests (the server assigns it).
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ApiKeyResource
     {
@@ -10690,6 +10815,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API single-resource response envelope for an API key.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ApiKeyResponse
     {
@@ -10708,13 +10836,22 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// Authentication token issued on successful login or registration.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class AuthTokenResponse
     {
 
+        /// <summary>
+        /// Bearer token to pass in the `Authorization` header.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("token")]
         public string Token { get; set; } = default!;
 
+        /// <summary>
+        /// Seconds until the token expires.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("expires_in")]
         public int Expires_in { get; set; } = default!;
 
@@ -10730,7 +10867,7 @@ namespace Smplkit.Internal.Generated.App
     }
 
     /// <summary>
-    /// Server-validated contact-us topics. Frontend dropdown values must match.
+    /// Topic options accepted on contact-us submissions.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public enum ContactTopic
@@ -10753,31 +10890,44 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// A specific instance of a context type — for example, a particular
+    /// <br/>user, account, or device — together with the attributes observed on it.
+    /// <br/>
+    /// <br/>Context instances are addressed by a composite identifier of the form
+    /// <br/>`context_type:key` (e.g. `user:alice-123`).
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Context
     {
 
         /// <summary>
-        /// Human-readable display name
+        /// Human-readable display name for the context instance.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string? Name { get; set; } = default!;
 
         /// <summary>
-        /// Context type key (e.g., 'user', 'account')
+        /// Key of the context type this instance belongs to (e.g. `user`, `account`).
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("context_type")]
         public string Context_type { get; set; } = default!;
 
         /// <summary>
-        /// Observed attributes
+        /// Observed attribute values for this context instance. The key set is conventionally aligned with the parent context type's known attribute keys, but additional keys are accepted.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("attributes")]
         public object Attributes { get; set; } = default!;
 
+        /// <summary>
+        /// When the context instance was first registered.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
         public System.DateTimeOffset? Created_at { get; set; } = default!;
 
+        /// <summary>
+        /// When the context instance was last modified.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("updated_at")]
         public System.DateTimeOffset? Updated_at { get; set; } = default!;
 
@@ -10792,10 +10942,16 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// Summary returned by the bulk context registration endpoint.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ContextBatchResponse
     {
 
+        /// <summary>
+        /// Number of context instances that were created or updated.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("registered")]
         public int Registered { get; set; } = default!;
 
@@ -10810,22 +10966,28 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// One context instance in a bulk registration payload.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ContextBulkItem
     {
 
         /// <summary>
-        /// Context type key: 'user', 'account', 'device'
+        /// Key of the context type this instance belongs to (e.g. `user`, `account`, `device`).
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("type")]
         public string Type { get; set; } = default!;
 
         /// <summary>
-        /// Entity identifier: 'user-123', 'acme-corp'
+        /// Entity identifier within the context type, e.g. `user-123`.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("key")]
         public string Key { get; set; } = default!;
 
+        /// <summary>
+        /// Observed attribute values for this context instance.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("attributes")]
         public object Attributes { get; set; } = default!;
 
@@ -10840,10 +11002,16 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// Bulk registration request body for the contexts endpoint.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ContextBulkRegister
     {
 
+        /// <summary>
+        /// One context instance per entry.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("contexts")]
         public System.Collections.Generic.List<ContextBulkItem> Contexts { get; set; } = new System.Collections.Generic.List<ContextBulkItem>();
 
@@ -10858,6 +11026,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API collection response for context instances.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ContextListResponse
     {
@@ -10876,6 +11047,33 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API request envelope for creating or updating a context instance.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ContextRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public ContextResource Data { get; set; } = new ContextResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API resource envelope for a context instance.
+    /// <br/>
+    /// <br/>`id` is the composite identifier `context_type:key`. It must not be
+    /// <br/>specified for create requests (the server assigns it).
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ContextResource
     {
@@ -10901,6 +11099,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API single-resource response envelope for a context instance.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ContextResponse
     {
@@ -10919,25 +11120,38 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// A kind of context — for example, `user`, `account`, or `device` — that
+    /// <br/>groups together context instances sharing a common set of attributes.
+    /// <br/>
+    /// <br/>The known attribute keys for the type accumulate as instances are
+    /// <br/>registered; each key carries an optional metadata object describing it.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ContextType
     {
 
         /// <summary>
-        /// Display label: User, Account, Device
+        /// Display label for the context type, e.g. `User`, `Account`, or `Device`.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = default!;
 
         /// <summary>
-        /// Known attribute keys with metadata objects
+        /// Map of known attribute key to per-attribute metadata. The metadata object is free-form and may be empty. Keys grow as new attributes are observed on context instances of this type.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("attributes")]
         public object Attributes { get; set; } = default!;
 
+        /// <summary>
+        /// When the context type was created.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
         public System.DateTimeOffset? Created_at { get; set; } = default!;
 
+        /// <summary>
+        /// When the context type was last modified.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("updated_at")]
         public System.DateTimeOffset? Updated_at { get; set; } = default!;
 
@@ -10952,6 +11166,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API collection response for context types.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ContextTypeListResponse
     {
@@ -10970,6 +11187,32 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API request envelope for creating or updating a context type.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ContextTypeRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public ContextTypeResource Data { get; set; } = new ContextTypeResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API resource envelope for a context type.
+    /// <br/>
+    /// <br/>`id` must not be specified for create requests (the server assigns it).
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ContextTypeResource
     {
@@ -10995,6 +11238,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API single-resource response envelope for a context type.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ContextTypeResponse
     {
@@ -11013,16 +11259,28 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// Attributes accepted when creating a new subscription.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class CreateSubscriptionAttributes
     {
 
+        /// <summary>
+        /// Product key to subscribe to, e.g. `flags`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("product")]
         public string Product { get; set; } = default!;
 
+        /// <summary>
+        /// Plan key to subscribe on, e.g. `pro`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("plan")]
         public string Plan { get; set; } = default!;
 
+        /// <summary>
+        /// UUID of a payment method on file to bill against. If omitted, the account's default payment method is used.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("payment_method")]
         public string? Payment_method { get; set; } = default!;
 
@@ -11037,6 +11295,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API request envelope for creating a subscription.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class CreateSubscriptionBody
     {
@@ -11055,10 +11316,16 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// Resource object for the create-subscription request.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class CreateSubscriptionData
     {
 
+        /// <summary>
+        /// Resource type; must be `subscription`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("type")]
         public string Type { get; set; } = default!;
 
@@ -11077,22 +11344,30 @@ namespace Smplkit.Internal.Generated.App
     }
 
     /// <summary>
-    /// Contact-us email resource attributes.
-    /// <br/>
-    /// <br/>This resource is a pure action — it is not persisted. The id returned in
-    /// <br/>the response is a per-request uuid4 for correlation only.
+    /// A contact-us submission. Sending the resource delivers a support
+    /// <br/>ticket and an auto-response email; nothing is persisted. The `id`
+    /// <br/>returned on the response is a per-request correlation identifier.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Email
     {
 
+        /// <summary>
+        /// Categorization of the message used to route it to the right inbox.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("topic")]
         [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ContactTopic>))]
         public ContactTopic Topic { get; set; } = default!;
 
+        /// <summary>
+        /// Free-form text of the message. Trimmed before validation.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("body")]
         public string Body { get; set; } = default!;
 
+        /// <summary>
+        /// When the message was accepted by the server.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("sent_at")]
         public System.DateTimeOffset? Sent_at { get; set; } = default!;
 
@@ -11107,6 +11382,11 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API resource envelope for a contact-us submission.
+    /// <br/>
+    /// <br/>`id` must not be specified for create requests (the server assigns it).
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class EmailResource
     {
@@ -11132,6 +11412,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API single-resource response envelope for a contact-us message.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class EmailResponse
     {
@@ -11150,23 +11433,43 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// A named deployment context — for example, `production`, `staging`, or
+    /// <br/>`development`. Resources scoped to an environment (such as config items
+    /// <br/>and feature flags) are evaluated against environment-specific values.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Environment
     {
 
+        /// <summary>
+        /// Human-readable name for the environment.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = default!;
 
+        /// <summary>
+        /// Display color used by the console to badge the environment. Accepts any CSS color string.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("color")]
         public string? Color { get; set; } = default!;
 
+        /// <summary>
+        /// `STANDARD` for environments the customer explicitly manages; `AD_HOC` for environments auto-created from SDK traffic. Case-insensitive on input.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("classification")]
         [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<EnvironmentClassification>))]
         public EnvironmentClassification Classification { get; set; } = Smplkit.Internal.Generated.App.EnvironmentClassification.AD_HOC;
 
+        /// <summary>
+        /// When the environment was created.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
         public System.DateTimeOffset? Created_at { get; set; } = default!;
 
+        /// <summary>
+        /// When the environment was last modified.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("updated_at")]
         public System.DateTimeOffset? Updated_at { get; set; } = default!;
 
@@ -11181,6 +11484,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API collection response for environments.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class EnvironmentListResponse
     {
@@ -11199,6 +11505,32 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API request envelope for creating or updating an environment.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class EnvironmentRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public EnvironmentResource Data { get; set; } = new EnvironmentResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API resource envelope for an environment.
+    /// <br/>
+    /// <br/>`id` must not be specified for create requests (the server assigns it).
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class EnvironmentResource
     {
@@ -11224,6 +11556,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API single-resource response envelope for an environment.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class EnvironmentResponse
     {
@@ -11293,37 +11628,73 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// An invitation for a person to join an account.
+    /// <br/>
+    /// <br/>Invitations carry a time-limited token; the recipient redeems the
+    /// <br/>token to become a member of the inviting account at the assigned role.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Invitation
     {
 
+        /// <summary>
+        /// Email address the invitation was sent to.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("email")]
         public string? Email { get; set; } = default!;
 
+        /// <summary>
+        /// Role to assign on acceptance. One of `ADMIN`, `MEMBER`, or `VIEWER`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("role")]
         public string? Role { get; set; } = default!;
 
+        /// <summary>
+        /// Lifecycle state of the invitation. One of `PENDING`, `ACCEPTED`, `REVOKED`, or `EXPIRED`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("status")]
         public string? Status { get; set; } = default!;
 
+        /// <summary>
+        /// UUID of the user who sent the invitation.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("invited_by")]
         public string? Invited_by { get; set; } = default!;
 
+        /// <summary>
+        /// Name of the account the recipient is being invited to join.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("account_name")]
         public string? Account_name { get; set; } = default!;
 
+        /// <summary>
+        /// Display name of the user who sent the invitation.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("inviter_display_name")]
         public string? Inviter_display_name { get; set; } = default!;
 
+        /// <summary>
+        /// Single-use token that the recipient redeems to accept the invitation. Echoed on responses so the inviting client can construct the acceptance link.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("token")]
         public string? Token { get; set; } = default!;
 
+        /// <summary>
+        /// When the invitation token stops being redeemable.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("expires_at")]
         public System.DateTimeOffset? Expires_at { get; set; } = default!;
 
+        /// <summary>
+        /// When the invitation was issued.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
         public System.DateTimeOffset? Created_at { get; set; } = default!;
 
+        /// <summary>
+        /// When the invitation record was last modified.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("updated_at")]
         public System.DateTimeOffset? Updated_at { get; set; } = default!;
 
@@ -11338,10 +11709,16 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// Body for the invitation-accept endpoint.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class InvitationAcceptRequest
     {
 
+        /// <summary>
+        /// Invitation token from the email link.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("token")]
         public string Token { get; set; } = default!;
 
@@ -11356,10 +11733,16 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// Bulk-create request body for the invitations endpoint.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class InvitationBulkCreateRequest
     {
 
+        /// <summary>
+        /// One to fifty invitations to send in a single request.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("invitations")]
         public System.Collections.Generic.List<InvitationCreateItem> Invitations { get; set; } = new System.Collections.Generic.List<InvitationCreateItem>();
 
@@ -11374,13 +11757,22 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// One invitation in a bulk-create request.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class InvitationCreateItem
     {
 
+        /// <summary>
+        /// Email address to send the invitation to.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("email")]
         public string Email { get; set; } = default!;
 
+        /// <summary>
+        /// Role to assign on acceptance. One of `ADMIN`, `MEMBER`, or `VIEWER`. `OWNER` cannot be assigned via invitation. Case-insensitive on input.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("role")]
         public string Role { get; set; } = "MEMBER";
 
@@ -11395,6 +11787,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API collection response for invitations.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class InvitationListResponse
     {
@@ -11413,6 +11808,11 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API resource envelope for an invitation.
+    /// <br/>
+    /// <br/>`id` must not be specified for create requests (the server assigns it).
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class InvitationResource
     {
@@ -11438,6 +11838,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API single-resource response envelope for an invitation.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class InvitationResponse
     {
@@ -11456,43 +11859,82 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// A billing invoice issued for the account.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Invoice
     {
 
+        /// <summary>
+        /// Invoice number assigned by the billing provider.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("number")]
         public string? Number { get; set; } = default!;
 
+        /// <summary>
+        /// Invoice lifecycle state, e.g. `draft`, `open`, `paid`, `uncollectible`, `void`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("status")]
         public string Status { get; set; } = default!;
 
+        /// <summary>
+        /// Amount owed on the invoice in the smallest currency unit (e.g. cents).
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("amount_due")]
         public int Amount_due { get; set; } = default!;
 
+        /// <summary>
+        /// Amount paid against the invoice in the smallest currency unit.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("amount_paid")]
         public int Amount_paid { get; set; } = default!;
 
+        /// <summary>
+        /// ISO 4217 currency code, e.g. `usd`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("currency")]
         public string Currency { get; set; } = default!;
 
+        /// <summary>
+        /// Human-readable summary of the invoice's line items.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("description")]
         public string? Description { get; set; } = default!;
 
+        /// <summary>
+        /// Start of the service period the invoice covers (ISO 8601).
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("period_start")]
         public string? Period_start { get; set; } = default!;
 
+        /// <summary>
+        /// End of the service period the invoice covers (ISO 8601).
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("period_end")]
         public string? Period_end { get; set; } = default!;
 
+        /// <summary>
+        /// When the invoice was created (ISO 8601).
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
         public string? Created_at { get; set; } = default!;
 
+        /// <summary>
+        /// When the invoice was paid in full (ISO 8601), or `null` if unpaid.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("paid_at")]
         public string? Paid_at { get; set; } = default!;
 
+        /// <summary>
+        /// Link to the hosted invoice page.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("hosted_invoice_url")]
         public string? Hosted_invoice_url { get; set; } = default!;
 
+        /// <summary>
+        /// Link to the PDF rendering of the invoice.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("invoice_pdf")]
         public string? Invoice_pdf { get; set; } = default!;
 
@@ -11507,6 +11949,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API collection response for invoices.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class InvoiceListResponse
     {
@@ -11525,6 +11970,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API resource envelope for an invoice.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class InvoiceResource
     {
@@ -11550,6 +11998,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API single-resource response envelope for an invoice.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class InvoiceSingleResponse
     {
@@ -11568,19 +12019,34 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// Description of a single metered limit on a product.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class LimitDefinition
     {
 
+        /// <summary>
+        /// Human-readable name for the limit.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("display_name")]
         public string Display_name { get; set; } = default!;
 
+        /// <summary>
+        /// Long-form description of what the limit controls.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("description")]
         public string Description { get; set; } = default!;
 
+        /// <summary>
+        /// Unit the limit is measured in, e.g. `flags`, `events`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("unit")]
         public string Unit { get; set; } = default!;
 
+        /// <summary>
+        /// Optional formatter hint for rendering the limit value in customer-facing UI.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("display_format")]
         public string? Display_format { get; set; } = default!;
 
@@ -11595,13 +12061,22 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// Body for the email + password login endpoint.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class LoginRequest
     {
 
+        /// <summary>
+        /// Email address of the user signing in.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("email")]
         public string Email { get; set; } = default!;
 
+        /// <summary>
+        /// Password supplied for authentication.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("password")]
         public string Password { get; set; } = default!;
 
@@ -11616,28 +12091,52 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// A pre-aggregated metric data point recorded for the account.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class MetricAttributes
     {
 
+        /// <summary>
+        /// Metric series name, e.g. `flags.evaluations`. Dot-separated.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = default!;
 
+        /// <summary>
+        /// Aggregated value for this data point over `period_seconds`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("value")]
         public Value Value { get; set; } = default!;
 
+        /// <summary>
+        /// Unit the value is expressed in, e.g. `evaluations`, `ms`, `bytes`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("unit")]
         public string? Unit { get; set; } = default!;
 
+        /// <summary>
+        /// Length of the aggregation window in seconds (e.g. `60` for a one-minute roll-up).
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("period_seconds")]
         public int Period_seconds { get; set; } = default!;
 
+        /// <summary>
+        /// Optional dimension keys that scope the data point, e.g. `environment`, `service`. Used as filter targets on the list endpoint via `filter[dimensions.&lt;key&gt;]=...`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("dimensions")]
         public System.Collections.Generic.IDictionary<string, string> Dimensions { get; set; } = default!;
 
+        /// <summary>
+        /// Start of the aggregation window this data point covers.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("recorded_at")]
         public System.DateTimeOffset Recorded_at { get; set; } = default!;
 
+        /// <summary>
+        /// When the data point was ingested.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
         public System.DateTimeOffset? Created_at { get; set; } = default!;
 
@@ -11652,10 +12151,16 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// Bulk-ingest request envelope for metric data points.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class MetricBulkRequest
     {
 
+        /// <summary>
+        /// Metric data points to ingest in a single request.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public System.Collections.Generic.List<MetricResource> Data { get; set; } = new System.Collections.Generic.List<MetricResource>();
 
@@ -11670,6 +12175,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API collection response for metric data points.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class MetricListResponse
     {
@@ -11688,13 +12196,22 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// One distinct metric name with a representative unit.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class MetricNameItem
     {
 
+        /// <summary>
+        /// Distinct metric series name.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = default!;
 
+        /// <summary>
+        /// Representative unit observed for this series.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("unit")]
         public string? Unit { get; set; } = default!;
 
@@ -11709,6 +12226,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// Plain-JSON response listing distinct metric names for the account.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class MetricNamesResponse
     {
@@ -11727,6 +12247,11 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API resource envelope for a metric data point.
+    /// <br/>
+    /// <br/>`id` must not be specified for create requests (the server assigns it).
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class MetricResource
     {
@@ -11752,22 +12277,40 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// An aggregated metric value over a fixed-size time bucket.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class MetricRollupAttributes
     {
 
+        /// <summary>
+        /// Metric series name the rollup is computed from.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = default!;
 
+        /// <summary>
+        /// Sum of the underlying metric values over the bucket.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("value")]
         public string Value { get; set; } = default!;
 
+        /// <summary>
+        /// Unit the value is expressed in.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("unit")]
         public string? Unit { get; set; } = default!;
 
+        /// <summary>
+        /// Start of the time bucket this rollup covers.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("bucket")]
         public System.DateTimeOffset Bucket { get; set; } = default!;
 
+        /// <summary>
+        /// Rollup interval. One of `1m`, `5m`, `15m`, `1h`, `6h`, `1d`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("rollup")]
         public string Rollup { get; set; } = default!;
 
@@ -11782,6 +12325,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API collection response for metric rollups.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class MetricRollupListResponse
     {
@@ -11800,6 +12346,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API resource envelope for a metric rollup.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class MetricRollupResource
     {
@@ -11822,16 +12371,28 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// Information about the next volume-discount tier.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class NextTierMeta
     {
 
+        /// <summary>
+        /// Number of additional subscribed products needed to reach the next tier.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("products_needed")]
         public int Products_needed { get; set; } = default!;
 
+        /// <summary>
+        /// Discount percentage that would apply at the next tier.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("discount_pct")]
         public int Discount_pct { get; set; } = default!;
 
+        /// <summary>
+        /// Additional monthly savings in cents at the next tier.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("additional_savings_cents")]
         public int Additional_savings_cents { get; set; } = default!;
 
@@ -11858,30 +12419,33 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// Pagination metadata returned with a collection response.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class PageMeta
     {
 
         /// <summary>
-        /// Page size used for this response
+        /// Page size used for this response.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("size")]
         public int Size { get; set; } = default!;
 
         /// <summary>
-        /// 1-based page number returned
+        /// 1-based page number returned.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("number")]
         public int Number { get; set; } = default!;
 
         /// <summary>
-        /// Total number of matching items across all pages
+        /// Total number of matching items across all pages.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("total_items")]
         public int Total_items { get; set; } = default!;
 
         /// <summary>
-        /// Total number of pages at the current page size
+        /// Total number of pages at the current page size.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("total_pages")]
         public int Total_pages { get; set; } = default!;
@@ -11898,36 +12462,61 @@ namespace Smplkit.Internal.Generated.App
     }
 
     /// <summary>
-    /// Attributes for a saved card payment method.
+    /// A saved card on file for the account, used to charge subscription
+    /// <br/>invoices.
     /// <br/>
-    /// <br/>``default`` is the API-facing name; the underlying column is ``is_default``
-    /// <br/>per ADR-013 (reserved-word exception) and ADR-014 (unprefixed API fields).
+    /// <br/>The default payment method is changed via the `set_default` action
+    /// <br/>rather than by updating this field through PUT.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class PaymentMethod
     {
 
+        /// <summary>
+        /// Card network brand, e.g. `visa`, `mastercard`, `amex`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("brand")]
         public string? Brand { get; set; } = default!;
 
+        /// <summary>
+        /// Last four digits of the card number.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("last4")]
         public string? Last4 { get; set; } = default!;
 
+        /// <summary>
+        /// Expiry month (1-12).
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("exp_month")]
         public int? Exp_month { get; set; } = default!;
 
+        /// <summary>
+        /// Expiry year (four-digit).
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("exp_year")]
         public int? Exp_year { get; set; } = default!;
 
+        /// <summary>
+        /// Whether this payment method is the account's default for subscription charges. Use the `set_default` action to change which payment method is default — this field is not writable via PUT.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("default")]
         public bool? Default { get; set; } = default!;
 
+        /// <summary>
+        /// Billing details (name, email, phone, address) associated with the card.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("billing_details")]
         public object? Billing_details { get; set; } = default!;
 
+        /// <summary>
+        /// When the payment method was registered.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
         public System.DateTimeOffset? Created_at { get; set; } = default!;
 
+        /// <summary>
+        /// When the payment method was last modified.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("updated_at")]
         public System.DateTimeOffset? Updated_at { get; set; } = default!;
 
@@ -11942,6 +12531,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API collection response for payment methods.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class PaymentMethodListResponse
     {
@@ -11960,6 +12552,32 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API request envelope for updating a payment method.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PaymentMethodRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public PaymentMethodResource Data { get; set; } = new PaymentMethodResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API resource envelope for a payment method.
+    /// <br/>
+    /// <br/>`id` must not be specified for create requests (the server assigns it).
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class PaymentMethodResource
     {
@@ -11985,6 +12603,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API single-resource response envelope for a payment method.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class PaymentMethodResponse
     {
@@ -12003,16 +12624,28 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// A plan tier offered across smplkit products.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Plan
     {
 
+        /// <summary>
+        /// Human-readable plan name.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("display_name")]
         public string Display_name { get; set; } = default!;
 
+        /// <summary>
+        /// Long-form plan description.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("description")]
         public string Description { get; set; } = default!;
 
+        /// <summary>
+        /// Order in which the plan should be shown in customer-facing lists. Lower values sort first.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("sort_order")]
         public int Sort_order { get; set; } = default!;
 
@@ -12027,10 +12660,16 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// Body for the subscription upgrade and downgrade actions.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class PlanChangeRequest
     {
 
+        /// <summary>
+        /// Plan key to change the subscription to.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("plan")]
         public string Plan { get; set; } = default!;
 
@@ -12045,13 +12684,22 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// Per-plan pricing and limits for a product.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class PlanDefinition
     {
 
+        /// <summary>
+        /// Monthly list price in cents. `0` for free plans.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("price_monthly_cents")]
         public int Price_monthly_cents { get; set; } = default!;
 
+        /// <summary>
+        /// Map of limit key to the cap that applies on this plan. `-1` indicates an unlimited cap.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("limits")]
         public System.Collections.Generic.IDictionary<string, int> Limits { get; set; } = new System.Collections.Generic.Dictionary<string, int>();
 
@@ -12066,6 +12714,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API collection response for plan tiers.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class PlanListResponse
     {
@@ -12084,6 +12735,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API resource envelope for a plan tier.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class PlanResource
     {
@@ -12109,28 +12763,52 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// A smplkit product, with its plans, metered limits, and marketing copy.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Product
     {
 
+        /// <summary>
+        /// Human-readable product name.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("display_name")]
         public string Display_name { get; set; } = default!;
 
+        /// <summary>
+        /// Long-form product description.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("description")]
         public string Description { get; set; } = default!;
 
+        /// <summary>
+        /// Short marketing tagline shown on plan-selection surfaces.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("tagline")]
         public string? Tagline { get; set; } = default!;
 
+        /// <summary>
+        /// Bullet-list feature highlights for the product.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("features")]
         public System.Collections.Generic.List<string> Features { get; set; } = default!;
 
+        /// <summary>
+        /// When `true`, the product is listed but not yet available for subscription.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("coming_soon")]
         public bool Coming_soon { get; set; } = false;
 
+        /// <summary>
+        /// Map of limit key to limit definition for this product.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("limits")]
         public System.Collections.Generic.IDictionary<string, LimitDefinition> Limits { get; set; } = new System.Collections.Generic.Dictionary<string, LimitDefinition>();
 
+        /// <summary>
+        /// Map of plan key to plan definition for this product.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("plans")]
         public System.Collections.Generic.IDictionary<string, PlanDefinition> Plans { get; set; } = new System.Collections.Generic.Dictionary<string, PlanDefinition>();
 
@@ -12145,6 +12823,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API collection response for products.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ProductListResponse
     {
@@ -12163,6 +12844,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API resource envelope for a product catalog entry.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ProductResource
     {
@@ -12188,18 +12872,27 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// Body for the email + password registration endpoint.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class RegisterRequest
     {
 
+        /// <summary>
+        /// Email address that becomes the new user's login identifier.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("email")]
         public string Email { get; set; } = default!;
 
+        /// <summary>
+        /// Password for the new account. Must be at least 8 characters.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("password")]
         public string Password { get; set; } = default!;
 
         /// <summary>
-        /// Registration entry point. Allowed: LOGIN, GET_STARTED, LIVE_DEMO, UNKNOWN. Defaults to UNKNOWN when omitted. Case-insensitive.
+        /// How the customer arrived at the registration page. Allowed values: `LOGIN`, `GET_STARTED`, `LIVE_DEMO`, `UNKNOWN`. Defaults to `UNKNOWN` when omitted. Case-insensitive on input.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("entry_point")]
         [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<RegisterRequestEntry_point>))]
@@ -12216,6 +12909,90 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// A service that contexts can be evaluated against — for example, a
+    /// <br/>backend application or microservice in the customer's stack.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Service
+    {
+
+        /// <summary>
+        /// Human-readable name for the service.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string Name { get; set; } = default!;
+
+        /// <summary>
+        /// When the service was created.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("created_at")]
+        public System.DateTimeOffset? Created_at { get; set; } = default!;
+
+        /// <summary>
+        /// When the service was last modified.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("updated_at")]
+        public System.DateTimeOffset? Updated_at { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API collection response for services.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ServiceListResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public System.Collections.Generic.List<ServiceResource> Data { get; set; } = new System.Collections.Generic.List<ServiceResource>();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API request envelope for creating or updating a service.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ServiceRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public ServiceResource Data { get; set; } = new ServiceResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API resource envelope for a service.
+    /// <br/>
+    /// <br/>`id` must not be specified for create requests (the server assigns it).
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ServiceResource
     {
@@ -12241,31 +13018,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class UserResource
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("id")]
-        public string? Id { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("type")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<UserResourceType>))]
-        public UserResourceType Type { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
-        public User Attributes { get; set; } = new User();
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
+    /// <summary>
+    /// JSON:API single-resource response envelope for a service.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ServiceResponse
     {
@@ -12284,70 +13039,16 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class UserResponse
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("data")]
-        public UserResource Data { get; set; } = new UserResource();
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class Service
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("name")]
-        public string Name { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("created_at")]
-        public System.DateTimeOffset? Created_at { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("updated_at")]
-        public System.DateTimeOffset? Updated_at { get; set; } = default!;
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class ServiceListResponse
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("data")]
-        public System.Collections.Generic.List<ServiceResource> Data { get; set; } = new System.Collections.Generic.List<ServiceResource>();
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
+    /// <summary>
+    /// Result of executing the setup-intent function.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class SetupIntentAttributes
     {
 
+        /// <summary>
+        /// Client secret to pass to Stripe Elements so the customer can complete payment-method setup in the browser.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("client_secret")]
         public string Client_secret { get; set; } = default!;
 
@@ -12384,6 +13085,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API single-resource response envelope for a setup-intent result.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class SetupIntentResponse
     {
@@ -12402,28 +13106,52 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// A subscription that grants the account access to a product on a plan.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class SubscriptionAttributes
     {
 
+        /// <summary>
+        /// Product key the subscription is for, e.g. `flags`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("product")]
         public string Product { get; set; } = default!;
 
+        /// <summary>
+        /// Plan key the subscription is on, e.g. `pro`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("plan")]
         public string Plan { get; set; } = default!;
 
+        /// <summary>
+        /// Lifecycle state of the subscription, e.g. `active`, `trialing`, `past_due`, `canceled`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("status")]
         public string? Status { get; set; } = default!;
 
+        /// <summary>
+        /// When `true`, the subscription is complimentary and is not billed through the billing provider.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("comped")]
         public bool Comped { get; set; } = default!;
 
+        /// <summary>
+        /// When `true`, the subscription is billed through Stripe; otherwise it is a free or complimentary subscription that does not produce invoices.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("stripe_managed")]
         public bool Stripe_managed { get; set; } = default!;
 
+        /// <summary>
+        /// End of the current billing period (ISO 8601 timestamp).
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("current_period_end")]
         public string? Current_period_end { get; set; } = default!;
 
+        /// <summary>
+        /// Stripe payment intent client secret returned when a subscription create requires additional authentication (3DS). Returned only on create.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("client_secret")]
         public string? Client_secret { get; set; } = default!;
 
@@ -12439,28 +13167,46 @@ namespace Smplkit.Internal.Generated.App
     }
 
     /// <summary>
-    /// Discount and totals summary attached to GET /api/v1/subscriptions.
+    /// Discount and totals summary attached to a subscription collection response.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class SubscriptionListMeta
     {
 
+        /// <summary>
+        /// Sum of list prices across all subscriptions in cents.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("subtotal_cents")]
         public int Subtotal_cents { get; set; } = default!;
 
+        /// <summary>
+        /// Effective discount percentage applied.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("discount_pct")]
         public int Discount_pct { get; set; } = default!;
 
+        /// <summary>
+        /// Discount amount in cents.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("discount_amount_cents")]
         public int Discount_amount_cents { get; set; } = default!;
 
+        /// <summary>
+        /// Source of the discount. `VOLUME` indicates the standard volume-discount schedule; `OVERRIDE` indicates a custom discount set on the account.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("discount_source")]
         [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<SubscriptionListMetaDiscount_source>))]
         public SubscriptionListMetaDiscount_source Discount_source { get; set; } = default!;
 
+        /// <summary>
+        /// Final monthly total in cents after the discount.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("total_cents")]
         public int Total_cents { get; set; } = default!;
 
+        /// <summary>
+        /// Information about the next volume-discount tier, or `null` if the account is already at the top tier or on an override.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("next_tier")]
         public NextTierMeta? Next_tier { get; set; } = default!;
 
@@ -12475,6 +13221,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API collection response for subscriptions.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class SubscriptionListResponse
     {
@@ -12496,6 +13245,11 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API resource envelope for a subscription.
+    /// <br/>
+    /// <br/>`id` must not be specified for create requests (the server assigns it).
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class SubscriptionResource
     {
@@ -12521,6 +13275,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API single-resource response envelope for a subscription.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class SubscriptionResponse
     {
@@ -12539,46 +13296,64 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// A person with access to one or more accounts in smplkit.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class User
     {
 
         /// <summary>
-        /// User's email address
+        /// Email address used to sign in to the user account.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("email")]
-        public string Email { get; set; } = default!;
+        public string? Email { get; set; } = default!;
 
+        /// <summary>
+        /// Human-readable display name shown in the console and on shared resources.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("display_name")]
         public string Display_name { get; set; } = default!;
 
+        /// <summary>
+        /// URL of an external profile picture (e.g. the value supplied by the user's identity provider).
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("profile_pic")]
         public string? Profile_pic { get; set; } = default!;
 
         /// <summary>
-        /// Server-computed ``data:`` URL when an OIDC provider supplied a profile picture. Null otherwise — callers should fall back to Gravatar or initials.
+        /// Server-generated `data:` URL containing the user's avatar image bytes when one has been captured. `null` when no avatar is available — callers should fall back to Gravatar or initials.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("avatar_url")]
         public string? Avatar_url { get; set; } = default!;
 
+        /// <summary>
+        /// Identity provider that authenticates the user, e.g. `google`, `microsoft`, or `email`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("auth_provider")]
         public string? Auth_provider { get; set; } = default!;
 
+        /// <summary>
+        /// Whether the user has completed email verification.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("email_verified")]
         public bool Email_verified { get; set; } = false;
 
         /// <summary>
-        /// Role in current account context
+        /// Role the user holds in the current account context. One of `OWNER`, `ADMIN`, `MEMBER`, or `VIEWER`.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("role")]
         public string? Role { get; set; } = default!;
 
         /// <summary>
-        /// Account UUID
+        /// UUID of the account the user is acting within.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("account")]
         public string? Account { get; set; } = default!;
 
+        /// <summary>
+        /// When the user record was created.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
         public System.DateTimeOffset? Created_at { get; set; } = default!;
 
@@ -12611,6 +13386,9 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API collection response for users.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class UserListResponse
     {
@@ -12632,10 +13410,88 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
+    /// <summary>
+    /// JSON:API request envelope for creating or updating a user.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class UserRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public UserResource Data { get; set; } = new UserResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API resource envelope for a user.
+    /// <br/>
+    /// <br/>`id` must not be specified for create requests (the server assigns it).
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class UserResource
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string? Id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<UserResourceType>))]
+        public UserResourceType Type { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
+        public User Attributes { get; set; } = new User();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API single-resource response envelope for a user.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class UserResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public UserResource Data { get; set; } = new UserResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Body for the email-verification endpoint.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class VerifyEmailRequest
     {
 
+        /// <summary>
+        /// Verification token previously delivered to the user's email.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("token")]
         public string Token { get; set; } = default!;
 
@@ -12831,15 +13687,6 @@ namespace Smplkit.Internal.Generated.App
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum UserResourceType
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"user")]
-        User = 0,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public enum SetupIntentResourceType
     {
 
@@ -12866,6 +13713,15 @@ namespace Smplkit.Internal.Generated.App
 
         [System.Runtime.Serialization.EnumMember(Value = @"subscription")]
         Subscription = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum UserResourceType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"user")]
+        User = 0,
 
     }
 
