@@ -147,8 +147,10 @@ System.Diagnostics.Debug.Assert(!explicitResult);
 // simulate someone making changes to a flag to trigger listeners
 await UpdateRulesAsync(client);
 
-// wait a moment for the event to be delivered
-await Task.Delay(200);
+// wait a moment for the event to be delivered (typical WS round-trip
+// is well under 200ms; 400ms is plenty of headroom and anything past
+// that is a real signal, not noise to absorb).
+await Task.Delay(400);
 
 // verify both listeners fired
 System.Diagnostics.Debug.Assert(allChanges.Count >= 1);

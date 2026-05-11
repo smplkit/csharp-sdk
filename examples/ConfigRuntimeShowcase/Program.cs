@@ -49,7 +49,6 @@ System.Diagnostics.Debug.Assert(userSvcConfig.AppName == "Acme SaaS Platform");
 
 var changes = new List<Smplkit.Config.ConfigChangeEvent>();
 var retriesChanges = new List<Smplkit.Config.ConfigChangeEvent>();
-var retriesEventReceived = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
 // global listener — fires when ANY config item changes
 client.Config.OnChange(evt =>
@@ -59,19 +58,15 @@ client.Config.OnChange(evt =>
 });
 
 // item-scoped listener
-client.Config.OnChange("showcase-common", "max_retries", evt =>
-{
-    retriesChanges.Add(evt);
-    retriesEventReceived.TrySetResult(true);
-});
+client.Config.OnChange("showcase-common", "max_retries", evt => retriesChanges.Add(evt));
 
 // simulate someone making a change to trigger listeners
 await UpdateMaxRetriesAsync(client, 7);
 
-// wait for the WebSocket-delivered change event (typically <200ms but
-// the showcase shouldn't race the broadcast; allow a generous timeout
-// and fail fast if it never arrives).
-await Task.WhenAny(retriesEventReceived.Task, Task.Delay(2000));
+// wait a moment for the event to be delivered (typical WS round-trip
+// is well under 200ms; 400ms is plenty of headroom and anything past
+// that is a real signal, not noise to absorb).
+await Task.Delay(400);
 
 Console.WriteLine($"Global changes received: {changes.Count}");
 Console.WriteLine($"Retries-specific changes received: {retriesChanges.Count}");
