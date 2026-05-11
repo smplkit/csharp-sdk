@@ -149,7 +149,7 @@ public sealed class LoggersClient
         LogLevel? level = null;
         if (attrs.Level is not null)
         {
-            try { level = LogLevelExtensions.ParseLogLevel(attrs.Level); }
+            try { level = LogLevelExtensions.ParseLogLevel(attrs.Level.Value.ToString()); }
             catch { /* Unknown level */ }
         }
 
@@ -178,7 +178,7 @@ public sealed class LoggersClient
             updatedAt: attrs.Updated_at?.DateTime);
     }
 
-    private static GenLogging.LoggerResponse BuildLoggerRequestBody(Logger logger) =>
+    private static GenLogging.LoggerRequest BuildLoggerRequestBody(Logger logger) =>
         new()
         {
             Data = new GenLogging.LoggerResource
@@ -188,7 +188,9 @@ public sealed class LoggersClient
                 Attributes = new GenLogging.Logger
                 {
                     Name = logger.Name,
-                    Level = logger.Level?.ToWireString(),
+                    Level = logger.Level is null
+                        ? null
+                        : (GenLogging.LoggerLevel)System.Enum.Parse(typeof(GenLogging.LoggerLevel), logger.Level.Value.ToWireString()),
                     Group = logger.Group,
                     Managed = logger.Managed,
                     Environments = BuildEnvironmentsPayload(logger.Environments),
