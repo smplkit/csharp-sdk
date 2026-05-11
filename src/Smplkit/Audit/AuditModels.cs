@@ -269,6 +269,8 @@ public sealed class ListEventsInput
     public Guid? ActorId { get; set; }
     /// <summary>Range syntax per ADR-014, e.g. <c>[2026-01-01T00:00:00Z,*)</c>.</summary>
     public string? OccurredAtRange { get; set; }
+    /// <summary>Case-insensitive substring search against resource_id.</summary>
+    public string? Search { get; set; }
     /// <summary>Page size; default 50, max 200 server-side.</summary>
     public int? PageSize { get; set; }
     /// <summary>Opaque cursor returned as <c>NextCursor</c> by the previous page.</summary>

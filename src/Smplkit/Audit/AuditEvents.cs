@@ -84,6 +84,7 @@ public sealed class AuditEvents
             input.Action,
             input.ResourceType,
             input.ResourceId,
+            input.Search,
             input.PageSize,
             input.PageAfter,
             cancellationToken

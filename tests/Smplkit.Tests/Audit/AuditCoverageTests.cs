@@ -154,11 +154,13 @@ public class AuditCoverageTests
             ActorType = "USER",
             ActorId = actorId,
             OccurredAtRange = "[2026-04-01T00:00:00Z,*)",
+            Search = "inv-",
             PageSize = 25,
             PageAfter = "cursor-abc",
         });
         var url = capturedUrls[0];
         Assert.Contains("filter%5Baction%5D=user.created", url);
+        Assert.Contains("filter%5Bsearch%5D=inv-", url);
         Assert.Contains("page%5Bsize%5D=25", url);
         Assert.Contains("page%5Bafter%5D=cursor-abc", url);
     }

@@ -58,11 +58,14 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>Default sort is ``-created_at``; cursor pagination via ``page[after]``
         /// <br/>(the opaque cursor returned in ``links.next``). Filters are exact-match
         /// <br/>except ``filter[occurred_at]`` which uses the platform's range
-        /// <br/>notation (``[2026-01-01T00:00:00Z,*)``).
+        /// <br/>notation (``[2026-01-01T00:00:00Z,*)``) and ``filter[search]`` which
+        /// <br/>is a case-insensitive substring match (per ADR-014; targets
+        /// <br/>``resource_id`` only at this revision).
         /// </remarks>
+        /// <param name="filtersearch">Case-insensitive substring match. Searches against ``resource_id`` only — see ADR-014 for the platform-wide ``filter[search]`` convention. Use ``filter[resource_id]`` for an exact match.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, System.Guid? filteractor_id = null, string? filteraction = null, string? filterresource_type = null, string? filterresource_id = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, System.Guid? filteractor_id = null, string? filteraction = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -439,11 +442,14 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>Default sort is ``-created_at``; cursor pagination via ``page[after]``
         /// <br/>(the opaque cursor returned in ``links.next``). Filters are exact-match
         /// <br/>except ``filter[occurred_at]`` which uses the platform's range
-        /// <br/>notation (``[2026-01-01T00:00:00Z,*)``).
+        /// <br/>notation (``[2026-01-01T00:00:00Z,*)``) and ``filter[search]`` which
+        /// <br/>is a case-insensitive substring match (per ADR-014; targets
+        /// <br/>``resource_id`` only at this revision).
         /// </remarks>
+        /// <param name="filtersearch">Case-insensitive substring match. Searches against ``resource_id`` only — see ADR-014 for the platform-wide ``filter[search]`` convention. Use ``filter[resource_id]`` for an exact match.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, System.Guid? filteractor_id = null, string? filteraction = null, string? filterresource_type = null, string? filterresource_id = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, System.Guid? filteractor_id = null, string? filteraction = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -482,6 +488,10 @@ namespace Smplkit.Internal.Generated.Audit
                     if (filterresource_id != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[resource_id]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterresource_id, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filtersearch != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[search]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtersearch, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     if (pagesize != null)
                     {
