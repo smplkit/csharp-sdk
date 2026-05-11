@@ -35,18 +35,18 @@ namespace Smplkit.Internal.Generated.Flags
         /// Create Flag
         /// </summary>
         /// <remarks>
-        /// Create a new feature flag. The caller provides the id (key) in the request body.
+        /// Create a new feature flag. The caller provides the id (the flag key) in the request body.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<FlagResponse> Create_flagAsync(FlagResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<FlagResponse> Create_flagAsync(FlagRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
         /// List Flags
         /// </summary>
         /// <remarks>
-        /// List all feature flags for the authenticated account.
+        /// List feature flags for this account.
         /// </remarks>
         /// <param name="filterreferences_context">Return flags whose rules reference this context instance. Format: {type}:{key}</param>
         /// <param name="filterreferences_context_type">Return flags whose rules reference any attribute of the given context type.</param>
@@ -59,7 +59,7 @@ namespace Smplkit.Internal.Generated.Flags
         /// Get Flag
         /// </summary>
         /// <remarks>
-        /// Return a feature flag by its key.
+        /// Retrieve a feature flag by its key.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -70,11 +70,11 @@ namespace Smplkit.Internal.Generated.Flags
         /// Update Flag
         /// </summary>
         /// <remarks>
-        /// Replace a feature flag entirely.
+        /// Replace a feature flag entirely. Every writable field is overwritten.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<FlagResponse> Update_flagAsync(string id, FlagResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<FlagResponse> Update_flagAsync(string id, FlagRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -92,7 +92,10 @@ namespace Smplkit.Internal.Generated.Flags
         /// Bulk Register Flags
         /// </summary>
         /// <remarks>
-        /// Register flags discovered by an SDK. Creates new flags or updates source observations on existing ones.
+        /// Register flags discovered by an SDK.
+        /// <br/>
+        /// <br/>Creates a new flag for each unreported key and refreshes the
+        /// <br/>service/environment source observation on each already-known key.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -103,7 +106,7 @@ namespace Smplkit.Internal.Generated.Flags
         /// List Flag Sources
         /// </summary>
         /// <remarks>
-        /// List all sources (service/environment observations) for a specific flag.
+        /// List the service/environment observations recorded for a single flag.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -114,7 +117,9 @@ namespace Smplkit.Internal.Generated.Flags
         /// List All Flag Sources
         /// </summary>
         /// <remarks>
-        /// List all flag sources across all flags. Optionally filter by environment or service.
+        /// List service/environment observations across all flags for this account.
+        /// <br/>
+        /// <br/>Filter by `environment` or `service` (or both) to narrow the result.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -125,10 +130,13 @@ namespace Smplkit.Internal.Generated.Flags
         /// Execute Remove References
         /// </summary>
         /// <remarks>
-        /// Bulk-remove context references from flag rules.
+        /// Remove every rule that references a specific context across every flag.
         /// <br/>
-        /// <br/>Traverses every flag in the account, removes rules that reference the
-        /// <br/>specified context, and emits a single flags_changed event when done.
+        /// <br/>Provide exactly one of `context` (matches a single instance,
+        /// <br/>formatted as `{type}:{key}`) or `context_type` (matches any
+        /// <br/>attribute of that context type). Rules whose reference sits inside
+        /// <br/>an AND expression are not removed automatically; they are returned
+        /// <br/>in `rules_needing_manual_review` for the caller to handle.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -139,7 +147,7 @@ namespace Smplkit.Internal.Generated.Flags
         /// List Flags Usage
         /// </summary>
         /// <remarks>
-        /// Return current resource usage counts for the authenticated account.
+        /// Report current-period usage counters for this account.
         /// </remarks>
         /// <returns>Current usage for the authenticated account</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -200,11 +208,11 @@ namespace Smplkit.Internal.Generated.Flags
         /// Create Flag
         /// </summary>
         /// <remarks>
-        /// Create a new feature flag. The caller provides the id (key) in the request body.
+        /// Create a new feature flag. The caller provides the id (the flag key) in the request body.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<FlagResponse> Create_flagAsync(FlagResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<FlagResponse> Create_flagAsync(FlagRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (body == null)
                 throw new System.ArgumentNullException("body");
@@ -284,7 +292,7 @@ namespace Smplkit.Internal.Generated.Flags
         /// List Flags
         /// </summary>
         /// <remarks>
-        /// List all feature flags for the authenticated account.
+        /// List feature flags for this account.
         /// </remarks>
         /// <param name="filterreferences_context">Return flags whose rules reference this context instance. Format: {type}:{key}</param>
         /// <param name="filterreferences_context_type">Return flags whose rules reference any attribute of the given context type.</param>
@@ -381,7 +389,7 @@ namespace Smplkit.Internal.Generated.Flags
         /// Get Flag
         /// </summary>
         /// <remarks>
-        /// Return a feature flag by its key.
+        /// Retrieve a feature flag by its key.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -462,11 +470,11 @@ namespace Smplkit.Internal.Generated.Flags
         /// Update Flag
         /// </summary>
         /// <remarks>
-        /// Replace a feature flag entirely.
+        /// Replace a feature flag entirely. Every writable field is overwritten.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<FlagResponse> Update_flagAsync(string id, FlagResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<FlagResponse> Update_flagAsync(string id, FlagRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -625,7 +633,10 @@ namespace Smplkit.Internal.Generated.Flags
         /// Bulk Register Flags
         /// </summary>
         /// <remarks>
-        /// Register flags discovered by an SDK. Creates new flags or updates source observations on existing ones.
+        /// Register flags discovered by an SDK.
+        /// <br/>
+        /// <br/>Creates a new flag for each unreported key and refreshes the
+        /// <br/>service/environment source observation on each already-known key.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -709,7 +720,7 @@ namespace Smplkit.Internal.Generated.Flags
         /// List Flag Sources
         /// </summary>
         /// <remarks>
-        /// List all sources (service/environment observations) for a specific flag.
+        /// List the service/environment observations recorded for a single flag.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -791,7 +802,9 @@ namespace Smplkit.Internal.Generated.Flags
         /// List All Flag Sources
         /// </summary>
         /// <remarks>
-        /// List all flag sources across all flags. Optionally filter by environment or service.
+        /// List service/environment observations across all flags for this account.
+        /// <br/>
+        /// <br/>Filter by `environment` or `service` (or both) to narrow the result.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -878,10 +891,13 @@ namespace Smplkit.Internal.Generated.Flags
         /// Execute Remove References
         /// </summary>
         /// <remarks>
-        /// Bulk-remove context references from flag rules.
+        /// Remove every rule that references a specific context across every flag.
         /// <br/>
-        /// <br/>Traverses every flag in the account, removes rules that reference the
-        /// <br/>specified context, and emits a single flags_changed event when done.
+        /// <br/>Provide exactly one of `context` (matches a single instance,
+        /// <br/>formatted as `{type}:{key}`) or `context_type` (matches any
+        /// <br/>attribute of that context type). Rules whose reference sits inside
+        /// <br/>an AND expression are not removed automatically; they are returned
+        /// <br/>in `rules_needing_manual_review` for the caller to handle.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -965,7 +981,7 @@ namespace Smplkit.Internal.Generated.Flags
         /// List Flags Usage
         /// </summary>
         /// <remarks>
-        /// Return current resource usage counts for the authenticated account.
+        /// Report current-period usage counters for this account.
         /// </remarks>
         /// <returns>Current usage for the authenticated account</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1178,52 +1194,79 @@ namespace Smplkit.Internal.Generated.Flags
         }
     }
 
+    /// <summary>
+    /// A feature flag whose value is resolved at runtime from environment
+    /// <br/>rules and a default.
+    /// <br/>
+    /// <br/>A flag has a value type (`BOOLEAN`, `STRING`, `NUMERIC`, or `JSON`)
+    /// <br/>and either a fixed set of allowed values (constrained) or accepts
+    /// <br/>any value matching the type (unconstrained). Each environment can
+    /// <br/>enable or disable the flag, set its own default, and define
+    /// <br/>targeting rules that override the default for specific evaluation
+    /// <br/>contexts.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Flag
     {
 
         /// <summary>
-        /// Human-readable display name
+        /// Human-readable display name for the flag.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = default!;
 
+        /// <summary>
+        /// Human-readable description of the flag's purpose.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("description")]
         public string? Description { get; set; } = default!;
 
         /// <summary>
-        /// Value type: STRING, BOOLEAN, NUMERIC, or JSON
+        /// Value type of the flag. Accepted case-insensitively. Changing the type cascades to `values`, `default`, and every environment's rules and default.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("type")]
-        public string Type { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<FlagType>))]
+        public FlagType Type { get; set; } = default!;
 
         /// <summary>
-        /// Default value; must reference a value in the values array (constrained) or match the flag type (unconstrained)
+        /// Default value returned when no environment rule fires and the environment has no `default`. For constrained flags (non-null `values`), must equal one of the entries in the `values` array. For unconstrained flags, must match `type`.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("default")]
         public object Default { get; set; } = default!;
 
         /// <summary>
-        /// Ordered set of allowed values (constrained), or null (unconstrained)
+        /// Ordered set of allowed values for a constrained flag, or `null` for an unconstrained flag. `BOOLEAN` flags, if constrained, must declare exactly two values.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("values")]
         public System.Collections.Generic.List<FlagValue>? Values { get; set; } = default!;
 
+        /// <summary>
+        /// Per-environment configuration keyed by environment name (`production`, `staging`, etc.). Environments not listed fall back to the flag's global `default`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("environments")]
         public System.Collections.Generic.IDictionary<string, FlagEnvironment> Environments { get; set; } = default!;
 
         /// <summary>
-        /// True if admin-managed, false if auto-discovered
+        /// `true` when the flag was created through the API, `false` when it was auto-discovered from a bulk-register call. Auto-discovered flags can be edited and converted to managed by setting this to `true`.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("managed")]
         public bool? Managed { get; set; } = default!;
 
+        /// <summary>
+        /// SDK-reported observations of this flag, grouped by service and environment. Populated automatically by the bulk-register endpoint.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("sources")]
-        public System.Collections.Generic.List<object>? Sources { get; set; } = default!;
+        public System.Collections.Generic.List<FlagSource>? Sources { get; set; } = default!;
 
+        /// <summary>
+        /// When the flag was created.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
         public System.DateTimeOffset? Created_at { get; set; } = default!;
 
+        /// <summary>
+        /// When the flag was last modified.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("updated_at")]
         public System.DateTimeOffset? Updated_at { get; set; } = default!;
 
@@ -1238,36 +1281,40 @@ namespace Smplkit.Internal.Generated.Flags
 
     }
 
+    /// <summary>
+    /// One flag declaration reported by an SDK during bulk registration.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class FlagBulkItem
     {
 
         /// <summary>
-        /// Flag key as declared in code
+        /// Flag key as declared in code. URL-safe and stable for the lifetime of the flag.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("id")]
         public string Id { get; set; } = default!;
 
         /// <summary>
-        /// Flag type: BOOLEAN, STRING, NUMERIC, or JSON
+        /// Value type the SDK declared for the flag. Accepted case-insensitively.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("type")]
-        public string Type { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<FlagBulkItemType>))]
+        public FlagBulkItemType Type { get; set; } = default!;
 
         /// <summary>
-        /// Default value declared in code
+        /// Default value the SDK declared for the flag. Used to create the flag if it does not already exist.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("default")]
         public object Default { get; set; } = default!;
 
         /// <summary>
-        /// Service that declared this flag
+        /// Service reporting the declaration. Defaults to `unknown`.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("service")]
         public string? Service { get; set; } = default!;
 
         /// <summary>
-        /// Environment where observed
+        /// Environment reporting the declaration. Defaults to `unknown`.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("environment")]
         public string? Environment { get; set; } = default!;
@@ -1283,10 +1330,16 @@ namespace Smplkit.Internal.Generated.Flags
 
     }
 
+    /// <summary>
+    /// Inputs to the bulk-register-flags action.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class FlagBulkRequest
     {
 
+        /// <summary>
+        /// Flags reported by the SDK in this batch.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("flags")]
         public System.Collections.Generic.List<FlagBulkItem> Flags { get; set; } = new System.Collections.Generic.List<FlagBulkItem>();
 
@@ -1301,10 +1354,16 @@ namespace Smplkit.Internal.Generated.Flags
 
     }
 
+    /// <summary>
+    /// Result of a bulk-register-flags action.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class FlagBulkResponse
     {
 
+        /// <summary>
+        /// Number of items in the batch that were registered or refreshed.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("registered")]
         public int Registered { get; set; } = default!;
 
@@ -1319,16 +1378,28 @@ namespace Smplkit.Internal.Generated.Flags
 
     }
 
+    /// <summary>
+    /// Per-environment evaluation configuration for a flag.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class FlagEnvironment
     {
 
+        /// <summary>
+        /// Whether the flag is active in this environment. When `false`, evaluation skips rules and returns the flag's global `default`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("enabled")]
         public bool Enabled { get; set; } = true;
 
+        /// <summary>
+        /// Environment-level default returned when no rule fires. If `null`, evaluation falls back to the flag's global `default`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("default")]
         public object? Default { get; set; } = default!;
 
+        /// <summary>
+        /// Targeting rules evaluated top-down. The first rule whose logic returns truthy provides the result.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("rules")]
         public System.Collections.Generic.List<FlagRule> Rules { get; set; } = default!;
 
@@ -1343,6 +1414,9 @@ namespace Smplkit.Internal.Generated.Flags
 
     }
 
+    /// <summary>
+    /// JSON:API collection response envelope for flags.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class FlagListResponse
     {
@@ -1361,6 +1435,34 @@ namespace Smplkit.Internal.Generated.Flags
 
     }
 
+    /// <summary>
+    /// JSON:API request envelope for creating or updating a flag.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class FlagRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public FlagResource Data { get; set; } = new FlagResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API resource envelope for a flag.
+    /// <br/>
+    /// <br/>`id` is the flag key. For create requests, `id` is required and is
+    /// <br/>chosen by the caller. For update requests, `id` may be omitted (the
+    /// <br/>server reads the key from the URL) or supplied to rename the flag.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class FlagResource
     {
@@ -1385,6 +1487,9 @@ namespace Smplkit.Internal.Generated.Flags
 
     }
 
+    /// <summary>
+    /// JSON:API single-resource response envelope for a flag.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class FlagResponse
     {
@@ -1403,16 +1508,28 @@ namespace Smplkit.Internal.Generated.Flags
 
     }
 
+    /// <summary>
+    /// A targeting rule that overrides the default within an environment.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class FlagRule
     {
 
+        /// <summary>
+        /// Human-readable description of the rule.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("description")]
         public string? Description { get; set; } = default!;
 
+        /// <summary>
+        /// JSON Logic expression evaluated against the evaluation context. The rule fires when the expression is truthy.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("logic")]
         public object Logic { get; set; } = new object();
 
+        /// <summary>
+        /// Value returned when the rule fires. Must reference a value from the flag's `values` array (constrained flags) or match the flag's `type` (unconstrained flags).
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("value")]
         public object Value { get; set; } = default!;
 
@@ -1427,28 +1544,67 @@ namespace Smplkit.Internal.Generated.Flags
 
     }
 
+    /// <summary>
+    /// A record of an SDK observing a feature flag from a particular
+    /// <br/>service and environment.
+    /// <br/>
+    /// <br/>The flags service auto-registers a source the first time an SDK
+    /// <br/>reports a flag from a given service/environment pair and refreshes
+    /// <br/>`last_seen` on every subsequent report. Each source captures the
+    /// <br/>value type and default value the SDK declared in source code at
+    /// <br/>that location, which makes it possible to detect when service code
+    /// <br/>has drifted from the flag's authoritative configuration.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class FlagSource
     {
 
+        /// <summary>
+        /// Service that declared the flag.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("service")]
-        public string Service { get; set; } = default!;
+        public string? Service { get; set; } = default!;
 
+        /// <summary>
+        /// Environment in which the service declared the flag.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("environment")]
-        public string Environment { get; set; } = default!;
+        public string? Environment { get; set; } = default!;
 
+        /// <summary>
+        /// Value type the SDK reported when registering the flag from this service/environment. May differ from the flag's authoritative `type` if the service is running stale code.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("declared_type")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<FlagSourceDeclared_type>))]
+        public FlagSourceDeclared_type? Declared_type { get; set; } = default!;
+
+        /// <summary>
+        /// Default value the SDK reported when registering the flag from this service/environment. May differ from the flag's authoritative `default` if the service is running stale code.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("declared_default")]
+        public object Declared_default { get; set; } = default!;
+
+        /// <summary>
+        /// When this source was first observed.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("first_observed")]
         public System.DateTimeOffset? First_observed { get; set; } = default!;
 
+        /// <summary>
+        /// Most recent time the SDK re-registered this source.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("last_seen")]
         public System.DateTimeOffset? Last_seen { get; set; } = default!;
 
-        [System.Text.Json.Serialization.JsonPropertyName("data")]
-        public object? Data { get; set; } = default!;
-
+        /// <summary>
+        /// When the source record was created.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
         public System.DateTimeOffset? Created_at { get; set; } = default!;
 
+        /// <summary>
+        /// When the source record was last modified.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("updated_at")]
         public System.DateTimeOffset? Updated_at { get; set; } = default!;
 
@@ -1463,6 +1619,9 @@ namespace Smplkit.Internal.Generated.Flags
 
     }
 
+    /// <summary>
+    /// JSON:API collection response envelope for flag sources.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class FlagSourceListResponse
     {
@@ -1481,6 +1640,13 @@ namespace Smplkit.Internal.Generated.Flags
 
     }
 
+    /// <summary>
+    /// JSON:API resource envelope for a flag source.
+    /// <br/>
+    /// <br/>`id` is the source record's UUID. Sources are not created or
+    /// <br/>modified directly — the flags service registers and refreshes them
+    /// <br/>in response to SDK bulk-register requests.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class FlagSourceResource
     {
@@ -1505,13 +1671,22 @@ namespace Smplkit.Internal.Generated.Flags
 
     }
 
+    /// <summary>
+    /// A named value in a constrained flag's value set.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class FlagValue
     {
 
+        /// <summary>
+        /// Human-readable label for the value.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = default!;
 
+        /// <summary>
+        /// The value itself. Must match the flag's `type`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("value")]
         public object Value { get; set; } = default!;
 
@@ -1526,19 +1701,35 @@ namespace Smplkit.Internal.Generated.Flags
 
     }
 
+    /// <summary>
+    /// A flag rule that could not be safely modified by the bulk
+    /// <br/>remove-references action.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ManualReviewItem
     {
 
+        /// <summary>
+        /// Key of the flag containing the rule.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("flag")]
         public string Flag { get; set; } = default!;
 
+        /// <summary>
+        /// Environment containing the rule.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("environment")]
         public string Environment { get; set; } = default!;
 
+        /// <summary>
+        /// Position of the rule within the environment's `rules` array.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("rule_index")]
         public int Rule_index { get; set; } = default!;
 
+        /// <summary>
+        /// Why the rule needs manual review.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("reason")]
         public string Reason { get; set; } = default!;
 
@@ -1553,16 +1744,28 @@ namespace Smplkit.Internal.Generated.Flags
 
     }
 
+    /// <summary>
+    /// Counts and follow-ups returned by the remove-references action.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class RemoveReferencesAttributes
     {
 
+        /// <summary>
+        /// Keys of flags whose rules were modified.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("flags_modified")]
         public System.Collections.Generic.List<string> Flags_modified { get; set; } = new System.Collections.Generic.List<string>();
 
+        /// <summary>
+        /// Total number of rules removed across all flags.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("rules_removed")]
         public int Rules_removed { get; set; } = default!;
 
+        /// <summary>
+        /// Rules that referenced the context but could not be removed automatically (typically because the reference is inside an `and` expression where removal would broaden the rule).
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("rules_needing_manual_review")]
         public System.Collections.Generic.List<ManualReviewItem> Rules_needing_manual_review { get; set; } = new System.Collections.Generic.List<ManualReviewItem>();
 
@@ -1577,13 +1780,24 @@ namespace Smplkit.Internal.Generated.Flags
 
     }
 
+    /// <summary>
+    /// Inputs to the remove-references action.
+    /// <br/>
+    /// <br/>Exactly one of `context` or `context_type` must be provided.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class RemoveReferencesRequest
     {
 
+        /// <summary>
+        /// Identifier of the context instance to remove references to, formatted as `{type}:{key}` (e.g. `customer:c-123`).
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("context")]
         public string? Context { get; set; } = default!;
 
+        /// <summary>
+        /// Context type to remove all references to (any attribute of this type).
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("context_type")]
         public string? Context_type { get; set; } = default!;
 
@@ -1598,6 +1812,10 @@ namespace Smplkit.Internal.Generated.Flags
 
     }
 
+    /// <summary>
+    /// JSON:API single-resource response envelope for the
+    /// <br/>remove-references action.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class RemoveReferencesResultEnvelope
     {
@@ -1616,6 +1834,9 @@ namespace Smplkit.Internal.Generated.Flags
 
     }
 
+    /// <summary>
+    /// JSON:API resource envelope for the remove-references result.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class RemoveReferencesResultResource
     {
@@ -1637,16 +1858,28 @@ namespace Smplkit.Internal.Generated.Flags
 
     }
 
+    /// <summary>
+    /// Usage counter for a single metered limit.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class UsageAttributes
     {
 
+        /// <summary>
+        /// Identifier of the metered limit, e.g. `flags.items`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("limit_key")]
         public string Limit_key { get; set; } = default!;
 
+        /// <summary>
+        /// Period the counter covers. `current` is the only supported value.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("period")]
         public string Period { get; set; } = default!;
 
+        /// <summary>
+        /// Count for the period.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("value")]
         public int Value { get; set; } = default!;
 
@@ -1661,6 +1894,9 @@ namespace Smplkit.Internal.Generated.Flags
 
     }
 
+    /// <summary>
+    /// JSON:API collection response envelope for usage counters.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class UsageListResponse
     {
@@ -1679,6 +1915,9 @@ namespace Smplkit.Internal.Generated.Flags
 
     }
 
+    /// <summary>
+    /// JSON:API resource envelope for a usage counter.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class UsageResource
     {
@@ -1700,6 +1939,60 @@ namespace Smplkit.Internal.Generated.Flags
             get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
             set { _additionalProperties = value; }
         }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum FlagType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"BOOLEAN")]
+        BOOLEAN = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"STRING")]
+        STRING = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"NUMERIC")]
+        NUMERIC = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"JSON")]
+        JSON = 3,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum FlagBulkItemType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"BOOLEAN")]
+        BOOLEAN = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"STRING")]
+        STRING = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"NUMERIC")]
+        NUMERIC = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"JSON")]
+        JSON = 3,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum FlagSourceDeclared_type
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"BOOLEAN")]
+        BOOLEAN = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"STRING")]
+        STRING = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"NUMERIC")]
+        NUMERIC = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"JSON")]
+        JSON = 3,
 
     }
 
