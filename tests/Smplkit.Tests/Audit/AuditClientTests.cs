@@ -158,4 +158,51 @@ public class AuditClientTests
         await Assert.ThrowsAsync<NotFoundException>(
             () => client.Events.GetAsync(Guid.NewGuid()));
     }
+
+    [Fact]
+    public async Task GetAsync_ReturnsDoNotForwardTrue()
+    {
+        var eventId = Guid.Parse("11111111-2222-3333-4444-555555555555");
+        var (gen, _, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                "{\"data\":{\"id\":\"11111111-2222-3333-4444-555555555555\",\"type\":\"event\",\"attributes\":{\"action\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"data\":{},\"idempotency_key\":\"\",\"do_not_forward\":true}}}",
+                Encoding.UTF8, "application/vnd.api+json"),
+        }));
+        await using var client = new AuditClient(gen);
+
+        var ev = await client.Events.GetAsync(eventId);
+        Assert.True(ev.DoNotForward);
+    }
+
+    [Fact]
+    public async Task Record_DoNotForward_IncludesFlagInPayload()
+    {
+        string? capturedBody = null;
+        var (gen, _, _) = MakeGen(async req =>
+        {
+            capturedBody = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = new StringContent(SuccessJson, Encoding.UTF8, "application/vnd.api+json"),
+            };
+        });
+        await using var client = new AuditClient(gen);
+
+        client.Events.Record(new CreateEventInput
+        {
+            Action = "invoice.created",
+            ResourceType = "invoice",
+            ResourceId = "u-1",
+            DoNotForward = true,
+        });
+        await client.Events.FlushAsync(TimeSpan.FromSeconds(2));
+        var deadline = DateTime.UtcNow.AddSeconds(2);
+        while (capturedBody is null && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(20);
+        }
+        Assert.NotNull(capturedBody);
+        Assert.Contains("do_not_forward", capturedBody!);
+    }
 }
