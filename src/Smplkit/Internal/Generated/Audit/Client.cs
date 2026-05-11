@@ -176,15 +176,15 @@ namespace Smplkit.Internal.Generated.Audit
         /// List delivery rows for a forwarder.
         /// <br/>
         /// <br/>Default sort is ``-created_at``. Cursor pagination via ``page[after]``.
-        /// <br/>Filter by status (``succeeded`` / ``failed`` / ``filtered_out`` /
-        /// <br/>``skipped_do_not_forward``) or by a ``created_at`` range using the
+        /// <br/>Filter by status (``SUCCEEDED`` / ``FAILED`` / ``FILTERED_OUT`` /
+        /// <br/>``SKIPPED_DO_NOT_FORWARD``, case-insensitive) or by a ``created_at`` range using the
         /// <br/>platform's interval notation (``[2026-01-01T00:00:00Z,*)``). Reads do
         /// <br/>not require the entitlement — a downgraded account can still inspect
         /// <br/>historical deliveries from when the forwarder was active.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ForwarderDeliveryListResponse> List_forwarder_deliveriesAsync(System.Guid forwarder_id, string? filterstatus = null, string? filtercreated_at = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ForwarderDeliveryListResponse> List_forwarder_deliveriesAsync(System.Guid forwarder_id, string? filterstatus = null, string? filtercreated_at = null, string? filterevent_id = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -1174,15 +1174,15 @@ namespace Smplkit.Internal.Generated.Audit
         /// List delivery rows for a forwarder.
         /// <br/>
         /// <br/>Default sort is ``-created_at``. Cursor pagination via ``page[after]``.
-        /// <br/>Filter by status (``succeeded`` / ``failed`` / ``filtered_out`` /
-        /// <br/>``skipped_do_not_forward``) or by a ``created_at`` range using the
+        /// <br/>Filter by status (``SUCCEEDED`` / ``FAILED`` / ``FILTERED_OUT`` /
+        /// <br/>``SKIPPED_DO_NOT_FORWARD``, case-insensitive) or by a ``created_at`` range using the
         /// <br/>platform's interval notation (``[2026-01-01T00:00:00Z,*)``). Reads do
         /// <br/>not require the entitlement — a downgraded account can still inspect
         /// <br/>historical deliveries from when the forwarder was active.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ForwarderDeliveryListResponse> List_forwarder_deliveriesAsync(System.Guid forwarder_id, string? filterstatus = null, string? filtercreated_at = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ForwarderDeliveryListResponse> List_forwarder_deliveriesAsync(System.Guid forwarder_id, string? filterstatus = null, string? filtercreated_at = null, string? filterevent_id = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (forwarder_id == null)
                 throw new System.ArgumentNullException("forwarder_id");
@@ -1210,6 +1210,10 @@ namespace Smplkit.Internal.Generated.Audit
                     if (filtercreated_at != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[created_at]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtercreated_at, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filterevent_id != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[event_id]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterevent_id, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     if (pagesize != null)
                     {
@@ -2567,6 +2571,9 @@ namespace Smplkit.Internal.Generated.Audit
     /// <br/>prior ``str`` field — no migration of stored ``forwarder.type``
     /// <br/>values needed.
     /// <br/>
+    /// <br/>Values are SCREAMING_SNAKE_CASE per ADR-014. The Forwarder schema
+    /// <br/>accepts any casing on input via _normalize_forwarder_type.
+    /// <br/>
     /// <br/>Adding a new destination here requires a corresponding implementation
     /// <br/>in ``app.services.forwarding`` and a regeneration of the OpenAPI
     /// <br/>spec so the SDK clients pick up the new variant.
@@ -2575,26 +2582,26 @@ namespace Smplkit.Internal.Generated.Audit
     public enum ForwarderType
     {
 
-        [System.Runtime.Serialization.EnumMember(Value = @"http")]
-        Http = 0,
+        [System.Runtime.Serialization.EnumMember(Value = @"HTTP")]
+        HTTP = 0,
 
-        [System.Runtime.Serialization.EnumMember(Value = @"datadog")]
-        Datadog = 1,
+        [System.Runtime.Serialization.EnumMember(Value = @"DATADOG")]
+        DATADOG = 1,
 
-        [System.Runtime.Serialization.EnumMember(Value = @"splunk_hec")]
-        Splunk_hec = 2,
+        [System.Runtime.Serialization.EnumMember(Value = @"SPLUNK_HEC")]
+        SPLUNK_HEC = 2,
 
-        [System.Runtime.Serialization.EnumMember(Value = @"sumo_logic")]
-        Sumo_logic = 3,
+        [System.Runtime.Serialization.EnumMember(Value = @"SUMO_LOGIC")]
+        SUMO_LOGIC = 3,
 
-        [System.Runtime.Serialization.EnumMember(Value = @"new_relic")]
-        New_relic = 4,
+        [System.Runtime.Serialization.EnumMember(Value = @"NEW_RELIC")]
+        NEW_RELIC = 4,
 
-        [System.Runtime.Serialization.EnumMember(Value = @"honeycomb")]
-        Honeycomb = 5,
+        [System.Runtime.Serialization.EnumMember(Value = @"HONEYCOMB")]
+        HONEYCOMB = 5,
 
-        [System.Runtime.Serialization.EnumMember(Value = @"elastic")]
-        Elastic = 6,
+        [System.Runtime.Serialization.EnumMember(Value = @"ELASTIC")]
+        ELASTIC = 6,
 
     }
 
@@ -2972,17 +2979,17 @@ namespace Smplkit.Internal.Generated.Audit
     public enum ForwarderDeliveryStatus
     {
 
-        [System.Runtime.Serialization.EnumMember(Value = @"succeeded")]
-        Succeeded = 0,
+        [System.Runtime.Serialization.EnumMember(Value = @"SUCCEEDED")]
+        SUCCEEDED = 0,
 
-        [System.Runtime.Serialization.EnumMember(Value = @"failed")]
-        Failed = 1,
+        [System.Runtime.Serialization.EnumMember(Value = @"FAILED")]
+        FAILED = 1,
 
-        [System.Runtime.Serialization.EnumMember(Value = @"filtered_out")]
-        Filtered_out = 2,
+        [System.Runtime.Serialization.EnumMember(Value = @"FILTERED_OUT")]
+        FILTERED_OUT = 2,
 
-        [System.Runtime.Serialization.EnumMember(Value = @"skipped_do_not_forward")]
-        Skipped_do_not_forward = 3,
+        [System.Runtime.Serialization.EnumMember(Value = @"SKIPPED_DO_NOT_FORWARD")]
+        SKIPPED_DO_NOT_FORWARD = 3,
 
     }
 
