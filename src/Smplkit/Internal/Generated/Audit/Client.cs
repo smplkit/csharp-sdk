@@ -35,34 +35,32 @@ namespace Smplkit.Internal.Generated.Audit
         /// Record Event
         /// </summary>
         /// <remarks>
-        /// Record an audit event for the authenticated account.
+        /// Record an audit event for this account.
         /// <br/>
-        /// <br/>Returns ``201 Created`` on first write, ``200 OK`` if the request was a
-        /// <br/>duplicate (matched by ``Idempotency-Key`` or auto-derived key).
+        /// <br/>Returns `201 Created` on first write, `200 OK` if the request was a
+        /// <br/>duplicate (matched by `Idempotency-Key` or a key derived from the
+        /// <br/>event's content).
         /// <br/>
-        /// <br/>Customers may not emit events whose ``resource_type`` starts with
-        /// <br/>``smpl.`` — that namespace is reserved for smplkit-emitted events
-        /// <br/>about platform resources.
+        /// <br/>`resource_type` values beginning with `smpl.` are reserved for events
+        /// <br/>that smplkit emits about its own resources and cannot be used here.
         /// </remarks>
         /// <returns>Idempotent retry — original event returned</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<EventResponse> Record_eventAsync(EventResponse body, string? idempotency_Key = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<EventResponse> Record_eventAsync(EventRequest body, string? idempotency_Key = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
         /// List Events
         /// </summary>
         /// <remarks>
-        /// List audit events for the authenticated account.
+        /// List audit events for this account.
         /// <br/>
-        /// <br/>Default sort is ``-created_at``; cursor pagination via ``page[after]``
-        /// <br/>(the opaque cursor returned in ``links.next``). Filters are exact-match
-        /// <br/>except ``filter[occurred_at]`` which uses the platform's range
-        /// <br/>notation (``[2026-01-01T00:00:00Z,*)``) and ``filter[search]`` which
-        /// <br/>is a case-insensitive substring match (per ADR-014; targets
-        /// <br/>``resource_id`` only at this revision).
+        /// <br/>Default sort is newest first. Filters are exact-match except
+        /// <br/>`filter[occurred_at]`, which uses interval notation
+        /// <br/>(e.g. `[2026-01-01T00:00:00Z,*)`), and `filter[search]`, which is a
+        /// <br/>case-insensitive substring match against `resource_id`.
         /// </remarks>
-        /// <param name="filtersearch">Case-insensitive substring match. Searches against ``resource_id`` only — see ADR-014 for the platform-wide ``filter[search]`` convention. Use ``filter[resource_id]`` for an exact match.</param>
+        /// <param name="filtersearch">Case-insensitive substring match against `resource_id`. Use `filter[resource_id]` for an exact match.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, System.Guid? filteractor_id = null, string? filteraction = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -73,10 +71,6 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         /// <remarks>
         /// Retrieve a single audit event by id.
-        /// <br/>
-        /// <br/>Returns 404 if no event with that id exists in the caller's account —
-        /// <br/>RLS enforces tenant isolation; this endpoint never leaks the existence
-        /// <br/>of another tenant's event.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -87,11 +81,9 @@ namespace Smplkit.Internal.Generated.Audit
         /// List Usage
         /// </summary>
         /// <remarks>
-        /// Current-period usage and quota for the audit product.
-        /// <br/>
-        /// <br/>Only ``filter[period]=current`` is supported; historical usage is a
-        /// <br/>follow-up.
+        /// Report the current-period usage counters for this account.
         /// </remarks>
+        /// <param name="filterperiod">Period to report. `current` is the only supported value.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<UsageResponse> List_usageAsync(string filterperiod, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -101,22 +93,18 @@ namespace Smplkit.Internal.Generated.Audit
         /// Create Forwarder
         /// </summary>
         /// <remarks>
-        /// Create a forwarder. Requires the ``audit.siem_streaming`` entitlement
-        /// <br/>on the account; lower-tier accounts get 402.
+        /// Create a forwarder for this account.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ForwarderResponse> Create_forwarderAsync(ForwarderResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ForwarderResponse> Create_forwarderAsync(ForwarderRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
         /// List Forwarders
         /// </summary>
         /// <remarks>
-        /// List forwarders for the authenticated account.
-        /// <br/>
-        /// <br/>Reads do not require the entitlement — a downgraded account can still
-        /// <br/>inspect what they configured, they just can't create new ones.
+        /// List forwarders for this account.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -129,12 +117,8 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// Retrieve a single forwarder by id.
         /// <br/>
-        /// <br/>Returns 404 if no forwarder with that id exists in the caller's
-        /// <br/>account, including if the forwarder is soft-deleted. Header values
-        /// <br/>in the response are returned in plaintext so callers can perform a
-        /// <br/>GET-modify-PUT round-trip without re-entering secrets (ADR-014).
-        /// <br/>The persisted ``forwarder_delivery.request`` log column is what
-        /// <br/>keeps redaction; that read path is unaffected by this route.
+        /// <br/>Header values are returned in plaintext so the resource can be
+        /// <br/>round-tripped with `GET`, mutate, `PUT` without re-entering secrets.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -145,24 +129,21 @@ namespace Smplkit.Internal.Generated.Audit
         /// Update Forwarder
         /// </summary>
         /// <remarks>
-        /// Full-replace update. PUT semantics — every field is overwritten.
-        /// <br/>
-        /// <br/>The GET path returns plaintext header values, so the standard
-        /// <br/>get-mutate-put round-trip (ADR-014) preserves secrets without any
-        /// <br/>extra work from the caller: GET, change one field, PUT the result.
+        /// Replace an existing forwarder. Every writable field is overwritten.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ForwarderResponse> Update_forwarderAsync(System.Guid forwarder_id, ForwarderResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ForwarderResponse> Update_forwarderAsync(System.Guid forwarder_id, ForwarderRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
         /// Delete Forwarder
         /// </summary>
         /// <remarks>
-        /// Soft-delete a forwarder. Delivery rows are retained per the normal
-        /// <br/>forwarder_delivery retention; a future create with the same slug is
-        /// <br/>allowed (the unique index is partial on deleted_at IS NULL).
+        /// Delete a forwarder.
+        /// <br/>
+        /// <br/>Past delivery log entries are retained. A new forwarder may be
+        /// <br/>created later under the same name.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -173,14 +154,12 @@ namespace Smplkit.Internal.Generated.Audit
         /// List Forwarder Deliveries
         /// </summary>
         /// <remarks>
-        /// List delivery rows for a forwarder.
+        /// List delivery log entries for a forwarder.
         /// <br/>
-        /// <br/>Default sort is ``-created_at``. Cursor pagination via ``page[after]``.
-        /// <br/>Filter by status (``SUCCEEDED`` / ``FAILED`` / ``FILTERED_OUT`` /
-        /// <br/>``SKIPPED_DO_NOT_FORWARD``, case-insensitive) or by a ``created_at`` range using the
-        /// <br/>platform's interval notation (``[2026-01-01T00:00:00Z,*)``). Reads do
-        /// <br/>not require the entitlement — a downgraded account can still inspect
-        /// <br/>historical deliveries from when the forwarder was active.
+        /// <br/>Default sort is newest first. Filter by `status` (one of `SUCCEEDED`,
+        /// <br/>`FAILED`, `FILTERED_OUT`, `SKIPPED_DO_NOT_FORWARD` — case-insensitive),
+        /// <br/>by `event_id`, or by a `created_at` range using interval notation
+        /// <br/>(e.g. `[2026-01-01T00:00:00Z,*)`).
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -191,8 +170,9 @@ namespace Smplkit.Internal.Generated.Audit
         /// Retry Forwarder Delivery
         /// </summary>
         /// <remarks>
-        /// Retry a single failed delivery. Returns the new delivery row with
-        /// <br/>its outcome. Prior delivery rows are not modified.
+        /// Retry a single failed delivery.
+        /// <br/>
+        /// <br/>Returns the new delivery log entry. The prior entry is left in place.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -203,10 +183,10 @@ namespace Smplkit.Internal.Generated.Audit
         /// Retry Failed Forwarder Deliveries
         /// </summary>
         /// <remarks>
-        /// Retry every failed delivery for the forwarder.
+        /// Retry every failed delivery for this forwarder.
         /// <br/>
-        /// <br/>For each failed delivery row, re-attempt with the latest forwarder
-        /// <br/>configuration and the original event payload. Returns counts.
+        /// <br/>Each failed delivery is re-attempted using the forwarder's current
+        /// <br/>configuration and the original event. Returns the counts.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -217,12 +197,12 @@ namespace Smplkit.Internal.Generated.Audit
         /// Execute Test Forwarder
         /// </summary>
         /// <remarks>
-        /// Execute a prepared HTTP request server-side and return the response.
+        /// Send a test HTTP request to a forwarder destination and return the result.
         /// <br/>
-        /// <br/>The same SSRF guard that gates the in-line forwarder loop is applied
-        /// <br/>here — internal/private addresses, link-local IPs (including the EC2
-        /// <br/>metadata service at 169.254.169.254), unique-local IPv6, and ports
-        /// <br/>outside the configured allowlist are all rejected.
+        /// <br/>Useful for verifying a destination URL, credentials, or transform
+        /// <br/>before saving the forwarder. The same network-safety rules that
+        /// <br/>apply to live deliveries (private/internal address blocking, port
+        /// <br/>allowlist) apply here.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -233,11 +213,10 @@ namespace Smplkit.Internal.Generated.Audit
         /// List Resource Types
         /// </summary>
         /// <remarks>
-        /// List the distinct ``resource_type`` slugs seen in the account.
+        /// List the distinct `resource_type` slugs recorded for this account.
         /// <br/>
-        /// <br/>Each row's ``id`` is the slug itself, mirroring the smplkit
-        /// <br/>convention of using customer-provided identifiers as the
-        /// <br/>public-facing resource id (ADR-014).
+        /// <br/>The resource `id` is the slug itself. Useful for populating filter
+        /// <br/>dropdowns in a UI.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -248,15 +227,11 @@ namespace Smplkit.Internal.Generated.Audit
         /// List Actions
         /// </summary>
         /// <remarks>
-        /// List the distinct ``action`` slugs seen in the account.
+        /// List the distinct `action` slugs recorded for this account.
         /// <br/>
-        /// <br/>Without ``filter[resource_type]``, returns one row per distinct
-        /// <br/>action — the same action may have been recorded with multiple
-        /// <br/>resource types and the unfiltered dropdown shows it once.
-        /// <br/>
-        /// <br/>With ``filter[resource_type]``, returns the actions seen with
-        /// <br/>that specific resource type, powering the Activity tab's
-        /// <br/>cascading filter behavior.
+        /// <br/>Without `filter[resource_type]`, returns one row per distinct
+        /// <br/>action. With `filter[resource_type]`, returns the actions recorded
+        /// <br/>for that specific resource type.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -267,12 +242,11 @@ namespace Smplkit.Internal.Generated.Audit
         /// Execute Wipe
         /// </summary>
         /// <remarks>
-        /// Delete every audit-database row scoped to the authenticated account.
+        /// Delete every audit record this account has stored.
         /// <br/>
-        /// <br/>Returns the per-table row counts that were deleted along with the
-        /// <br/>completion timestamp. The action is atomic within the audit
-        /// <br/>database — either every account-scoped row is gone, or none is.
-        /// <br/>The body is required to be ``{}``; no parameters are accepted.
+        /// <br/>Atomic: either every record is deleted, or none is. Returns the
+        /// <br/>per-table counts and the completion timestamp. The request body
+        /// <br/>must be `{}`.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -333,18 +307,18 @@ namespace Smplkit.Internal.Generated.Audit
         /// Record Event
         /// </summary>
         /// <remarks>
-        /// Record an audit event for the authenticated account.
+        /// Record an audit event for this account.
         /// <br/>
-        /// <br/>Returns ``201 Created`` on first write, ``200 OK`` if the request was a
-        /// <br/>duplicate (matched by ``Idempotency-Key`` or auto-derived key).
+        /// <br/>Returns `201 Created` on first write, `200 OK` if the request was a
+        /// <br/>duplicate (matched by `Idempotency-Key` or a key derived from the
+        /// <br/>event's content).
         /// <br/>
-        /// <br/>Customers may not emit events whose ``resource_type`` starts with
-        /// <br/>``smpl.`` — that namespace is reserved for smplkit-emitted events
-        /// <br/>about platform resources.
+        /// <br/>`resource_type` values beginning with `smpl.` are reserved for events
+        /// <br/>that smplkit emits about its own resources and cannot be used here.
         /// </remarks>
         /// <returns>Idempotent retry — original event returned</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<EventResponse> Record_eventAsync(EventResponse body, string? idempotency_Key = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<EventResponse> Record_eventAsync(EventRequest body, string? idempotency_Key = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (body == null)
                 throw new System.ArgumentNullException("body");
@@ -437,16 +411,14 @@ namespace Smplkit.Internal.Generated.Audit
         /// List Events
         /// </summary>
         /// <remarks>
-        /// List audit events for the authenticated account.
+        /// List audit events for this account.
         /// <br/>
-        /// <br/>Default sort is ``-created_at``; cursor pagination via ``page[after]``
-        /// <br/>(the opaque cursor returned in ``links.next``). Filters are exact-match
-        /// <br/>except ``filter[occurred_at]`` which uses the platform's range
-        /// <br/>notation (``[2026-01-01T00:00:00Z,*)``) and ``filter[search]`` which
-        /// <br/>is a case-insensitive substring match (per ADR-014; targets
-        /// <br/>``resource_id`` only at this revision).
+        /// <br/>Default sort is newest first. Filters are exact-match except
+        /// <br/>`filter[occurred_at]`, which uses interval notation
+        /// <br/>(e.g. `[2026-01-01T00:00:00Z,*)`), and `filter[search]`, which is a
+        /// <br/>case-insensitive substring match against `resource_id`.
         /// </remarks>
-        /// <param name="filtersearch">Case-insensitive substring match. Searches against ``resource_id`` only — see ADR-014 for the platform-wide ``filter[search]`` convention. Use ``filter[resource_id]`` for an exact match.</param>
+        /// <param name="filtersearch">Case-insensitive substring match against `resource_id`. Use `filter[resource_id]` for an exact match.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, System.Guid? filteractor_id = null, string? filteraction = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -561,10 +533,6 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         /// <remarks>
         /// Retrieve a single audit event by id.
-        /// <br/>
-        /// <br/>Returns 404 if no event with that id exists in the caller's account —
-        /// <br/>RLS enforces tenant isolation; this endpoint never leaks the existence
-        /// <br/>of another tenant's event.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -645,11 +613,9 @@ namespace Smplkit.Internal.Generated.Audit
         /// List Usage
         /// </summary>
         /// <remarks>
-        /// Current-period usage and quota for the audit product.
-        /// <br/>
-        /// <br/>Only ``filter[period]=current`` is supported; historical usage is a
-        /// <br/>follow-up.
+        /// Report the current-period usage counters for this account.
         /// </remarks>
+        /// <param name="filterperiod">Period to report. `current` is the only supported value.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<UsageResponse> List_usageAsync(string filterperiod, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -731,12 +697,11 @@ namespace Smplkit.Internal.Generated.Audit
         /// Create Forwarder
         /// </summary>
         /// <remarks>
-        /// Create a forwarder. Requires the ``audit.siem_streaming`` entitlement
-        /// <br/>on the account; lower-tier accounts get 402.
+        /// Create a forwarder for this account.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ForwarderResponse> Create_forwarderAsync(ForwarderResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ForwarderResponse> Create_forwarderAsync(ForwarderRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (body == null)
                 throw new System.ArgumentNullException("body");
@@ -816,10 +781,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// List Forwarders
         /// </summary>
         /// <remarks>
-        /// List forwarders for the authenticated account.
-        /// <br/>
-        /// <br/>Reads do not require the entitlement — a downgraded account can still
-        /// <br/>inspect what they configured, they just can't create new ones.
+        /// List forwarders for this account.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -916,12 +878,8 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// Retrieve a single forwarder by id.
         /// <br/>
-        /// <br/>Returns 404 if no forwarder with that id exists in the caller's
-        /// <br/>account, including if the forwarder is soft-deleted. Header values
-        /// <br/>in the response are returned in plaintext so callers can perform a
-        /// <br/>GET-modify-PUT round-trip without re-entering secrets (ADR-014).
-        /// <br/>The persisted ``forwarder_delivery.request`` log column is what
-        /// <br/>keeps redaction; that read path is unaffected by this route.
+        /// <br/>Header values are returned in plaintext so the resource can be
+        /// <br/>round-tripped with `GET`, mutate, `PUT` without re-entering secrets.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1002,15 +960,11 @@ namespace Smplkit.Internal.Generated.Audit
         /// Update Forwarder
         /// </summary>
         /// <remarks>
-        /// Full-replace update. PUT semantics — every field is overwritten.
-        /// <br/>
-        /// <br/>The GET path returns plaintext header values, so the standard
-        /// <br/>get-mutate-put round-trip (ADR-014) preserves secrets without any
-        /// <br/>extra work from the caller: GET, change one field, PUT the result.
+        /// Replace an existing forwarder. Every writable field is overwritten.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ForwarderResponse> Update_forwarderAsync(System.Guid forwarder_id, ForwarderResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ForwarderResponse> Update_forwarderAsync(System.Guid forwarder_id, ForwarderRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (forwarder_id == null)
                 throw new System.ArgumentNullException("forwarder_id");
@@ -1094,9 +1048,10 @@ namespace Smplkit.Internal.Generated.Audit
         /// Delete Forwarder
         /// </summary>
         /// <remarks>
-        /// Soft-delete a forwarder. Delivery rows are retained per the normal
-        /// <br/>forwarder_delivery retention; a future create with the same slug is
-        /// <br/>allowed (the unique index is partial on deleted_at IS NULL).
+        /// Delete a forwarder.
+        /// <br/>
+        /// <br/>Past delivery log entries are retained. A new forwarder may be
+        /// <br/>created later under the same name.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1171,14 +1126,12 @@ namespace Smplkit.Internal.Generated.Audit
         /// List Forwarder Deliveries
         /// </summary>
         /// <remarks>
-        /// List delivery rows for a forwarder.
+        /// List delivery log entries for a forwarder.
         /// <br/>
-        /// <br/>Default sort is ``-created_at``. Cursor pagination via ``page[after]``.
-        /// <br/>Filter by status (``SUCCEEDED`` / ``FAILED`` / ``FILTERED_OUT`` /
-        /// <br/>``SKIPPED_DO_NOT_FORWARD``, case-insensitive) or by a ``created_at`` range using the
-        /// <br/>platform's interval notation (``[2026-01-01T00:00:00Z,*)``). Reads do
-        /// <br/>not require the entitlement — a downgraded account can still inspect
-        /// <br/>historical deliveries from when the forwarder was active.
+        /// <br/>Default sort is newest first. Filter by `status` (one of `SUCCEEDED`,
+        /// <br/>`FAILED`, `FILTERED_OUT`, `SKIPPED_DO_NOT_FORWARD` — case-insensitive),
+        /// <br/>by `event_id`, or by a `created_at` range using interval notation
+        /// <br/>(e.g. `[2026-01-01T00:00:00Z,*)`).
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1282,8 +1235,9 @@ namespace Smplkit.Internal.Generated.Audit
         /// Retry Forwarder Delivery
         /// </summary>
         /// <remarks>
-        /// Retry a single failed delivery. Returns the new delivery row with
-        /// <br/>its outcome. Prior delivery rows are not modified.
+        /// Retry a single failed delivery.
+        /// <br/>
+        /// <br/>Returns the new delivery log entry. The prior entry is left in place.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1371,10 +1325,10 @@ namespace Smplkit.Internal.Generated.Audit
         /// Retry Failed Forwarder Deliveries
         /// </summary>
         /// <remarks>
-        /// Retry every failed delivery for the forwarder.
+        /// Retry every failed delivery for this forwarder.
         /// <br/>
-        /// <br/>For each failed delivery row, re-attempt with the latest forwarder
-        /// <br/>configuration and the original event payload. Returns counts.
+        /// <br/>Each failed delivery is re-attempted using the forwarder's current
+        /// <br/>configuration and the original event. Returns the counts.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1457,12 +1411,12 @@ namespace Smplkit.Internal.Generated.Audit
         /// Execute Test Forwarder
         /// </summary>
         /// <remarks>
-        /// Execute a prepared HTTP request server-side and return the response.
+        /// Send a test HTTP request to a forwarder destination and return the result.
         /// <br/>
-        /// <br/>The same SSRF guard that gates the in-line forwarder loop is applied
-        /// <br/>here — internal/private addresses, link-local IPs (including the EC2
-        /// <br/>metadata service at 169.254.169.254), unique-local IPv6, and ports
-        /// <br/>outside the configured allowlist are all rejected.
+        /// <br/>Useful for verifying a destination URL, credentials, or transform
+        /// <br/>before saving the forwarder. The same network-safety rules that
+        /// <br/>apply to live deliveries (private/internal address blocking, port
+        /// <br/>allowlist) apply here.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1546,11 +1500,10 @@ namespace Smplkit.Internal.Generated.Audit
         /// List Resource Types
         /// </summary>
         /// <remarks>
-        /// List the distinct ``resource_type`` slugs seen in the account.
+        /// List the distinct `resource_type` slugs recorded for this account.
         /// <br/>
-        /// <br/>Each row's ``id`` is the slug itself, mirroring the smplkit
-        /// <br/>convention of using customer-provided identifiers as the
-        /// <br/>public-facing resource id (ADR-014).
+        /// <br/>The resource `id` is the slug itself. Useful for populating filter
+        /// <br/>dropdowns in a UI.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1637,15 +1590,11 @@ namespace Smplkit.Internal.Generated.Audit
         /// List Actions
         /// </summary>
         /// <remarks>
-        /// List the distinct ``action`` slugs seen in the account.
+        /// List the distinct `action` slugs recorded for this account.
         /// <br/>
-        /// <br/>Without ``filter[resource_type]``, returns one row per distinct
-        /// <br/>action — the same action may have been recorded with multiple
-        /// <br/>resource types and the unfiltered dropdown shows it once.
-        /// <br/>
-        /// <br/>With ``filter[resource_type]``, returns the actions seen with
-        /// <br/>that specific resource type, powering the Activity tab's
-        /// <br/>cascading filter behavior.
+        /// <br/>Without `filter[resource_type]`, returns one row per distinct
+        /// <br/>action. With `filter[resource_type]`, returns the actions recorded
+        /// <br/>for that specific resource type.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1736,12 +1685,11 @@ namespace Smplkit.Internal.Generated.Audit
         /// Execute Wipe
         /// </summary>
         /// <remarks>
-        /// Delete every audit-database row scoped to the authenticated account.
+        /// Delete every audit record this account has stored.
         /// <br/>
-        /// <br/>Returns the per-table row counts that were deleted along with the
-        /// <br/>completion timestamp. The action is atomic within the audit
-        /// <br/>database — either every account-scoped row is gone, or none is.
-        /// <br/>The body is required to be ``{}``; no parameters are accepted.
+        /// <br/>Atomic: either every record is deleted, or none is. Returns the
+        /// <br/>per-table counts and the completion timestamp. The request body
+        /// <br/>must be `{}`.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -2064,61 +2012,80 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     /// <summary>
-    /// Public-facing event resource.
+    /// An audit event — a record that something happened, attributed to
+    /// <br/>an actor and a resource.
     /// <br/>
-    /// <br/>Attribute set on POST /api/v1/events:
-    /// <br/>    - action (required)
-    /// <br/>    - resource_type (required)
-    /// <br/>    - resource_id (required)
-    /// <br/>    - occurred_at (optional; defaults to ``created_at``)
-    /// <br/>    - data (optional; defaults to ``{}``)
-    /// <br/>
-    /// <br/>There is no top-level ``snapshot`` attribute. Customers wishing to
-    /// <br/>record a resource snapshot place it inside ``data`` -- smplkit's
-    /// <br/>internal convention nests it at ``data.snapshot``, but customers may
-    /// <br/>follow their own convention.
-    /// <br/>
-    /// <br/>Attribute set on GET responses includes everything above plus the
-    /// <br/>server-populated fields: ``created_at``, ``actor_type``, ``actor_id``,
-    /// <br/>``actor_label``, ``idempotency_key``.
+    /// <br/>When recording a snapshot of the resource at the time of the event,
+    /// <br/>place it inside `data`. smplkit's own integrations nest it under
+    /// <br/>`data.snapshot`, but the slot is yours to use however you like.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Event
     {
 
+        /// <summary>
+        /// Slug for what happened, e.g. `user.created`. Lowercase, dot-separated.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("action")]
         public string Action { get; set; } = default!;
 
+        /// <summary>
+        /// Slug for the kind of resource the event is about, e.g. `user`. Lowercase, dot-separated.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("resource_type")]
         public string Resource_type { get; set; } = default!;
 
+        /// <summary>
+        /// Identifier of the specific resource the event is about.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("resource_id")]
         public string Resource_id { get; set; } = default!;
 
+        /// <summary>
+        /// When the event actually happened. Defaults to the server receipt time (`created_at`).
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("occurred_at")]
         public System.DateTimeOffset? Occurred_at { get; set; } = default!;
 
+        /// <summary>
+        /// Free-form payload attached to the event. Use it for resource snapshots (by convention under `data.snapshot`), request identifiers, or any other context the event needs to carry.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public object Data { get; set; } = default!;
 
         /// <summary>
-        /// When true, this event is recorded normally but is not forwarded to any configured SIEM forwarder. A forwarder_delivery row with status=skipped_do_not_forward is recorded for each enabled forwarder so the skip is visible in the delivery log.
+        /// When `true`, the event is recorded but not delivered to any forwarder. A delivery log entry with status `SKIPPED_DO_NOT_FORWARD` is written for each enabled forwarder so the skip is visible in the delivery log.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("do_not_forward")]
         public bool Do_not_forward { get; set; } = false;
 
+        /// <summary>
+        /// When the event was received and recorded.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
         public System.DateTimeOffset? Created_at { get; set; } = default!;
 
+        /// <summary>
+        /// Kind of credential that emitted the event, e.g. `USER` or `API_KEY`. Resolved server-side from the request credential.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("actor_type")]
         public string? Actor_type { get; set; } = default!;
 
+        /// <summary>
+        /// Identifier of the actor that emitted the event.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("actor_id")]
         public System.Guid? Actor_id { get; set; } = default!;
 
+        /// <summary>
+        /// Human-readable label for the actor (e.g. the user's email address or the API key name) at the time the event was recorded.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("actor_label")]
         public string? Actor_label { get; set; } = default!;
 
+        /// <summary>
+        /// The idempotency key used to deduplicate the record. Echoes the `Idempotency-Key` header if one was supplied, otherwise a key derived from the event's content.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("idempotency_key")]
         public string? Idempotency_key { get; set; } = default!;
 
@@ -2170,7 +2137,7 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     /// <summary>
-    /// JSON:API collection response with cursor pagination metadata.
+    /// JSON:API collection response for audit events.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class EventListResponse
@@ -2197,14 +2164,37 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     /// <summary>
+    /// JSON:API request envelope for recording an audit event.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class EventRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public EventResource Data { get; set; } = new EventResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
     /// JSON:API resource envelope for an audit event.
+    /// <br/>
+    /// <br/>`id` must not be specified for create requests (the server assigns it).
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class EventResource
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("id")]
-        public string Id { get; set; } = default!;
+        public string? Id { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("type")]
         public string Type { get; set; } = "event";
@@ -2224,7 +2214,7 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     /// <summary>
-    /// JSON:API single-resource response.
+    /// JSON:API single-resource response for an audit event.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class EventResponse
@@ -2245,59 +2235,84 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     /// <summary>
-    /// Public-facing forwarder resource.
+    /// A destination that receives audit events recorded for the account.
     /// <br/>
-    /// <br/>Attribute set on POST /api/v1/forwarders:
-    /// <br/>    - name (required)
-    /// <br/>    - forwarder_type (required)
-    /// <br/>    - http (required)
-    /// <br/>    - enabled (optional, defaults true)
-    /// <br/>    - filter (optional, JSON Logic)
-    /// <br/>    - transform (optional, JSONata)
-    /// <br/>
-    /// <br/>The slug is server-derived from name on create; it is immutable on
-    /// <br/>update because consumers (UI, observability) key off it.
+    /// <br/>Each event recorded for the account is evaluated against every enabled
+    /// <br/>forwarder. If the filter expression evaluates truthy — or is absent —
+    /// <br/>the event is delivered to the destination using the configured HTTP
+    /// <br/>request. The slug, derived from `name` at create time, is the stable
+    /// <br/>identifier used by the console and other tooling.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Forwarder
     {
 
+        /// <summary>
+        /// Human-readable name for the forwarder.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = default!;
 
+        /// <summary>
+        /// Destination type.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("forwarder_type")]
         [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ForwarderType>))]
         public ForwarderType Forwarder_type { get; set; } = default!;
 
+        /// <summary>
+        /// Whether the forwarder is currently delivering events. Set to `false` to pause deliveries without deleting the forwarder.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("enabled")]
         public bool Enabled { get; set; } = true;
 
+        /// <summary>
+        /// JSON Logic expression evaluated against each event. The event is delivered only if the expression returns truthy. Omit to deliver every event.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("filter")]
         public object? Filter { get; set; } = default!;
 
+        /// <summary>
+        /// JSONata template applied to each event before delivery. Omit to deliver the event unchanged.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("transform")]
         public string? Transform { get; set; } = default!;
 
+        /// <summary>
+        /// HTTP request used to deliver each event to the destination.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("http")]
         public ForwarderHttp Http { get; set; } = new ForwarderHttp();
 
+        /// <summary>
+        /// URL-safe identifier derived from `name` at create time. Stable for the lifetime of the forwarder.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("slug")]
         public string? Slug { get; set; } = default!;
 
+        /// <summary>
+        /// When the forwarder was created.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
         public System.DateTimeOffset? Created_at { get; set; } = default!;
 
+        /// <summary>
+        /// When the forwarder was last modified.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("updated_at")]
         public System.DateTimeOffset? Updated_at { get; set; } = default!;
 
+        /// <summary>
+        /// When the forwarder was deleted. `null` for active forwarders.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("deleted_at")]
         public System.DateTimeOffset? Deleted_at { get; set; } = default!;
 
+        /// <summary>
+        /// Monotonic counter incremented on every update, starting at 1.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("version")]
         public int? Version { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("data")]
-        public object Data { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -2311,43 +2326,70 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     /// <summary>
-    /// Read-only delivery log row.
-    /// <br/>
-    /// <br/>All fields are server-populated. Headers in ``request`` always show
-    /// <br/>redacted values, regardless of who configured them.
+    /// A log entry for one attempt to deliver an event to a forwarder.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ForwarderDelivery
     {
 
+        /// <summary>
+        /// Forwarder the delivery belongs to.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("forwarder_id")]
         public System.Guid Forwarder_id { get; set; } = default!;
 
+        /// <summary>
+        /// Event that was being delivered.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("event_id")]
         public System.Guid Event_id { get; set; } = default!;
 
+        /// <summary>
+        /// 1 for the initial delivery, incremented for each retry.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("attempt_number")]
         public int Attempt_number { get; set; } = default!;
 
+        /// <summary>
+        /// Delivery outcome. `SUCCEEDED` and `FAILED` are the live-delivery outcomes; `FILTERED_OUT` is recorded when the forwarder's filter rejected the event; `SKIPPED_DO_NOT_FORWARD` is recorded when the event was emitted with `do_not_forward=true`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("status")]
         [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ForwarderDeliveryStatus>))]
         public ForwarderDeliveryStatus Status { get; set; } = default!;
 
+        /// <summary>
+        /// The HTTP request as it was sent to the destination. Header values are redacted.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("request")]
         public object? Request { get; set; } = default!;
 
+        /// <summary>
+        /// HTTP status code returned by the destination.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("response_status")]
         public int? Response_status { get; set; } = default!;
 
+        /// <summary>
+        /// Response body returned by the destination.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("response_body")]
         public string? Response_body { get; set; } = default!;
 
+        /// <summary>
+        /// Elapsed time of the delivery attempt in milliseconds.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("latency_ms")]
         public int? Latency_ms { get; set; } = default!;
 
+        /// <summary>
+        /// Error message if the delivery did not complete.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("error")]
         public string? Error { get; set; } = default!;
 
+        /// <summary>
+        /// When the delivery attempt was recorded.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
         public System.DateTimeOffset? Created_at { get; set; } = default!;
 
@@ -2362,6 +2404,9 @@ namespace Smplkit.Internal.Generated.Audit
 
     }
 
+    /// <summary>
+    /// JSON:API collection response for forwarder deliveries.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ForwarderDeliveryListResponse
     {
@@ -2386,6 +2431,9 @@ namespace Smplkit.Internal.Generated.Audit
 
     }
 
+    /// <summary>
+    /// JSON:API resource envelope for a forwarder delivery log entry.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ForwarderDeliveryResource
     {
@@ -2410,6 +2458,9 @@ namespace Smplkit.Internal.Generated.Audit
 
     }
 
+    /// <summary>
+    /// JSON:API single-resource response for a forwarder delivery.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ForwarderDeliveryResponse
     {
@@ -2429,31 +2480,40 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     /// <summary>
-    /// The destination HTTP request shape stored encrypted on a forwarder.
-    /// <br/>
-    /// <br/>``success_status`` is a string: either a single status code (e.g.
-    /// <br/>``"200"``, ``"204"``) or a class (e.g. ``"2xx"``, ``"3xx"``). The
-    /// <br/>string-only contract is intentional — a Pydantic ``int | str`` union
-    /// <br/>confused several SDK code generators (Java in particular wrote the
-    /// <br/>default ``"2xx"`` unquoted into a typed enum). String covers both
-    /// <br/>shapes universally with a single wire type.
+    /// HTTP request configuration used to deliver an event to the destination.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ForwarderHttp
     {
 
+        /// <summary>
+        /// HTTP method used when delivering an event.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("method")]
-        public string Method { get; set; } = "POST";
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ForwarderHttpMethod>))]
+        public ForwarderHttpMethod Method { get; set; } = Smplkit.Internal.Generated.Audit.ForwarderHttpMethod.POST;
 
+        /// <summary>
+        /// Destination URL.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("url")]
         public string Url { get; set; } = default!;
 
+        /// <summary>
+        /// HTTP headers attached to each delivery request.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("headers")]
         public System.Collections.Generic.List<HttpHeader> Headers { get; set; } = default!;
 
+        /// <summary>
+        /// Request body sent to the destination. If omitted, the event JSON is sent as the body.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("body")]
         public string? Body { get; set; } = default!;
 
+        /// <summary>
+        /// HTTP response status that indicates a successful delivery. Either a specific status code (e.g. `200`, `204`) or a status class (`1xx`, `2xx`, `3xx`, `4xx`, `5xx`).
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("success_status")]
         public string Success_status { get; set; } = "2xx";
 
@@ -2495,6 +2555,9 @@ namespace Smplkit.Internal.Generated.Audit
 
     }
 
+    /// <summary>
+    /// JSON:API collection response for forwarders.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ForwarderListResponse
     {
@@ -2519,12 +2582,38 @@ namespace Smplkit.Internal.Generated.Audit
 
     }
 
+    /// <summary>
+    /// JSON:API request envelope for creating or updating a forwarder.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ForwarderRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public ForwarderResource Data { get; set; } = new ForwarderResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API resource envelope for a forwarder.
+    /// <br/>
+    /// <br/>`id` must not be specified for create requests (the server assigns it).
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ForwarderResource
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("id")]
-        public string Id { get; set; } = default!;
+        public string? Id { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("type")]
         public string Type { get; set; } = "forwarder";
@@ -2543,6 +2632,9 @@ namespace Smplkit.Internal.Generated.Audit
 
     }
 
+    /// <summary>
+    /// JSON:API single-resource response envelope for a forwarder.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ForwarderResponse
     {
@@ -2563,20 +2655,6 @@ namespace Smplkit.Internal.Generated.Audit
 
     /// <summary>
     /// Supported forwarder destination types.
-    /// <br/>
-    /// <br/>Carried as a typed enum so the OpenAPI spec emits an ``enum``
-    /// <br/>constraint and the auto-generated SDK clients (in all 6 languages)
-    /// <br/>surface a typed enum to customers rather than free-form strings.
-    /// <br/>Subclassing ``str`` keeps JSON serialization byte-identical to the
-    /// <br/>prior ``str`` field — no migration of stored ``forwarder.type``
-    /// <br/>values needed.
-    /// <br/>
-    /// <br/>Values are SCREAMING_SNAKE_CASE per ADR-014. The Forwarder schema
-    /// <br/>accepts any casing on input via _normalize_forwarder_type.
-    /// <br/>
-    /// <br/>Adding a new destination here requires a corresponding implementation
-    /// <br/>in ``app.services.forwarding`` and a regeneration of the OpenAPI
-    /// <br/>spec so the SDK clients pick up the new variant.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public enum ForwarderType
@@ -2606,15 +2684,21 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     /// <summary>
-    /// A single header on a forwarder's HTTP destination.
+    /// A single HTTP header attached to a forwarder delivery request.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class HttpHeader
     {
 
+        /// <summary>
+        /// Header name.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = default!;
 
+        /// <summary>
+        /// Header value.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("value")]
         public string Value { get; set; } = default!;
 
@@ -2743,16 +2827,28 @@ namespace Smplkit.Internal.Generated.Audit
 
     }
 
+    /// <summary>
+    /// Counts returned by the retry-failed-deliveries action.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class RetryFailedDeliveriesSummary
     {
 
+        /// <summary>
+        /// Number of failed deliveries that were re-attempted.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("attempted")]
         public int Attempted { get; set; } = default!;
 
+        /// <summary>
+        /// Number of re-attempts that succeeded.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("succeeded")]
         public int Succeeded { get; set; } = default!;
 
+        /// <summary>
+        /// Number of re-attempts that failed again.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("failed")]
         public int Failed { get; set; } = default!;
 
@@ -2768,59 +2864,94 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     /// <summary>
-    /// Plain-JSON body for the test_forwarder execute action.
+    /// Inputs to the test-forwarder action.
     /// <br/>
-    /// <br/>Mirrors the encrypted ``ForwarderHttp`` shape with one addition —
-    /// <br/>``timeout_ms``, capped server-side.
+    /// <br/>Mirrors a forwarder's HTTP destination configuration with one
+    /// <br/>addition: `timeout_ms`, applied per-request and capped server-side.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class TestForwarderRequest
     {
 
+        /// <summary>
+        /// HTTP method used for the test request.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("method")]
-        public string Method { get; set; } = "POST";
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<TestForwarderRequestMethod>))]
+        public TestForwarderRequestMethod Method { get; set; } = Smplkit.Internal.Generated.Audit.TestForwarderRequestMethod.POST;
 
+        /// <summary>
+        /// Destination URL.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("url")]
         public string Url { get; set; } = default!;
 
+        /// <summary>
+        /// HTTP headers attached to the test request.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("headers")]
         public System.Collections.Generic.List<HttpHeader> Headers { get; set; } = default!;
 
+        /// <summary>
+        /// Request body. If omitted, an empty body is sent.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("body")]
         public string? Body { get; set; } = default!;
 
+        /// <summary>
+        /// HTTP response status that indicates success. Either a specific status code (e.g. `200`, `204`) or a status class (`1xx`, `2xx`, `3xx`, `4xx`, `5xx`).
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("success_status")]
         public string Success_status { get; set; } = "2xx";
 
+        /// <summary>
+        /// Per-request timeout in milliseconds. Capped at 30 seconds.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("timeout_ms")]
         public int? Timeout_ms { get; set; } = default!;
 
     }
 
     /// <summary>
-    /// Plain-JSON response body. Headers are echoed back unredacted because
-    /// <br/>the caller already supplied them — the response is for the caller, not
-    /// <br/>persisted into the delivery log.
+    /// Result of a test-forwarder execution.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class TestForwarderResponse
     {
 
+        /// <summary>
+        /// True if the destination responded with a status matching `success_status`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("succeeded")]
         public bool Succeeded { get; set; } = default!;
 
+        /// <summary>
+        /// HTTP status code returned by the destination.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("response_status")]
         public int? Response_status { get; set; } = default!;
 
+        /// <summary>
+        /// Headers returned by the destination.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("response_headers")]
         public System.Collections.Generic.IDictionary<string, string> Response_headers { get; set; } = default!;
 
+        /// <summary>
+        /// Response body returned by the destination.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("response_body")]
         public string? Response_body { get; set; } = default!;
 
+        /// <summary>
+        /// Elapsed time of the request in milliseconds.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("latency_ms")]
         public int? Latency_ms { get; set; } = default!;
 
+        /// <summary>
+        /// Error message if the request did not complete.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("error")]
         public string? Error { get; set; } = default!;
 
@@ -2836,23 +2967,27 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     /// <summary>
-    /// Attribute set for a usage resource.
-    /// <br/>
-    /// <br/>The shape mirrors the ``/api/v1/usage`` contract used by config, flags,
-    /// <br/>and logging — three fields, no per-product extras. Per-period limits
-    /// <br/>live in the product catalog (``GET /api/v1/products``); the usage
-    /// <br/>endpoint reports counts only.
+    /// Usage counter for a single metered limit.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class UsageAttributes
     {
 
+        /// <summary>
+        /// Identifier of the metered limit, e.g. `audit.customer_events_per_month`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("limit_key")]
         public string Limit_key { get; set; } = default!;
 
+        /// <summary>
+        /// Period the counter covers. `current` is the only supported value.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("period")]
         public string Period { get; set; } = default!;
 
+        /// <summary>
+        /// Count for the period.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("value")]
         public int Value { get; set; } = default!;
 
@@ -2910,7 +3045,7 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     /// <summary>
-    /// Empty body — the action requires no parameters.
+    /// Empty body — the action takes no parameters.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class WipeRequest
@@ -2918,16 +3053,25 @@ namespace Smplkit.Internal.Generated.Audit
 
     }
 
+    /// <summary>
+    /// Summary of a completed wipe action.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class WipeResponse
     {
 
+        /// <summary>
+        /// Always `true` for a successful wipe.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("wiped")]
         public bool Wiped { get; set; } = true;
 
         [System.Text.Json.Serialization.JsonPropertyName("tables")]
         public WipeTablesSummary Tables { get; set; } = new WipeTablesSummary();
 
+        /// <summary>
+        /// When the wipe completed.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("completed_at")]
         public System.DateTimeOffset Completed_at { get; set; } = default!;
 
@@ -2942,25 +3086,46 @@ namespace Smplkit.Internal.Generated.Audit
 
     }
 
+    /// <summary>
+    /// Counts of records deleted, broken down by record kind.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class WipeTablesSummary
     {
 
+        /// <summary>
+        /// Number of audit events deleted.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("audit_event")]
         public int Audit_event { get; set; } = default!;
 
+        /// <summary>
+        /// Number of monthly usage-quota counters deleted.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("audit_event_quota")]
         public int Audit_event_quota { get; set; } = default!;
 
+        /// <summary>
+        /// Number of forwarders deleted.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("forwarder")]
         public int Forwarder { get; set; } = default!;
 
+        /// <summary>
+        /// Number of forwarder delivery log entries deleted.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("forwarder_delivery")]
         public int Forwarder_delivery { get; set; } = default!;
 
+        /// <summary>
+        /// Number of distinct `resource_type` entries deleted.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("resource_type")]
         public int Resource_type { get; set; } = default!;
 
+        /// <summary>
+        /// Number of distinct `action` entries deleted.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("action")]
         public int Action { get; set; } = default!;
 
@@ -2990,6 +3155,48 @@ namespace Smplkit.Internal.Generated.Audit
 
         [System.Runtime.Serialization.EnumMember(Value = @"SKIPPED_DO_NOT_FORWARD")]
         SKIPPED_DO_NOT_FORWARD = 3,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum ForwarderHttpMethod
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"GET")]
+        GET = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"POST")]
+        POST = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"PUT")]
+        PUT = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"PATCH")]
+        PATCH = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"DELETE")]
+        DELETE = 4,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum TestForwarderRequestMethod
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"GET")]
+        GET = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"POST")]
+        POST = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"PUT")]
+        PUT = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"PATCH")]
+        PATCH = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"DELETE")]
+        DELETE = 4,
 
     }
 
