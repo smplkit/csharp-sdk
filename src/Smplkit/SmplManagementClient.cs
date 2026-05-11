@@ -1,6 +1,7 @@
 using Smplkit.Internal;
 using Smplkit.Management;
 using ContextRegistrationBuffer = Smplkit.Flags.ContextRegistrationBuffer;
+using GenAudit = Smplkit.Internal.Generated.Audit;
 
 namespace Smplkit;
 
@@ -48,6 +49,9 @@ public sealed class SmplManagementClient : IDisposable
 
     /// <summary>Gets the <c>log_groups</c> namespace — log-group CRUD (separate from loggers).</summary>
     public LogGroupsClient LogGroups { get; }
+
+    /// <summary>Gets the audit management namespace — SIEM forwarder CRUD.</summary>
+    public AuditManagementClient Audit { get; }
 
     /// <summary>
     /// Initializes a new <see cref="SmplManagementClient"/> with automatic config resolution.
@@ -99,6 +103,7 @@ public sealed class SmplManagementClient : IDisposable
         Flags = new FlagsClient(clients);
         Loggers = new LoggersClient(clients);
         LogGroups = new LogGroupsClient(clients);
+        Audit = new AuditManagementClient(clients.Audit);
     }
 
     /// <summary>
@@ -124,6 +129,7 @@ public sealed class SmplManagementClient : IDisposable
         Flags = new FlagsClient(clients);
         Loggers = new LoggersClient(clients);
         LogGroups = new LogGroupsClient(clients);
+        Audit = new AuditManagementClient(clients.Audit);
     }
 
     /// <summary>Releases resources used by this client.</summary>

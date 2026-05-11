@@ -2,7 +2,7 @@
 	config_runtime_showcase config_management_showcase \
 	flags_runtime_showcase flags_management_showcase \
 	logging_runtime_showcase logging_management_showcase \
-	audit_runtime_showcase \
+	audit_runtime_showcase audit_management_showcase \
 	all_showcases
 
 install:
@@ -36,7 +36,10 @@ logging_runtime_showcase:
 audit_runtime_showcase:
 	dotnet run --project examples/AuditRuntimeShowcase
 
+audit_management_showcase:
+	dotnet run --project examples/AuditManagementShowcase
+
 all_showcases: config_management_showcase config_runtime_showcase \
 	flags_management_showcase flags_runtime_showcase \
 	logging_management_showcase logging_runtime_showcase \
-	audit_runtime_showcase
+	audit_runtime_showcase audit_management_showcase

@@ -69,8 +69,80 @@ public sealed class CreateEventInput
     public bool DoNotForward { get; set; }
 }
 
+/// <summary>Filters and pagination cursor for <see cref="AuditEvents.ListAsync"/>.</summary>
+public sealed class ListEventsInput
+{
+    /// <summary>Filter by exact-match action.</summary>
+    public string? Action { get; set; }
+    /// <summary>Filter by exact-match resource type.</summary>
+    public string? ResourceType { get; set; }
+    /// <summary>Filter by exact-match resource id.</summary>
+    public string? ResourceId { get; set; }
+    /// <summary>Filter by exact-match actor type (<c>USER</c>, <c>API_KEY</c>, etc.).</summary>
+    public string? ActorType { get; set; }
+    /// <summary>Filter by exact-match actor UUID.</summary>
+    public Guid? ActorId { get; set; }
+    /// <summary>Range syntax per ADR-014, e.g. <c>[2026-01-01T00:00:00Z,*)</c>.</summary>
+    public string? OccurredAtRange { get; set; }
+    /// <summary>Case-insensitive substring match against <c>resource_id</c>.</summary>
+    public string? Search { get; set; }
+    /// <summary>Page size; default 50, max 200 server-side.</summary>
+    public int? PageSize { get; set; }
+    /// <summary>Opaque cursor returned as <c>NextCursor</c> by the previous page.</summary>
+    public string? PageAfter { get; set; }
+}
+
+/// <summary>One page of <see cref="AuditEvent"/>s plus the next-page cursor.</summary>
+/// <param name="Events">The page's events in <c>-created_at</c> order.</param>
+/// <param name="NextCursor">Cursor for the next page, or null on the last page.</param>
+public sealed record ListEventsPage(IReadOnlyList<AuditEvent> Events, string? NextCursor);
+
 // ---------------------------------------------------------------------------
-// Forwarders (SIEM streaming, Pro tier)
+// Resource types and actions
+// ---------------------------------------------------------------------------
+
+/// <summary>A distinct resource_type slug seen in the account's audit log.</summary>
+/// <param name="Id">The resource_type slug (same as the JSON:API id).</param>
+/// <param name="CreatedAt">First sighting of this resource_type for the account.</param>
+public sealed record ResourceType(string Id, DateTimeOffset CreatedAt);
+
+/// <summary>Pagination input for <see cref="AuditResourceTypes.ListAsync"/>.</summary>
+public sealed class ListResourceTypesInput
+{
+    /// <summary>Page size.</summary>
+    public int? PageSize { get; set; }
+    /// <summary>Opaque cursor returned by the previous page.</summary>
+    public string? PageAfter { get; set; }
+}
+
+/// <summary>One page of <see cref="ResourceType"/>s plus the next-page cursor.</summary>
+/// <param name="ResourceTypes">The page's resource types.</param>
+/// <param name="NextCursor">Cursor for the next page, or null on the last page.</param>
+public sealed record ListResourceTypesPage(IReadOnlyList<ResourceType> ResourceTypes, string? NextCursor);
+
+/// <summary>A distinct action slug seen in the account's audit log.</summary>
+/// <param name="Id">The action slug (same as the JSON:API id).</param>
+/// <param name="CreatedAt">First sighting of this action for the account.</param>
+public sealed record AuditAction(string Id, DateTimeOffset CreatedAt);
+
+/// <summary>Filter + pagination input for <see cref="AuditActions.ListAsync"/>.</summary>
+public sealed class ListActionsInput
+{
+    /// <summary>Restrict to actions seen with this resource type.</summary>
+    public string? FilterResourceType { get; set; }
+    /// <summary>Page size.</summary>
+    public int? PageSize { get; set; }
+    /// <summary>Opaque cursor returned by the previous page.</summary>
+    public string? PageAfter { get; set; }
+}
+
+/// <summary>One page of <see cref="AuditAction"/>s plus the next-page cursor.</summary>
+/// <param name="Actions">The page's actions.</param>
+/// <param name="NextCursor">Cursor for the next page, or null on the last page.</param>
+public sealed record ListActionsPage(IReadOnlyList<AuditAction> Actions, string? NextCursor);
+
+// ---------------------------------------------------------------------------
+// Forwarders (SIEM streaming) — domain models shared with the management plane
 // ---------------------------------------------------------------------------
 
 /// <summary>A single name/value HTTP header on a forwarder destination.</summary>
@@ -102,8 +174,7 @@ public sealed class ForwarderHttp
 /// SIEM streaming forwarder configured on the customer's account.
 ///
 /// <para>Header values returned on reads are always redacted.
-/// Re-supply real values when calling
-/// <see cref="AuditForwarders.UpdateAsync"/>.</para>
+/// Re-supply real values when calling update.</para>
 /// </summary>
 /// <param name="Id">Server-assigned forwarder id.</param>
 /// <param name="Name">Customer-supplied display name.</param>
@@ -113,7 +184,6 @@ public sealed class ForwarderHttp
 /// <param name="Filter">Optional JSON Logic expression; events that don't match are filtered out.</param>
 /// <param name="Transform">Optional JSONata template applied to the event payload.</param>
 /// <param name="Http">Destination HTTP configuration (header values redacted on reads).</param>
-/// <param name="Data">Free-form attributes JSON.</param>
 /// <param name="CreatedAt">When the forwarder was created.</param>
 /// <param name="UpdatedAt">When the forwarder was last updated.</param>
 /// <param name="DeletedAt">Soft-delete timestamp, or null.</param>
@@ -127,14 +197,13 @@ public sealed record Forwarder(
     IDictionary<string, object?>? Filter,
     string? Transform,
     ForwarderHttp Http,
-    IDictionary<string, object?> Data,
     DateTimeOffset? CreatedAt,
     DateTimeOffset? UpdatedAt,
     DateTimeOffset? DeletedAt,
     int? Version
 );
 
-/// <summary>Input for <see cref="AuditForwarders.CreateAsync"/> and <see cref="AuditForwarders.UpdateAsync"/>.</summary>
+/// <summary>Input for forwarder create and full-replace update.</summary>
 public sealed class CreateForwarderInput
 {
     /// <summary>Display name. Server derives the slug from this.</summary>
@@ -149,8 +218,6 @@ public sealed class CreateForwarderInput
     public IDictionary<string, object?>? Filter { get; set; }
     /// <summary>Optional JSONata template applied to the event payload before POST.</summary>
     public string? Transform { get; set; }
-    /// <summary>Optional free-form attributes.</summary>
-    public IDictionary<string, object?>? Data { get; set; }
 }
 
 /// <summary>Filter + pagination input for the forwarders list.</summary>
@@ -170,116 +237,3 @@ public sealed class ListForwardersInput
 /// <param name="Forwarders">The page's forwarders.</param>
 /// <param name="NextCursor">Cursor for the next page, or null on the last page.</param>
 public sealed record ListForwardersPage(IReadOnlyList<Forwarder> Forwarders, string? NextCursor);
-
-/// <summary>Read-only delivery row from the forwarder delivery log.</summary>
-/// <param name="Id">Server-assigned delivery row id.</param>
-/// <param name="ForwarderId">Forwarder this delivery belongs to.</param>
-/// <param name="EventId">Audit event this delivery was for.</param>
-/// <param name="AttemptNumber">1 for the in-line attempt; >1 for manual retries.</param>
-/// <param name="Status">One of <c>succeeded</c>, <c>failed</c>, <c>filtered_out</c>, <c>skipped_do_not_forward</c>.</param>
-/// <param name="Request">The rendered HTTP request, with header values redacted.</param>
-/// <param name="ResponseStatus">Destination HTTP status code, or null on network errors / filter / skip.</param>
-/// <param name="ResponseBody">Captured response body (truncated to 4 KB).</param>
-/// <param name="LatencyMs">Round-trip time for the destination call.</param>
-/// <param name="Error">Error message for failed attempts.</param>
-/// <param name="CreatedAt">When this delivery row was recorded.</param>
-public sealed record ForwarderDelivery(
-    Guid Id,
-    Guid ForwarderId,
-    Guid EventId,
-    int AttemptNumber,
-    string Status,
-    IDictionary<string, object?>? Request,
-    int? ResponseStatus,
-    string? ResponseBody,
-    int? LatencyMs,
-    string? Error,
-    DateTimeOffset? CreatedAt
-);
-
-/// <summary>Filter + pagination input for the per-forwarder delivery log.</summary>
-public sealed class ListDeliveriesInput
-{
-    /// <summary>One of <c>SUCCEEDED</c>, <c>FAILED</c>, <c>FILTERED_OUT</c>, <c>SKIPPED_DO_NOT_FORWARD</c>.</summary>
-    public string? Status { get; set; }
-    /// <summary>Range syntax per ADR-014, e.g. <c>"[2026-01-01T00:00:00Z,*)"</c>.</summary>
-    public string? CreatedAtRange { get; set; }
-    /// <summary>Restrict results to deliveries for this event ID.</summary>
-    public Guid? EventId { get; set; }
-    /// <summary>Page size.</summary>
-    public int? PageSize { get; set; }
-    /// <summary>Opaque cursor returned by the previous page.</summary>
-    public string? PageAfter { get; set; }
-}
-
-/// <summary>One page of <see cref="ForwarderDelivery"/> rows plus the next-page cursor.</summary>
-/// <param name="Deliveries">The page's delivery rows.</param>
-/// <param name="NextCursor">Cursor for the next page, or null on the last page.</param>
-public sealed record ListDeliveriesPage(IReadOnlyList<ForwarderDelivery> Deliveries, string? NextCursor);
-
-/// <summary>Summary returned by <see cref="AuditForwarders.RetryFailedDeliveriesAsync"/>.</summary>
-/// <param name="Attempted">Total deliveries re-attempted.</param>
-/// <param name="Succeeded">How many of the retries succeeded.</param>
-/// <param name="Failed">How many of the retries failed again.</param>
-public sealed record RetryFailedDeliveriesSummary(int Attempted, int Succeeded, int Failed);
-
-/// <summary>Input for <see cref="AuditFunctions.ExecuteTestForwarderAsync"/>.</summary>
-public sealed class TestForwarderInput
-{
-    /// <summary>Destination URL.</summary>
-    public required string Url { get; set; }
-    /// <summary>HTTP method. Defaults to <c>POST</c>.</summary>
-    public string Method { get; set; } = "POST";
-    /// <summary>Headers sent to the destination.</summary>
-    public IList<HttpHeader> Headers { get; set; } = new List<HttpHeader>();
-    /// <summary>Body to send.</summary>
-    public string? Body { get; set; }
-    /// <summary>Status code or class that signals success. Defaults to <c>"2xx"</c>.</summary>
-    public string SuccessStatus { get; set; } = "2xx";
-    /// <summary>Capped at 30s server-side.</summary>
-    public int? TimeoutMs { get; set; }
-}
-
-/// <summary>Plain-JSON response from the test_forwarder/execute proxy.</summary>
-/// <param name="Succeeded">Whether the destination's response matched <c>SuccessStatus</c>.</param>
-/// <param name="ResponseStatus">HTTP status returned by the destination, or null on network errors.</param>
-/// <param name="ResponseHeaders">Response headers echoed back unredacted (for debugging).</param>
-/// <param name="ResponseBody">Captured response body (truncated to 64 KB).</param>
-/// <param name="LatencyMs">Round-trip time for the destination call.</param>
-/// <param name="Error">Error message for failed / blocked attempts (e.g. SSRF rejection).</param>
-public sealed record TestForwarderResult(
-    bool Succeeded,
-    int? ResponseStatus,
-    IDictionary<string, string> ResponseHeaders,
-    string ResponseBody,
-    int? LatencyMs,
-    string? Error
-);
-
-/// <summary>Filters and pagination cursor for <see cref="AuditEvents.ListAsync"/>.</summary>
-public sealed class ListEventsInput
-{
-    /// <summary>Filter by exact-match action.</summary>
-    public string? Action { get; set; }
-    /// <summary>Filter by exact-match resource type.</summary>
-    public string? ResourceType { get; set; }
-    /// <summary>Filter by exact-match resource id.</summary>
-    public string? ResourceId { get; set; }
-    /// <summary>Filter by exact-match actor type (<c>USER</c>, <c>API_KEY</c>, etc.).</summary>
-    public string? ActorType { get; set; }
-    /// <summary>Filter by exact-match actor UUID.</summary>
-    public Guid? ActorId { get; set; }
-    /// <summary>Range syntax per ADR-014, e.g. <c>[2026-01-01T00:00:00Z,*)</c>.</summary>
-    public string? OccurredAtRange { get; set; }
-    /// <summary>Case-insensitive substring match against <c>resource_id</c>.</summary>
-    public string? Search { get; set; }
-    /// <summary>Page size; default 50, max 200 server-side.</summary>
-    public int? PageSize { get; set; }
-    /// <summary>Opaque cursor returned as <c>NextCursor</c> by the previous page.</summary>
-    public string? PageAfter { get; set; }
-}
-
-/// <summary>One page of <see cref="AuditEvent"/>s plus the next-page cursor.</summary>
-/// <param name="Events">The page's events in <c>-created_at</c> order.</param>
-/// <param name="NextCursor">Cursor for the next page, or null on the last page.</param>
-public sealed record ListEventsPage(IReadOnlyList<AuditEvent> Events, string? NextCursor);

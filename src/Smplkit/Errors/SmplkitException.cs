@@ -120,6 +120,19 @@ public class ConnectionException : SmplkitException
     }
 }
 
+/// <summary>Raised when the server returns 402 — the requested operation requires an upgraded plan.</summary>
+public class PaymentRequiredException : SmplkitException
+{
+    /// <summary>Initializes a new instance of <see cref="PaymentRequiredException"/>.</summary>
+    public PaymentRequiredException(
+        string message,
+        string? responseBody = null,
+        IReadOnlyList<ApiErrorDetail>? errors = null)
+        : base(message, statusCode: 402, responseBody: responseBody, errors: errors)
+    {
+    }
+}
+
 /// <summary>Raised when an operation exceeds its timeout.</summary>
 public class TimeoutException : SmplkitException
 {

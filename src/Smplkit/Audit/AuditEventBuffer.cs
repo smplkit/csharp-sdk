@@ -45,7 +45,7 @@ internal sealed class AuditEventBuffer : IAsyncDisposable
     }
 
     /// <summary>Enqueue an event; may evict the oldest item under overflow.</summary>
-    public void Enqueue(GenAudit.EventResponse body, string? idempotencyKey)
+    public void Enqueue(GenAudit.EventRequest body, string? idempotencyKey)
     {
         int depth;
         lock (_lock)
@@ -231,11 +231,11 @@ internal sealed class AuditEventBuffer : IAsyncDisposable
 
     private sealed class PendingEvent
     {
-        public GenAudit.EventResponse Body { get; }
+        public GenAudit.EventRequest Body { get; }
         public string? IdempotencyKey { get; }
         public int Attempts { get; set; }
         public DateTime NextRetryAt { get; set; }
-        public PendingEvent(GenAudit.EventResponse body, string? idempotencyKey)
+        public PendingEvent(GenAudit.EventRequest body, string? idempotencyKey)
         {
             Body = body;
             IdempotencyKey = idempotencyKey;

@@ -90,6 +90,36 @@ public class SmplkitExceptionTests
     }
 
     [Fact]
+    public void PaymentRequiredException_IsSmplkitException()
+    {
+        var ex = new PaymentRequiredException("payment required", "response body");
+
+        Assert.IsAssignableFrom<SmplkitException>(ex);
+        Assert.Equal("payment required", ex.Message);
+        Assert.Equal(402, ex.StatusCode);
+        Assert.Equal("response body", ex.ResponseBody);
+    }
+
+    [Fact]
+    public void PaymentRequiredException_WithoutResponseBody_HasNullResponseBody()
+    {
+        var ex = new PaymentRequiredException("payment required");
+
+        Assert.Equal(402, ex.StatusCode);
+        Assert.Null(ex.ResponseBody);
+    }
+
+    [Fact]
+    public void PaymentRequiredException_CanBeCaughtAsSmplkitException()
+    {
+        Exception ex = new PaymentRequiredException("payment required", "body");
+        Assert.True(ex is SmplkitException);
+        var smpl = (SmplkitException)ex;
+        Assert.Equal(402, smpl.StatusCode);
+        Assert.Equal("body", smpl.ResponseBody);
+    }
+
+    [Fact]
     public void AllExceptions_AreInstanceOfSmplkitException()
     {
         SmplkitException[] exceptions =
@@ -99,6 +129,7 @@ public class SmplkitExceptionTests
             new NotFoundException("test"),
             new ConflictException("test"),
             new ValidationException("test"),
+            new PaymentRequiredException("test"),
         ];
 
         foreach (var ex in exceptions)
@@ -118,6 +149,7 @@ public class SmplkitExceptionTests
             new NotFoundException("not found"),
             new ConflictException("conflict"),
             new ValidationException("validation"),
+            new PaymentRequiredException("payment required"),
         ];
 
         foreach (var ex in exceptions)

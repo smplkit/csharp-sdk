@@ -18,6 +18,14 @@ public class ApiErrorParserTests
     }
 
     [Fact]
+    public void Status402_MapsToPaymentRequired()
+    {
+        var ex = Invoke(402, "{}");
+        Assert.IsType<PaymentRequiredException>(ex);
+        Assert.Equal(402, ex.StatusCode);
+    }
+
+    [Fact]
     public void Status404_MapsToNotFound()
     {
         var ex = Invoke(404, "{}");

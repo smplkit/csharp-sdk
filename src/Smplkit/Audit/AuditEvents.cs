@@ -1,3 +1,4 @@
+using Smplkit.Internal;
 using GenAudit = Smplkit.Internal.Generated.Audit;
 
 namespace Smplkit.Audit;
@@ -61,15 +62,17 @@ public sealed class AuditEvents
             Type = "event",
             Attributes = attrs,
         };
-        var body = new GenAudit.EventResponse { Data = resource };
+        var body = new GenAudit.EventRequest { Data = resource };
         _buffer.Enqueue(body, input.IdempotencyKey);
     }
 
     /// <summary>Single-event retrieval.</summary>
-    /// <exception cref="GenAudit.ApiException">If the server returns a non-2xx status (404 if not found).</exception>
+    /// <exception cref="Smplkit.Errors.NotFoundException">If the event does not exist in the caller's account.</exception>
+    /// <exception cref="Smplkit.Errors.SmplkitException">On other non-2xx responses.</exception>
     public async Task<AuditEvent> GetAsync(Guid eventId, CancellationToken cancellationToken = default)
     {
-        var resp = await _gen.Get_eventAsync(eventId, cancellationToken).ConfigureAwait(false);
+        var resp = await ApiExceptionMapper.ExecuteAsync(
+            () => _gen.Get_eventAsync(eventId, cancellationToken)).ConfigureAwait(false);
         return FromResource(resp.Data);
     }
 
@@ -77,7 +80,7 @@ public sealed class AuditEvents
     public async Task<ListEventsPage> ListAsync(ListEventsInput? input = null, CancellationToken cancellationToken = default)
     {
         input ??= new ListEventsInput();
-        var resp = await _gen.List_eventsAsync(
+        var resp = await ApiExceptionMapper.ExecuteAsync(() => _gen.List_eventsAsync(
             input.OccurredAtRange,
             input.ActorType,
             input.ActorId,
@@ -88,7 +91,7 @@ public sealed class AuditEvents
             input.PageSize,
             input.PageAfter,
             cancellationToken
-        ).ConfigureAwait(false);
+        )).ConfigureAwait(false);
 
         var events = (resp.Data ?? new List<GenAudit.EventResource>()).Select(FromResource).ToList();
         string? nextCursor = null;

@@ -22,6 +22,7 @@ internal static class ApiErrorParser
         return statusCode switch
         {
             400 or 422 => new ValidationException(message, responseBody: body, statusCode: statusCode, errors: errors),
+            402 => new PaymentRequiredException(message, body, errors),
             404 => new NotFoundException(message, body, errors),
             409 => new ConflictException(message, body, errors),
             _ => new SmplkitException(message, statusCode: statusCode, responseBody: body, errors: errors),

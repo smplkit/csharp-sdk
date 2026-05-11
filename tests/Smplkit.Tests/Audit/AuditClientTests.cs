@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using Smplkit.Audit;
+using Smplkit.Errors;
 using Smplkit.Tests.Helpers;
 using Xunit;
 using GenAudit = Smplkit.Internal.Generated.Audit;
@@ -149,12 +150,12 @@ public class AuditClientTests
     }
 
     [Fact]
-    public async Task GetAsync_404_ThrowsApiException()
+    public async Task GetAsync_404_ThrowsNotFoundException()
     {
         var (gen, _, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)));
         await using var client = new AuditClient(gen);
 
-        await Assert.ThrowsAsync<GenAudit.ApiException>(
+        await Assert.ThrowsAsync<NotFoundException>(
             () => client.Events.GetAsync(Guid.NewGuid()));
     }
 }
