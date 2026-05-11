@@ -37,25 +37,25 @@ public static class ForwarderTypeExtensions
     private static readonly IReadOnlyDictionary<ForwarderType, string> _toWire =
         new Dictionary<ForwarderType, string>
         {
-            { ForwarderType.Http, "http" },
-            { ForwarderType.Datadog, "datadog" },
-            { ForwarderType.SplunkHec, "splunk_hec" },
-            { ForwarderType.SumoLogic, "sumo_logic" },
-            { ForwarderType.NewRelic, "new_relic" },
-            { ForwarderType.Honeycomb, "honeycomb" },
-            { ForwarderType.Elastic, "elastic" },
+            { ForwarderType.Http, "HTTP" },
+            { ForwarderType.Datadog, "DATADOG" },
+            { ForwarderType.SplunkHec, "SPLUNK_HEC" },
+            { ForwarderType.SumoLogic, "SUMO_LOGIC" },
+            { ForwarderType.NewRelic, "NEW_RELIC" },
+            { ForwarderType.Honeycomb, "HONEYCOMB" },
+            { ForwarderType.Elastic, "ELASTIC" },
         };
 
     private static readonly IReadOnlyDictionary<string, ForwarderType> _fromWire =
         new Dictionary<string, ForwarderType>(StringComparer.Ordinal)
         {
-            { "http", ForwarderType.Http },
-            { "datadog", ForwarderType.Datadog },
-            { "splunk_hec", ForwarderType.SplunkHec },
-            { "sumo_logic", ForwarderType.SumoLogic },
-            { "new_relic", ForwarderType.NewRelic },
-            { "honeycomb", ForwarderType.Honeycomb },
-            { "elastic", ForwarderType.Elastic },
+            { "HTTP", ForwarderType.Http },
+            { "DATADOG", ForwarderType.Datadog },
+            { "SPLUNK_HEC", ForwarderType.SplunkHec },
+            { "SUMO_LOGIC", ForwarderType.SumoLogic },
+            { "NEW_RELIC", ForwarderType.NewRelic },
+            { "HONEYCOMB", ForwarderType.Honeycomb },
+            { "ELASTIC", ForwarderType.Elastic },
         };
 
     /// <summary>Returns the wire-format slug — e.g. <c>"splunk_hec"</c>.</summary>

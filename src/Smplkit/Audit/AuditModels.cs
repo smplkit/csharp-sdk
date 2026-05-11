@@ -200,10 +200,12 @@ public sealed record ForwarderDelivery(
 /// <summary>Filter + pagination input for the per-forwarder delivery log.</summary>
 public sealed class ListDeliveriesInput
 {
-    /// <summary>One of <c>succeeded</c>, <c>failed</c>, <c>filtered_out</c>, <c>skipped_do_not_forward</c>.</summary>
+    /// <summary>One of <c>SUCCEEDED</c>, <c>FAILED</c>, <c>FILTERED_OUT</c>, <c>SKIPPED_DO_NOT_FORWARD</c>.</summary>
     public string? Status { get; set; }
     /// <summary>Range syntax per ADR-014, e.g. <c>"[2026-01-01T00:00:00Z,*)"</c>.</summary>
     public string? CreatedAtRange { get; set; }
+    /// <summary>Restrict results to deliveries for this event ID.</summary>
+    public Guid? EventId { get; set; }
     /// <summary>Page size.</summary>
     public int? PageSize { get; set; }
     /// <summary>Opaque cursor returned by the previous page.</summary>
@@ -269,7 +271,7 @@ public sealed class ListEventsInput
     public Guid? ActorId { get; set; }
     /// <summary>Range syntax per ADR-014, e.g. <c>[2026-01-01T00:00:00Z,*)</c>.</summary>
     public string? OccurredAtRange { get; set; }
-    /// <summary>Case-insensitive substring search against resource_id.</summary>
+    /// <summary>Case-insensitive substring match against <c>resource_id</c>.</summary>
     public string? Search { get; set; }
     /// <summary>Page size; default 50, max 200 server-side.</summary>
     public int? PageSize { get; set; }

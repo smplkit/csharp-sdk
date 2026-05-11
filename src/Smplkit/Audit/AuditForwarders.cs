@@ -68,8 +68,9 @@ public sealed class AuditForwarders
         Guid forwarderId, ListDeliveriesInput? input = null, CancellationToken ct = default)
     {
         input ??= new ListDeliveriesInput();
+        var eventIdStr = input.EventId.HasValue ? input.EventId.Value.ToString() : null;
         var resp = await _gen.List_forwarder_deliveriesAsync(
-            forwarderId, input.Status, input.CreatedAtRange, input.PageSize, input.PageAfter, ct
+            forwarderId, input.Status, input.CreatedAtRange, eventIdStr, input.PageSize, input.PageAfter, ct
         ).ConfigureAwait(false);
         var rows = (resp.Data ?? new List<GenAudit.ForwarderDeliveryResource>())
             .Select(DeliveryFromResource).ToList();
@@ -172,13 +173,13 @@ public sealed class AuditForwarders
     private static GenAudit.ForwarderType ToGenForwarderType(ForwarderType src) =>
         src switch
         {
-            ForwarderType.Http => GenAudit.ForwarderType.Http,
-            ForwarderType.Datadog => GenAudit.ForwarderType.Datadog,
-            ForwarderType.SplunkHec => GenAudit.ForwarderType.Splunk_hec,
-            ForwarderType.SumoLogic => GenAudit.ForwarderType.Sumo_logic,
-            ForwarderType.NewRelic => GenAudit.ForwarderType.New_relic,
-            ForwarderType.Honeycomb => GenAudit.ForwarderType.Honeycomb,
-            ForwarderType.Elastic => GenAudit.ForwarderType.Elastic,
+            ForwarderType.Http => GenAudit.ForwarderType.HTTP,
+            ForwarderType.Datadog => GenAudit.ForwarderType.DATADOG,
+            ForwarderType.SplunkHec => GenAudit.ForwarderType.SPLUNK_HEC,
+            ForwarderType.SumoLogic => GenAudit.ForwarderType.SUMO_LOGIC,
+            ForwarderType.NewRelic => GenAudit.ForwarderType.NEW_RELIC,
+            ForwarderType.Honeycomb => GenAudit.ForwarderType.HONEYCOMB,
+            ForwarderType.Elastic => GenAudit.ForwarderType.ELASTIC,
             _ => throw new ArgumentOutOfRangeException(nameof(src), src, null),
         };
 
@@ -186,13 +187,13 @@ public sealed class AuditForwarders
     private static ForwarderType FromGenForwarderType(GenAudit.ForwarderType src) =>
         src switch
         {
-            GenAudit.ForwarderType.Http => ForwarderType.Http,
-            GenAudit.ForwarderType.Datadog => ForwarderType.Datadog,
-            GenAudit.ForwarderType.Splunk_hec => ForwarderType.SplunkHec,
-            GenAudit.ForwarderType.Sumo_logic => ForwarderType.SumoLogic,
-            GenAudit.ForwarderType.New_relic => ForwarderType.NewRelic,
-            GenAudit.ForwarderType.Honeycomb => ForwarderType.Honeycomb,
-            GenAudit.ForwarderType.Elastic => ForwarderType.Elastic,
+            GenAudit.ForwarderType.HTTP => ForwarderType.Http,
+            GenAudit.ForwarderType.DATADOG => ForwarderType.Datadog,
+            GenAudit.ForwarderType.SPLUNK_HEC => ForwarderType.SplunkHec,
+            GenAudit.ForwarderType.SUMO_LOGIC => ForwarderType.SumoLogic,
+            GenAudit.ForwarderType.NEW_RELIC => ForwarderType.NewRelic,
+            GenAudit.ForwarderType.HONEYCOMB => ForwarderType.Honeycomb,
+            GenAudit.ForwarderType.ELASTIC => ForwarderType.Elastic,
             _ => throw new ArgumentOutOfRangeException(nameof(src), src, null),
         };
 
