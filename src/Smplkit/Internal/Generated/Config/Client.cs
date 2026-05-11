@@ -35,18 +35,24 @@ namespace Smplkit.Internal.Generated.Config
         /// Create Config
         /// </summary>
         /// <remarks>
-        /// Create a new configuration. The caller provides the id (key) in the request body.
+        /// Create a config for this account.
+        /// <br/>
+        /// <br/>The caller supplies the config's key as `data.id`. Keys are unique
+        /// <br/>within an account and immutable for the lifetime of the config.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ConfigResponse> Create_configAsync(ConfigResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ConfigResponse> Create_configAsync(ConfigRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
         /// List Configs
         /// </summary>
         /// <remarks>
-        /// List all configurations for the authenticated account.
+        /// List configs for this account.
+        /// <br/>
+        /// <br/>Pass `filter[parent]=&lt;parent_key&gt;` to return only the direct children
+        /// <br/>of a specific config.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -57,7 +63,7 @@ namespace Smplkit.Internal.Generated.Config
         /// Get Config
         /// </summary>
         /// <remarks>
-        /// Return a configuration by its key.
+        /// Retrieve a single config by its key.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -68,18 +74,22 @@ namespace Smplkit.Internal.Generated.Config
         /// Update Config
         /// </summary>
         /// <remarks>
-        /// Replace a configuration entirely.
+        /// Replace a config entirely. Every writable field is overwritten.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ConfigResponse> Update_configAsync(string id, ConfigResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ConfigResponse> Update_configAsync(string id, ConfigRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
         /// Delete Config
         /// </summary>
         /// <remarks>
-        /// Delete a configuration by its key.
+        /// Delete a config by its key.
+        /// <br/>
+        /// <br/>A config that is referenced as `parent` by another config cannot be
+        /// <br/>deleted; reparent or remove the parent reference on every child
+        /// <br/>first. The `common` config cannot be deleted.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -90,8 +100,9 @@ namespace Smplkit.Internal.Generated.Config
         /// List Config Usage
         /// </summary>
         /// <remarks>
-        /// Return current resource usage counts for the authenticated account.
+        /// Report the current-period usage counters for this account.
         /// </remarks>
+        /// <param name="filterperiod">Period to report. `current` is the only supported value.</param>
         /// <returns>Current usage for the authenticated account</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<UsageListResponse> List_config_usageAsync(string? filterperiod = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -151,11 +162,14 @@ namespace Smplkit.Internal.Generated.Config
         /// Create Config
         /// </summary>
         /// <remarks>
-        /// Create a new configuration. The caller provides the id (key) in the request body.
+        /// Create a config for this account.
+        /// <br/>
+        /// <br/>The caller supplies the config's key as `data.id`. Keys are unique
+        /// <br/>within an account and immutable for the lifetime of the config.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ConfigResponse> Create_configAsync(ConfigResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ConfigResponse> Create_configAsync(ConfigRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (body == null)
                 throw new System.ArgumentNullException("body");
@@ -235,7 +249,10 @@ namespace Smplkit.Internal.Generated.Config
         /// List Configs
         /// </summary>
         /// <remarks>
-        /// List all configurations for the authenticated account.
+        /// List configs for this account.
+        /// <br/>
+        /// <br/>Pass `filter[parent]=&lt;parent_key&gt;` to return only the direct children
+        /// <br/>of a specific config.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -318,7 +335,7 @@ namespace Smplkit.Internal.Generated.Config
         /// Get Config
         /// </summary>
         /// <remarks>
-        /// Return a configuration by its key.
+        /// Retrieve a single config by its key.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -399,11 +416,11 @@ namespace Smplkit.Internal.Generated.Config
         /// Update Config
         /// </summary>
         /// <remarks>
-        /// Replace a configuration entirely.
+        /// Replace a config entirely. Every writable field is overwritten.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ConfigResponse> Update_configAsync(string id, ConfigResponse body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ConfigResponse> Update_configAsync(string id, ConfigRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -487,7 +504,11 @@ namespace Smplkit.Internal.Generated.Config
         /// Delete Config
         /// </summary>
         /// <remarks>
-        /// Delete a configuration by its key.
+        /// Delete a config by its key.
+        /// <br/>
+        /// <br/>A config that is referenced as `parent` by another config cannot be
+        /// <br/>deleted; reparent or remove the parent reference on every child
+        /// <br/>first. The `common` config cannot be deleted.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -562,8 +583,9 @@ namespace Smplkit.Internal.Generated.Config
         /// List Config Usage
         /// </summary>
         /// <remarks>
-        /// Return current resource usage counts for the authenticated account.
+        /// Report the current-period usage counters for this account.
         /// </remarks>
+        /// <param name="filterperiod">Period to report. `current` is the only supported value.</param>
         /// <returns>Current usage for the authenticated account</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<UsageListResponse> List_config_usageAsync(string? filterperiod = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -775,28 +797,58 @@ namespace Smplkit.Internal.Generated.Config
         }
     }
 
+    /// <summary>
+    /// A named bag of configuration items, optionally inheriting from another config.
+    /// <br/>
+    /// <br/>Items are typed key/value pairs (`STRING`, `NUMBER`, `BOOLEAN`,
+    /// <br/>`JSON`). Configs may declare per-environment overrides for any item
+    /// <br/>declared on the config itself or anywhere in its inheritance chain;
+    /// <br/>resolving a config against an environment merges the chain top-down
+    /// <br/>and then applies the matching overrides.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Config
     {
 
+        /// <summary>
+        /// Human-readable name for the config.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = default!;
 
+        /// <summary>
+        /// Optional human-readable description of what this config holds.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("description")]
         public string? Description { get; set; } = default!;
 
+        /// <summary>
+        /// Key of another config to inherit items from. Inherited items appear as if declared on this config; locally declared items with the same key shadow them. Omit or set to `null` for a standalone config with no parent.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("parent")]
         public string? Parent { get; set; } = default!;
 
+        /// <summary>
+        /// Map of item keys to item definitions declared on this config. Keys must be unique within the config; declared types are immutable once set and must match any type declared for the same key on an ancestor.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("items")]
         public System.Collections.Generic.IDictionary<string, ConfigItemDefinition>? Items { get; set; } = default!;
 
+        /// <summary>
+        /// Map of environment keys to per-environment override sets. An environment override applies when this config is resolved against that environment.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("environments")]
         public System.Collections.Generic.IDictionary<string, EnvironmentOverride>? Environments { get; set; } = default!;
 
+        /// <summary>
+        /// When the config was created.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
         public System.DateTimeOffset? Created_at { get; set; } = default!;
 
+        /// <summary>
+        /// When the config was last modified.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("updated_at")]
         public System.DateTimeOffset? Updated_at { get; set; } = default!;
 
@@ -812,23 +864,31 @@ namespace Smplkit.Internal.Generated.Config
     }
 
     /// <summary>
-    /// Schema for a single config item.
+    /// Type-declared item within a config.
     /// <br/>
-    /// <br/>``value`` may be ``None`` to represent a cleared (typed but unset)
-    /// <br/>slot — e.g. after a type change that could not coerce the previous
-    /// <br/>value. See ADR-024.
+    /// <br/>Each item carries a value plus a declared type that constrains the
+    /// <br/>value and any per-environment overrides for the same key.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ConfigItemDefinition
     {
 
+        /// <summary>
+        /// Current value for the item. May be `null` to represent a cleared (typed but unset) slot — for example, after a type change where the prior value could not be coerced.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("value")]
         public object Value { get; set; } = default!;
 
+        /// <summary>
+        /// Declared value type. Constrains the JSON shape of `value` and of every override of this key in the `environments` map.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("type")]
         [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ConfigItemDefinitionType>))]
         public ConfigItemDefinitionType? Type { get; set; } = default!;
 
+        /// <summary>
+        /// Optional human-readable explanation of what this item controls.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("description")]
         public string? Description { get; set; } = default!;
 
@@ -844,12 +904,15 @@ namespace Smplkit.Internal.Generated.Config
     }
 
     /// <summary>
-    /// Schema for an environment override — value only, no type/description.
+    /// Per-environment override of a single item value.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ConfigItemOverride
     {
 
+        /// <summary>
+        /// Override value for this environment. Must conform to the type declared for the item in the inheritance chain.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("value")]
         public object Value { get; set; } = default!;
 
@@ -864,6 +927,9 @@ namespace Smplkit.Internal.Generated.Config
 
     }
 
+    /// <summary>
+    /// JSON:API collection response for configs.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ConfigListResponse
     {
@@ -882,6 +948,33 @@ namespace Smplkit.Internal.Generated.Config
 
     }
 
+    /// <summary>
+    /// JSON:API request envelope for creating or updating a config.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ConfigRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public ConfigResource Data { get; set; } = new ConfigResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API resource envelope for a config.
+    /// <br/>
+    /// <br/>`id` is the human-readable key for the config and must be supplied
+    /// <br/>by the caller on create. It is unique within the account.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ConfigResource
     {
@@ -906,6 +999,9 @@ namespace Smplkit.Internal.Generated.Config
 
     }
 
+    /// <summary>
+    /// JSON:API single-resource response envelope for a config.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ConfigResponse
     {
@@ -925,12 +1021,15 @@ namespace Smplkit.Internal.Generated.Config
     }
 
     /// <summary>
-    /// Schema for per-environment overrides.
+    /// Per-environment override set for a config.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class EnvironmentOverride
     {
 
+        /// <summary>
+        /// Map of item keys to override values that apply when this environment is resolved. Each key must already be declared (with a type) on this config or one of its ancestors.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("values")]
         public System.Collections.Generic.IDictionary<string, ConfigItemOverride>? Values { get; set; } = default!;
 
@@ -945,16 +1044,28 @@ namespace Smplkit.Internal.Generated.Config
 
     }
 
+    /// <summary>
+    /// Usage counter for a single metered limit.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class UsageAttributes
     {
 
+        /// <summary>
+        /// Identifier of the metered limit, e.g. `config.items` or `config.inheritance_depth`.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("limit_key")]
         public string Limit_key { get; set; } = default!;
 
+        /// <summary>
+        /// Period the counter covers. `current` is the only supported value.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("period")]
         public string Period { get; set; } = default!;
 
+        /// <summary>
+        /// Count for the period.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("value")]
         public int Value { get; set; } = default!;
 
@@ -969,6 +1080,9 @@ namespace Smplkit.Internal.Generated.Config
 
     }
 
+    /// <summary>
+    /// JSON:API collection response for usage counters.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class UsageListResponse
     {
@@ -987,6 +1101,9 @@ namespace Smplkit.Internal.Generated.Config
 
     }
 
+    /// <summary>
+    /// JSON:API resource envelope for a usage counter.
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class UsageResource
     {
