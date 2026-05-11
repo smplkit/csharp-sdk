@@ -91,7 +91,7 @@ public sealed class EnvironmentsClient
             updatedAt: attrs.Updated_at?.DateTime);
     }
 
-    private static GenApp.EnvironmentResponse BuildBody(Environment env) =>
+    private static GenApp.EnvironmentRequest BuildBody(Environment env) =>
         new()
         {
             Data = new GenApp.EnvironmentResource
@@ -202,11 +202,11 @@ public sealed class ContextTypesClient
         return new Dictionary<string, Dictionary<string, object?>>();
     }
 
-    private static GenApp.ContextTypeResponse BuildBody(ContextType ct)
+    private static GenApp.ContextTypeRequest BuildBody(ContextType ct)
     {
         var attrsJson = JsonSerializer.Serialize(ct.Attributes);
         using var doc = JsonDocument.Parse(attrsJson);
-        return new GenApp.ContextTypeResponse
+        return new GenApp.ContextTypeRequest
         {
             Data = new GenApp.ContextTypeResource
             {
