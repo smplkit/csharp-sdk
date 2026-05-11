@@ -73,9 +73,9 @@ public static class ConfigRuntimeSetup
         // Delete any configs using showcase-common as parent before deleting it — previous
         // runs (including from other SDK showcases) may have left extra children.
         var allConfigs = await mgmt.Config.ListAsync();
-        foreach (var cfg in allConfigs.Where(c => c.Parent == "showcase-common"))
+        foreach (var cfg in allConfigs.Where(c => c.Parent == "showcase-common" && c.Id != null))
         {
-            try { await mgmt.Config.DeleteAsync(cfg.Id); }
+            try { await mgmt.Config.DeleteAsync(cfg.Id!); }
             catch (NotFoundException) { }
         }
         foreach (var configId in DemoConfigIds)
