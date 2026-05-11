@@ -415,7 +415,7 @@ public sealed class FlagsClient
         var items = batch.Select(e => new GenFlags.FlagBulkItem
         {
             Id = e.Id,
-            Type = e.Type,
+            Type = Enum.Parse<GenFlags.FlagBulkItemType>(e.Type),
             Default = e.DefaultValue ?? new object(),
             Service = e.Service,
             Environment = e.Environment,
