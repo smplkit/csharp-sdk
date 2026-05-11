@@ -67,6 +67,26 @@ public class LogLevelTests
     }
 
     [Fact]
+    public void TryParseLogLevel_ReturnsLevelForKnownWireString()
+    {
+        Assert.Equal(LogLevel.Info, LogLevelExtensions.TryParseLogLevel("INFO"));
+        Assert.Equal(LogLevel.Silent, LogLevelExtensions.TryParseLogLevel("SILENT"));
+    }
+
+    [Fact]
+    public void TryParseLogLevel_ReturnsNullForUnknownWireString()
+    {
+        Assert.Null(LogLevelExtensions.TryParseLogLevel("UNKNOWN"));
+        Assert.Null(LogLevelExtensions.TryParseLogLevel(""));
+    }
+
+    [Fact]
+    public void TryParseLogLevel_ReturnsNullForNullInput()
+    {
+        Assert.Null(LogLevelExtensions.TryParseLogLevel(null));
+    }
+
+    [Fact]
     public void ParseLogLevel_LowercaseString_ThrowsArgumentException()
     {
         // Wire strings are uppercase only

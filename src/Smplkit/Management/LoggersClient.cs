@@ -146,12 +146,9 @@ public sealed class LoggersClient
         if (resource?.Attributes is null) return null;
         var attrs = resource.Attributes;
 
-        LogLevel? level = null;
-        if (attrs.Level is not null)
-        {
-            try { level = LogLevelExtensions.ParseLogLevel(attrs.Level.Value.ToString()); }
-            catch { /* Unknown level */ }
-        }
+        LogLevel? level = attrs.Level is null
+            ? null
+            : LogLevelExtensions.TryParseLogLevel(attrs.Level.Value.ToString());
 
         var sources = new List<Dictionary<string, object?>>();
         if (attrs.Sources is not null)

@@ -65,4 +65,17 @@ public static class LogLevelExtensions
         "SILENT" => LogLevel.Silent,
         _ => throw new ArgumentException($"Unknown log level: {wire}", nameof(wire)),
     };
+
+    /// <summary>
+    /// Returns the parsed <see cref="LogLevel"/> or <c>null</c> if <paramref name="wire"/>
+    /// isn't one of the known level names. Generated logger / log-group bindings
+    /// coerce unknown values to null before this helper is called, so the
+    /// null-returning path is purely defensive against direct cache injection.
+    /// </summary>
+    public static LogLevel? TryParseLogLevel(string? wire)
+    {
+        if (wire is null) return null;
+        try { return ParseLogLevel(wire); }
+        catch (ArgumentException) { return null; }
+    }
 }

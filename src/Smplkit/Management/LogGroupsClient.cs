@@ -87,12 +87,9 @@ public sealed class LogGroupsClient
         if (resource?.Attributes is null) return null;
         var attrs = resource.Attributes;
 
-        LogLevel? level = null;
-        if (attrs.Level is not null)
-        {
-            try { level = LogLevelExtensions.ParseLogLevel(attrs.Level.Value.ToString()); }
-            catch { /* Unknown level */ }
-        }
+        LogLevel? level = attrs.Level is null
+            ? null
+            : LogLevelExtensions.TryParseLogLevel(attrs.Level.Value.ToString());
 
         var environments = LoggersClient.NormalizeEnvironments(attrs.Environments);
 
