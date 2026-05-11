@@ -187,7 +187,7 @@ public sealed class FlagsClient
             mgmtClient: this,
             id: resource.Id ?? string.Empty,
             name: attrs.Name ?? string.Empty,
-            type: attrs.Type ?? "BOOLEAN",
+            type: attrs.Type.ToString(),
             @default: NormalizeValue(attrs.Default),
             values: values,
             description: attrs.Description,
@@ -235,7 +235,7 @@ public sealed class FlagsClient
         return value;
     }
 
-    private static GenFlags.FlagResponse BuildCreateFlagBody(
+    private static GenFlags.FlagRequest BuildCreateFlagBody(
         string? id, string name, string type, object? @default,
         string? description, List<Dictionary<string, object?>>? values,
         Dictionary<string, Dictionary<string, object?>> environments)
@@ -246,7 +246,7 @@ public sealed class FlagsClient
             Value = v.TryGetValue("value", out var val) ? val! : new object(),
         }).ToList();
 
-        return new GenFlags.FlagResponse
+        return new GenFlags.FlagRequest
         {
             Data = new GenFlags.FlagResource
             {
@@ -255,7 +255,7 @@ public sealed class FlagsClient
                 Attributes = new GenFlags.Flag
                 {
                     Name = name,
-                    Type = type,
+                    Type = Enum.Parse<GenFlags.FlagType>(type),
                     Default = @default ?? new object(),
                     Description = description ?? "",
                     Values = flagValues!,
@@ -265,7 +265,7 @@ public sealed class FlagsClient
         };
     }
 
-    private static GenFlags.FlagResponse BuildUpdateFlagBody(
+    private static GenFlags.FlagRequest BuildUpdateFlagBody(
         string? id, string name, string type, object? @default,
         List<Dictionary<string, object?>>? values, string? description,
         Dictionary<string, Dictionary<string, object?>> environments)
@@ -276,7 +276,7 @@ public sealed class FlagsClient
             Value = v.TryGetValue("value", out var val) ? val! : new object(),
         }).ToList();
 
-        return new GenFlags.FlagResponse
+        return new GenFlags.FlagRequest
         {
             Data = new GenFlags.FlagResource
             {
@@ -285,7 +285,7 @@ public sealed class FlagsClient
                 Attributes = new GenFlags.Flag
                 {
                     Name = name,
-                    Type = type,
+                    Type = Enum.Parse<GenFlags.FlagType>(type),
                     Default = @default ?? new object(),
                     Description = description ?? "",
                     Values = flagValues!,
