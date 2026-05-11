@@ -70,6 +70,14 @@ public static class ConfigRuntimeSetup
 
     public static async Task CleanupRuntimeShowcaseAsync(SmplManagementClient mgmt)
     {
+        // Delete any configs using showcase-common as parent before deleting it — previous
+        // runs (including from other SDK showcases) may have left extra children.
+        var allConfigs = await mgmt.Config.ListAsync();
+        foreach (var cfg in allConfigs.Where(c => c.Parent == "showcase-common"))
+        {
+            try { await mgmt.Config.DeleteAsync(cfg.Id); }
+            catch (NotFoundException) { }
+        }
         foreach (var configId in DemoConfigIds)
         {
             try { await mgmt.Config.DeleteAsync(configId); }
