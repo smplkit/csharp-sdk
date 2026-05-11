@@ -109,7 +109,7 @@ public sealed class ConfigsClient
     // Wire helpers — moved from runtime ConfigClient.
     // ------------------------------------------------------------------
 
-    private static GenConfig.ConfigResponse BuildRequestBody(Smplkit.Config.Config config) =>
+    private static GenConfig.ConfigRequest BuildRequestBody(Smplkit.Config.Config config) =>
         new()
         {
             Data = new GenConfig.ConfigResource
