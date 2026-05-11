@@ -37,14 +37,14 @@ public class AuditForwardersTests
     private static string ForwarderResource(string name = "Datadog production", string slug = "datadog_production") =>
         "{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\",\"attributes\":{"
             + "\"name\":\"" + name + "\",\"slug\":\"" + slug + "\","
-            + "\"forwarder_type\":\"datadog\",\"enabled\":true,"
+            + "\"forwarder_type\":\"DATADOG\",\"enabled\":true,"
             + "\"http\":{\"method\":\"POST\",\"url\":\"https://siem.example.com/in\","
             + "\"headers\":[{\"name\":\"DD-API-KEY\",\"value\":\"<redacted>\"}],"
             + "\"success_status\":\"2xx\"},"
             + "\"data\":{},\"created_at\":\"2026-05-07T12:00:00Z\","
             + "\"updated_at\":\"2026-05-07T12:00:00Z\",\"version\":1}}";
 
-    private static string DeliveryResource(string status = "succeeded") =>
+    private static string DeliveryResource(string status = "SUCCEEDED") =>
         "{\"id\":\"" + DeliveryId + "\",\"type\":\"forwarder_delivery\",\"attributes\":{"
             + "\"forwarder_id\":\"" + FwdId + "\","
             + "\"event_id\":\"33333333-4444-5555-6666-777777777777\","
@@ -235,12 +235,12 @@ public class AuditForwardersTests
         await using var client = new AuditClient(gen);
         var page = await client.Forwarders.ListDeliveriesAsync(FwdId, new ListDeliveriesInput
         {
-            Status = "succeeded",
+            Status = "SUCCEEDED",
             CreatedAtRange = "[2020-01-01T00:00:00Z,*)",
             PageSize = 1,
         });
         Assert.Single(page.Deliveries);
-        Assert.Equal("Succeeded", page.Deliveries[0].Status);
+        Assert.Equal("SUCCEEDED", page.Deliveries[0].Status);
     }
 
     [Fact]
@@ -256,6 +256,28 @@ public class AuditForwardersTests
     }
 
     [Fact]
+    public async Task ListDeliveries_FilterEventId_PassesQueryParam()
+    {
+        string? capturedUrl = null;
+        var eventId = Guid.Parse("33333333-4444-5555-6666-777777777777");
+        var (gen, _) = MakeGen(req =>
+        {
+            capturedUrl = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":[" + DeliveryResource() + "],\"meta\":{\"page_size\":1}}"),
+            });
+        });
+        await using var client = new AuditClient(gen);
+        var page = await client.Forwarders.ListDeliveriesAsync(FwdId, new ListDeliveriesInput
+        {
+            EventId = eventId,
+        });
+        Assert.Single(page.Deliveries);
+        Assert.Contains(eventId.ToString(), capturedUrl!);
+    }
+
+    [Fact]
     public async Task RetryDelivery_ReturnsNewRow()
     {
         var (gen, _) = MakeGen(req =>
@@ -263,7 +285,7 @@ public class AuditForwardersTests
             Assert.Contains("actions/retry", req.RequestUri!.AbsolutePath);
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = JsonApi("{\"data\":" + DeliveryResource("succeeded") + "}"),
+                Content = JsonApi("{\"data\":" + DeliveryResource("SUCCEEDED") + "}"),
             });
         });
         await using var client = new AuditClient(gen);
@@ -275,7 +297,7 @@ public class AuditForwardersTests
         Assert.Equal(FwdId, row.ForwarderId);
         Assert.Equal(Guid.Parse("33333333-4444-5555-6666-777777777777"), row.EventId);
         Assert.Equal(1, row.AttemptNumber);
-        Assert.Equal("Succeeded", row.Status);
+        Assert.Equal("SUCCEEDED", row.Status);
         Assert.NotNull(row.Request);
         Assert.Equal(202, row.ResponseStatus);
         Assert.Equal("ok", row.ResponseBody);
@@ -497,13 +519,13 @@ public class AuditForwardersTests
     // ----------------------------------------------------------------------
 
     [Theory]
-    [InlineData(ForwarderType.Http, "http")]
-    [InlineData(ForwarderType.Datadog, "datadog")]
-    [InlineData(ForwarderType.SplunkHec, "splunk_hec")]
-    [InlineData(ForwarderType.SumoLogic, "sumo_logic")]
-    [InlineData(ForwarderType.NewRelic, "new_relic")]
-    [InlineData(ForwarderType.Honeycomb, "honeycomb")]
-    [InlineData(ForwarderType.Elastic, "elastic")]
+    [InlineData(ForwarderType.Http, "HTTP")]
+    [InlineData(ForwarderType.Datadog, "DATADOG")]
+    [InlineData(ForwarderType.SplunkHec, "SPLUNK_HEC")]
+    [InlineData(ForwarderType.SumoLogic, "SUMO_LOGIC")]
+    [InlineData(ForwarderType.NewRelic, "NEW_RELIC")]
+    [InlineData(ForwarderType.Honeycomb, "HONEYCOMB")]
+    [InlineData(ForwarderType.Elastic, "ELASTIC")]
     public async Task ForwarderType_RoundTripsThroughCreateAndGet(ForwarderType type, string wire)
     {
         string? capturedBody = null;
@@ -542,19 +564,19 @@ public class AuditForwardersTests
     [Fact]
     public void ForwarderTypeExtensions_ToWireValue_RoundTrips()
     {
-        Assert.Equal("http", ForwarderType.Http.ToWireValue());
-        Assert.Equal("splunk_hec", ForwarderType.SplunkHec.ToWireValue());
-        Assert.Equal("elastic", ForwarderType.Elastic.ToWireValue());
+        Assert.Equal("HTTP", ForwarderType.Http.ToWireValue());
+        Assert.Equal("SPLUNK_HEC", ForwarderType.SplunkHec.ToWireValue());
+        Assert.Equal("ELASTIC", ForwarderType.Elastic.ToWireValue());
     }
 
     [Theory]
-    [InlineData("http", ForwarderType.Http)]
-    [InlineData("datadog", ForwarderType.Datadog)]
-    [InlineData("splunk_hec", ForwarderType.SplunkHec)]
-    [InlineData("sumo_logic", ForwarderType.SumoLogic)]
-    [InlineData("new_relic", ForwarderType.NewRelic)]
-    [InlineData("honeycomb", ForwarderType.Honeycomb)]
-    [InlineData("elastic", ForwarderType.Elastic)]
+    [InlineData("HTTP", ForwarderType.Http)]
+    [InlineData("DATADOG", ForwarderType.Datadog)]
+    [InlineData("SPLUNK_HEC", ForwarderType.SplunkHec)]
+    [InlineData("SUMO_LOGIC", ForwarderType.SumoLogic)]
+    [InlineData("NEW_RELIC", ForwarderType.NewRelic)]
+    [InlineData("HONEYCOMB", ForwarderType.Honeycomb)]
+    [InlineData("ELASTIC", ForwarderType.Elastic)]
     public void ForwarderTypeExtensions_FromWireValue_AcceptsKnown(string wire, ForwarderType expected)
     {
         Assert.Equal(expected, ForwarderTypeExtensions.FromWireValue(wire));
