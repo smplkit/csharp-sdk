@@ -12199,7 +12199,7 @@ namespace Smplkit.Internal.Generated.App
         public string Password { get; set; } = default!;
 
         /// <summary>
-        /// Registration entry point. Allowed: login, get_started, live_demo, unknown. Defaults to unknown when omitted.
+        /// Registration entry point. Allowed: LOGIN, GET_STARTED, LIVE_DEMO, UNKNOWN. Defaults to UNKNOWN when omitted. Case-insensitive.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("entry_point")]
         [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<RegisterRequestEntry_point>))]
@@ -12807,17 +12807,17 @@ namespace Smplkit.Internal.Generated.App
     public enum RegisterRequestEntry_point
     {
 
-        [System.Runtime.Serialization.EnumMember(Value = @"login")]
-        Login = 0,
+        [System.Runtime.Serialization.EnumMember(Value = @"LOGIN")]
+        LOGIN = 0,
 
-        [System.Runtime.Serialization.EnumMember(Value = @"get_started")]
-        Get_started = 1,
+        [System.Runtime.Serialization.EnumMember(Value = @"GET_STARTED")]
+        GET_STARTED = 1,
 
-        [System.Runtime.Serialization.EnumMember(Value = @"live_demo")]
-        Live_demo = 2,
+        [System.Runtime.Serialization.EnumMember(Value = @"LIVE_DEMO")]
+        LIVE_DEMO = 2,
 
-        [System.Runtime.Serialization.EnumMember(Value = @"unknown")]
-        Unknown = 3,
+        [System.Runtime.Serialization.EnumMember(Value = @"UNKNOWN")]
+        UNKNOWN = 3,
 
     }
 
@@ -12852,11 +12852,11 @@ namespace Smplkit.Internal.Generated.App
     public enum SubscriptionListMetaDiscount_source
     {
 
-        [System.Runtime.Serialization.EnumMember(Value = @"volume")]
-        Volume = 0,
+        [System.Runtime.Serialization.EnumMember(Value = @"VOLUME")]
+        VOLUME = 0,
 
-        [System.Runtime.Serialization.EnumMember(Value = @"override")]
-        Override = 1,
+        [System.Runtime.Serialization.EnumMember(Value = @"OVERRIDE")]
+        OVERRIDE = 1,
 
     }
 
