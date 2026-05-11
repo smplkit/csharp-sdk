@@ -58,7 +58,7 @@ public static class ForwarderTypeExtensions
             { "ELASTIC", ForwarderType.Elastic },
         };
 
-    /// <summary>Returns the wire-format slug — e.g. <c>"splunk_hec"</c>.</summary>
+    /// <summary>Returns the wire-format slug — e.g. <c>"SPLUNK_HEC"</c>.</summary>
     public static string ToWireValue(this ForwarderType value) => _toWire[value];
 
     /// <summary>Parse a wire-format slug. Throws on unknown values.</summary>
