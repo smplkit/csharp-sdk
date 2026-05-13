@@ -57,10 +57,19 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>
         /// <br/>Default sort is newest first. Filters are exact-match except
         /// <br/>`filter[occurred_at]`, which uses interval notation
-        /// <br/>(e.g. `[2026-01-01T00:00:00Z,*)`), and `filter[search]`, which is a
-        /// <br/>case-insensitive substring match against `resource_id`.
+        /// <br/>(e.g. `[2026-01-01T00:00:00Z,2026-01-31T00:00:00Z)`), and
+        /// <br/>`filter[search]`, which is a case-insensitive substring match against
+        /// <br/>`resource_id` or `description`.
+        /// <br/>
+        /// <br/>To bound the rows scanned per request, the endpoint requires either:
+        /// <br/>
+        /// <br/>- `filter[resource_id]` (which must be accompanied by
+        /// <br/>  `filter[resource_type]`), or
+        /// <br/>- `filter[occurred_at]` with a span no greater than 30 days.
+        /// <br/>
+        /// <br/>`page[size]` defaults to 50 and must not exceed 1000.
         /// </remarks>
-        /// <param name="filtersearch">Case-insensitive substring match against `resource_id`. Use `filter[resource_id]` for an exact match.</param>
+        /// <param name="filtersearch">Case-insensitive substring match against `resource_id` or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, System.Guid? filteractor_id = null, string? filteraction = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -400,10 +409,19 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>
         /// <br/>Default sort is newest first. Filters are exact-match except
         /// <br/>`filter[occurred_at]`, which uses interval notation
-        /// <br/>(e.g. `[2026-01-01T00:00:00Z,*)`), and `filter[search]`, which is a
-        /// <br/>case-insensitive substring match against `resource_id`.
+        /// <br/>(e.g. `[2026-01-01T00:00:00Z,2026-01-31T00:00:00Z)`), and
+        /// <br/>`filter[search]`, which is a case-insensitive substring match against
+        /// <br/>`resource_id` or `description`.
+        /// <br/>
+        /// <br/>To bound the rows scanned per request, the endpoint requires either:
+        /// <br/>
+        /// <br/>- `filter[resource_id]` (which must be accompanied by
+        /// <br/>  `filter[resource_type]`), or
+        /// <br/>- `filter[occurred_at]` with a span no greater than 30 days.
+        /// <br/>
+        /// <br/>`page[size]` defaults to 50 and must not exceed 1000.
         /// </remarks>
-        /// <param name="filtersearch">Case-insensitive substring match against `resource_id`. Use `filter[resource_id]` for an exact match.</param>
+        /// <param name="filtersearch">Case-insensitive substring match against `resource_id` or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, System.Guid? filteractor_id = null, string? filteraction = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
@@ -1937,6 +1955,12 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("resource_id")]
         public string Resource_id { get; set; } = default!;
+
+        /// <summary>
+        /// Free-text description of the event. Included alongside `resource_id` in the `filter[search]` substring target.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("description")]
+        public string? Description { get; set; } = default!;
 
         /// <summary>
         /// When the event actually happened. Defaults to the server receipt time (`created_at`).
