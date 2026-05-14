@@ -55,11 +55,14 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// List audit events for this account.
         /// <br/>
-        /// <br/>Default sort is newest first. Filters are exact-match except
-        /// <br/>`filter[occurred_at]`, which uses interval notation
-        /// <br/>(e.g. `[2026-01-01T00:00:00Z,2026-01-31T00:00:00Z)`), and
-        /// <br/>`filter[search]`, which is a case-insensitive substring match against
-        /// <br/>`resource_id` or `description`.
+        /// <br/>Default sort is `-occurred_at` (newest occurrence first). Sort by
+        /// <br/>`occurred_at` or `created_at`, ascending or descending — keep the same
+        /// <br/>`sort` value across paginated requests so the cursor stays consistent.
+        /// <br/>Filters are exact-match except `filter[occurred_at]`, which uses
+        /// <br/>interval notation (e.g.
+        /// <br/>`[2026-01-01T00:00:00Z,2026-01-31T00:00:00Z)`), and `filter[search]`,
+        /// <br/>which is a case-insensitive substring match against `resource_id` or
+        /// <br/>`description`.
         /// <br/>
         /// <br/>To bound the rows scanned per request, the endpoint requires either:
         /// <br/>
@@ -70,9 +73,10 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>`page[size]` defaults to 50 and must not exceed 1000.
         /// </remarks>
         /// <param name="filtersearch">Case-insensitive substring match against `resource_id` or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.</param>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`, `-occurred_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, System.Guid? filteractor_id = null, string? filteraction = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, System.Guid? filteractor_id = null, string? filteraction = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, int? pagesize = null, string? pageafter = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -114,10 +118,14 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         /// <remarks>
         /// List forwarders for this account.
+        /// <br/>
+        /// <br/>Default sort is `-created_at` (newest first). Pagination uses cursor
+        /// <br/>tokens; keep the same `sort` value across paginated requests.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `updated_at`, `-updated_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ForwarderListResponse> List_forwardersAsync(string? filterforwarder_type = null, bool? filterenabled = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ForwarderListResponse> List_forwardersAsync(string? filterforwarder_type = null, bool? filterenabled = null, int? pagesize = null, string? pageafter = null, Anonymous? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -165,14 +173,15 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// List delivery log entries for a forwarder.
         /// <br/>
-        /// <br/>Default sort is newest first. Filter by `status` (one of `SUCCEEDED`,
-        /// <br/>`FAILED`, `FILTERED_OUT`, `SKIPPED_DO_NOT_FORWARD` — case-insensitive),
-        /// <br/>by `event_id`, or by a `created_at` range using interval notation
-        /// <br/>(e.g. `[2026-01-01T00:00:00Z,*)`).
+        /// <br/>Default sort is `-created_at` (newest first). Filter by `status` (one of
+        /// <br/>`SUCCEEDED`, `FAILED`, `FILTERED_OUT`, `SKIPPED_DO_NOT_FORWARD` —
+        /// <br/>case-insensitive), by `event_id`, or by a `created_at` range using
+        /// <br/>interval notation (e.g. `[2026-01-01T00:00:00Z,*)`).
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ForwarderDeliveryListResponse> List_forwarder_deliveriesAsync(System.Guid forwarder_id, string? filterstatus = null, string? filtercreated_at = null, string? filterevent_id = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ForwarderDeliveryListResponse> List_forwarder_deliveriesAsync(System.Guid forwarder_id, string? filterstatus = null, string? filtercreated_at = null, string? filterevent_id = null, int? pagesize = null, string? pageafter = null, Anonymous2? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -224,12 +233,14 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// List the distinct `resource_type` slugs recorded for this account.
         /// <br/>
-        /// <br/>The resource `id` is the slug itself. Useful for populating filter
-        /// <br/>dropdowns in a UI.
+        /// <br/>The resource `id` is the slug itself. Default sort is `key`
+        /// <br/>ascending; pass `sort=-key` for descending. Useful for populating
+        /// <br/>filter dropdowns in a UI.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ResourceTypeListResponse> List_resource_typesAsync(int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ResourceTypeListResponse> List_resource_typesAsync(int? pagesize = null, string? pageafter = null, Anonymous3? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -238,13 +249,15 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// List the distinct `action` slugs recorded for this account.
         /// <br/>
+        /// <br/>Default sort is `key` ascending; pass `sort=-key` for descending.
         /// <br/>Without `filter[resource_type]`, returns one row per distinct
         /// <br/>action. With `filter[resource_type]`, returns the actions recorded
         /// <br/>for that specific resource type.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ActionListResponse> List_actionsAsync(string? filterresource_type = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ActionListResponse> List_actionsAsync(string? filterresource_type = null, int? pagesize = null, string? pageafter = null, Anonymous4? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
     }
 
@@ -407,11 +420,14 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// List audit events for this account.
         /// <br/>
-        /// <br/>Default sort is newest first. Filters are exact-match except
-        /// <br/>`filter[occurred_at]`, which uses interval notation
-        /// <br/>(e.g. `[2026-01-01T00:00:00Z,2026-01-31T00:00:00Z)`), and
-        /// <br/>`filter[search]`, which is a case-insensitive substring match against
-        /// <br/>`resource_id` or `description`.
+        /// <br/>Default sort is `-occurred_at` (newest occurrence first). Sort by
+        /// <br/>`occurred_at` or `created_at`, ascending or descending — keep the same
+        /// <br/>`sort` value across paginated requests so the cursor stays consistent.
+        /// <br/>Filters are exact-match except `filter[occurred_at]`, which uses
+        /// <br/>interval notation (e.g.
+        /// <br/>`[2026-01-01T00:00:00Z,2026-01-31T00:00:00Z)`), and `filter[search]`,
+        /// <br/>which is a case-insensitive substring match against `resource_id` or
+        /// <br/>`description`.
         /// <br/>
         /// <br/>To bound the rows scanned per request, the endpoint requires either:
         /// <br/>
@@ -422,9 +438,10 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>`page[size]` defaults to 50 and must not exceed 1000.
         /// </remarks>
         /// <param name="filtersearch">Case-insensitive substring match against `resource_id` or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.</param>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`, `-occurred_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, System.Guid? filteractor_id = null, string? filteraction = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, System.Guid? filteractor_id = null, string? filteraction = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, int? pagesize = null, string? pageafter = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -475,6 +492,10 @@ namespace Smplkit.Internal.Generated.Audit
                     if (pageafter != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("page[after]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pageafter, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -785,10 +806,14 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         /// <remarks>
         /// List forwarders for this account.
+        /// <br/>
+        /// <br/>Default sort is `-created_at` (newest first). Pagination uses cursor
+        /// <br/>tokens; keep the same `sort` value across paginated requests.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `updated_at`, `-updated_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ForwarderListResponse> List_forwardersAsync(string? filterforwarder_type = null, bool? filterenabled = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ForwarderListResponse> List_forwardersAsync(string? filterforwarder_type = null, bool? filterenabled = null, int? pagesize = null, string? pageafter = null, Anonymous? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -819,6 +844,10 @@ namespace Smplkit.Internal.Generated.Audit
                     if (pageafter != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("page[after]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pageafter, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -1131,14 +1160,15 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// List delivery log entries for a forwarder.
         /// <br/>
-        /// <br/>Default sort is newest first. Filter by `status` (one of `SUCCEEDED`,
-        /// <br/>`FAILED`, `FILTERED_OUT`, `SKIPPED_DO_NOT_FORWARD` — case-insensitive),
-        /// <br/>by `event_id`, or by a `created_at` range using interval notation
-        /// <br/>(e.g. `[2026-01-01T00:00:00Z,*)`).
+        /// <br/>Default sort is `-created_at` (newest first). Filter by `status` (one of
+        /// <br/>`SUCCEEDED`, `FAILED`, `FILTERED_OUT`, `SKIPPED_DO_NOT_FORWARD` —
+        /// <br/>case-insensitive), by `event_id`, or by a `created_at` range using
+        /// <br/>interval notation (e.g. `[2026-01-01T00:00:00Z,*)`).
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ForwarderDeliveryListResponse> List_forwarder_deliveriesAsync(System.Guid forwarder_id, string? filterstatus = null, string? filtercreated_at = null, string? filterevent_id = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ForwarderDeliveryListResponse> List_forwarder_deliveriesAsync(System.Guid forwarder_id, string? filterstatus = null, string? filtercreated_at = null, string? filterevent_id = null, int? pagesize = null, string? pageafter = null, Anonymous2? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (forwarder_id == null)
                 throw new System.ArgumentNullException("forwarder_id");
@@ -1178,6 +1208,10 @@ namespace Smplkit.Internal.Generated.Audit
                     if (pageafter != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("page[after]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pageafter, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -1505,12 +1539,14 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// List the distinct `resource_type` slugs recorded for this account.
         /// <br/>
-        /// <br/>The resource `id` is the slug itself. Useful for populating filter
-        /// <br/>dropdowns in a UI.
+        /// <br/>The resource `id` is the slug itself. Default sort is `key`
+        /// <br/>ascending; pass `sort=-key` for descending. Useful for populating
+        /// <br/>filter dropdowns in a UI.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ResourceTypeListResponse> List_resource_typesAsync(int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ResourceTypeListResponse> List_resource_typesAsync(int? pagesize = null, string? pageafter = null, Anonymous3? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -1533,6 +1569,10 @@ namespace Smplkit.Internal.Generated.Audit
                     if (pageafter != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("page[after]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pageafter, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -1595,13 +1635,15 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// List the distinct `action` slugs recorded for this account.
         /// <br/>
+        /// <br/>Default sort is `key` ascending; pass `sort=-key` for descending.
         /// <br/>Without `filter[resource_type]`, returns one row per distinct
         /// <br/>action. With `filter[resource_type]`, returns the actions recorded
         /// <br/>for that specific resource type.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ActionListResponse> List_actionsAsync(string? filterresource_type = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ActionListResponse> List_actionsAsync(string? filterresource_type = null, int? pagesize = null, string? pageafter = null, Anonymous4? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -1628,6 +1670,10 @@ namespace Smplkit.Internal.Generated.Audit
                     if (pageafter != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("page[after]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pageafter, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -2962,6 +3008,93 @@ namespace Smplkit.Internal.Generated.Audit
             get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
             set { _additionalProperties = value; }
         }
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`, `-occurred_at`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Sort
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
+        Created_at = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-created_at")]
+        Minuscreated_at = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"occurred_at")]
+        Occurred_at = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-occurred_at")]
+        Minusoccurred_at = 3,
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `updated_at`, `-updated_at`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
+        Created_at = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-created_at")]
+        Minuscreated_at = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"updated_at")]
+        Updated_at = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-updated_at")]
+        Minusupdated_at = 3,
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous2
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
+        Created_at = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-created_at")]
+        Minuscreated_at = 1,
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous3
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"key")]
+        Key = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-key")]
+        Minuskey = 1,
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous4
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"key")]
+        Key = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-key")]
+        Minuskey = 1,
 
     }
 
