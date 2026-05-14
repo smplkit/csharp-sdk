@@ -47,12 +47,15 @@ namespace Smplkit.Internal.Generated.Flags
         /// </summary>
         /// <remarks>
         /// List feature flags for this account.
+        /// <br/>
+        /// <br/>Default sort is `key` ascending.
         /// </remarks>
         /// <param name="filterreferences_context">Return flags whose rules reference this context instance. Format: {type}:{key}</param>
         /// <param name="filterreferences_context_type">Return flags whose rules reference any attribute of the given context type.</param>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `type`, `-type`, `updated_at`, `-updated_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<FlagListResponse> List_flagsAsync(string? filtertype = null, bool? filtermanaged = null, string? filterreferences_context = null, string? filterreferences_context_type = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<FlagListResponse> List_flagsAsync(string? filtertype = null, bool? filtermanaged = null, string? filterreferences_context = null, string? filterreferences_context_type = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -107,10 +110,13 @@ namespace Smplkit.Internal.Generated.Flags
         /// </summary>
         /// <remarks>
         /// List the service/environment observations recorded for a single flag.
+        /// <br/>
+        /// <br/>Default sort is `-last_seen` (most recently seen first).
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-last_seen`. Allowed values: `created_at`, `-created_at`, `environment`, `-environment`, `last_seen`, `-last_seen`, `service`, `-service`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<FlagSourceListResponse> List_flag_sourcesAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<FlagSourceListResponse> List_flag_sourcesAsync(string id, Anonymous? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -119,11 +125,13 @@ namespace Smplkit.Internal.Generated.Flags
         /// <remarks>
         /// List service/environment observations across all flags for this account.
         /// <br/>
-        /// <br/>Filter by `environment` or `service` (or both) to narrow the result.
+        /// <br/>Default sort is `-last_seen` (most recently seen first). Filter by
+        /// <br/>`environment` or `service` (or both) to narrow the result.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-last_seen`. Allowed values: `created_at`, `-created_at`, `environment`, `-environment`, `last_seen`, `-last_seen`, `service`, `-service`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<FlagSourceListResponse> List_all_flag_sourcesAsync(string? filterenvironment = null, string? filterservice = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<FlagSourceListResponse> List_all_flag_sourcesAsync(string? filterenvironment = null, string? filterservice = null, Anonymous2? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -293,12 +301,15 @@ namespace Smplkit.Internal.Generated.Flags
         /// </summary>
         /// <remarks>
         /// List feature flags for this account.
+        /// <br/>
+        /// <br/>Default sort is `key` ascending.
         /// </remarks>
         /// <param name="filterreferences_context">Return flags whose rules reference this context instance. Format: {type}:{key}</param>
         /// <param name="filterreferences_context_type">Return flags whose rules reference any attribute of the given context type.</param>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `type`, `-type`, `updated_at`, `-updated_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<FlagListResponse> List_flagsAsync(string? filtertype = null, bool? filtermanaged = null, string? filterreferences_context = null, string? filterreferences_context_type = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<FlagListResponse> List_flagsAsync(string? filtertype = null, bool? filtermanaged = null, string? filterreferences_context = null, string? filterreferences_context_type = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -329,6 +340,10 @@ namespace Smplkit.Internal.Generated.Flags
                     if (filterreferences_context_type != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[references_context_type]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterreferences_context_type, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -721,10 +736,13 @@ namespace Smplkit.Internal.Generated.Flags
         /// </summary>
         /// <remarks>
         /// List the service/environment observations recorded for a single flag.
+        /// <br/>
+        /// <br/>Default sort is `-last_seen` (most recently seen first).
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-last_seen`. Allowed values: `created_at`, `-created_at`, `environment`, `-environment`, `last_seen`, `-last_seen`, `service`, `-service`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<FlagSourceListResponse> List_flag_sourcesAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<FlagSourceListResponse> List_flag_sourcesAsync(string id, Anonymous? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -744,6 +762,12 @@ namespace Smplkit.Internal.Generated.Flags
                     urlBuilder_.Append("api/v1/flags/");
                     urlBuilder_.Append(System.Uri.EscapeDataString(ConvertToString(id, System.Globalization.CultureInfo.InvariantCulture)));
                     urlBuilder_.Append("/sources");
+                    urlBuilder_.Append('?');
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    urlBuilder_.Length--;
 
                     PrepareRequest(client_, request_, urlBuilder_);
 
@@ -804,11 +828,13 @@ namespace Smplkit.Internal.Generated.Flags
         /// <remarks>
         /// List service/environment observations across all flags for this account.
         /// <br/>
-        /// <br/>Filter by `environment` or `service` (or both) to narrow the result.
+        /// <br/>Default sort is `-last_seen` (most recently seen first). Filter by
+        /// <br/>`environment` or `service` (or both) to narrow the result.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-last_seen`. Allowed values: `created_at`, `-created_at`, `environment`, `-environment`, `last_seen`, `-last_seen`, `service`, `-service`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<FlagSourceListResponse> List_all_flag_sourcesAsync(string? filterenvironment = null, string? filterservice = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<FlagSourceListResponse> List_all_flag_sourcesAsync(string? filterenvironment = null, string? filterservice = null, Anonymous2? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -831,6 +857,10 @@ namespace Smplkit.Internal.Generated.Flags
                     if (filterservice != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[service]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterservice, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -1939,6 +1969,111 @@ namespace Smplkit.Internal.Generated.Flags
             get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
             set { _additionalProperties = value; }
         }
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `type`, `-type`, `updated_at`, `-updated_at`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Sort
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
+        Created_at = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-created_at")]
+        Minuscreated_at = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"key")]
+        Key = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-key")]
+        Minuskey = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"name")]
+        Name = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-name")]
+        Minusname = 5,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"type")]
+        Type = 6,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-type")]
+        Minustype = 7,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"updated_at")]
+        Updated_at = 8,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-updated_at")]
+        Minusupdated_at = 9,
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `-last_seen`. Allowed values: `created_at`, `-created_at`, `environment`, `-environment`, `last_seen`, `-last_seen`, `service`, `-service`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
+        Created_at = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-created_at")]
+        Minuscreated_at = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"environment")]
+        Environment = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-environment")]
+        Minusenvironment = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"last_seen")]
+        Last_seen = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-last_seen")]
+        Minuslast_seen = 5,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"service")]
+        Service = 6,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-service")]
+        Minusservice = 7,
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `-last_seen`. Allowed values: `created_at`, `-created_at`, `environment`, `-environment`, `last_seen`, `-last_seen`, `service`, `-service`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous2
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
+        Created_at = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-created_at")]
+        Minuscreated_at = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"environment")]
+        Environment = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-environment")]
+        Minusenvironment = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"last_seen")]
+        Last_seen = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-last_seen")]
+        Minuslast_seen = 5,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"service")]
+        Service = 6,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-service")]
+        Minusservice = 7,
 
     }
 
