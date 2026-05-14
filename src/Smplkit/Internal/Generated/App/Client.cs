@@ -264,11 +264,23 @@ namespace Smplkit.Internal.Generated.App
         /// Delete Environment
         /// </summary>
         /// <remarks>
-        /// Delete an environment by id.
+        /// Delete an environment by id. When `cascade=true` is set, also remove every per-environment reference held by flags, configs, and loggers in the corresponding services before deleting the environment row. The default `cascade=false` deletes only the environment row, leaving downstream references in place.
+        /// </remarks>
+        /// <param name="cascade">When `true`, remove every flag rule, env-level flag default, config override, and logger override scoped to this environment before deleting the environment row.</param>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task Delete_environmentAsync(string id, bool? cascade = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Report Environment Usage
+        /// </summary>
+        /// <remarks>
+        /// Report how many flag rules, env-level flag defaults, config overrides, and logger overrides reference this environment. Used by the console's delete dialog so the user can see what would survive a non-cascading delete.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task Delete_environmentAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<EnvironmentUsageResponse> Get_environment_usageAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -3485,11 +3497,12 @@ namespace Smplkit.Internal.Generated.App
         /// Delete Environment
         /// </summary>
         /// <remarks>
-        /// Delete an environment by id.
+        /// Delete an environment by id. When `cascade=true` is set, also remove every per-environment reference held by flags, configs, and loggers in the corresponding services before deleting the environment row. The default `cascade=false` deletes only the environment row, leaving downstream references in place.
         /// </remarks>
+        /// <param name="cascade">When `true`, remove every flag rule, env-level flag default, config override, and logger override scoped to this environment before deleting the environment row.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task Delete_environmentAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task Delete_environmentAsync(string id, bool? cascade = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (id == null)
                 throw new System.ArgumentNullException("id");
@@ -3507,6 +3520,12 @@ namespace Smplkit.Internal.Generated.App
                     // Operation Path: "api/v1/environments/{id}"
                     urlBuilder_.Append("api/v1/environments/");
                     urlBuilder_.Append(System.Uri.EscapeDataString(ConvertToString(id, System.Globalization.CultureInfo.InvariantCulture)));
+                    urlBuilder_.Append('?');
+                    if (cascade != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("cascade")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(cascade, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    urlBuilder_.Length--;
 
                     PrepareRequest(client_, request_, urlBuilder_);
 
@@ -3534,6 +3553,128 @@ namespace Smplkit.Internal.Generated.App
                         if (status_ == 204)
                         {
                             return;
+                        }
+                        else
+                        if (status_ == 400)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new ApiException<ErrorResponse>("Validation error or malformed request", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 401)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new ApiException<ErrorResponse>("Missing or invalid authentication", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 404)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new ApiException<ErrorResponse>("Resource not found", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 429)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new ApiException<ErrorResponse>("Rate limit exceeded", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Report Environment Usage
+        /// </summary>
+        /// <remarks>
+        /// Report how many flag rules, env-level flag defaults, config overrides, and logger overrides reference this environment. Used by the console's delete dialog so the user can see what would survive a non-cascading delete.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<EnvironmentUsageResponse> Get_environment_usageAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        {
+            if (id == null)
+                throw new System.ArgumentNullException("id");
+
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    request_.Method = new System.Net.Http.HttpMethod("GET");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
+                    // Operation Path: "api/v1/environments/{id}/usage"
+                    urlBuilder_.Append("api/v1/environments/");
+                    urlBuilder_.Append(System.Uri.EscapeDataString(ConvertToString(id, System.Globalization.CultureInfo.InvariantCulture)));
+                    urlBuilder_.Append("/usage");
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<EnvironmentUsageResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
                         }
                         else
                         if (status_ == 400)
@@ -11578,6 +11719,102 @@ namespace Smplkit.Internal.Generated.App
     }
 
     /// <summary>
+    /// Counts of references to an environment held by other resources.
+    /// <br/>
+    /// <br/>Returned by `GET /environments/{id}/usage` so the console can warn
+    /// <br/>the user about per-environment configuration that would survive a
+    /// <br/>bare environment-row deletion. Each count is the number of distinct
+    /// <br/>referencing resources, not the number of rule entries within them.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class EnvironmentUsage
+    {
+
+        /// <summary>
+        /// Number of feature-flag targeting rules scoped to this environment. Each flag may contribute multiple rules.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("flag_rules")]
+        public int Flag_rules { get; set; } = default!;
+
+        /// <summary>
+        /// Number of feature flags that declare an environment-level default value for this environment.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("flag_env_defaults")]
+        public int Flag_env_defaults { get; set; } = default!;
+
+        /// <summary>
+        /// Number of config-item overrides keyed to this environment, summed across all configs.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("config_overrides")]
+        public int Config_overrides { get; set; } = default!;
+
+        /// <summary>
+        /// Number of loggers with an environment-level level override for this environment.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("logger_overrides")]
+        public int Logger_overrides { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API resource envelope for an environment-usage report.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class EnvironmentUsageResource
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string? Id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<EnvironmentUsageResourceType>))]
+        public EnvironmentUsageResourceType Type { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
+        public EnvironmentUsage Attributes { get; set; } = new EnvironmentUsage();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API single-resource response envelope for environment-usage counts.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class EnvironmentUsageResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public EnvironmentUsageResource Data { get; set; } = new EnvironmentUsageResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
     /// Single JSON:API error object.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -13578,6 +13815,15 @@ namespace Smplkit.Internal.Generated.App
 
         [System.Runtime.Serialization.EnumMember(Value = @"environment")]
         Environment = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum EnvironmentUsageResourceType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"environment_usage")]
+        Environment_usage = 0,
 
     }
 
