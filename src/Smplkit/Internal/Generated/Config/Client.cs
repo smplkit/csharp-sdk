@@ -51,12 +51,13 @@ namespace Smplkit.Internal.Generated.Config
         /// <remarks>
         /// List configs for this account.
         /// <br/>
-        /// <br/>Pass `filter[parent]=&lt;parent_key&gt;` to return only the direct children
-        /// <br/>of a specific config.
+        /// <br/>Default sort is `key` ascending. Pass `filter[parent]=&lt;parent_key&gt;`
+        /// <br/>to return only the direct children of a specific config.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ConfigListResponse> List_configsAsync(string? filterparent = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ConfigListResponse> List_configsAsync(string? filterparent = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -251,12 +252,13 @@ namespace Smplkit.Internal.Generated.Config
         /// <remarks>
         /// List configs for this account.
         /// <br/>
-        /// <br/>Pass `filter[parent]=&lt;parent_key&gt;` to return only the direct children
-        /// <br/>of a specific config.
+        /// <br/>Default sort is `key` ascending. Pass `filter[parent]=&lt;parent_key&gt;`
+        /// <br/>to return only the direct children of a specific config.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ConfigListResponse> List_configsAsync(string? filterparent = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ConfigListResponse> List_configsAsync(string? filterparent = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -275,6 +277,10 @@ namespace Smplkit.Internal.Generated.Config
                     if (filterparent != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[parent]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterparent, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -1125,6 +1131,39 @@ namespace Smplkit.Internal.Generated.Config
             get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
             set { _additionalProperties = value; }
         }
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Sort
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
+        Created_at = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-created_at")]
+        Minuscreated_at = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"key")]
+        Key = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-key")]
+        Minuskey = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"name")]
+        Name = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-name")]
+        Minusname = 5,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"updated_at")]
+        Updated_at = 6,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-updated_at")]
+        Minusupdated_at = 7,
 
     }
 
