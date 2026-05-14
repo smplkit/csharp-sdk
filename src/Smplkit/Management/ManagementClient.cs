@@ -58,7 +58,7 @@ public sealed class EnvironmentsClient
 
     /// <summary>Deletes an environment by id.</summary>
     public Task DeleteAsync(string id, CancellationToken ct = default)
-        => ApiExceptionMapper.ExecuteAsync(() => _appClient.Delete_environmentAsync(id, ct));
+        => ApiExceptionMapper.ExecuteAsync(() => _appClient.Delete_environmentAsync(id, null, ct));
 
     internal async Task<Environment> SaveInternalAsync(Environment env, CancellationToken ct)
     {
