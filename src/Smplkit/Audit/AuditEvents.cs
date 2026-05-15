@@ -90,6 +90,7 @@ public sealed class AuditEvents
             input.Search,
             input.PageSize,
             input.PageAfter,
+            null,
             cancellationToken
         )).ConfigureAwait(false);
 

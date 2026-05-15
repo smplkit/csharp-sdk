@@ -25,7 +25,7 @@ public sealed class AuditActions
     {
         input ??= new ListActionsInput();
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.List_actionsAsync(input.FilterResourceType, input.PageSize, input.PageAfter, ct)
+            () => _gen.List_actionsAsync(input.FilterResourceType, input.PageSize, input.PageAfter, null, ct)
         ).ConfigureAwait(false);
         var rows = (resp.Data ?? new List<GenAudit.ActionResource>())
             .Select(r => new AuditAction(r.Id ?? string.Empty, r.Attributes.Created_at))
