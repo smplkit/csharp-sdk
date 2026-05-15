@@ -217,17 +217,6 @@ namespace Smplkit.Internal.Generated.App
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// List Environments
-        /// </summary>
-        /// <remarks>
-        /// List all environments for the authenticated account.
-        /// </remarks>
-        /// <returns>Successful Response</returns>
-        /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<EnvironmentListResponse> List_environmentsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
-
-        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <summary>
         /// Create Environment
         /// </summary>
         /// <remarks>
@@ -236,6 +225,18 @@ namespace Smplkit.Internal.Generated.App
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<EnvironmentResponse> Create_environmentAsync(EnvironmentRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// List Environments
+        /// </summary>
+        /// <remarks>
+        /// List all environments for the authenticated account.
+        /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<EnvironmentListResponse> List_environmentsAsync(Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -300,9 +301,10 @@ namespace Smplkit.Internal.Generated.App
         /// <remarks>
         /// List all API keys for the authenticated account.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `expires_at`, `-expires_at`, `last_used_at`, `-last_used_at`, `name`, `-name`, `status`, `-status`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ApiKeyListResponse> List_api_keysAsync(string? filterstatus = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiKeyListResponse> List_api_keysAsync(string? filterstatus = null, Anonymous? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -350,17 +352,6 @@ namespace Smplkit.Internal.Generated.App
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// List Context Types
-        /// </summary>
-        /// <remarks>
-        /// List all context types for the authenticated account.
-        /// </remarks>
-        /// <returns>Successful Response</returns>
-        /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ContextTypeListResponse> List_context_typesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
-
-        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <summary>
         /// Create Context Type
         /// </summary>
         /// <remarks>
@@ -369,6 +360,18 @@ namespace Smplkit.Internal.Generated.App
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<ContextTypeResponse> Create_context_typeAsync(ContextTypeRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// List Context Types
+        /// </summary>
+        /// <remarks>
+        /// List all context types for the authenticated account.
+        /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<ContextTypeListResponse> List_context_typesAsync(Anonymous2? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -421,9 +424,10 @@ namespace Smplkit.Internal.Generated.App
         /// <remarks>
         /// List all context instances for the authenticated account.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ContextListResponse> List_contextsAsync(string? filtercontext_type = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ContextListResponse> List_contextsAsync(string? filtercontext_type = null, Anonymous3? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -460,17 +464,6 @@ namespace Smplkit.Internal.Generated.App
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// List Services
-        /// </summary>
-        /// <remarks>
-        /// List all services for the authenticated account.
-        /// </remarks>
-        /// <returns>Successful Response</returns>
-        /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ServiceListResponse> List_servicesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
-
-        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <summary>
         /// Create Service
         /// </summary>
         /// <remarks>
@@ -479,6 +472,18 @@ namespace Smplkit.Internal.Generated.App
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<ServiceResponse> Create_serviceAsync(ServiceRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// List Services
+        /// </summary>
+        /// <remarks>
+        /// List all services for the authenticated account.
+        /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<ServiceListResponse> List_servicesAsync(Anonymous4? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -531,9 +536,10 @@ namespace Smplkit.Internal.Generated.App
         /// <remarks>
         /// List invitations. Authenticated admins list invitations for their own account and may narrow by status. Unauthenticated callers must pass ``filter[token]`` to look up a specific invitation by its token — used to render the invitation preview before sign-in. The token-filter path always returns an array of 0 or 1 elements.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `email`, `-email`, `status`, `-status`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<InvitationListResponse> List_invitationsAsync(string? filterstatus = null, string? filtertoken = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<InvitationListResponse> List_invitationsAsync(string? filterstatus = null, string? filtertoken = null, Anonymous5? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -598,10 +604,13 @@ namespace Smplkit.Internal.Generated.App
         /// Return distinct metric names recorded for the account, each with a
         /// <br/>representative unit. Plain-JSON response (not JSON:API) — this is
         /// <br/>metadata for discovery, not a metric resource.
+        /// <br/>
+        /// <br/>Default sort is `name` ascending.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `name`, `-name`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<MetricNamesResponse> List_metric_namesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<MetricNamesResponse> List_metric_namesAsync(Anonymous6? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -621,9 +630,10 @@ namespace Smplkit.Internal.Generated.App
         /// <remarks>
         /// Query raw metric rows with filtering by name, time range, and dimensions.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-recorded_at`. Allowed values: `recorded_at`, `-recorded_at`, `value`, `-value`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<MetricListResponse> List_metricsAsync(string filtername, string? filterrecorded_at = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<MetricListResponse> List_metricsAsync(string filtername, string? filterrecorded_at = null, Anonymous7? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -632,9 +642,10 @@ namespace Smplkit.Internal.Generated.App
         /// <remarks>
         /// Query aggregated metric rollups. Requires filter[rollup] for the aggregation interval.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `bucket`. Allowed values: `bucket`, `-bucket`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<MetricRollupListResponse> List_metric_rollupsAsync(string filtername, string filterrollup, string? filterrecorded_at = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<MetricRollupListResponse> List_metric_rollupsAsync(string filtername, string filterrollup, string? filterrecorded_at = null, Anonymous8? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -646,9 +657,10 @@ namespace Smplkit.Internal.Generated.App
         /// <param name="filtersearch">Case-insensitive substring match against display_name and email. If the value is a valid UUID, also matches user id exactly.</param>
         /// <param name="pagenumber">1-based page number</param>
         /// <param name="pagesize">Items per page</param>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `email`. Allowed values: `created_at`, `-created_at`, `display_name`, `-display_name`, `email`, `-email`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<UserListResponse> List_usersAsync(string? filteraccount = null, string? filteremail = null, string? filtersearch = null, int? pagenumber = null, int? pagesize = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<UserListResponse> List_usersAsync(string? filteraccount = null, string? filteremail = null, string? filtersearch = null, int? pagenumber = null, int? pagesize = null, Anonymous9? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -689,21 +701,29 @@ namespace Smplkit.Internal.Generated.App
         /// </summary>
         /// <remarks>
         /// Return all plan tier definitions as JSON:API resources.
+        /// <br/>
+        /// <br/>Default sort is `sort_order` ascending — the natural ladder defined in
+        /// <br/>`plans.yaml`. Pass `sort=display_name` for an alphabetical view.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `sort_order`. Allowed values: `display_name`, `-display_name`, `id`, `-id`, `sort_order`, `-sort_order`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<PlanListResponse> List_plansAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<PlanListResponse> List_plansAsync(Anonymous10? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
         /// List Products
         /// </summary>
         /// <remarks>
-        /// Return all flag-enabled products with their plans, limits, and marketing content.
+        /// Return all flag-enabled products with their plans, limits, and
+        /// <br/>marketing content.
+        /// <br/>
+        /// <br/>Default sort is `display_name` ascending.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `display_name`. Allowed values: `display_name`, `-display_name`, `id`, `-id`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ProductListResponse> List_productsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ProductListResponse> List_productsAsync(Anonymous11? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -711,10 +731,13 @@ namespace Smplkit.Internal.Generated.App
         /// </summary>
         /// <remarks>
         /// Return subscription rows for the authenticated account.
+        /// <br/>
+        /// <br/>Default sort is `product` ascending.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `product`. Allowed values: `created_at`, `-created_at`, `plan`, `-plan`, `product`, `-product`, `status`, `-status`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<SubscriptionListResponse> List_subscriptionsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<SubscriptionListResponse> List_subscriptionsAsync(Anonymous12? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -789,9 +812,10 @@ namespace Smplkit.Internal.Generated.App
         /// <remarks>
         /// List all payment methods for the account. Default is returned first, then newest first.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `exp_year`, `-exp_year`, `is_default`, `-is_default`, `updated_at`, `-updated_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<PaymentMethodListResponse> List_payment_methodsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<PaymentMethodListResponse> List_payment_methodsAsync(Anonymous13? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -854,10 +878,13 @@ namespace Smplkit.Internal.Generated.App
         /// </summary>
         /// <remarks>
         /// Return invoice history for the account from Stripe.
+        /// <br/>
+        /// <br/>Default sort is `-created_at` (newest first).
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `status`, `-status`, `total`, `-total`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<InvoiceListResponse> List_invoicesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<InvoiceListResponse> List_invoicesAsync(Anonymous14? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -3004,22 +3031,29 @@ namespace Smplkit.Internal.Generated.App
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// List Environments
+        /// Create Environment
         /// </summary>
         /// <remarks>
-        /// List all environments for the authenticated account.
+        /// Create a new environment. The caller provides the id (key) in the request body.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<EnvironmentListResponse> List_environmentsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<EnvironmentResponse> Create_environmentAsync(EnvironmentRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
+            if (body == null)
+                throw new System.ArgumentNullException("body");
+
             var client_ = _httpClient;
             var disposeClient_ = false;
             try
             {
                 using (var request_ = new System.Net.Http.HttpRequestMessage())
                 {
-                    request_.Method = new System.Net.Http.HttpMethod("GET");
+                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/vnd.api+json");
+                    request_.Content = content_;
+                    request_.Method = new System.Net.Http.HttpMethod("POST");
                     request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
 
                     var urlBuilder_ = new System.Text.StringBuilder();
@@ -3050,9 +3084,9 @@ namespace Smplkit.Internal.Generated.App
                         ProcessResponse(client_, response_);
 
                         var status_ = (int)response_.StatusCode;
-                        if (status_ == 200)
+                        if (status_ == 201)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<EnvironmentListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<EnvironmentResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
@@ -3121,35 +3155,35 @@ namespace Smplkit.Internal.Generated.App
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// Create Environment
+        /// List Environments
         /// </summary>
         /// <remarks>
-        /// Create a new environment. The caller provides the id (key) in the request body.
+        /// List all environments for the authenticated account.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<EnvironmentResponse> Create_environmentAsync(EnvironmentRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<EnvironmentListResponse> List_environmentsAsync(Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
-            if (body == null)
-                throw new System.ArgumentNullException("body");
-
             var client_ = _httpClient;
             var disposeClient_ = false;
             try
             {
                 using (var request_ = new System.Net.Http.HttpRequestMessage())
                 {
-                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
-                    var content_ = new System.Net.Http.ByteArrayContent(json_);
-                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/vnd.api+json");
-                    request_.Content = content_;
-                    request_.Method = new System.Net.Http.HttpMethod("POST");
+                    request_.Method = new System.Net.Http.HttpMethod("GET");
                     request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
 
                     var urlBuilder_ = new System.Text.StringBuilder();
                     if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
                     // Operation Path: "api/v1/environments"
                     urlBuilder_.Append("api/v1/environments");
+                    urlBuilder_.Append('?');
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    urlBuilder_.Length--;
 
                     PrepareRequest(client_, request_, urlBuilder_);
 
@@ -3174,9 +3208,9 @@ namespace Smplkit.Internal.Generated.App
                         ProcessResponse(client_, response_);
 
                         var status_ = (int)response_.StatusCode;
-                        if (status_ == 201)
+                        if (status_ == 200)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<EnvironmentResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<EnvironmentListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
@@ -3867,9 +3901,10 @@ namespace Smplkit.Internal.Generated.App
         /// <remarks>
         /// List all API keys for the authenticated account.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `expires_at`, `-expires_at`, `last_used_at`, `-last_used_at`, `name`, `-name`, `status`, `-status`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ApiKeyListResponse> List_api_keysAsync(string? filterstatus = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ApiKeyListResponse> List_api_keysAsync(string? filterstatus = null, Anonymous? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -3888,6 +3923,10 @@ namespace Smplkit.Internal.Generated.App
                     if (filterstatus != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[status]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterstatus, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -4472,22 +4511,29 @@ namespace Smplkit.Internal.Generated.App
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// List Context Types
+        /// Create Context Type
         /// </summary>
         /// <remarks>
-        /// List all context types for the authenticated account.
+        /// Create a new context type. The caller provides the id (key) in the request body.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ContextTypeListResponse> List_context_typesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ContextTypeResponse> Create_context_typeAsync(ContextTypeRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
+            if (body == null)
+                throw new System.ArgumentNullException("body");
+
             var client_ = _httpClient;
             var disposeClient_ = false;
             try
             {
                 using (var request_ = new System.Net.Http.HttpRequestMessage())
                 {
-                    request_.Method = new System.Net.Http.HttpMethod("GET");
+                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/vnd.api+json");
+                    request_.Content = content_;
+                    request_.Method = new System.Net.Http.HttpMethod("POST");
                     request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
 
                     var urlBuilder_ = new System.Text.StringBuilder();
@@ -4518,9 +4564,9 @@ namespace Smplkit.Internal.Generated.App
                         ProcessResponse(client_, response_);
 
                         var status_ = (int)response_.StatusCode;
-                        if (status_ == 200)
+                        if (status_ == 201)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<ContextTypeListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<ContextTypeResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
@@ -4589,35 +4635,35 @@ namespace Smplkit.Internal.Generated.App
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// Create Context Type
+        /// List Context Types
         /// </summary>
         /// <remarks>
-        /// Create a new context type. The caller provides the id (key) in the request body.
+        /// List all context types for the authenticated account.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ContextTypeResponse> Create_context_typeAsync(ContextTypeRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ContextTypeListResponse> List_context_typesAsync(Anonymous2? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
-            if (body == null)
-                throw new System.ArgumentNullException("body");
-
             var client_ = _httpClient;
             var disposeClient_ = false;
             try
             {
                 using (var request_ = new System.Net.Http.HttpRequestMessage())
                 {
-                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
-                    var content_ = new System.Net.Http.ByteArrayContent(json_);
-                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/vnd.api+json");
-                    request_.Content = content_;
-                    request_.Method = new System.Net.Http.HttpMethod("POST");
+                    request_.Method = new System.Net.Http.HttpMethod("GET");
                     request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
 
                     var urlBuilder_ = new System.Text.StringBuilder();
                     if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
                     // Operation Path: "api/v1/context_types"
                     urlBuilder_.Append("api/v1/context_types");
+                    urlBuilder_.Append('?');
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    urlBuilder_.Length--;
 
                     PrepareRequest(client_, request_, urlBuilder_);
 
@@ -4642,9 +4688,9 @@ namespace Smplkit.Internal.Generated.App
                         ProcessResponse(client_, response_);
 
                         var status_ = (int)response_.StatusCode;
-                        if (status_ == 201)
+                        if (status_ == 200)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<ContextTypeResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<ContextTypeListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
@@ -5206,9 +5252,10 @@ namespace Smplkit.Internal.Generated.App
         /// <remarks>
         /// List all context instances for the authenticated account.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ContextListResponse> List_contextsAsync(string? filtercontext_type = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ContextListResponse> List_contextsAsync(string? filtercontext_type = null, Anonymous3? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -5227,6 +5274,10 @@ namespace Smplkit.Internal.Generated.App
                     if (filtercontext_type != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[context_type]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtercontext_type, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -5688,22 +5739,29 @@ namespace Smplkit.Internal.Generated.App
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// List Services
+        /// Create Service
         /// </summary>
         /// <remarks>
-        /// List all services for the authenticated account.
+        /// Create a new service. The caller provides the id (key) in the request body.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ServiceListResponse> List_servicesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ServiceResponse> Create_serviceAsync(ServiceRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
+            if (body == null)
+                throw new System.ArgumentNullException("body");
+
             var client_ = _httpClient;
             var disposeClient_ = false;
             try
             {
                 using (var request_ = new System.Net.Http.HttpRequestMessage())
                 {
-                    request_.Method = new System.Net.Http.HttpMethod("GET");
+                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/vnd.api+json");
+                    request_.Content = content_;
+                    request_.Method = new System.Net.Http.HttpMethod("POST");
                     request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
 
                     var urlBuilder_ = new System.Text.StringBuilder();
@@ -5734,9 +5792,9 @@ namespace Smplkit.Internal.Generated.App
                         ProcessResponse(client_, response_);
 
                         var status_ = (int)response_.StatusCode;
-                        if (status_ == 200)
+                        if (status_ == 201)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<ServiceListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<ServiceResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
@@ -5805,35 +5863,35 @@ namespace Smplkit.Internal.Generated.App
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// Create Service
+        /// List Services
         /// </summary>
         /// <remarks>
-        /// Create a new service. The caller provides the id (key) in the request body.
+        /// List all services for the authenticated account.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ServiceResponse> Create_serviceAsync(ServiceRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ServiceListResponse> List_servicesAsync(Anonymous4? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
-            if (body == null)
-                throw new System.ArgumentNullException("body");
-
             var client_ = _httpClient;
             var disposeClient_ = false;
             try
             {
                 using (var request_ = new System.Net.Http.HttpRequestMessage())
                 {
-                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
-                    var content_ = new System.Net.Http.ByteArrayContent(json_);
-                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/vnd.api+json");
-                    request_.Content = content_;
-                    request_.Method = new System.Net.Http.HttpMethod("POST");
+                    request_.Method = new System.Net.Http.HttpMethod("GET");
                     request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
 
                     var urlBuilder_ = new System.Text.StringBuilder();
                     if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
                     // Operation Path: "api/v1/services"
                     urlBuilder_.Append("api/v1/services");
+                    urlBuilder_.Append('?');
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    urlBuilder_.Length--;
 
                     PrepareRequest(client_, request_, urlBuilder_);
 
@@ -5858,9 +5916,9 @@ namespace Smplkit.Internal.Generated.App
                         ProcessResponse(client_, response_);
 
                         var status_ = (int)response_.StatusCode;
-                        if (status_ == 201)
+                        if (status_ == 200)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<ServiceResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<ServiceListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
@@ -6422,9 +6480,10 @@ namespace Smplkit.Internal.Generated.App
         /// <remarks>
         /// List invitations. Authenticated admins list invitations for their own account and may narrow by status. Unauthenticated callers must pass ``filter[token]`` to look up a specific invitation by its token — used to render the invitation preview before sign-in. The token-filter path always returns an array of 0 or 1 elements.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `email`, `-email`, `status`, `-status`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<InvitationListResponse> List_invitationsAsync(string? filterstatus = null, string? filtertoken = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<InvitationListResponse> List_invitationsAsync(string? filterstatus = null, string? filtertoken = null, Anonymous5? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -6447,6 +6506,10 @@ namespace Smplkit.Internal.Generated.App
                     if (filtertoken != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[token]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtertoken, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -7192,10 +7255,13 @@ namespace Smplkit.Internal.Generated.App
         /// Return distinct metric names recorded for the account, each with a
         /// <br/>representative unit. Plain-JSON response (not JSON:API) — this is
         /// <br/>metadata for discovery, not a metric resource.
+        /// <br/>
+        /// <br/>Default sort is `name` ascending.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `name`, `-name`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<MetricNamesResponse> List_metric_namesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<MetricNamesResponse> List_metric_namesAsync(Anonymous6? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -7210,6 +7276,12 @@ namespace Smplkit.Internal.Generated.App
                     if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
                     // Operation Path: "api/v1/metric_names"
                     urlBuilder_.Append("api/v1/metric_names");
+                    urlBuilder_.Append('?');
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    urlBuilder_.Length--;
 
                     PrepareRequest(client_, request_, urlBuilder_);
 
@@ -7428,9 +7500,10 @@ namespace Smplkit.Internal.Generated.App
         /// <remarks>
         /// Query raw metric rows with filtering by name, time range, and dimensions.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-recorded_at`. Allowed values: `recorded_at`, `-recorded_at`, `value`, `-value`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<MetricListResponse> List_metricsAsync(string filtername, string? filterrecorded_at = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<MetricListResponse> List_metricsAsync(string filtername, string? filterrecorded_at = null, Anonymous7? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (filtername == null)
                 throw new System.ArgumentNullException("filtername");
@@ -7453,6 +7526,10 @@ namespace Smplkit.Internal.Generated.App
                     if (filterrecorded_at != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[recorded_at]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterrecorded_at, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -7555,9 +7632,10 @@ namespace Smplkit.Internal.Generated.App
         /// <remarks>
         /// Query aggregated metric rollups. Requires filter[rollup] for the aggregation interval.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `bucket`. Allowed values: `bucket`, `-bucket`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<MetricRollupListResponse> List_metric_rollupsAsync(string filtername, string filterrollup, string? filterrecorded_at = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<MetricRollupListResponse> List_metric_rollupsAsync(string filtername, string filterrollup, string? filterrecorded_at = null, Anonymous8? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (filtername == null)
                 throw new System.ArgumentNullException("filtername");
@@ -7584,6 +7662,10 @@ namespace Smplkit.Internal.Generated.App
                     if (filterrecorded_at != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[recorded_at]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterrecorded_at, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -7689,9 +7771,10 @@ namespace Smplkit.Internal.Generated.App
         /// <param name="filtersearch">Case-insensitive substring match against display_name and email. If the value is a valid UUID, also matches user id exactly.</param>
         /// <param name="pagenumber">1-based page number</param>
         /// <param name="pagesize">Items per page</param>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `email`. Allowed values: `created_at`, `-created_at`, `display_name`, `-display_name`, `email`, `-email`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<UserListResponse> List_usersAsync(string? filteraccount = null, string? filteremail = null, string? filtersearch = null, int? pagenumber = null, int? pagesize = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<UserListResponse> List_usersAsync(string? filteraccount = null, string? filteremail = null, string? filtersearch = null, int? pagenumber = null, int? pagesize = null, Anonymous9? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -7726,6 +7809,10 @@ namespace Smplkit.Internal.Generated.App
                     if (pagesize != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -8191,10 +8278,14 @@ namespace Smplkit.Internal.Generated.App
         /// </summary>
         /// <remarks>
         /// Return all plan tier definitions as JSON:API resources.
+        /// <br/>
+        /// <br/>Default sort is `sort_order` ascending — the natural ladder defined in
+        /// <br/>`plans.yaml`. Pass `sort=display_name` for an alphabetical view.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `sort_order`. Allowed values: `display_name`, `-display_name`, `id`, `-id`, `sort_order`, `-sort_order`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<PlanListResponse> List_plansAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<PlanListResponse> List_plansAsync(Anonymous10? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -8209,6 +8300,12 @@ namespace Smplkit.Internal.Generated.App
                     if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
                     // Operation Path: "api/v1/plans"
                     urlBuilder_.Append("api/v1/plans");
+                    urlBuilder_.Append('?');
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    urlBuilder_.Length--;
 
                     PrepareRequest(client_, request_, urlBuilder_);
 
@@ -8307,11 +8404,15 @@ namespace Smplkit.Internal.Generated.App
         /// List Products
         /// </summary>
         /// <remarks>
-        /// Return all flag-enabled products with their plans, limits, and marketing content.
+        /// Return all flag-enabled products with their plans, limits, and
+        /// <br/>marketing content.
+        /// <br/>
+        /// <br/>Default sort is `display_name` ascending.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `display_name`. Allowed values: `display_name`, `-display_name`, `id`, `-id`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ProductListResponse> List_productsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ProductListResponse> List_productsAsync(Anonymous11? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -8326,6 +8427,12 @@ namespace Smplkit.Internal.Generated.App
                     if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
                     // Operation Path: "api/v1/products"
                     urlBuilder_.Append("api/v1/products");
+                    urlBuilder_.Append('?');
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    urlBuilder_.Length--;
 
                     PrepareRequest(client_, request_, urlBuilder_);
 
@@ -8425,10 +8532,13 @@ namespace Smplkit.Internal.Generated.App
         /// </summary>
         /// <remarks>
         /// Return subscription rows for the authenticated account.
+        /// <br/>
+        /// <br/>Default sort is `product` ascending.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `product`. Allowed values: `created_at`, `-created_at`, `plan`, `-plan`, `product`, `-product`, `status`, `-status`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<SubscriptionListResponse> List_subscriptionsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<SubscriptionListResponse> List_subscriptionsAsync(Anonymous12? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -8443,6 +8553,12 @@ namespace Smplkit.Internal.Generated.App
                     if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
                     // Operation Path: "api/v1/subscriptions"
                     urlBuilder_.Append("api/v1/subscriptions");
+                    urlBuilder_.Append('?');
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    urlBuilder_.Length--;
 
                     PrepareRequest(client_, request_, urlBuilder_);
 
@@ -9294,9 +9410,10 @@ namespace Smplkit.Internal.Generated.App
         /// <remarks>
         /// List all payment methods for the account. Default is returned first, then newest first.
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `exp_year`, `-exp_year`, `is_default`, `-is_default`, `updated_at`, `-updated_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<PaymentMethodListResponse> List_payment_methodsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<PaymentMethodListResponse> List_payment_methodsAsync(Anonymous13? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -9311,6 +9428,12 @@ namespace Smplkit.Internal.Generated.App
                     if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
                     // Operation Path: "api/v1/payment_methods"
                     urlBuilder_.Append("api/v1/payment_methods");
+                    urlBuilder_.Append('?');
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    urlBuilder_.Length--;
 
                     PrepareRequest(client_, request_, urlBuilder_);
 
@@ -10021,10 +10144,13 @@ namespace Smplkit.Internal.Generated.App
         /// </summary>
         /// <remarks>
         /// Return invoice history for the account from Stripe.
+        /// <br/>
+        /// <br/>Default sort is `-created_at` (newest first).
         /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `status`, `-status`, `total`, `-total`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<InvoiceListResponse> List_invoicesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<InvoiceListResponse> List_invoicesAsync(Anonymous14? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -10039,6 +10165,12 @@ namespace Smplkit.Internal.Generated.App
                     if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
                     // Operation Path: "api/v1/invoices"
                     urlBuilder_.Append("api/v1/invoices");
+                    urlBuilder_.Append('?');
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    urlBuilder_.Length--;
 
                     PrepareRequest(client_, request_, urlBuilder_);
 
@@ -13740,6 +13872,423 @@ namespace Smplkit.Internal.Generated.App
             get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
             set { _additionalProperties = value; }
         }
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Sort
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
+        Created_at = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-created_at")]
+        Minuscreated_at = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"key")]
+        Key = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-key")]
+        Minuskey = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"name")]
+        Name = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-name")]
+        Minusname = 5,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"updated_at")]
+        Updated_at = 6,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-updated_at")]
+        Minusupdated_at = 7,
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `expires_at`, `-expires_at`, `last_used_at`, `-last_used_at`, `name`, `-name`, `status`, `-status`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
+        Created_at = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-created_at")]
+        Minuscreated_at = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"expires_at")]
+        Expires_at = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-expires_at")]
+        Minusexpires_at = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"last_used_at")]
+        Last_used_at = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-last_used_at")]
+        Minuslast_used_at = 5,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"name")]
+        Name = 6,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-name")]
+        Minusname = 7,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"status")]
+        Status = 8,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-status")]
+        Minusstatus = 9,
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous2
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
+        Created_at = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-created_at")]
+        Minuscreated_at = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"key")]
+        Key = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-key")]
+        Minuskey = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"name")]
+        Name = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-name")]
+        Minusname = 5,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"updated_at")]
+        Updated_at = 6,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-updated_at")]
+        Minusupdated_at = 7,
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous3
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
+        Created_at = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-created_at")]
+        Minuscreated_at = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"key")]
+        Key = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-key")]
+        Minuskey = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"name")]
+        Name = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-name")]
+        Minusname = 5,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"updated_at")]
+        Updated_at = 6,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-updated_at")]
+        Minusupdated_at = 7,
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous4
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
+        Created_at = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-created_at")]
+        Minuscreated_at = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"key")]
+        Key = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-key")]
+        Minuskey = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"name")]
+        Name = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-name")]
+        Minusname = 5,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"updated_at")]
+        Updated_at = 6,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-updated_at")]
+        Minusupdated_at = 7,
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `email`, `-email`, `status`, `-status`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous5
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
+        Created_at = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-created_at")]
+        Minuscreated_at = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"email")]
+        Email = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-email")]
+        Minusemail = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"status")]
+        Status = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-status")]
+        Minusstatus = 5,
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `name`, `-name`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous6
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"name")]
+        Name = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-name")]
+        Minusname = 1,
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `-recorded_at`. Allowed values: `recorded_at`, `-recorded_at`, `value`, `-value`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous7
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"recorded_at")]
+        Recorded_at = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-recorded_at")]
+        Minusrecorded_at = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"value")]
+        Value = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-value")]
+        Minusvalue = 3,
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `bucket`. Allowed values: `bucket`, `-bucket`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous8
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"bucket")]
+        Bucket = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-bucket")]
+        Minusbucket = 1,
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `email`. Allowed values: `created_at`, `-created_at`, `display_name`, `-display_name`, `email`, `-email`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous9
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
+        Created_at = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-created_at")]
+        Minuscreated_at = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"display_name")]
+        Display_name = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-display_name")]
+        Minusdisplay_name = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"email")]
+        Email = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-email")]
+        Minusemail = 5,
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `sort_order`. Allowed values: `display_name`, `-display_name`, `id`, `-id`, `sort_order`, `-sort_order`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous10
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"display_name")]
+        Display_name = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-display_name")]
+        Minusdisplay_name = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"id")]
+        Id = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-id")]
+        Minusid = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"sort_order")]
+        Sort_order = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-sort_order")]
+        Minussort_order = 5,
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `display_name`. Allowed values: `display_name`, `-display_name`, `id`, `-id`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous11
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"display_name")]
+        Display_name = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-display_name")]
+        Minusdisplay_name = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"id")]
+        Id = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-id")]
+        Minusid = 3,
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `product`. Allowed values: `created_at`, `-created_at`, `plan`, `-plan`, `product`, `-product`, `status`, `-status`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous12
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
+        Created_at = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-created_at")]
+        Minuscreated_at = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"plan")]
+        Plan = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-plan")]
+        Minusplan = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"product")]
+        Product = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-product")]
+        Minusproduct = 5,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"status")]
+        Status = 6,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-status")]
+        Minusstatus = 7,
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `exp_year`, `-exp_year`, `is_default`, `-is_default`, `updated_at`, `-updated_at`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous13
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
+        Created_at = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-created_at")]
+        Minuscreated_at = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"exp_year")]
+        Exp_year = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-exp_year")]
+        Minusexp_year = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"is_default")]
+        Is_default = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-is_default")]
+        Minusis_default = 5,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"updated_at")]
+        Updated_at = 6,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-updated_at")]
+        Minusupdated_at = 7,
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `status`, `-status`, `total`, `-total`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous14
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
+        Created_at = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-created_at")]
+        Minuscreated_at = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"status")]
+        Status = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-status")]
+        Minusstatus = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"total")]
+        Total = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-total")]
+        Minustotal = 5,
 
     }
 

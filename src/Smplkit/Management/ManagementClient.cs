@@ -44,7 +44,7 @@ public sealed class EnvironmentsClient
     public async Task<List<Environment>> ListAsync(CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _appClient.List_environmentsAsync(ct)).ConfigureAwait(false);
+            () => _appClient.List_environmentsAsync(null, ct)).ConfigureAwait(false);
         return resp.Data.Select(MapResource).ToList();
     }
 
@@ -136,7 +136,7 @@ public sealed class ContextTypesClient
     public async Task<List<ContextType>> ListAsync(CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _appClient.List_context_typesAsync(ct)).ConfigureAwait(false);
+            () => _appClient.List_context_typesAsync(null, ct)).ConfigureAwait(false);
         return resp.Data.Select(MapResource).ToList();
     }
 
