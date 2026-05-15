@@ -39,7 +39,7 @@ public sealed class LogGroupsClient
     public async Task<List<LogGroup>> ListAsync(CancellationToken ct = default)
     {
         var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genClient.List_log_groupsAsync(ct)).ConfigureAwait(false);
+            () => _genClient.List_log_groupsAsync(cancellationToken: ct)).ConfigureAwait(false);
         if (response.Data is null) return new List<LogGroup>();
         return response.Data.Select(r => MapLogGroupResource(r)!).Where(g => g is not null).ToList();
     }
