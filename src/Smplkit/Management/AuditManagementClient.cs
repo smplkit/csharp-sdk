@@ -34,7 +34,7 @@ public sealed class ManagementForwardersClient
         input ??= new ListForwardersInput();
         var filterType = input.ForwarderType?.ToWireValue();
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.List_forwardersAsync(filterType, input.Enabled, input.PageSize, input.PageAfter, ct)
+            () => _gen.List_forwardersAsync(filterType, input.Enabled, input.PageSize, input.PageAfter, null, ct)
         ).ConfigureAwait(false);
         var rows = (resp.Data ?? new List<GenAudit.ForwarderResource>()).Select(FromResource).ToList();
         return new ListForwardersPage(rows, ExtractCursor(resp.Links?.Next));
