@@ -40,7 +40,7 @@ public class AuditResourceTypesActionsTests
                     {"id":"invoice","type":"resource_type","attributes":{"resource_type":"invoice","created_at":"2026-01-01T00:00:00Z"}},
                     {"id":"user","type":"resource_type","attributes":{"resource_type":"user","created_at":"2026-01-02T00:00:00Z"}}
                   ],
-                  "meta":{"page_size":50}
+                  "meta":{"pagination":{"page":1,"size":50}}
                 }
                 """),
         }));
@@ -51,25 +51,44 @@ public class AuditResourceTypesActionsTests
         Assert.Equal("invoice", page.ResourceTypes[0].Id);
         Assert.Equal(DateTimeOffset.Parse("2026-01-01T00:00:00Z"), page.ResourceTypes[0].CreatedAt);
         Assert.Equal("user", page.ResourceTypes[1].Id);
-        Assert.Null(page.NextCursor);
+        Assert.Equal(1, page.Pagination.Page);
+        Assert.Equal(50, page.Pagination.Size);
+        Assert.Null(page.Pagination.Total);
+        Assert.Null(page.Pagination.TotalPages);
     }
 
     [Fact]
-    public async Task ResourceTypes_List_ParsesNextCursor()
+    public async Task ResourceTypes_List_PassesPaginationAndReturnsTotals()
     {
-        var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        string? capturedUrl = null;
+        var (gen, _) = MakeGen(req =>
         {
-            Content = JsonApi(
-                "{\"data\":[{\"id\":\"invoice\",\"type\":\"resource_type\","
-                + "\"attributes\":{\"resource_type\":\"invoice\","
-                + "\"created_at\":\"2026-01-01T00:00:00Z\"}}],"
-                + "\"meta\":{\"page_size\":1},"
-                + "\"links\":{\"next\":\"/api/v1/resource_types?page[size]=1&page[after]=tok-rt\"}}"),
-        }));
+            capturedUrl = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi(
+                    "{\"data\":[{\"id\":\"invoice\",\"type\":\"resource_type\","
+                    + "\"attributes\":{\"resource_type\":\"invoice\","
+                    + "\"created_at\":\"2026-01-01T00:00:00Z\"}}],"
+                    + "\"meta\":{\"pagination\":{\"page\":2,\"size\":1,\"total\":3,\"total_pages\":3}}}"),
+            });
+        });
         await using var client = new AuditClient(gen);
-        var page = await client.ResourceTypes.ListAsync(new ListResourceTypesInput { PageSize = 1 });
+        var page = await client.ResourceTypes.ListAsync(new ListResourceTypesInput
+        {
+            PageNumber = 2,
+            PageSize = 1,
+            MetaTotal = true,
+        });
         Assert.Single(page.ResourceTypes);
-        Assert.Equal("tok-rt", page.NextCursor);
+        Assert.Equal(2, page.Pagination.Page);
+        Assert.Equal(1, page.Pagination.Size);
+        Assert.Equal(3, page.Pagination.Total);
+        Assert.Equal(3, page.Pagination.TotalPages);
+        Assert.NotNull(capturedUrl);
+        Assert.Contains("page%5Bnumber%5D=2", capturedUrl!);
+        Assert.Contains("page%5Bsize%5D=1", capturedUrl!);
+        Assert.Contains("meta%5Btotal%5D=true", capturedUrl!);
     }
 
     [Fact]
@@ -77,12 +96,12 @@ public class AuditResourceTypesActionsTests
     {
         var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = JsonApi("{\"data\":[],\"meta\":{\"page_size\":50}}"),
+            Content = JsonApi("{\"data\":[],\"meta\":{\"pagination\":{\"page\":1,\"size\":50}}}"),
         }));
         await using var client = new AuditClient(gen);
         var page = await client.ResourceTypes.ListAsync();
         Assert.Empty(page.ResourceTypes);
-        Assert.Null(page.NextCursor);
+        Assert.Equal(1, page.Pagination.Page);
     }
 
     [Fact]
@@ -108,7 +127,7 @@ public class AuditResourceTypesActionsTests
                     {"id":"invoice.created","type":"action","attributes":{"action":"invoice.created","created_at":"2026-01-01T00:00:00Z"}},
                     {"id":"user.updated","type":"action","attributes":{"action":"user.updated","created_at":"2026-01-02T00:00:00Z"}}
                   ],
-                  "meta":{"page_size":50}
+                  "meta":{"pagination":{"page":1,"size":50}}
                 }
                 """),
         }));
@@ -119,25 +138,39 @@ public class AuditResourceTypesActionsTests
         Assert.Equal("invoice.created", page.Actions[0].Id);
         Assert.Equal(DateTimeOffset.Parse("2026-01-01T00:00:00Z"), page.Actions[0].CreatedAt);
         Assert.Equal("user.updated", page.Actions[1].Id);
-        Assert.Null(page.NextCursor);
+        Assert.Equal(50, page.Pagination.Size);
     }
 
     [Fact]
-    public async Task Actions_List_ParsesNextCursor()
+    public async Task Actions_List_PassesPaginationAndReturnsTotals()
     {
-        var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        string? capturedUrl = null;
+        var (gen, _) = MakeGen(req =>
         {
-            Content = JsonApi(
-                "{\"data\":[{\"id\":\"invoice.created\",\"type\":\"action\","
-                + "\"attributes\":{\"action\":\"invoice.created\","
-                + "\"created_at\":\"2026-01-01T00:00:00Z\"}}],"
-                + "\"meta\":{\"page_size\":1},"
-                + "\"links\":{\"next\":\"/api/v1/actions?page[size]=1&page[after]=tok-ac\"}}"),
-        }));
+            capturedUrl = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi(
+                    "{\"data\":[{\"id\":\"invoice.created\",\"type\":\"action\","
+                    + "\"attributes\":{\"action\":\"invoice.created\","
+                    + "\"created_at\":\"2026-01-01T00:00:00Z\"}}],"
+                    + "\"meta\":{\"pagination\":{\"page\":2,\"size\":1,\"total\":3,\"total_pages\":3}}}"),
+            });
+        });
         await using var client = new AuditClient(gen);
-        var page = await client.Actions.ListAsync(new ListActionsInput { PageSize = 1 });
+        var page = await client.Actions.ListAsync(new ListActionsInput
+        {
+            PageNumber = 2,
+            PageSize = 1,
+            MetaTotal = true,
+        });
         Assert.Single(page.Actions);
-        Assert.Equal("tok-ac", page.NextCursor);
+        Assert.Equal(2, page.Pagination.Page);
+        Assert.Equal(3, page.Pagination.Total);
+        Assert.Equal(3, page.Pagination.TotalPages);
+        Assert.NotNull(capturedUrl);
+        Assert.Contains("page%5Bnumber%5D=2", capturedUrl!);
+        Assert.Contains("meta%5Btotal%5D=true", capturedUrl!);
     }
 
     [Fact]
@@ -149,7 +182,7 @@ public class AuditResourceTypesActionsTests
             capturedUrl = req.RequestUri!.ToString();
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = JsonApi("{\"data\":[],\"meta\":{\"page_size\":50}}"),
+                Content = JsonApi("{\"data\":[],\"meta\":{\"pagination\":{\"page\":1,\"size\":50}}}"),
             });
         });
         await using var client = new AuditClient(gen);
@@ -157,12 +190,11 @@ public class AuditResourceTypesActionsTests
         {
             FilterResourceType = "invoice",
             PageSize = 10,
-            PageAfter = "cursor-abc",
         });
         Assert.NotNull(capturedUrl);
         Assert.Contains("invoice", capturedUrl!);
         Assert.Empty(page.Actions);
-        Assert.Null(page.NextCursor);
+        Assert.Equal(50, page.Pagination.Size);
     }
 
     [Fact]
@@ -179,7 +211,7 @@ public class AuditResourceTypesActionsTests
         // Exercises the (input ??= new ListActionsInput()) branch when null is passed.
         var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = JsonApi("{\"data\":[],\"meta\":{\"page_size\":50}}"),
+            Content = JsonApi("{\"data\":[],\"meta\":{\"pagination\":{\"page\":1,\"size\":50}}}"),
         }));
         await using var client = new AuditClient(gen);
         var page = await client.Actions.ListAsync(null);
@@ -192,10 +224,22 @@ public class AuditResourceTypesActionsTests
         // Exercises the (input ??= new ListResourceTypesInput()) branch when null is passed.
         var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = JsonApi("{\"data\":[],\"meta\":{\"page_size\":50}}"),
+            Content = JsonApi("{\"data\":[],\"meta\":{\"pagination\":{\"page\":1,\"size\":50}}}"),
         }));
         await using var client = new AuditClient(gen);
         var page = await client.ResourceTypes.ListAsync(null);
         Assert.Empty(page.ResourceTypes);
+    }
+
+    [Fact]
+    public void ExtractPagination_HandlesNullMeta()
+    {
+        // Defensive path: if the server responds with no meta block at all
+        // (or a deserialised null), the helper should produce a zero-valued Pagination.
+        var p = AuditResourceTypes.ExtractPagination(null);
+        Assert.Equal(0, p.Page);
+        Assert.Equal(0, p.Size);
+        Assert.Null(p.Total);
+        Assert.Null(p.TotalPages);
     }
 }

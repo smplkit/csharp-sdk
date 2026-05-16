@@ -11,7 +11,7 @@ namespace Smplkit.Audit;
 /// action. With the filter, returns the actions seen with that specific
 /// resource_type — useful for cascading filter dropdowns.</para>
 ///
-/// <para>Sorted alphabetically; cursor pagination via <c>PageAfter</c>.</para>
+/// <para>Sorted alphabetically; offset pagination via <c>PageNumber</c> / <c>PageSize</c>.</para>
 /// </summary>
 public sealed class AuditActions
 {
@@ -25,21 +25,11 @@ public sealed class AuditActions
     {
         input ??= new ListActionsInput();
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.List_actionsAsync(input.FilterResourceType, input.PageSize, input.PageAfter, null, ct)
+            () => _gen.List_actionsAsync(input.FilterResourceType, null, input.PageNumber, input.PageSize, input.MetaTotal, ct)
         ).ConfigureAwait(false);
         var rows = (resp.Data ?? new List<GenAudit.ActionResource>())
             .Select(r => new AuditAction(r.Id ?? string.Empty, r.Attributes.Created_at))
             .ToList();
-        return new ListActionsPage(rows, ExtractCursor(resp.Links?.Next));
-    }
-
-    private static string? ExtractCursor(string? link)
-    {
-        if (string.IsNullOrEmpty(link)) return null;
-        var idx = link.IndexOf("page[after]=", StringComparison.Ordinal);
-        if (idx < 0) return null;
-        var token = link.Substring(idx + "page[after]=".Length);
-        var amp = token.IndexOf('&');
-        return amp >= 0 ? token.Substring(0, amp) : token;
+        return new ListActionsPage(rows, AuditResourceTypes.ExtractPagination(resp.Meta));
     }
 }

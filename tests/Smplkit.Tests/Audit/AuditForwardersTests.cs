@@ -92,17 +92,19 @@ public class AuditForwardersTests
     }
 
     [Fact]
-    public async Task List_PaginatesAndExtractsCursor()
+    public async Task List_PaginatesViaOffset()
     {
         var calls = 0;
+        string? secondUrl = null;
         var fwds = MakeForwarders(req =>
         {
             calls++;
+            if (calls == 2) secondUrl = req.RequestUri!.ToString();
             var body = calls == 1
                 ? "{\"data\":[" + ForwarderResource("A", "a")
-                    + "],\"meta\":{\"page_size\":1},"
-                    + "\"links\":{\"next\":\"/api/v1/forwarders?page[size]=1&page[after]=tok-2\"}}"
-                : "{\"data\":[" + ForwarderResource("B", "b") + "],\"meta\":{\"page_size\":1}}";
+                    + "],\"meta\":{\"pagination\":{\"page\":1,\"size\":1,\"total\":2,\"total_pages\":2}}}"
+                : "{\"data\":[" + ForwarderResource("B", "b")
+                    + "],\"meta\":{\"pagination\":{\"page\":2,\"size\":1,\"total\":2,\"total_pages\":2}}}";
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = JsonApi(body),
@@ -113,22 +115,34 @@ public class AuditForwardersTests
             ForwarderType = ForwarderType.Datadog,
             Enabled = true,
             PageSize = 1,
+            MetaTotal = true,
         });
         Assert.Single(first.Forwarders);
-        Assert.Equal("tok-2", first.NextCursor);
-        var second = await fwds.ListAsync(new ListForwardersInput { PageAfter = first.NextCursor });
-        Assert.Null(second.NextCursor);
+        Assert.Equal(1, first.Pagination.Page);
+        Assert.Equal(2, first.Pagination.Total);
+        Assert.Equal(2, first.Pagination.TotalPages);
+        var second = await fwds.ListAsync(new ListForwardersInput
+        {
+            PageNumber = 2,
+            PageSize = 1,
+            MetaTotal = true,
+        });
+        Assert.Equal(2, second.Pagination.Page);
+        Assert.NotNull(secondUrl);
+        Assert.Contains("page%5Bnumber%5D=2", secondUrl!);
+        Assert.Contains("meta%5Btotal%5D=true", secondUrl!);
     }
 
     [Fact]
-    public async Task List_DefaultInputAndNoLinks()
+    public async Task List_DefaultInputAndPagination()
     {
         var page = await MakeForwarders(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = JsonApi("{\"data\":[],\"meta\":{\"page_size\":1}}"),
+            Content = JsonApi("{\"data\":[],\"meta\":{\"pagination\":{\"page\":1,\"size\":1}}}"),
         })).ListAsync();
         Assert.Empty(page.Forwarders);
-        Assert.Null(page.NextCursor);
+        Assert.Equal(1, page.Pagination.Page);
+        Assert.Null(page.Pagination.Total);
     }
 
     [Fact]
