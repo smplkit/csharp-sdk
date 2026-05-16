@@ -178,22 +178,26 @@ public class AutoLoadTests
     }
 
     [Fact]
-    public async Task ApplyLevels_SkipsLoggersWithNoLevel()
+    public async Task ApplyLevels_SkipsUnmanagedLoggers()
     {
         var (client, _) = CreateClient(_ =>
         {
+            // managed=false means the customer hasn't given us ownership of
+            // this logger — we never push a level for it. (Contrast with
+            // managed=true + no configured level, which resolves to the INFO
+            // fallback and IS applied — see Python's _apply_levels.)
             var json = """
             {
                 "data": [
                     {
-                        "id": "no-level-logger",
+                        "id": "unmanaged-logger",
                         "type": "logger",
                         "attributes": {
-                            "id": "no-level-logger",
-                            "name": "No Level",
+                            "id": "unmanaged-logger",
+                            "name": "Unmanaged",
                             "level": null,
                             "group": null,
-                            "managed": true,
+                            "managed": false,
                             "sources": [],
                             "environments": {},
                             "created_at": "2024-01-15T10:30:00Z",
@@ -224,7 +228,7 @@ public class AutoLoadTests
             // WebSocket will fail
         }
 
-        // ApplyLevel should NOT be called for logger with null level
+        // ApplyLevel must not be called for unmanaged loggers.
         adapter.Verify(a => a.ApplyLevel(It.IsAny<string>(), It.IsAny<LogLevel>()), Times.Never);
     }
 

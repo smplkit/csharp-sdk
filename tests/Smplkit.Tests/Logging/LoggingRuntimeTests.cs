@@ -362,12 +362,34 @@ public class LoggingRuntimeTests
     }
 
     [Fact]
-    public async Task HandleGroupDeleted_FiresDeletedEvent()
+    public async Task HandleGroupDeleted_FiresDeltasForInheritingLoggers()
     {
+        // showcase-inh inherits from billing (level=WARN). Deleting billing
+        // should re-resolve showcase-inh; with no other source, it falls
+        // through to the INFO fallback — that's a delta from WARN → INFO and
+        // must fire a listener.
+        var loggerListWithInheritor = """
+        {
+            "data": [
+                {
+                    "id": "showcase-inh",
+                    "type": "logger",
+                    "attributes": {
+                        "name": "Inheritor",
+                        "level": null,
+                        "group": "billing",
+                        "managed": true,
+                        "sources": [],
+                        "environments": {}
+                    }
+                }
+            ]
+        }
+        """;
         var (client, _) = MakeClient(req =>
         {
             var path = req.RequestUri!.AbsolutePath;
-            if (path.EndsWith("/loggers")) return Task.FromResult(Json(LoggerListJson));
+            if (path.EndsWith("/loggers")) return Task.FromResult(Json(loggerListWithInheritor));
             if (path.EndsWith("/log_groups")) return Task.FromResult(Json(LogGroupListJson));
             return Task.FromResult(Json("{}"));
         });
@@ -375,8 +397,8 @@ public class LoggingRuntimeTests
         client.Logging.RegisterAdapter(fake);
         await client.Logging.InstallAsync();
 
-        var fired = false;
-        client.Logging.OnChange("billing", evt => fired = evt.Deleted);
+        LoggerChangeEvent? captured = null;
+        client.Logging.OnChange("showcase-inh", evt => captured = evt);
 
         var method = typeof(LoggingClient).GetMethod("HandleGroupDeleted",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
@@ -385,7 +407,10 @@ public class LoggingRuntimeTests
             new Dictionary<string, object?> { ["id"] = "billing" },
         });
 
-        Assert.True(fired);
+        Assert.NotNull(captured);
+        Assert.Equal("showcase-inh", captured!.Id);
+        Assert.Equal(LogLevel.Info, captured.Level); // fell back from WARN to INFO
+        Assert.False(captured.Deleted);
     }
 
     [Fact]

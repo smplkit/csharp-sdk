@@ -26,8 +26,13 @@ public sealed class LoggingClient
     private readonly List<Action<LoggerChangeEvent>> _globalListeners = new();
     private readonly Dictionary<string, List<Action<LoggerChangeEvent>>> _scopedListeners = new();
     private readonly object _listenerLock = new();
-    // Cache of last-known logger levels for diff-based listener firing
-    private readonly Dictionary<string, LogLevel?> _loggerLevelCache = new();
+    // Resolution state — guarded by _loggerCacheLock.
+    //   _loggersCache: server-side loggers (id → full record) used to drive resolution
+    //   _groupsCache:  server-side log groups (id → full record) used to walk group chains
+    //   _loggerLevelCache: last-known *resolved* level per managed logger (drives diff/listener firing)
+    private readonly Dictionary<string, Logger> _loggersCache = new();
+    private readonly Dictionary<string, LogGroup> _groupsCache = new();
+    private readonly Dictionary<string, LogLevel> _loggerLevelCache = new();
     private readonly object _loggerCacheLock = new();
 
     /// <summary>
@@ -119,18 +124,20 @@ public sealed class LoggingClient
         // 4. Flush discovered loggers to server via buffer
         await FlushLoggerBufferAsync(ct).ConfigureAwait(false);
 
-        // 5. Fetch all loggers and groups from the server
+        // 5. Fetch all loggers and groups from the server, populating caches
         var loggers = await FetchAllLoggersAsync(ct).ConfigureAwait(false);
-        await FetchAllLogGroupsAsync(ct).ConfigureAwait(false);
-
-        // 6. Apply levels from server-managed loggers to adapters, seed level cache
-        ApplyLevels(loggers);
+        var groups = await FetchAllLogGroupsAsync(ct).ConfigureAwait(false);
         lock (_loggerCacheLock)
         {
-            foreach (var l in loggers)
-                if (l.Id is not null)
-                    _loggerLevelCache[l.Id] = l.Level;
+            ReplaceLoggersCacheLocked(loggers);
+            ReplaceGroupsCacheLocked(groups);
         }
+
+        // 6. Resolve and apply effective levels (logger override → logger base →
+        //    group chain → dot-notation ancestor → INFO fallback). Seeds the
+        //    level cache from the resolved levels, so subsequent diffs fire on
+        //    *resolved* changes — including group-driven ones.
+        ApplyResolvedLevels(seedDiffCache: true);
 
         // 7. Wire WebSocket
         DebugLog.Log("registration", "registering logger_changed, logger_deleted, group_changed, group_deleted, loggers_changed handlers");
@@ -305,23 +312,120 @@ public sealed class LoggingClient
             Environment = environment,
         };
 
-    private void ApplyLevels(List<Logger> loggers)
+    /// <summary>
+    /// Re-resolves every managed logger in the cache against the current group
+    /// cache and pushes the resolved level to every registered adapter. When
+    /// <paramref name="seedDiffCache"/> is <c>true</c>, also overwrites
+    /// <see cref="_loggerLevelCache"/> so future calls can detect deltas; when
+    /// <c>false</c>, returns the per-logger deltas (id → new resolved level)
+    /// without touching the diff cache, so the caller can fire listeners.
+    /// </summary>
+    private List<(string Id, LogLevel Level)> ApplyResolvedLevels(bool seedDiffCache)
     {
-        if (_adapters.Count == 0) return;
+        var changedLoggers = new List<(string Id, LogLevel Level)>();
 
-        foreach (var logger in loggers)
+        // Snapshot under the cache lock so cache mutations during apply can't
+        // tear our view. Adapters are invoked outside the lock to avoid
+        // holding it across user code.
+        Dictionary<string, LogLevel> resolved;
+        Dictionary<string, LogLevel> previous;
+        lock (_loggerCacheLock)
         {
-            if (logger.Level is null) continue;
+            resolved = SnapshotResolvedLevelsLocked();
 
-            foreach (var adapter in _adapters)
+            if (seedDiffCache)
             {
-                try { adapter.ApplyLevel(logger.Id!, logger.Level.Value); }
-                catch { /* Adapter failure is non-fatal */ }
+                previous = new Dictionary<string, LogLevel>();
+                _loggerLevelCache.Clear();
+                foreach (var (id, lvl) in resolved)
+                    _loggerLevelCache[id] = lvl;
             }
+            else
+            {
+                previous = new Dictionary<string, LogLevel>(_loggerLevelCache);
+                foreach (var (id, lvl) in resolved)
+                    _loggerLevelCache[id] = lvl;
+                foreach (var staleId in previous.Keys.Where(k => !resolved.ContainsKey(k)).ToList())
+                    _loggerLevelCache.Remove(staleId);
 
-            _metrics?.Record("logging.level_changes", unit: "changes",
-                dimensions: new Dictionary<string, string> { ["logger"] = logger.Id! });
+                var allIds = new HashSet<string>(previous.Keys);
+                allIds.UnionWith(resolved.Keys);
+                foreach (var id in allIds)
+                {
+                    var hadPrev = previous.TryGetValue(id, out var prev);
+                    var hasNew = resolved.TryGetValue(id, out var next);
+                    if (hasNew && (!hadPrev || !Equals(prev, next)))
+                        changedLoggers.Add((id, next));
+                }
+            }
         }
+
+        if (_adapters.Count > 0)
+        {
+            foreach (var (id, level) in resolved)
+            {
+                foreach (var adapter in _adapters)
+                {
+                    try { adapter.ApplyLevel(id, level); }
+                    catch { /* Adapter failure is non-fatal */ }
+                }
+                _metrics?.Record("logging.level_changes", unit: "changes",
+                    dimensions: new Dictionary<string, string> { ["logger"] = id });
+            }
+        }
+
+        return changedLoggers;
+    }
+
+    /// <summary>
+    /// Resolves the effective level for every managed logger currently in the
+    /// cache. Called under <see cref="_loggerCacheLock"/>.
+    /// </summary>
+    private Dictionary<string, LogLevel> SnapshotResolvedLevelsLocked()
+    {
+        var environment = _parent?.Environment ?? string.Empty;
+        var loggerEntries = BuildResolutionEntries(_loggersCache);
+        var groupEntries = BuildResolutionEntries(_groupsCache);
+
+        var result = new Dictionary<string, LogLevel>();
+        foreach (var (id, logger) in _loggersCache)
+        {
+            if (!logger.Managed) continue;
+            result[id] = Smplkit.Internal.LevelResolver.Resolve(id, environment, loggerEntries, groupEntries);
+        }
+        return result;
+    }
+
+    private static Dictionary<string, Smplkit.Internal.LevelEntry> BuildResolutionEntries(Dictionary<string, Logger> source)
+    {
+        var entries = new Dictionary<string, Smplkit.Internal.LevelEntry>(source.Count);
+        foreach (var (id, l) in source)
+            entries[id] = new Smplkit.Internal.LevelEntry(l.Level, l.Group, l.Environments);
+        return entries;
+    }
+
+    private static Dictionary<string, Smplkit.Internal.LevelEntry> BuildResolutionEntries(Dictionary<string, LogGroup> source)
+    {
+        var entries = new Dictionary<string, Smplkit.Internal.LevelEntry>(source.Count);
+        foreach (var (id, g) in source)
+            entries[id] = new Smplkit.Internal.LevelEntry(g.Level, g.Group, g.Environments);
+        return entries;
+    }
+
+    private void ReplaceLoggersCacheLocked(List<Logger> loggers)
+    {
+        _loggersCache.Clear();
+        foreach (var l in loggers)
+            if (l.Id is not null)
+                _loggersCache[l.Id] = l;
+    }
+
+    private void ReplaceGroupsCacheLocked(List<LogGroup> groups)
+    {
+        _groupsCache.Clear();
+        foreach (var g in groups)
+            if (g.Id is not null)
+                _groupsCache[g.Id] = g;
     }
 
     private void HandleAdapterNewLogger(string loggerName, LogLevel level)
@@ -390,24 +494,19 @@ public sealed class LoggingClient
     {
         try
         {
-            // Scoped fetch: GET just the single changed logger
+            // Scoped fetch: GET just the single changed logger, refresh the cache
+            // entry, then re-resolve and apply. Group-driven effects on this
+            // logger would already be captured by group_changed; this handler
+            // covers the logger-side config (own level, env overrides, group id).
             if (_parent?.Manage.Loggers is not { } mgmtL) return;
             var logger = await mgmtL.GetAsync(loggerId).ConfigureAwait(false);
-            ApplyLevels(new List<Logger> { logger });
 
-            // Only fire listeners if level changed
-            LogLevel? prevLevel;
             lock (_loggerCacheLock)
             {
-                _loggerLevelCache.TryGetValue(loggerId, out prevLevel);
-                _loggerLevelCache[loggerId] = logger.Level;
+                _loggersCache[loggerId] = logger;
             }
 
-            if (!Equals(prevLevel, logger.Level))
-            {
-                var evt = new LoggerChangeEvent(loggerId, logger.Level, "websocket");
-                FireListeners(loggerId, evt);
-            }
+            FireDeltasFromApply("websocket");
         }
         catch (Exception ex)
         {
@@ -423,13 +522,18 @@ public sealed class LoggingClient
         DebugLog.Log("websocket", $"logger_deleted event received, id={loggerId ?? "<unknown>"}");
         if (loggerId is null || !_started) return;
 
+        bool wasKnown;
         lock (_loggerCacheLock)
         {
+            wasKnown = _loggersCache.Remove(loggerId);
             _loggerLevelCache.Remove(loggerId);
         }
 
-        var evt = new LoggerChangeEvent(loggerId, null, "websocket", Deleted: true);
-        FireListeners(loggerId, evt);
+        if (wasKnown)
+        {
+            var evt = new LoggerChangeEvent(loggerId, null, "websocket", Deleted: true);
+            FireListeners(loggerId, evt);
+        }
     }
 
     private void HandleGroupChanged(Dictionary<string, object?> data)
@@ -444,33 +548,19 @@ public sealed class LoggingClient
     {
         try
         {
-            // Scoped fetch: GET just the single changed group
+            // Scoped fetch: GET just the single changed group, update the cache,
+            // then re-resolve every logger. Loggers that inherit (directly or
+            // via the parent chain) will pick up the new level; loggers with
+            // their own level resolve identically and produce no delta.
             if (_parent?.Manage.LogGroups is not { } mgmtG) return;
             var group = await mgmtG.GetAsync(groupId).ConfigureAwait(false);
-            // A group level change affects all loggers in that group — re-apply all
-            var loggers = await FetchAllLoggersAsync(default).ConfigureAwait(false);
-            ApplyLevels(loggers);
 
-            // Diff and fire for loggers whose effective level changed
-            var changedLoggers = new List<(string Id, LogLevel? Level)>();
             lock (_loggerCacheLock)
             {
-                foreach (var logger in loggers)
-                {
-                    if (logger.Id is null) continue;
-                    _loggerLevelCache.TryGetValue(logger.Id, out var prev);
-                    if (!Equals(prev, logger.Level))
-                    {
-                        _loggerLevelCache[logger.Id] = logger.Level;
-                        changedLoggers.Add((logger.Id, logger.Level));
-                    }
-                }
+                _groupsCache[groupId] = group;
             }
-            foreach (var (id, level) in changedLoggers)
-            {
-                var evt = new LoggerChangeEvent(id, level, "websocket");
-                FireListeners(id, evt);
-            }
+
+            FireDeltasFromApply("websocket");
         }
         catch (Exception ex)
         {
@@ -486,9 +576,16 @@ public sealed class LoggingClient
         DebugLog.Log("websocket", $"group_deleted event received, id={groupId ?? "<unknown>"}");
         if (groupId is null || !_started) return;
 
-        // Fire a logger change event for the group using loggerId = groupId (group-level event)
-        var evt = new LoggerChangeEvent(groupId, null, "websocket", Deleted: true);
-        FireListeners(groupId, evt);
+        // Drop the group then re-resolve. Loggers that inherited from this
+        // group fall through to dot-notation ancestry / the INFO fallback;
+        // listeners fire only on loggers whose resolved level actually moves.
+        bool wasKnown;
+        lock (_loggerCacheLock)
+        {
+            wasKnown = _groupsCache.Remove(groupId);
+        }
+        if (wasKnown)
+            FireDeltasFromApply("websocket");
     }
 
     private void HandleLoggersChanged(Dictionary<string, object?> data)
@@ -525,35 +622,17 @@ public sealed class LoggingClient
 
     private async Task RefetchAndApplyAsync(string source, CancellationToken ct = default)
     {
-        // Full refetch of both loggers and groups
+        // Full refetch of both loggers and groups.
         var loggers = await FetchAllLoggersAsync(ct).ConfigureAwait(false);
-        await FetchAllLogGroupsAsync(ct).ConfigureAwait(false);
-        ApplyLevels(loggers);
+        var groups = await FetchAllLogGroupsAsync(ct).ConfigureAwait(false);
 
-        // Diff and fire per-key listeners for changed loggers
-        var changedLoggers = new List<(string Id, LogLevel? Level)>();
         lock (_loggerCacheLock)
         {
-            var allIds = new HashSet<string>(_loggerLevelCache.Keys);
-            foreach (var l in loggers)
-                if (l.Id is not null) allIds.Add(l.Id);
-
-            foreach (var id in allIds)
-            {
-                _loggerLevelCache.TryGetValue(id, out var prev);
-                var current = loggers.FirstOrDefault(l => l.Id == id);
-                var newLevel = current?.Level;
-                if (!Equals(prev, newLevel))
-                {
-                    if (current is not null)
-                        _loggerLevelCache[id] = newLevel;
-                    else
-                        _loggerLevelCache.Remove(id);
-                    changedLoggers.Add((id, newLevel));
-                }
-            }
+            ReplaceLoggersCacheLocked(loggers);
+            ReplaceGroupsCacheLocked(groups);
         }
 
+        var changedLoggers = ApplyResolvedLevels(seedDiffCache: false);
         if (changedLoggers.Count == 0) return;
 
         // Fire global listener exactly once
@@ -565,6 +644,21 @@ public sealed class LoggingClient
         {
             var evt = new LoggerChangeEvent(changedId, level, source);
             FireScopedListeners(changedId, evt);
+        }
+    }
+
+    /// <summary>
+    /// Re-resolves every managed logger and fires <see cref="FireListeners"/>
+    /// (global + scoped) for each delta. Shared by the logger_changed,
+    /// group_changed, and group_deleted handlers. The diff cache is updated
+    /// in place — callers don't need to track previous state.
+    /// </summary>
+    private void FireDeltasFromApply(string source)
+    {
+        foreach (var (id, level) in ApplyResolvedLevels(seedDiffCache: false))
+        {
+            var evt = new LoggerChangeEvent(id, level, source);
+            FireListeners(id, evt);
         }
     }
 
@@ -583,14 +677,13 @@ public sealed class LoggingClient
 
     /// <summary>
     /// Walks <c>Manage.LogGroups.ListAsync</c> page by page until the server
-    /// returns a short page. The runtime doesn't consume the result today;
-    /// the call still happens for parity with the pre-pagination behavior
-    /// (warming server caches / surfacing transient errors at startup).
+    /// returns a short page. The runtime feeds the result into the group cache
+    /// so the resolver can walk group chains for inheritance.
     /// </summary>
-    private async Task FetchAllLogGroupsAsync(CancellationToken ct)
+    private async Task<List<LogGroup>> FetchAllLogGroupsAsync(CancellationToken ct)
     {
-        if (_parent?.Manage.LogGroups is not { } mgmtGn) return;
-        await Smplkit.Internal.Helpers.FetchAllPagesAsync(
+        if (_parent?.Manage.LogGroups is not { } mgmtGn) return new List<LogGroup>();
+        return await Smplkit.Internal.Helpers.FetchAllPagesAsync(
             (page, size, c) => mgmtGn.ListAsync(page, size, c), ct).ConfigureAwait(false);
     }
 

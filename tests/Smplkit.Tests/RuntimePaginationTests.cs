@@ -323,8 +323,12 @@ public class RuntimePaginationTests
     }
 
     [Fact]
-    public async Task LoggingRuntime_GroupChanged_LoggerRefetchLoops()
+    public async Task LoggingRuntime_GroupChanged_DoesNotRefetchLoggers()
     {
+        // group_changed performs a scoped fetch of the single group and
+        // re-resolves from the cached loggers — it does NOT refetch the
+        // full loggers list. Verifies that the install-time pagination
+        // is the only walk of the loggers endpoint.
         var loggerCalls = new List<int?>();
         var handler = new MockHttpMessageHandler(req =>
         {
@@ -354,7 +358,7 @@ public class RuntimePaginationTests
         var task = (Task)method.Invoke(client.Logging, new object?[] { "g" })!;
         await task;
 
-        // group_changed should refetch loggers across 2 pages again
-        Assert.Equal(4, loggerCalls.Count);
+        // No additional logger pages — group_changed re-resolves from cache.
+        Assert.Equal(2, loggerCalls.Count);
     }
 }
