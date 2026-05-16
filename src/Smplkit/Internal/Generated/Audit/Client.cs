@@ -97,9 +97,12 @@ namespace Smplkit.Internal.Generated.Audit
         /// Report the current-period usage counters for this account.
         /// </remarks>
         /// <param name="filterperiod">Period to report. `current` is the only supported value.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<UsageResponse> List_usageAsync(string filterperiod, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<UsageResponse> List_usageAsync(string filterperiod, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -119,13 +122,15 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// List forwarders for this account.
         /// <br/>
-        /// <br/>Default sort is `-created_at` (newest first). Pagination uses cursor
-        /// <br/>tokens; keep the same `sort` value across paginated requests.
+        /// <br/>Default sort is `-created_at` (newest first).
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `updated_at`, `-updated_at`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ForwarderListResponse> List_forwardersAsync(string? filterforwarder_type = null, bool? filterenabled = null, int? pagesize = null, string? pageafter = null, Anonymous? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ForwarderListResponse> List_forwardersAsync(string? filterforwarder_type = null, bool? filterenabled = null, Anonymous? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -238,9 +243,12 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>filter dropdowns in a UI.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ResourceTypeListResponse> List_resource_typesAsync(int? pagesize = null, string? pageafter = null, Anonymous3? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ResourceTypeListResponse> List_resource_typesAsync(Anonymous3? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -255,9 +263,12 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>for that specific resource type.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ActionListResponse> List_actionsAsync(string? filterresource_type = null, int? pagesize = null, string? pageafter = null, Anonymous4? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ActionListResponse> List_actionsAsync(string? filterresource_type = null, Anonymous4? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
     }
 
@@ -640,9 +651,12 @@ namespace Smplkit.Internal.Generated.Audit
         /// Report the current-period usage counters for this account.
         /// </remarks>
         /// <param name="filterperiod">Period to report. `current` is the only supported value.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<UsageResponse> List_usageAsync(string filterperiod, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<UsageResponse> List_usageAsync(string filterperiod, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (filterperiod == null)
                 throw new System.ArgumentNullException("filterperiod");
@@ -662,6 +676,18 @@ namespace Smplkit.Internal.Generated.Audit
                     urlBuilder_.Append("api/v1/usage");
                     urlBuilder_.Append('?');
                     urlBuilder_.Append(System.Uri.EscapeDataString("filter[period]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterperiod, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    if (pagenumber != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[number]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagenumber, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagesize != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (metatotal != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("meta[total]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(metatotal, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
                     urlBuilder_.Length--;
 
                     PrepareRequest(client_, request_, urlBuilder_);
@@ -807,13 +833,15 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// List forwarders for this account.
         /// <br/>
-        /// <br/>Default sort is `-created_at` (newest first). Pagination uses cursor
-        /// <br/>tokens; keep the same `sort` value across paginated requests.
+        /// <br/>Default sort is `-created_at` (newest first).
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `updated_at`, `-updated_at`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ForwarderListResponse> List_forwardersAsync(string? filterforwarder_type = null, bool? filterenabled = null, int? pagesize = null, string? pageafter = null, Anonymous? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ForwarderListResponse> List_forwardersAsync(string? filterforwarder_type = null, bool? filterenabled = null, Anonymous? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -837,17 +865,21 @@ namespace Smplkit.Internal.Generated.Audit
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[enabled]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterenabled, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagenumber != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[number]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagenumber, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
                     if (pagesize != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
-                    if (pageafter != null)
+                    if (metatotal != null)
                     {
-                        urlBuilder_.Append(System.Uri.EscapeDataString("page[after]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pageafter, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
-                    }
-                    if (sort != null)
-                    {
-                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                        urlBuilder_.Append(System.Uri.EscapeDataString("meta[total]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(metatotal, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -1544,9 +1576,12 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>filter dropdowns in a UI.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ResourceTypeListResponse> List_resource_typesAsync(int? pagesize = null, string? pageafter = null, Anonymous3? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ResourceTypeListResponse> List_resource_typesAsync(Anonymous3? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -1562,17 +1597,21 @@ namespace Smplkit.Internal.Generated.Audit
                     // Operation Path: "api/v1/resource_types"
                     urlBuilder_.Append("api/v1/resource_types");
                     urlBuilder_.Append('?');
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagenumber != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[number]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagenumber, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
                     if (pagesize != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
-                    if (pageafter != null)
+                    if (metatotal != null)
                     {
-                        urlBuilder_.Append(System.Uri.EscapeDataString("page[after]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pageafter, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
-                    }
-                    if (sort != null)
-                    {
-                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                        urlBuilder_.Append(System.Uri.EscapeDataString("meta[total]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(metatotal, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -1641,9 +1680,12 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>for that specific resource type.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ActionListResponse> List_actionsAsync(string? filterresource_type = null, int? pagesize = null, string? pageafter = null, Anonymous4? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ActionListResponse> List_actionsAsync(string? filterresource_type = null, Anonymous4? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -1663,17 +1705,21 @@ namespace Smplkit.Internal.Generated.Audit
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[resource_type]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterresource_type, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagenumber != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[number]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagenumber, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
                     if (pagesize != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
-                    if (pageafter != null)
+                    if (metatotal != null)
                     {
-                        urlBuilder_.Append(System.Uri.EscapeDataString("page[after]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pageafter, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
-                    }
-                    if (sort != null)
-                    {
-                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                        urlBuilder_.Append(System.Uri.EscapeDataString("meta[total]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(metatotal, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -1886,42 +1932,6 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class ActionListLinks
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("next")]
-        public string? Next { get; set; } = default!;
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class ActionListMeta
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("page_size")]
-        public int Page_size { get; set; } = default!;
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ActionListResponse
     {
 
@@ -1929,10 +1939,7 @@ namespace Smplkit.Internal.Generated.Audit
         public System.Collections.Generic.List<ActionResource> Data { get; set; } = new System.Collections.Generic.List<ActionResource>();
 
         [System.Text.Json.Serialization.JsonPropertyName("meta")]
-        public ActionListMeta Meta { get; set; } = new ActionListMeta();
-
-        [System.Text.Json.Serialization.JsonPropertyName("links")]
-        public ActionListLinks? Links { get; set; } = default!;
+        public ListMeta Meta { get; set; } = new ListMeta();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -2085,6 +2092,15 @@ namespace Smplkit.Internal.Generated.Audit
 
     }
 
+    /// <summary>
+    /// Cursor-pagination meta for the audit-event list endpoint.
+    /// <br/>
+    /// <br/>Audit events are append-only at high cardinality (millions of rows
+    /// <br/>per account at production tenants), so this endpoint stays on
+    /// <br/>cursor pagination — the documented exception in ADR-014. Every
+    /// <br/>other read-many endpoint in the platform follows the standard
+    /// <br/>offset convention (`page[number]` / `page[size]`).
+    /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class EventListMeta
     {
@@ -2104,7 +2120,7 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     /// <summary>
-    /// JSON:API collection response for audit events.
+    /// JSON:API collection response for audit events (cursor paged).
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class EventListResponse
@@ -2371,8 +2387,53 @@ namespace Smplkit.Internal.Generated.Audit
 
     }
 
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ForwarderDeliveryListLinks
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("next")]
+        public string? Next { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
     /// <summary>
-    /// JSON:API collection response for forwarder deliveries.
+    /// Cursor-pagination meta for the forwarder-delivery log endpoint.
+    /// <br/>
+    /// <br/>Forwarder deliveries are append-only at high cardinality (one row per
+    /// <br/>delivery attempt per event) and scroll with the same workload as
+    /// <br/>audit events, so this endpoint stays on cursor pagination — the
+    /// <br/>documented exception in ADR-014. The parent `/forwarders` collection
+    /// <br/>follows the standard offset convention.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ForwarderDeliveryListMeta
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("page_size")]
+        public int Page_size { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API collection response for forwarder deliveries (cursor paged).
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ForwarderDeliveryListResponse
@@ -2382,10 +2443,10 @@ namespace Smplkit.Internal.Generated.Audit
         public System.Collections.Generic.List<ForwarderDeliveryResource> Data { get; set; } = new System.Collections.Generic.List<ForwarderDeliveryResource>();
 
         [System.Text.Json.Serialization.JsonPropertyName("meta")]
-        public ForwarderListMeta Meta { get; set; } = new ForwarderListMeta();
+        public ForwarderDeliveryListMeta Meta { get; set; } = new ForwarderDeliveryListMeta();
 
         [System.Text.Json.Serialization.JsonPropertyName("links")]
-        public ForwarderListLinks? Links { get; set; } = default!;
+        public ForwarderDeliveryListLinks? Links { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -2486,42 +2547,6 @@ namespace Smplkit.Internal.Generated.Audit
 
     }
 
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class ForwarderListLinks
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("next")]
-        public string? Next { get; set; } = default!;
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class ForwarderListMeta
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("page_size")]
-        public int Page_size { get; set; } = default!;
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
     /// <summary>
     /// JSON:API collection response for forwarders.
     /// </summary>
@@ -2533,10 +2558,7 @@ namespace Smplkit.Internal.Generated.Audit
         public System.Collections.Generic.List<ForwarderResource> Data { get; set; } = new System.Collections.Generic.List<ForwarderResource>();
 
         [System.Text.Json.Serialization.JsonPropertyName("meta")]
-        public ForwarderListMeta Meta { get; set; } = new ForwarderListMeta();
-
-        [System.Text.Json.Serialization.JsonPropertyName("links")]
-        public ForwarderListLinks? Links { get; set; } = default!;
+        public ListMeta Meta { get; set; } = new ListMeta();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -2680,6 +2702,74 @@ namespace Smplkit.Internal.Generated.Audit
 
     }
 
+    /// <summary>
+    /// Top-level ``meta`` block included on every JSON:API list response.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ListMeta
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("pagination")]
+        public PaginationMeta Pagination { get; set; } = new PaginationMeta();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Pagination block returned inside ``meta`` on every list response.
+    /// <br/>
+    /// <br/>``page`` and ``size`` are always present and echo the parameters that
+    /// <br/>served the response (their defaults when the client omitted them).
+    /// <br/>``total`` and ``total_pages`` are present only when the request included
+    /// <br/>``meta[total]=true``.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PaginationMeta
+    {
+
+        /// <summary>
+        /// 1-based page number returned.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("page")]
+        public int Page { get; set; } = default!;
+
+        /// <summary>
+        /// Number of items per page.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("size")]
+        public int Size { get; set; } = default!;
+
+        /// <summary>
+        /// Total number of matching items across all pages. Present only when the request included `meta[total]=true`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("total")]
+        public int? Total { get; set; } = default!;
+
+        /// <summary>
+        /// Total number of pages at the requested page size. Present only when the request included `meta[total]=true`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("total_pages")]
+        public int? Total_pages { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ResourceTypeAttributes
     {
@@ -2708,42 +2798,6 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class ResourceTypeListLinks
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("next")]
-        public string? Next { get; set; } = default!;
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class ResourceTypeListMeta
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("page_size")]
-        public int Page_size { get; set; } = default!;
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ResourceTypeListResponse
     {
 
@@ -2751,10 +2805,7 @@ namespace Smplkit.Internal.Generated.Audit
         public System.Collections.Generic.List<ResourceTypeResource> Data { get; set; } = new System.Collections.Generic.List<ResourceTypeResource>();
 
         [System.Text.Json.Serialization.JsonPropertyName("meta")]
-        public ResourceTypeListMeta Meta { get; set; } = new ResourceTypeListMeta();
-
-        [System.Text.Json.Serialization.JsonPropertyName("links")]
-        public ResourceTypeListLinks? Links { get; set; } = default!;
+        public ListMeta Meta { get; set; } = new ListMeta();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -2999,6 +3050,9 @@ namespace Smplkit.Internal.Generated.Audit
 
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public System.Collections.Generic.List<UsageResource> Data { get; set; } = new System.Collections.Generic.List<UsageResource>();
+
+        [System.Text.Json.Serialization.JsonPropertyName("meta")]
+        public ListMeta Meta { get; set; } = new ListMeta();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
