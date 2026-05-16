@@ -234,9 +234,12 @@ namespace Smplkit.Internal.Generated.App
         /// List all environments for the authenticated account.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<EnvironmentListResponse> List_environmentsAsync(Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<EnvironmentListResponse> List_environmentsAsync(Sort? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -302,9 +305,12 @@ namespace Smplkit.Internal.Generated.App
         /// List all API keys for the authenticated account.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `expires_at`, `-expires_at`, `last_used_at`, `-last_used_at`, `name`, `-name`, `status`, `-status`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ApiKeyListResponse> List_api_keysAsync(string? filterstatus = null, Anonymous? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiKeyListResponse> List_api_keysAsync(string? filterstatus = null, Anonymous? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -369,9 +375,12 @@ namespace Smplkit.Internal.Generated.App
         /// List all context types for the authenticated account.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ContextTypeListResponse> List_context_typesAsync(Anonymous2? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ContextTypeListResponse> List_context_typesAsync(Anonymous2? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -422,12 +431,17 @@ namespace Smplkit.Internal.Generated.App
         /// List Contexts
         /// </summary>
         /// <remarks>
-        /// List all context instances for the authenticated account.
+        /// List context instances for the authenticated account. `filter[context_type]` narrows the result to one context type. `filter[search]` does a case-insensitive substring match against the context `key`, `name`, and every attribute value, returning any context where at least one of those fields contains the search term.
         /// </remarks>
+        /// <param name="filtercontext_type">Limit results to context instances of this context type (e.g. `user`).</param>
+        /// <param name="filtersearch">Case-insensitive substring match against the `key`, `name`, and any attribute value. A context is returned if at least one of those fields contains the search term.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ContextListResponse> List_contextsAsync(string? filtercontext_type = null, Anonymous3? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ContextListResponse> List_contextsAsync(string? filtercontext_type = null, string? filtersearch = null, Anonymous3? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -464,6 +478,27 @@ namespace Smplkit.Internal.Generated.App
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
+        /// List Context Values
+        /// </summary>
+        /// <remarks>
+        /// Return distinct values observed for a single attribute across context instances of one context type. The intended use case is a typeahead picker in a rule-building UI: the customer chooses a context type and an attribute name, then this endpoint streams back the distinct values matching what they've typed so far.
+        /// <br/>
+        /// <br/>`filter[context_type]` and `filter[attribute]` are required. `filter[attribute]` accepts any attribute name — including the two first-class columns `key` and `name` — and is treated uniformly from the customer's perspective; the server adjusts the underlying query accordingly.
+        /// <br/>
+        /// <br/>`filter[search]` does a case-insensitive starts-with match. The returned set excludes empty strings and NULL values.
+        /// </remarks>
+        /// <param name="filtercontext_type">Context type key whose instances should be searched (e.g. `user`).</param>
+        /// <param name="filterattribute">Attribute name whose distinct values should be returned (e.g. `first_name`). Accepts `key` and `name` as well as any attribute key stored on the context instance.</param>
+        /// <param name="filtersearch">Optional case-insensitive starts-with match against the projected attribute value. When omitted, all distinct values are returned in the page.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<ContextValueListResponse> List_context_valuesAsync(string? filtercontext_type = null, string? filterattribute = null, string? filtersearch = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
         /// Create Service
         /// </summary>
         /// <remarks>
@@ -481,9 +516,12 @@ namespace Smplkit.Internal.Generated.App
         /// List all services for the authenticated account.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ServiceListResponse> List_servicesAsync(Anonymous4? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ServiceListResponse> List_servicesAsync(Anonymous4? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -537,9 +575,12 @@ namespace Smplkit.Internal.Generated.App
         /// List invitations. Authenticated admins list invitations for their own account and may narrow by status. Unauthenticated callers must pass ``filter[token]`` to look up a specific invitation by its token — used to render the invitation preview before sign-in. The token-filter path always returns an array of 0 or 1 elements.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `email`, `-email`, `status`, `-status`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<InvitationListResponse> List_invitationsAsync(string? filterstatus = null, string? filtertoken = null, Anonymous5? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<InvitationListResponse> List_invitationsAsync(string? filterstatus = null, string? filtertoken = null, Anonymous5? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -608,9 +649,12 @@ namespace Smplkit.Internal.Generated.App
         /// <br/>Default sort is `name` ascending.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `name`, `-name`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<MetricNamesResponse> List_metric_namesAsync(Anonymous6? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<MetricNamesResponse> List_metric_namesAsync(Anonymous6? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -631,9 +675,12 @@ namespace Smplkit.Internal.Generated.App
         /// Query raw metric rows with filtering by name, time range, and dimensions.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-recorded_at`. Allowed values: `recorded_at`, `-recorded_at`, `value`, `-value`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<MetricListResponse> List_metricsAsync(string filtername, string? filterrecorded_at = null, Anonymous7? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<MetricListResponse> List_metricsAsync(string filtername, string? filterrecorded_at = null, Anonymous7? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -643,9 +690,12 @@ namespace Smplkit.Internal.Generated.App
         /// Query aggregated metric rollups. Requires filter[rollup] for the aggregation interval.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `bucket`. Allowed values: `bucket`, `-bucket`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<MetricRollupListResponse> List_metric_rollupsAsync(string filtername, string filterrollup, string? filterrecorded_at = null, Anonymous8? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<MetricRollupListResponse> List_metric_rollupsAsync(string filtername, string filterrollup, string? filterrecorded_at = null, Anonymous8? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -655,12 +705,13 @@ namespace Smplkit.Internal.Generated.App
         /// List users in the authenticated account.
         /// </remarks>
         /// <param name="filtersearch">Case-insensitive substring match against display_name and email. If the value is a valid UUID, also matches user id exactly.</param>
-        /// <param name="pagenumber">1-based page number</param>
-        /// <param name="pagesize">Items per page</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `email`. Allowed values: `created_at`, `-created_at`, `display_name`, `-display_name`, `email`, `-email`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<UserListResponse> List_usersAsync(string? filteraccount = null, string? filteremail = null, string? filtersearch = null, int? pagenumber = null, int? pagesize = null, Anonymous9? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<UserListResponse> List_usersAsync(string? filteraccount = null, string? filteremail = null, string? filtersearch = null, Anonymous9? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -706,9 +757,12 @@ namespace Smplkit.Internal.Generated.App
         /// <br/>`plans.yaml`. Pass `sort=display_name` for an alphabetical view.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `sort_order`. Allowed values: `display_name`, `-display_name`, `id`, `-id`, `sort_order`, `-sort_order`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<PlanListResponse> List_plansAsync(Anonymous10? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<PlanListResponse> List_plansAsync(Anonymous10? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -721,9 +775,12 @@ namespace Smplkit.Internal.Generated.App
         /// <br/>Default sort is `display_name` ascending.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `display_name`. Allowed values: `display_name`, `-display_name`, `id`, `-id`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ProductListResponse> List_productsAsync(Anonymous11? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ProductListResponse> List_productsAsync(Anonymous11? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -785,9 +842,12 @@ namespace Smplkit.Internal.Generated.App
         /// List all payment methods for the account. Default is returned first, then newest first.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `exp_year`, `-exp_year`, `is_default`, `-is_default`, `updated_at`, `-updated_at`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<PaymentMethodListResponse> List_payment_methodsAsync(Anonymous12? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<PaymentMethodListResponse> List_payment_methodsAsync(Anonymous12? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -851,12 +911,18 @@ namespace Smplkit.Internal.Generated.App
         /// <remarks>
         /// Return invoice history for the account from Stripe.
         /// <br/>
-        /// <br/>Default sort is `-created_at` (newest first).
+        /// <br/>Default sort is `-created_at` (newest first). The endpoint fetches the
+        /// <br/>most recent 100 invoices from Stripe (its per-request cap) and pages
+        /// <br/>over the result in memory; clients should not depend on more than 100
+        /// <br/>invoices being visible at once.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `status`, `-status`, `total`, `-total`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<InvoiceListResponse> List_invoicesAsync(Anonymous13? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<InvoiceListResponse> List_invoicesAsync(Anonymous13? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -3133,9 +3199,12 @@ namespace Smplkit.Internal.Generated.App
         /// List all environments for the authenticated account.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<EnvironmentListResponse> List_environmentsAsync(Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<EnvironmentListResponse> List_environmentsAsync(Sort? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -3154,6 +3223,18 @@ namespace Smplkit.Internal.Generated.App
                     if (sort != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagenumber != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[number]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagenumber, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagesize != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (metatotal != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("meta[total]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(metatotal, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -3874,9 +3955,12 @@ namespace Smplkit.Internal.Generated.App
         /// List all API keys for the authenticated account.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `expires_at`, `-expires_at`, `last_used_at`, `-last_used_at`, `name`, `-name`, `status`, `-status`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ApiKeyListResponse> List_api_keysAsync(string? filterstatus = null, Anonymous? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ApiKeyListResponse> List_api_keysAsync(string? filterstatus = null, Anonymous? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -3899,6 +3983,18 @@ namespace Smplkit.Internal.Generated.App
                     if (sort != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagenumber != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[number]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagenumber, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagesize != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (metatotal != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("meta[total]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(metatotal, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -4613,9 +4709,12 @@ namespace Smplkit.Internal.Generated.App
         /// List all context types for the authenticated account.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ContextTypeListResponse> List_context_typesAsync(Anonymous2? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ContextTypeListResponse> List_context_typesAsync(Anonymous2? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -4634,6 +4733,18 @@ namespace Smplkit.Internal.Generated.App
                     if (sort != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagenumber != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[number]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagenumber, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagesize != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (metatotal != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("meta[total]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(metatotal, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -5222,12 +5333,17 @@ namespace Smplkit.Internal.Generated.App
         /// List Contexts
         /// </summary>
         /// <remarks>
-        /// List all context instances for the authenticated account.
+        /// List context instances for the authenticated account. `filter[context_type]` narrows the result to one context type. `filter[search]` does a case-insensitive substring match against the context `key`, `name`, and every attribute value, returning any context where at least one of those fields contains the search term.
         /// </remarks>
+        /// <param name="filtercontext_type">Limit results to context instances of this context type (e.g. `user`).</param>
+        /// <param name="filtersearch">Case-insensitive substring match against the `key`, `name`, and any attribute value. A context is returned if at least one of those fields contains the search term.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ContextListResponse> List_contextsAsync(string? filtercontext_type = null, Anonymous3? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ContextListResponse> List_contextsAsync(string? filtercontext_type = null, string? filtersearch = null, Anonymous3? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -5247,9 +5363,25 @@ namespace Smplkit.Internal.Generated.App
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[context_type]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtercontext_type, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
+                    if (filtersearch != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[search]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtersearch, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
                     if (sort != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagenumber != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[number]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagenumber, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagesize != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (metatotal != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("meta[total]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(metatotal, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -5711,6 +5843,159 @@ namespace Smplkit.Internal.Generated.App
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
+        /// List Context Values
+        /// </summary>
+        /// <remarks>
+        /// Return distinct values observed for a single attribute across context instances of one context type. The intended use case is a typeahead picker in a rule-building UI: the customer chooses a context type and an attribute name, then this endpoint streams back the distinct values matching what they've typed so far.
+        /// <br/>
+        /// <br/>`filter[context_type]` and `filter[attribute]` are required. `filter[attribute]` accepts any attribute name — including the two first-class columns `key` and `name` — and is treated uniformly from the customer's perspective; the server adjusts the underlying query accordingly.
+        /// <br/>
+        /// <br/>`filter[search]` does a case-insensitive starts-with match. The returned set excludes empty strings and NULL values.
+        /// </remarks>
+        /// <param name="filtercontext_type">Context type key whose instances should be searched (e.g. `user`).</param>
+        /// <param name="filterattribute">Attribute name whose distinct values should be returned (e.g. `first_name`). Accepts `key` and `name` as well as any attribute key stored on the context instance.</param>
+        /// <param name="filtersearch">Optional case-insensitive starts-with match against the projected attribute value. When omitted, all distinct values are returned in the page.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<ContextValueListResponse> List_context_valuesAsync(string? filtercontext_type = null, string? filterattribute = null, string? filtersearch = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        {
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    request_.Method = new System.Net.Http.HttpMethod("GET");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
+                    // Operation Path: "api/v1/context_values"
+                    urlBuilder_.Append("api/v1/context_values");
+                    urlBuilder_.Append('?');
+                    if (filtercontext_type != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[context_type]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtercontext_type, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filterattribute != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[attribute]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterattribute, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filtersearch != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[search]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtersearch, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagenumber != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[number]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagenumber, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagesize != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (metatotal != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("meta[total]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(metatotal, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    urlBuilder_.Length--;
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ContextValueListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        if (status_ == 400)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new ApiException<ErrorResponse>("Validation error or malformed request", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 401)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new ApiException<ErrorResponse>("Missing or invalid authentication", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 404)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new ApiException<ErrorResponse>("Resource not found", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 429)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new ApiException<ErrorResponse>("Rate limit exceeded", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
         /// Create Service
         /// </summary>
         /// <remarks>
@@ -5841,9 +6126,12 @@ namespace Smplkit.Internal.Generated.App
         /// List all services for the authenticated account.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ServiceListResponse> List_servicesAsync(Anonymous4? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ServiceListResponse> List_servicesAsync(Anonymous4? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -5862,6 +6150,18 @@ namespace Smplkit.Internal.Generated.App
                     if (sort != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagenumber != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[number]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagenumber, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagesize != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (metatotal != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("meta[total]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(metatotal, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -6453,9 +6753,12 @@ namespace Smplkit.Internal.Generated.App
         /// List invitations. Authenticated admins list invitations for their own account and may narrow by status. Unauthenticated callers must pass ``filter[token]`` to look up a specific invitation by its token — used to render the invitation preview before sign-in. The token-filter path always returns an array of 0 or 1 elements.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `email`, `-email`, `status`, `-status`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<InvitationListResponse> List_invitationsAsync(string? filterstatus = null, string? filtertoken = null, Anonymous5? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<InvitationListResponse> List_invitationsAsync(string? filterstatus = null, string? filtertoken = null, Anonymous5? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -6482,6 +6785,18 @@ namespace Smplkit.Internal.Generated.App
                     if (sort != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagenumber != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[number]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagenumber, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagesize != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (metatotal != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("meta[total]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(metatotal, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -7231,9 +7546,12 @@ namespace Smplkit.Internal.Generated.App
         /// <br/>Default sort is `name` ascending.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `name`, `-name`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<MetricNamesResponse> List_metric_namesAsync(Anonymous6? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<MetricNamesResponse> List_metric_namesAsync(Anonymous6? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -7252,6 +7570,18 @@ namespace Smplkit.Internal.Generated.App
                     if (sort != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagenumber != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[number]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagenumber, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagesize != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (metatotal != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("meta[total]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(metatotal, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -7473,9 +7803,12 @@ namespace Smplkit.Internal.Generated.App
         /// Query raw metric rows with filtering by name, time range, and dimensions.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-recorded_at`. Allowed values: `recorded_at`, `-recorded_at`, `value`, `-value`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<MetricListResponse> List_metricsAsync(string filtername, string? filterrecorded_at = null, Anonymous7? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<MetricListResponse> List_metricsAsync(string filtername, string? filterrecorded_at = null, Anonymous7? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (filtername == null)
                 throw new System.ArgumentNullException("filtername");
@@ -7502,6 +7835,18 @@ namespace Smplkit.Internal.Generated.App
                     if (sort != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagenumber != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[number]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagenumber, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagesize != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (metatotal != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("meta[total]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(metatotal, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -7605,9 +7950,12 @@ namespace Smplkit.Internal.Generated.App
         /// Query aggregated metric rollups. Requires filter[rollup] for the aggregation interval.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `bucket`. Allowed values: `bucket`, `-bucket`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<MetricRollupListResponse> List_metric_rollupsAsync(string filtername, string filterrollup, string? filterrecorded_at = null, Anonymous8? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<MetricRollupListResponse> List_metric_rollupsAsync(string filtername, string filterrollup, string? filterrecorded_at = null, Anonymous8? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (filtername == null)
                 throw new System.ArgumentNullException("filtername");
@@ -7638,6 +7986,18 @@ namespace Smplkit.Internal.Generated.App
                     if (sort != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagenumber != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[number]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagenumber, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagesize != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (metatotal != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("meta[total]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(metatotal, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -7741,12 +8101,13 @@ namespace Smplkit.Internal.Generated.App
         /// List users in the authenticated account.
         /// </remarks>
         /// <param name="filtersearch">Case-insensitive substring match against display_name and email. If the value is a valid UUID, also matches user id exactly.</param>
-        /// <param name="pagenumber">1-based page number</param>
-        /// <param name="pagesize">Items per page</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `email`. Allowed values: `created_at`, `-created_at`, `display_name`, `-display_name`, `email`, `-email`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<UserListResponse> List_usersAsync(string? filteraccount = null, string? filteremail = null, string? filtersearch = null, int? pagenumber = null, int? pagesize = null, Anonymous9? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<UserListResponse> List_usersAsync(string? filteraccount = null, string? filteremail = null, string? filtersearch = null, Anonymous9? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -7774,6 +8135,10 @@ namespace Smplkit.Internal.Generated.App
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[search]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtersearch, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
                     if (pagenumber != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("page[number]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagenumber, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
@@ -7782,9 +8147,9 @@ namespace Smplkit.Internal.Generated.App
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
-                    if (sort != null)
+                    if (metatotal != null)
                     {
-                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                        urlBuilder_.Append(System.Uri.EscapeDataString("meta[total]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(metatotal, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -8255,9 +8620,12 @@ namespace Smplkit.Internal.Generated.App
         /// <br/>`plans.yaml`. Pass `sort=display_name` for an alphabetical view.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `sort_order`. Allowed values: `display_name`, `-display_name`, `id`, `-id`, `sort_order`, `-sort_order`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<PlanListResponse> List_plansAsync(Anonymous10? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<PlanListResponse> List_plansAsync(Anonymous10? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -8276,6 +8644,18 @@ namespace Smplkit.Internal.Generated.App
                     if (sort != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagenumber != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[number]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagenumber, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagesize != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (metatotal != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("meta[total]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(metatotal, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -8382,9 +8762,12 @@ namespace Smplkit.Internal.Generated.App
         /// <br/>Default sort is `display_name` ascending.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `display_name`. Allowed values: `display_name`, `-display_name`, `id`, `-id`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ProductListResponse> List_productsAsync(Anonymous11? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ProductListResponse> List_productsAsync(Anonymous11? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -8403,6 +8786,18 @@ namespace Smplkit.Internal.Generated.App
                     if (sort != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagenumber != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[number]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagenumber, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagesize != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (metatotal != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("meta[total]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(metatotal, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -9008,9 +9403,12 @@ namespace Smplkit.Internal.Generated.App
         /// List all payment methods for the account. Default is returned first, then newest first.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `exp_year`, `-exp_year`, `is_default`, `-is_default`, `updated_at`, `-updated_at`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<PaymentMethodListResponse> List_payment_methodsAsync(Anonymous12? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<PaymentMethodListResponse> List_payment_methodsAsync(Anonymous12? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -9029,6 +9427,18 @@ namespace Smplkit.Internal.Generated.App
                     if (sort != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagenumber != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[number]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagenumber, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagesize != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (metatotal != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("meta[total]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(metatotal, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -9742,12 +10152,18 @@ namespace Smplkit.Internal.Generated.App
         /// <remarks>
         /// Return invoice history for the account from Stripe.
         /// <br/>
-        /// <br/>Default sort is `-created_at` (newest first).
+        /// <br/>Default sort is `-created_at` (newest first). The endpoint fetches the
+        /// <br/>most recent 100 invoices from Stripe (its per-request cap) and pages
+        /// <br/>over the result in memory; clients should not depend on more than 100
+        /// <br/>invoices being visible at once.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `status`, `-status`, `total`, `-total`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<InvoiceListResponse> List_invoicesAsync(Anonymous13? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<InvoiceListResponse> List_invoicesAsync(Anonymous13? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -9766,6 +10182,18 @@ namespace Smplkit.Internal.Generated.App
                     if (sort != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagenumber != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[number]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagenumber, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagesize != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (metatotal != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("meta[total]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(metatotal, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -10711,6 +11139,9 @@ namespace Smplkit.Internal.Generated.App
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public System.Collections.Generic.List<ApiKeyResource> Data { get; set; } = new System.Collections.Generic.List<ApiKeyResource>();
 
+        [System.Text.Json.Serialization.JsonPropertyName("meta")]
+        public ListMeta Meta { get; set; } = new ListMeta();
+
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
         [System.Text.Json.Serialization.JsonExtensionData]
@@ -10860,6 +11291,12 @@ namespace Smplkit.Internal.Generated.App
     {
 
         /// <summary>
+        /// Entity identifier within the context type (e.g. `alice-123`). Together with `context_type` it forms the composite `id` `context_type:key`. Always populated in responses; declared optional only so SDK consumers can construct a draft Context without a key. Set by the bulk-register API; not editable.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("key")]
+        public string? Key { get; set; } = default!;
+
+        /// <summary>
         /// Human-readable display name for the context instance.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("name")]
@@ -10994,6 +11431,9 @@ namespace Smplkit.Internal.Generated.App
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public System.Collections.Generic.List<ContextResource> Data { get; set; } = new System.Collections.Generic.List<ContextResource>();
 
+        [System.Text.Json.Serialization.JsonPropertyName("meta")]
+        public ListMeta Meta { get; set; } = new ListMeta();
+
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
         [System.Text.Json.Serialization.JsonExtensionData]
@@ -11029,8 +11469,7 @@ namespace Smplkit.Internal.Generated.App
     /// <summary>
     /// JSON:API resource envelope for a context instance.
     /// <br/>
-    /// <br/>`id` is the composite identifier `context_type:key`. It must not be
-    /// <br/>specified for create requests (the server assigns it).
+    /// <br/>`id` is the composite identifier `context_type:key` (e.g. `user:alice-123`).
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ContextResource
@@ -11134,6 +11573,9 @@ namespace Smplkit.Internal.Generated.App
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public System.Collections.Generic.List<ContextTypeResource> Data { get; set; } = new System.Collections.Generic.List<ContextTypeResource>();
 
+        [System.Text.Json.Serialization.JsonPropertyName("meta")]
+        public ListMeta Meta { get; set; } = new ListMeta();
+
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
         [System.Text.Json.Serialization.JsonExtensionData]
@@ -11205,6 +11647,89 @@ namespace Smplkit.Internal.Generated.App
 
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public ContextTypeResource Data { get; set; } = new ContextTypeResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// A single distinct attribute value observed across context instances.
+    /// <br/>
+    /// <br/>Returned by `GET /api/v1/context_values` to power typeahead pickers in
+    /// <br/>rule-building UIs. The set of values reflects what has been registered
+    /// <br/>via the bulk-context endpoint — it is observational, not a customer-
+    /// <br/>declared enumeration.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ContextValue
+    {
+
+        /// <summary>
+        /// The distinct attribute value as it appears on at least one context instance of the requested type.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("value")]
+        public string Value { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API collection response envelope for distinct context values.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ContextValueListResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public System.Collections.Generic.List<ContextValueResource> Data { get; set; } = new System.Collections.Generic.List<ContextValueResource>();
+
+        [System.Text.Json.Serialization.JsonPropertyName("meta")]
+        public ListMeta Meta { get; set; } = new ListMeta();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API resource envelope for a distinct context-attribute value.
+    /// <br/>
+    /// <br/>`id` is the value itself.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ContextValueResource
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string? Id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ContextValueResourceType>))]
+        public ContextValueResourceType Type { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
+        public ContextValue Attributes { get; set; } = new ContextValue();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -11367,6 +11892,9 @@ namespace Smplkit.Internal.Generated.App
 
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public System.Collections.Generic.List<EnvironmentResource> Data { get; set; } = new System.Collections.Generic.List<EnvironmentResource>();
+
+        [System.Text.Json.Serialization.JsonPropertyName("meta")]
+        public ListMeta Meta { get; set; } = new ListMeta();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -11767,6 +12295,9 @@ namespace Smplkit.Internal.Generated.App
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public System.Collections.Generic.List<InvitationResource> Data { get; set; } = new System.Collections.Generic.List<InvitationResource>();
 
+        [System.Text.Json.Serialization.JsonPropertyName("meta")]
+        public ListMeta Meta { get; set; } = new ListMeta();
+
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
         [System.Text.Json.Serialization.JsonExtensionData]
@@ -11929,6 +12460,9 @@ namespace Smplkit.Internal.Generated.App
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public System.Collections.Generic.List<InvoiceResource> Data { get; set; } = new System.Collections.Generic.List<InvoiceResource>();
 
+        [System.Text.Json.Serialization.JsonPropertyName("meta")]
+        public ListMeta Meta { get; set; } = new ListMeta();
+
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
         [System.Text.Json.Serialization.JsonExtensionData]
@@ -12019,6 +12553,27 @@ namespace Smplkit.Internal.Generated.App
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("display_format")]
         public string? Display_format { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Top-level ``meta`` block included on every JSON:API list response.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ListMeta
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("pagination")]
+        public PaginationMeta Pagination { get; set; } = new PaginationMeta();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -12155,6 +12710,9 @@ namespace Smplkit.Internal.Generated.App
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public System.Collections.Generic.List<MetricResource> Data { get; set; } = new System.Collections.Generic.List<MetricResource>();
 
+        [System.Text.Json.Serialization.JsonPropertyName("meta")]
+        public ListMeta Meta { get; set; } = new ListMeta();
+
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
         [System.Text.Json.Serialization.JsonExtensionData]
@@ -12205,6 +12763,9 @@ namespace Smplkit.Internal.Generated.App
 
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public System.Collections.Generic.List<MetricNameItem> Data { get; set; } = new System.Collections.Generic.List<MetricNameItem>();
+
+        [System.Text.Json.Serialization.JsonPropertyName("meta")]
+        public ListMeta Meta { get; set; } = new ListMeta();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -12305,6 +12866,9 @@ namespace Smplkit.Internal.Generated.App
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public System.Collections.Generic.List<MetricRollupResource> Data { get; set; } = new System.Collections.Generic.List<MetricRollupResource>();
 
+        [System.Text.Json.Serialization.JsonPropertyName("meta")]
+        public ListMeta Meta { get; set; } = new ListMeta();
+
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
         [System.Text.Json.Serialization.JsonExtensionData]
@@ -12390,35 +12954,40 @@ namespace Smplkit.Internal.Generated.App
     }
 
     /// <summary>
-    /// Pagination metadata returned with a collection response.
+    /// Pagination block returned inside ``meta`` on every list response.
+    /// <br/>
+    /// <br/>``page`` and ``size`` are always present and echo the parameters that
+    /// <br/>served the response (their defaults when the client omitted them).
+    /// <br/>``total`` and ``total_pages`` are present only when the request included
+    /// <br/>``meta[total]=true``.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class PageMeta
+    public partial class PaginationMeta
     {
 
         /// <summary>
-        /// Page size used for this response.
+        /// 1-based page number returned.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("page")]
+        public int Page { get; set; } = default!;
+
+        /// <summary>
+        /// Number of items per page.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("size")]
         public int Size { get; set; } = default!;
 
         /// <summary>
-        /// 1-based page number returned.
+        /// Total number of matching items across all pages. Present only when the request included `meta[total]=true`.
         /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("number")]
-        public int Number { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("total")]
+        public int? Total { get; set; } = default!;
 
         /// <summary>
-        /// Total number of matching items across all pages.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("total_items")]
-        public int Total_items { get; set; } = default!;
-
-        /// <summary>
-        /// Total number of pages at the current page size.
+        /// Total number of pages at the requested page size. Present only when the request included `meta[total]=true`.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("total_pages")]
-        public int Total_pages { get; set; } = default!;
+        public int? Total_pages { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -12510,6 +13079,9 @@ namespace Smplkit.Internal.Generated.App
 
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public System.Collections.Generic.List<PaymentMethodResource> Data { get; set; } = new System.Collections.Generic.List<PaymentMethodResource>();
+
+        [System.Text.Json.Serialization.JsonPropertyName("meta")]
+        public ListMeta Meta { get; set; } = new ListMeta();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -12670,6 +13242,9 @@ namespace Smplkit.Internal.Generated.App
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public System.Collections.Generic.List<PlanResource> Data { get; set; } = new System.Collections.Generic.List<PlanResource>();
 
+        [System.Text.Json.Serialization.JsonPropertyName("meta")]
+        public ListMeta Meta { get; set; } = new ListMeta();
+
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
         [System.Text.Json.Serialization.JsonExtensionData]
@@ -12778,6 +13353,9 @@ namespace Smplkit.Internal.Generated.App
 
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public System.Collections.Generic.List<ProductResource> Data { get; set; } = new System.Collections.Generic.List<ProductResource>();
+
+        [System.Text.Json.Serialization.JsonPropertyName("meta")]
+        public ListMeta Meta { get; set; } = new ListMeta();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -12901,6 +13479,9 @@ namespace Smplkit.Internal.Generated.App
 
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public System.Collections.Generic.List<ServiceResource> Data { get; set; } = new System.Collections.Generic.List<ServiceResource>();
+
+        [System.Text.Json.Serialization.JsonPropertyName("meta")]
+        public ListMeta Meta { get; set; } = new ListMeta();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -13618,24 +14199,6 @@ namespace Smplkit.Internal.Generated.App
 
     }
 
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class UserListMeta
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("page")]
-        public PageMeta Page { get; set; } = new PageMeta();
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
     /// <summary>
     /// JSON:API collection response for users.
     /// </summary>
@@ -13647,7 +14210,7 @@ namespace Smplkit.Internal.Generated.App
         public System.Collections.Generic.List<UserResource> Data { get; set; } = new System.Collections.Generic.List<UserResource>();
 
         [System.Text.Json.Serialization.JsonPropertyName("meta")]
-        public UserListMeta? Meta { get; set; } = default!;
+        public ListMeta Meta { get; set; } = new ListMeta();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -14191,6 +14754,15 @@ namespace Smplkit.Internal.Generated.App
 
         [System.Runtime.Serialization.EnumMember(Value = @"context_type")]
         Context_type = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum ContextValueResourceType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"context_value")]
+        Context_value = 0,
 
     }
 
