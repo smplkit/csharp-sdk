@@ -321,6 +321,61 @@ public class InheritanceTests
     }
 
     [Fact]
+    public async Task LoggerChanged_OnDotAncestor_FiresListenerForDescendant()
+    {
+        // Setup: com.acme.payments inherits from com.acme (WARN), no group.
+        // logger_changed on com.acme flipping WARN → ERROR must fire the
+        // listener registered on com.acme.payments (resolved level changed via
+        // dot-notation ancestry walk).
+        var ancestorLevel = "WARN";
+        var listResponse = """
+        {
+          "data": [
+            {"id":"com.acme.payments","type":"logger","attributes":{
+                "name":"com.acme.payments","level":null,"group":null,
+                "managed":true,"sources":[],"environments":{}}},
+            {"id":"com.acme","type":"logger","attributes":{
+                "name":"com.acme","level":"WARN","group":null,
+                "managed":true,"sources":[],"environments":{}}}
+          ]
+        }
+        """;
+        var (client, _) = MakeClient(req =>
+        {
+            var path = req.RequestUri!.AbsolutePath;
+            if (path.EndsWith("/loggers") && req.Method == HttpMethod.Get)
+                return Task.FromResult(Json(listResponse));
+            if (path.EndsWith("/log_groups") && req.Method == HttpMethod.Get)
+                return Task.FromResult(Json("""{"data":[]}"""));
+            if (path.EndsWith("/loggers/com.acme") && req.Method == HttpMethod.Get)
+                return Task.FromResult(Json(
+                    "{\"data\":{\"id\":\"com.acme\",\"type\":\"logger\",\"attributes\":{"
+                    + "\"name\":\"com.acme\",\"level\":\"" + ancestorLevel + "\","
+                    + "\"group\":null,\"managed\":true,\"sources\":[],\"environments\":{}"
+                    + "}}}"));
+            return Task.FromResult(Json("{}"));
+        });
+        var capture = new CaptureAdapter();
+        client.Logging.RegisterAdapter(capture);
+        await client.Logging.InstallAsync();
+        Assert.Contains((Id: "com.acme.payments", Level: LogLevel.Warn), capture.Applied);
+
+        LoggerChangeEvent? captured = null;
+        client.Logging.OnChange("com.acme.payments", evt => captured = evt);
+
+        ancestorLevel = "ERROR";
+        var method = typeof(LoggingClient).GetMethod("HandleLoggerChangedAsync",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var task = (Task)method.Invoke(client.Logging, new object?[] { "com.acme" })!;
+        await task;
+
+        Assert.NotNull(captured);
+        Assert.Equal("com.acme.payments", captured!.Id);
+        Assert.Equal(LogLevel.Error, captured.Level);
+        Assert.Contains((Id: "com.acme.payments", Level: LogLevel.Error), capture.Applied);
+    }
+
+    [Fact]
     public async Task LoggerChanged_UpdatesLoggerCache_AndAppliesResolvedLevel()
     {
         // Initial state: logger inherits WARN from billing. After logger_changed,
