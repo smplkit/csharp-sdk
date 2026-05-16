@@ -34,10 +34,10 @@ public sealed class ManagementForwardersClient
         input ??= new ListForwardersInput();
         var filterType = input.ForwarderType?.ToWireValue();
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.List_forwardersAsync(filterType, input.Enabled, input.PageSize, input.PageAfter, null, ct)
+            () => _gen.List_forwardersAsync(filterType, input.Enabled, null, input.PageNumber, input.PageSize, input.MetaTotal, ct)
         ).ConfigureAwait(false);
         var rows = (resp.Data ?? new List<GenAudit.ForwarderResource>()).Select(FromResource).ToList();
-        return new ListForwardersPage(rows, ExtractCursor(resp.Links?.Next));
+        return new ListForwardersPage(rows, AuditResourceTypes.ExtractPagination(resp.Meta));
     }
 
     /// <summary>Retrieve a single forwarder by id.</summary>
@@ -208,15 +208,6 @@ public sealed class ManagementForwardersClient
         _ => null,
     };
 
-    private static string? ExtractCursor(string? link)
-    {
-        if (string.IsNullOrEmpty(link)) return null;
-        var idx = link.IndexOf("page[after]=", StringComparison.Ordinal);
-        if (idx < 0) return null;
-        var token = link.Substring(idx + "page[after]=".Length);
-        var amp = token.IndexOf('&');
-        return amp >= 0 ? token.Substring(0, amp) : token;
-    }
 }
 
 /// <summary>

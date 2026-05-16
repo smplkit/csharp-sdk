@@ -56,7 +56,7 @@ try
         Enabled = true,
         PageSize = 50,
     });
-    Console.WriteLine($"Listed {page.Forwarders.Count} forwarder(s) (cursor={page.NextCursor ?? "none"})");
+    Console.WriteLine($"Listed {page.Forwarders.Count} forwarder(s) (page={page.Pagination.Page} size={page.Pagination.Size})");
     System.Diagnostics.Debug.Assert(page.Forwarders.Any(f => f.Id == fwd.Id));
 
     // update the forwarder (rename and add a header)

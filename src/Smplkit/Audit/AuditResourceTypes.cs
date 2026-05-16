@@ -9,7 +9,7 @@ namespace Smplkit.Audit;
 ///
 /// <para>Backed by a maintain-by-write side table so the response time
 /// is independent of how many years of events the account has accumulated.
-/// Sorted alphabetically; cursor pagination via <c>PageAfter</c>.</para>
+/// Sorted alphabetically; offset pagination via <c>PageNumber</c> / <c>PageSize</c>.</para>
 /// </summary>
 public sealed class AuditResourceTypes
 {
@@ -23,21 +23,17 @@ public sealed class AuditResourceTypes
     {
         input ??= new ListResourceTypesInput();
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.List_resource_typesAsync(input.PageSize, input.PageAfter, null, ct)
+            () => _gen.List_resource_typesAsync(null, input.PageNumber, input.PageSize, input.MetaTotal, ct)
         ).ConfigureAwait(false);
         var rows = (resp.Data ?? new List<GenAudit.ResourceTypeResource>())
             .Select(r => new ResourceType(r.Id ?? string.Empty, r.Attributes.Created_at))
             .ToList();
-        return new ListResourceTypesPage(rows, ExtractCursor(resp.Links?.Next));
+        return new ListResourceTypesPage(rows, ExtractPagination(resp.Meta));
     }
 
-    private static string? ExtractCursor(string? link)
+    internal static Pagination ExtractPagination(GenAudit.ListMeta? meta)
     {
-        if (string.IsNullOrEmpty(link)) return null;
-        var idx = link.IndexOf("page[after]=", StringComparison.Ordinal);
-        if (idx < 0) return null;
-        var token = link.Substring(idx + "page[after]=".Length);
-        var amp = token.IndexOf('&');
-        return amp >= 0 ? token.Substring(0, amp) : token;
+        var p = meta?.Pagination ?? new GenAudit.PaginationMeta();
+        return new Pagination(p.Page, p.Size, p.Total, p.Total_pages);
     }
 }

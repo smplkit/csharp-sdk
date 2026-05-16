@@ -109,16 +109,18 @@ public sealed record ResourceType(string Id, DateTimeOffset CreatedAt);
 /// <summary>Pagination input for <see cref="AuditResourceTypes.ListAsync"/>.</summary>
 public sealed class ListResourceTypesInput
 {
+    /// <summary>1-based page number to fetch.</summary>
+    public int? PageNumber { get; set; }
     /// <summary>Page size.</summary>
     public int? PageSize { get; set; }
-    /// <summary>Opaque cursor returned by the previous page.</summary>
-    public string? PageAfter { get; set; }
+    /// <summary>When true, request total counts in the response meta.</summary>
+    public bool? MetaTotal { get; set; }
 }
 
-/// <summary>One page of <see cref="ResourceType"/>s plus the next-page cursor.</summary>
+/// <summary>One page of <see cref="ResourceType"/>s plus the pagination meta block.</summary>
 /// <param name="ResourceTypes">The page's resource types.</param>
-/// <param name="NextCursor">Cursor for the next page, or null on the last page.</param>
-public sealed record ListResourceTypesPage(IReadOnlyList<ResourceType> ResourceTypes, string? NextCursor);
+/// <param name="Pagination">Pagination meta (page, size, and optionally total/total_pages).</param>
+public sealed record ListResourceTypesPage(IReadOnlyList<ResourceType> ResourceTypes, Pagination Pagination);
 
 /// <summary>A distinct action slug seen in the account's audit log.</summary>
 /// <param name="Id">The action slug (same as the JSON:API id).</param>
@@ -130,16 +132,18 @@ public sealed class ListActionsInput
 {
     /// <summary>Restrict to actions seen with this resource type.</summary>
     public string? FilterResourceType { get; set; }
+    /// <summary>1-based page number to fetch.</summary>
+    public int? PageNumber { get; set; }
     /// <summary>Page size.</summary>
     public int? PageSize { get; set; }
-    /// <summary>Opaque cursor returned by the previous page.</summary>
-    public string? PageAfter { get; set; }
+    /// <summary>When true, request total counts in the response meta.</summary>
+    public bool? MetaTotal { get; set; }
 }
 
-/// <summary>One page of <see cref="AuditAction"/>s plus the next-page cursor.</summary>
+/// <summary>One page of <see cref="AuditAction"/>s plus the pagination meta block.</summary>
 /// <param name="Actions">The page's actions.</param>
-/// <param name="NextCursor">Cursor for the next page, or null on the last page.</param>
-public sealed record ListActionsPage(IReadOnlyList<AuditAction> Actions, string? NextCursor);
+/// <param name="Pagination">Pagination meta (page, size, and optionally total/total_pages).</param>
+public sealed record ListActionsPage(IReadOnlyList<AuditAction> Actions, Pagination Pagination);
 
 // ---------------------------------------------------------------------------
 // Forwarders (SIEM streaming) — domain models shared with the management plane
@@ -227,13 +231,22 @@ public sealed class ListForwardersInput
     public ForwarderType? ForwarderType { get; set; }
     /// <summary>Filter by enabled flag.</summary>
     public bool? Enabled { get; set; }
+    /// <summary>1-based page number to fetch.</summary>
+    public int? PageNumber { get; set; }
     /// <summary>Page size.</summary>
     public int? PageSize { get; set; }
-    /// <summary>Opaque cursor returned by the previous page.</summary>
-    public string? PageAfter { get; set; }
+    /// <summary>When true, request total counts in the response meta.</summary>
+    public bool? MetaTotal { get; set; }
 }
 
-/// <summary>One page of <see cref="Forwarder"/>s plus the next-page cursor.</summary>
+/// <summary>One page of <see cref="Forwarder"/>s plus the pagination meta block.</summary>
 /// <param name="Forwarders">The page's forwarders.</param>
-/// <param name="NextCursor">Cursor for the next page, or null on the last page.</param>
-public sealed record ListForwardersPage(IReadOnlyList<Forwarder> Forwarders, string? NextCursor);
+/// <param name="Pagination">Pagination meta (page, size, and optionally total/total_pages).</param>
+public sealed record ListForwardersPage(IReadOnlyList<Forwarder> Forwarders, Pagination Pagination);
+
+/// <summary>Offset-pagination meta returned in JSON:API list responses.</summary>
+/// <param name="Page">1-based page number returned.</param>
+/// <param name="Size">Number of items per page.</param>
+/// <param name="Total">Total matching items across all pages. Present only when the request included <c>MetaTotal=true</c>.</param>
+/// <param name="TotalPages">Total pages at the requested page size. Present only when the request included <c>MetaTotal=true</c>.</param>
+public sealed record Pagination(int Page, int Size, int? Total, int? TotalPages);
