@@ -2222,9 +2222,8 @@ namespace Smplkit.Internal.Generated.Audit
     /// <br/>
     /// <br/>Each event recorded for the account is evaluated against every enabled
     /// <br/>forwarder. If the filter expression evaluates truthy — or is absent —
-    /// <br/>the event is delivered to the destination using the configured HTTP
-    /// <br/>request. The slug, derived from `name` at create time, is the stable
-    /// <br/>identifier used by the console and other tooling.
+    /// <br/>the event is shaped by the configured transform and delivered to the
+    /// <br/>destination defined by ``configuration``.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Forwarder
@@ -2235,6 +2234,12 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = default!;
+
+        /// <summary>
+        /// Free-text description for the forwarder.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("description")]
+        public string? Description { get; set; } = default!;
 
         /// <summary>
         /// Destination type.
@@ -2256,22 +2261,22 @@ namespace Smplkit.Internal.Generated.Audit
         public object? Filter { get; set; } = default!;
 
         /// <summary>
-        /// JSONata template applied to each event before delivery. Omit to deliver the event unchanged.
+        /// Engine used to evaluate ``transform``. Must be set whenever ``transform`` is set. Today only `JSONATA` is supported.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("transform_type")]
+        public string? Transform_type { get; set; } = default!;
+
+        /// <summary>
+        /// Template applied to each event before delivery. The shape depends on ``transform_type``: for `JSONATA`, a string containing a JSONata expression. Omit to deliver the event JSON unchanged.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("transform")]
-        public string? Transform { get; set; } = default!;
+        public object? Transform { get; set; } = default!;
 
         /// <summary>
-        /// HTTP request used to deliver each event to the destination.
+        /// Transport-specific delivery configuration. Shape is discriminated by ``forwarder_type``; today all destination types use ``HttpConfiguration``.
         /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("http")]
-        public ForwarderHttp Http { get; set; } = new ForwarderHttp();
-
-        /// <summary>
-        /// URL-safe identifier derived from `name` at create time. Stable for the lifetime of the forwarder.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("slug")]
-        public string? Slug { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("configuration")]
+        public HttpConfiguration Configuration { get; set; } = new HttpConfiguration();
 
         /// <summary>
         /// When the forwarder was created.
@@ -2508,46 +2513,6 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     /// <summary>
-    /// HTTP request configuration used to deliver an event to the destination.
-    /// </summary>
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class ForwarderHttp
-    {
-
-        /// <summary>
-        /// HTTP method used when delivering an event.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("method")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ForwarderHttpMethod>))]
-        public ForwarderHttpMethod Method { get; set; } = Smplkit.Internal.Generated.Audit.ForwarderHttpMethod.POST;
-
-        /// <summary>
-        /// Destination URL.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("url")]
-        public string Url { get; set; } = default!;
-
-        /// <summary>
-        /// HTTP headers attached to each delivery request.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("headers")]
-        public System.Collections.Generic.List<HttpHeader> Headers { get; set; } = default!;
-
-        /// <summary>
-        /// Request body sent to the destination. If omitted, the event JSON is sent as the body.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("body")]
-        public string? Body { get; set; } = default!;
-
-        /// <summary>
-        /// HTTP response status that indicates a successful delivery. Either a specific status code (e.g. `200`, `204`) or a status class (`1xx`, `2xx`, `3xx`, `4xx`, `5xx`).
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("success_status")]
-        public string Success_status { get; set; } = "2xx";
-
-    }
-
-    /// <summary>
     /// JSON:API collection response for forwarders.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -2673,7 +2638,52 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     /// <summary>
+    /// HTTP request configuration used to deliver an event to the destination.
+    /// <br/>
+    /// <br/>Used when the parent forwarder's ``forwarder_type`` is one of the
+    /// <br/>HTTP-family destinations (``HTTP``, ``DATADOG``, ``SPLUNK_HEC``,
+    /// <br/>``SUMO_LOGIC``, ``NEW_RELIC``, ``HONEYCOMB``, ``ELASTIC``). When other
+    /// <br/>transports land (``FTP``, ``SQS``, …) their own configuration schemas
+    /// <br/>will join this one as members of a discriminated union under the
+    /// <br/>``configuration`` field of ``Forwarder``.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class HttpConfiguration
+    {
+
+        /// <summary>
+        /// HTTP method used when delivering an event.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("method")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<HttpConfigurationMethod>))]
+        public HttpConfigurationMethod Method { get; set; } = Smplkit.Internal.Generated.Audit.HttpConfigurationMethod.POST;
+
+        /// <summary>
+        /// Destination URL.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("url")]
+        public string Url { get; set; } = default!;
+
+        /// <summary>
+        /// HTTP headers attached to each delivery request.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("headers")]
+        public System.Collections.Generic.List<HttpHeader> Headers { get; set; } = default!;
+
+        /// <summary>
+        /// HTTP response status that indicates a successful delivery. Either a specific status code (e.g. `200`, `204`) or a status class (`1xx`, `2xx`, `3xx`, `4xx`, `5xx`).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("success_status")]
+        public string Success_status { get; set; } = "2xx";
+
+    }
+
+    /// <summary>
     /// A single HTTP header attached to a forwarder delivery request.
+    /// <br/>
+    /// <br/>Header values carrying secrets (API keys, bearer tokens, HEC tokens)
+    /// <br/>are encrypted at the application layer before persistence; the wire
+    /// <br/>representation here is always plaintext.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class HttpHeader
@@ -2909,12 +2919,6 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("headers")]
         public System.Collections.Generic.List<HttpHeader> Headers { get; set; } = default!;
-
-        /// <summary>
-        /// Request body. If omitted, an empty body is sent.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("body")]
-        public string? Body { get; set; } = default!;
 
         /// <summary>
         /// HTTP response status that indicates success. Either a specific status code (e.g. `200`, `204`) or a status class (`1xx`, `2xx`, `3xx`, `4xx`, `5xx`).
@@ -3171,7 +3175,7 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum ForwarderHttpMethod
+    public enum HttpConfigurationMethod
     {
 
         [System.Runtime.Serialization.EnumMember(Value = @"GET")]
