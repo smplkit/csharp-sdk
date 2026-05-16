@@ -727,83 +727,55 @@ namespace Smplkit.Internal.Generated.App
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// List Subscriptions
+        /// Get Current Subscription
         /// </summary>
         /// <remarks>
-        /// Return subscription rows for the authenticated account.
+        /// Return the authenticated account's subscription, or 404 if none exists.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<SubscriptionResponse> Get_current_subscriptionAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Replace Current Subscription
+        /// </summary>
+        /// <remarks>
+        /// Replace the authenticated account's subscription with the desired state.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<SubscriptionResponse> Put_current_subscriptionAsync(SubscriptionRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Preview Subscription Change
+        /// </summary>
+        /// <remarks>
+        /// Project the result of replacing the subscription with the desired state.
         /// <br/>
-        /// <br/>Default sort is `product` ascending.
+        /// <br/>No database or billing-provider changes are made; safe to call as the
+        /// <br/>customer iterates on a plan picker.
         /// </remarks>
-        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `product`. Allowed values: `created_at`, `-created_at`, `plan`, `-plan`, `product`, `-product`, `status`, `-status`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<SubscriptionListResponse> List_subscriptionsAsync(Anonymous12? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<SubscriptionPreviewResponse> Preview_current_subscriptionAsync(SubscriptionRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// Create Subscription
+        /// Replace Account Subscription (admin)
         /// </summary>
         /// <remarks>
-        /// Create a new paid subscription for a product.
+        /// Admin replacement of a specific account's subscription.
+        /// <br/>
+        /// <br/>Accepts the same body shape as the customer endpoint plus
+        /// <br/>``discount_override_pct``. Setting the override to 100 skips the billing
+        /// <br/>provider entirely; lowering it below 100 requires a payment method on
+        /// <br/>file for the target account.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<SubscriptionResponse> Create_subscriptionAsync(CreateSubscriptionBody body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
-
-        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <summary>
-        /// Upgrade Subscription
-        /// </summary>
-        /// <remarks>
-        /// Upgrade an existing paid subscription to a higher plan.
-        /// </remarks>
-        /// <returns>Successful Response</returns>
-        /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<SubscriptionResponse> Upgrade_subscriptionAsync(System.Guid id, PlanChangeRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
-
-        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <summary>
-        /// Downgrade Subscription
-        /// </summary>
-        /// <remarks>
-        /// Downgrade an existing paid subscription to a lower plan.
-        /// </remarks>
-        /// <returns>Successful Response</returns>
-        /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<SubscriptionResponse> Downgrade_subscriptionAsync(System.Guid id, PlanChangeRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
-
-        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <summary>
-        /// Cancel Subscription
-        /// </summary>
-        /// <remarks>
-        /// Cancel a subscription at end of the current billing period.
-        /// </remarks>
-        /// <returns>Successful Response</returns>
-        /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<SubscriptionResponse> Cancel_subscriptionAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
-
-        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <summary>
-        /// Undo Cancellation
-        /// </summary>
-        /// <remarks>
-        /// Reverse a pending cancellation; subscription will renew as normal.
-        /// </remarks>
-        /// <returns>Successful Response</returns>
-        /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<SubscriptionResponse> Uncancel_subscriptionAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
-
-        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <summary>
-        /// Undo Pending Downgrade
-        /// </summary>
-        /// <remarks>
-        /// Reverse a pending downgrade scheduled for end of the current billing period.
-        /// </remarks>
-        /// <returns>Successful Response</returns>
-        /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<SubscriptionResponse> Undowngrade_subscriptionAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<SubscriptionResponse> Admin_put_account_subscriptionAsync(System.Guid account_id, AdminSubscriptionRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -815,7 +787,7 @@ namespace Smplkit.Internal.Generated.App
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `exp_year`, `-exp_year`, `is_default`, `-is_default`, `updated_at`, `-updated_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<PaymentMethodListResponse> List_payment_methodsAsync(Anonymous13? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<PaymentMethodListResponse> List_payment_methodsAsync(Anonymous12? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -884,7 +856,7 @@ namespace Smplkit.Internal.Generated.App
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `status`, `-status`, `total`, `-total`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<InvoiceListResponse> List_invoicesAsync(Anonymous14? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<InvoiceListResponse> List_invoicesAsync(Anonymous13? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -8528,17 +8500,14 @@ namespace Smplkit.Internal.Generated.App
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// List Subscriptions
+        /// Get Current Subscription
         /// </summary>
         /// <remarks>
-        /// Return subscription rows for the authenticated account.
-        /// <br/>
-        /// <br/>Default sort is `product` ascending.
+        /// Return the authenticated account's subscription, or 404 if none exists.
         /// </remarks>
-        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `product`. Allowed values: `created_at`, `-created_at`, `plan`, `-plan`, `product`, `-product`, `status`, `-status`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<SubscriptionListResponse> List_subscriptionsAsync(Anonymous12? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<SubscriptionResponse> Get_current_subscriptionAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -8551,14 +8520,8 @@ namespace Smplkit.Internal.Generated.App
 
                     var urlBuilder_ = new System.Text.StringBuilder();
                     if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
-                    // Operation Path: "api/v1/subscriptions"
-                    urlBuilder_.Append("api/v1/subscriptions");
-                    urlBuilder_.Append('?');
-                    if (sort != null)
-                    {
-                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
-                    }
-                    urlBuilder_.Length--;
+                    // Operation Path: "api/v1/accounts/current/subscription"
+                    urlBuilder_.Append("api/v1/accounts/current/subscription");
 
                     PrepareRequest(client_, request_, urlBuilder_);
 
@@ -8585,7 +8548,7 @@ namespace Smplkit.Internal.Generated.App
                         var status_ = (int)response_.StatusCode;
                         if (status_ == 200)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<SubscriptionListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<SubscriptionResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
@@ -8654,14 +8617,141 @@ namespace Smplkit.Internal.Generated.App
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// Create Subscription
+        /// Replace Current Subscription
         /// </summary>
         /// <remarks>
-        /// Create a new paid subscription for a product.
+        /// Replace the authenticated account's subscription with the desired state.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<SubscriptionResponse> Create_subscriptionAsync(CreateSubscriptionBody body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<SubscriptionResponse> Put_current_subscriptionAsync(SubscriptionRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        {
+            if (body == null)
+                throw new System.ArgumentNullException("body");
+
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/vnd.api+json");
+                    request_.Content = content_;
+                    request_.Method = new System.Net.Http.HttpMethod("PUT");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
+                    // Operation Path: "api/v1/accounts/current/subscription"
+                    urlBuilder_.Append("api/v1/accounts/current/subscription");
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<SubscriptionResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        if (status_ == 400)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new ApiException<ErrorResponse>("Validation error or malformed request", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 401)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new ApiException<ErrorResponse>("Missing or invalid authentication", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 404)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new ApiException<ErrorResponse>("Resource not found", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 429)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new ApiException<ErrorResponse>("Rate limit exceeded", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Preview Subscription Change
+        /// </summary>
+        /// <remarks>
+        /// Project the result of replacing the subscription with the desired state.
+        /// <br/>
+        /// <br/>No database or billing-provider changes are made; safe to call as the
+        /// <br/>customer iterates on a plan picker.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<SubscriptionPreviewResponse> Preview_current_subscriptionAsync(SubscriptionRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (body == null)
                 throw new System.ArgumentNullException("body");
@@ -8681,8 +8771,8 @@ namespace Smplkit.Internal.Generated.App
 
                     var urlBuilder_ = new System.Text.StringBuilder();
                     if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
-                    // Operation Path: "api/v1/subscriptions"
-                    urlBuilder_.Append("api/v1/subscriptions");
+                    // Operation Path: "api/v1/accounts/current/subscription/actions/preview"
+                    urlBuilder_.Append("api/v1/accounts/current/subscription/actions/preview");
 
                     PrepareRequest(client_, request_, urlBuilder_);
 
@@ -8707,9 +8797,9 @@ namespace Smplkit.Internal.Generated.App
                         ProcessResponse(client_, response_);
 
                         var status_ = (int)response_.StatusCode;
-                        if (status_ == 201)
+                        if (status_ == 200)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<SubscriptionResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<SubscriptionPreviewResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
@@ -8778,17 +8868,22 @@ namespace Smplkit.Internal.Generated.App
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// Upgrade Subscription
+        /// Replace Account Subscription (admin)
         /// </summary>
         /// <remarks>
-        /// Upgrade an existing paid subscription to a higher plan.
+        /// Admin replacement of a specific account's subscription.
+        /// <br/>
+        /// <br/>Accepts the same body shape as the customer endpoint plus
+        /// <br/>``discount_override_pct``. Setting the override to 100 skips the billing
+        /// <br/>provider entirely; lowering it below 100 requires a payment method on
+        /// <br/>file for the target account.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<SubscriptionResponse> Upgrade_subscriptionAsync(System.Guid id, PlanChangeRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<SubscriptionResponse> Admin_put_account_subscriptionAsync(System.Guid account_id, AdminSubscriptionRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
-            if (id == null)
-                throw new System.ArgumentNullException("id");
+            if (account_id == null)
+                throw new System.ArgumentNullException("account_id");
 
             if (body == null)
                 throw new System.ArgumentNullException("body");
@@ -8803,513 +8898,15 @@ namespace Smplkit.Internal.Generated.App
                     var content_ = new System.Net.Http.ByteArrayContent(json_);
                     content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/vnd.api+json");
                     request_.Content = content_;
-                    request_.Method = new System.Net.Http.HttpMethod("POST");
+                    request_.Method = new System.Net.Http.HttpMethod("PUT");
                     request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
 
                     var urlBuilder_ = new System.Text.StringBuilder();
                     if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
-                    // Operation Path: "api/v1/subscriptions/{id}/actions/upgrade"
-                    urlBuilder_.Append("api/v1/subscriptions/");
-                    urlBuilder_.Append(System.Uri.EscapeDataString(ConvertToString(id, System.Globalization.CultureInfo.InvariantCulture)));
-                    urlBuilder_.Append("/actions/upgrade");
-
-                    PrepareRequest(client_, request_, urlBuilder_);
-
-                    var url_ = urlBuilder_.ToString();
-                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
-
-                    PrepareRequest(client_, request_, url_);
-
-                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-                    var disposeResponse_ = true;
-                    try
-                    {
-                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
-                        foreach (var item_ in response_.Headers)
-                            headers_[item_.Key] = item_.Value;
-                        if (response_.Content != null && response_.Content.Headers != null)
-                        {
-                            foreach (var item_ in response_.Content.Headers)
-                                headers_[item_.Key] = item_.Value;
-                        }
-
-                        ProcessResponse(client_, response_);
-
-                        var status_ = (int)response_.StatusCode;
-                        if (status_ == 200)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<SubscriptionResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            return objectResponse_.Object;
-                        }
-                        else
-                        if (status_ == 400)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Validation error or malformed request", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        if (status_ == 401)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Missing or invalid authentication", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        if (status_ == 404)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Resource not found", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        if (status_ == 429)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Rate limit exceeded", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        {
-                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
-                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
-                        }
-                    }
-                    finally
-                    {
-                        if (disposeResponse_)
-                            response_.Dispose();
-                    }
-                }
-            }
-            finally
-            {
-                if (disposeClient_)
-                    client_.Dispose();
-            }
-        }
-
-        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <summary>
-        /// Downgrade Subscription
-        /// </summary>
-        /// <remarks>
-        /// Downgrade an existing paid subscription to a lower plan.
-        /// </remarks>
-        /// <returns>Successful Response</returns>
-        /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<SubscriptionResponse> Downgrade_subscriptionAsync(System.Guid id, PlanChangeRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
-        {
-            if (id == null)
-                throw new System.ArgumentNullException("id");
-
-            if (body == null)
-                throw new System.ArgumentNullException("body");
-
-            var client_ = _httpClient;
-            var disposeClient_ = false;
-            try
-            {
-                using (var request_ = new System.Net.Http.HttpRequestMessage())
-                {
-                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
-                    var content_ = new System.Net.Http.ByteArrayContent(json_);
-                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/vnd.api+json");
-                    request_.Content = content_;
-                    request_.Method = new System.Net.Http.HttpMethod("POST");
-                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
-
-                    var urlBuilder_ = new System.Text.StringBuilder();
-                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
-                    // Operation Path: "api/v1/subscriptions/{id}/actions/downgrade"
-                    urlBuilder_.Append("api/v1/subscriptions/");
-                    urlBuilder_.Append(System.Uri.EscapeDataString(ConvertToString(id, System.Globalization.CultureInfo.InvariantCulture)));
-                    urlBuilder_.Append("/actions/downgrade");
-
-                    PrepareRequest(client_, request_, urlBuilder_);
-
-                    var url_ = urlBuilder_.ToString();
-                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
-
-                    PrepareRequest(client_, request_, url_);
-
-                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-                    var disposeResponse_ = true;
-                    try
-                    {
-                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
-                        foreach (var item_ in response_.Headers)
-                            headers_[item_.Key] = item_.Value;
-                        if (response_.Content != null && response_.Content.Headers != null)
-                        {
-                            foreach (var item_ in response_.Content.Headers)
-                                headers_[item_.Key] = item_.Value;
-                        }
-
-                        ProcessResponse(client_, response_);
-
-                        var status_ = (int)response_.StatusCode;
-                        if (status_ == 200)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<SubscriptionResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            return objectResponse_.Object;
-                        }
-                        else
-                        if (status_ == 400)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Validation error or malformed request", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        if (status_ == 401)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Missing or invalid authentication", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        if (status_ == 404)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Resource not found", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        if (status_ == 429)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Rate limit exceeded", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        {
-                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
-                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
-                        }
-                    }
-                    finally
-                    {
-                        if (disposeResponse_)
-                            response_.Dispose();
-                    }
-                }
-            }
-            finally
-            {
-                if (disposeClient_)
-                    client_.Dispose();
-            }
-        }
-
-        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <summary>
-        /// Cancel Subscription
-        /// </summary>
-        /// <remarks>
-        /// Cancel a subscription at end of the current billing period.
-        /// </remarks>
-        /// <returns>Successful Response</returns>
-        /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<SubscriptionResponse> Cancel_subscriptionAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
-        {
-            if (id == null)
-                throw new System.ArgumentNullException("id");
-
-            var client_ = _httpClient;
-            var disposeClient_ = false;
-            try
-            {
-                using (var request_ = new System.Net.Http.HttpRequestMessage())
-                {
-                    request_.Content = new System.Net.Http.StringContent(string.Empty, System.Text.Encoding.UTF8, "application/json");
-                    request_.Method = new System.Net.Http.HttpMethod("POST");
-                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
-
-                    var urlBuilder_ = new System.Text.StringBuilder();
-                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
-                    // Operation Path: "api/v1/subscriptions/{id}/actions/cancel"
-                    urlBuilder_.Append("api/v1/subscriptions/");
-                    urlBuilder_.Append(System.Uri.EscapeDataString(ConvertToString(id, System.Globalization.CultureInfo.InvariantCulture)));
-                    urlBuilder_.Append("/actions/cancel");
-
-                    PrepareRequest(client_, request_, urlBuilder_);
-
-                    var url_ = urlBuilder_.ToString();
-                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
-
-                    PrepareRequest(client_, request_, url_);
-
-                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-                    var disposeResponse_ = true;
-                    try
-                    {
-                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
-                        foreach (var item_ in response_.Headers)
-                            headers_[item_.Key] = item_.Value;
-                        if (response_.Content != null && response_.Content.Headers != null)
-                        {
-                            foreach (var item_ in response_.Content.Headers)
-                                headers_[item_.Key] = item_.Value;
-                        }
-
-                        ProcessResponse(client_, response_);
-
-                        var status_ = (int)response_.StatusCode;
-                        if (status_ == 200)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<SubscriptionResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            return objectResponse_.Object;
-                        }
-                        else
-                        if (status_ == 400)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Validation error or malformed request", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        if (status_ == 401)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Missing or invalid authentication", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        if (status_ == 404)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Resource not found", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        if (status_ == 429)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Rate limit exceeded", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        {
-                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
-                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
-                        }
-                    }
-                    finally
-                    {
-                        if (disposeResponse_)
-                            response_.Dispose();
-                    }
-                }
-            }
-            finally
-            {
-                if (disposeClient_)
-                    client_.Dispose();
-            }
-        }
-
-        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <summary>
-        /// Undo Cancellation
-        /// </summary>
-        /// <remarks>
-        /// Reverse a pending cancellation; subscription will renew as normal.
-        /// </remarks>
-        /// <returns>Successful Response</returns>
-        /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<SubscriptionResponse> Uncancel_subscriptionAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
-        {
-            if (id == null)
-                throw new System.ArgumentNullException("id");
-
-            var client_ = _httpClient;
-            var disposeClient_ = false;
-            try
-            {
-                using (var request_ = new System.Net.Http.HttpRequestMessage())
-                {
-                    request_.Content = new System.Net.Http.StringContent(string.Empty, System.Text.Encoding.UTF8, "application/json");
-                    request_.Method = new System.Net.Http.HttpMethod("POST");
-                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
-
-                    var urlBuilder_ = new System.Text.StringBuilder();
-                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
-                    // Operation Path: "api/v1/subscriptions/{id}/actions/uncancel"
-                    urlBuilder_.Append("api/v1/subscriptions/");
-                    urlBuilder_.Append(System.Uri.EscapeDataString(ConvertToString(id, System.Globalization.CultureInfo.InvariantCulture)));
-                    urlBuilder_.Append("/actions/uncancel");
-
-                    PrepareRequest(client_, request_, urlBuilder_);
-
-                    var url_ = urlBuilder_.ToString();
-                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
-
-                    PrepareRequest(client_, request_, url_);
-
-                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-                    var disposeResponse_ = true;
-                    try
-                    {
-                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
-                        foreach (var item_ in response_.Headers)
-                            headers_[item_.Key] = item_.Value;
-                        if (response_.Content != null && response_.Content.Headers != null)
-                        {
-                            foreach (var item_ in response_.Content.Headers)
-                                headers_[item_.Key] = item_.Value;
-                        }
-
-                        ProcessResponse(client_, response_);
-
-                        var status_ = (int)response_.StatusCode;
-                        if (status_ == 200)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<SubscriptionResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            return objectResponse_.Object;
-                        }
-                        else
-                        if (status_ == 400)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Validation error or malformed request", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        if (status_ == 401)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Missing or invalid authentication", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        if (status_ == 404)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Resource not found", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        if (status_ == 429)
-                        {
-                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
-                            if (objectResponse_.Object == null)
-                            {
-                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
-                            }
-                            throw new ApiException<ErrorResponse>("Rate limit exceeded", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
-                        }
-                        else
-                        {
-                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
-                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
-                        }
-                    }
-                    finally
-                    {
-                        if (disposeResponse_)
-                            response_.Dispose();
-                    }
-                }
-            }
-            finally
-            {
-                if (disposeClient_)
-                    client_.Dispose();
-            }
-        }
-
-        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
-        /// <summary>
-        /// Undo Pending Downgrade
-        /// </summary>
-        /// <remarks>
-        /// Reverse a pending downgrade scheduled for end of the current billing period.
-        /// </remarks>
-        /// <returns>Successful Response</returns>
-        /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<SubscriptionResponse> Undowngrade_subscriptionAsync(System.Guid id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
-        {
-            if (id == null)
-                throw new System.ArgumentNullException("id");
-
-            var client_ = _httpClient;
-            var disposeClient_ = false;
-            try
-            {
-                using (var request_ = new System.Net.Http.HttpRequestMessage())
-                {
-                    request_.Content = new System.Net.Http.StringContent(string.Empty, System.Text.Encoding.UTF8, "application/json");
-                    request_.Method = new System.Net.Http.HttpMethod("POST");
-                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
-
-                    var urlBuilder_ = new System.Text.StringBuilder();
-                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
-                    // Operation Path: "api/v1/subscriptions/{id}/actions/undowngrade"
-                    urlBuilder_.Append("api/v1/subscriptions/");
-                    urlBuilder_.Append(System.Uri.EscapeDataString(ConvertToString(id, System.Globalization.CultureInfo.InvariantCulture)));
-                    urlBuilder_.Append("/actions/undowngrade");
+                    // Operation Path: "api/v1/accounts/{account_id}/subscription"
+                    urlBuilder_.Append("api/v1/accounts/");
+                    urlBuilder_.Append(System.Uri.EscapeDataString(ConvertToString(account_id, System.Globalization.CultureInfo.InvariantCulture)));
+                    urlBuilder_.Append("/subscription");
 
                     PrepareRequest(client_, request_, urlBuilder_);
 
@@ -9413,7 +9010,7 @@ namespace Smplkit.Internal.Generated.App
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `exp_year`, `-exp_year`, `is_default`, `-is_default`, `updated_at`, `-updated_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<PaymentMethodListResponse> List_payment_methodsAsync(Anonymous13? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<PaymentMethodListResponse> List_payment_methodsAsync(Anonymous12? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -10150,7 +9747,7 @@ namespace Smplkit.Internal.Generated.App
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `status`, `-status`, `total`, `-total`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<InvoiceListResponse> List_invoicesAsync(Anonymous14? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<InvoiceListResponse> List_invoicesAsync(Anonymous13? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -10940,6 +10537,94 @@ namespace Smplkit.Internal.Generated.App
     }
 
     /// <summary>
+    /// Admin-scope request envelope for replacing a subscription.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AdminSubscriptionRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public AdminSubscriptionRequestResource Data { get; set; } = new AdminSubscriptionRequestResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Same as the customer request body plus the admin-only override field.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AdminSubscriptionRequestAttributes
+    {
+
+        /// <summary>
+        /// Desired enrollments. Products listed are scheduled to be on the specified plan immediately (for upgrades and new enrollments) or at the end of the current billing period (for downgrades). Products not listed are scheduled to be dropped at the end of the current billing period.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("items")]
+        public System.Collections.Generic.List<SubscriptionItemRequest> Items { get; set; } = new System.Collections.Generic.List<SubscriptionItemRequest>();
+
+        /// <summary>
+        /// Optional identifier of the payment method to bill against. If omitted, the account's default payment method is used.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("payment_method")]
+        public System.Guid? Payment_method { get; set; } = default!;
+
+        /// <summary>
+        /// Administrator-set discount percentage (0–100). When set, the multi-product discount schedule is bypassed and this value is used directly. Setting `100` skips the billing provider entirely — the customer pays nothing. Pass `null` to clear any existing override and revert to the multi-product discount schedule.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("discount_override_pct")]
+        public int? Discount_override_pct { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Admin-scope resource object for a subscription update request.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AdminSubscriptionRequestResource
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string? Id { get; set; } = default!;
+
+        /// <summary>
+        /// JSON:API resource type.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<AdminSubscriptionRequestResourceType>))]
+        public AdminSubscriptionRequestResourceType Type { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
+        public AdminSubscriptionRequestAttributes Attributes { get; set; } = new AdminSubscriptionRequestAttributes();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
     /// An API key used by SDKs, scripts, and other programmatic clients to
     /// <br/>authenticate with the smplkit API on behalf of the account.
     /// <br/>
@@ -11520,90 +11205,6 @@ namespace Smplkit.Internal.Generated.App
 
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public ContextTypeResource Data { get; set; } = new ContextTypeResource();
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    /// <summary>
-    /// Attributes accepted when creating a new subscription.
-    /// </summary>
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class CreateSubscriptionAttributes
-    {
-
-        /// <summary>
-        /// Product key to subscribe to, e.g. `flags`.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("product")]
-        public string Product { get; set; } = default!;
-
-        /// <summary>
-        /// Plan key to subscribe on, e.g. `pro`.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("plan")]
-        public string Plan { get; set; } = default!;
-
-        /// <summary>
-        /// UUID of a payment method on file to bill against. If omitted, the account's default payment method is used.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("payment_method")]
-        public string? Payment_method { get; set; } = default!;
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    /// <summary>
-    /// JSON:API request envelope for creating a subscription.
-    /// </summary>
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class CreateSubscriptionBody
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("data")]
-        public CreateSubscriptionData Data { get; set; } = new CreateSubscriptionData();
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    /// <summary>
-    /// Resource object for the create-subscription request.
-    /// </summary>
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class CreateSubscriptionData
-    {
-
-        /// <summary>
-        /// Resource type; must be `subscription`.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("type")]
-        public string Type { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
-        public CreateSubscriptionAttributes Attributes { get; set; } = new CreateSubscriptionAttributes();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -12741,14 +12342,14 @@ namespace Smplkit.Internal.Generated.App
     }
 
     /// <summary>
-    /// Information about the next volume-discount tier.
+    /// Hint describing how the customer could unlock a better discount.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class NextTierMeta
+    public partial class NextTierResponse
     {
 
         /// <summary>
-        /// Number of additional subscribed products needed to reach the next tier.
+        /// Number of additional paid products required to reach the next discount tier.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("products_needed")]
         public int Products_needed { get; set; } = default!;
@@ -12760,7 +12361,7 @@ namespace Smplkit.Internal.Generated.App
         public int Discount_pct { get; set; } = default!;
 
         /// <summary>
-        /// Additional monthly savings in cents at the next tier.
+        /// Estimated additional monthly savings (in cents) at the next tier, compared to paying full list price for the added product.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("additional_savings_cents")]
         public int Additional_savings_cents { get; set; } = default!;
@@ -13017,30 +12618,6 @@ namespace Smplkit.Internal.Generated.App
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("sort_order")]
         public int Sort_order { get; set; } = default!;
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    /// <summary>
-    /// Body for the subscription upgrade and downgrade actions.
-    /// </summary>
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class PlanChangeRequest
-    {
-
-        /// <summary>
-        /// Plan key to change the subscription to.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("plan")]
-        public string Plan { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -13476,53 +13053,133 @@ namespace Smplkit.Internal.Generated.App
     }
 
     /// <summary>
-    /// A subscription that grants the account access to a product on a plan.
+    /// Per-item projected effect of a subscription change.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class SubscriptionAttributes
+    public partial class SubscriptionChangeProjection
     {
 
         /// <summary>
-        /// Product key the subscription is for, e.g. `flags`.
+        /// Product key affected by this change.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("product")]
         public string Product { get; set; } = default!;
 
         /// <summary>
-        /// Plan key the subscription is on, e.g. `pro`.
+        /// Current plan for this product, or `FREE` if it is being added.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("from_plan")]
+        public string From_plan { get; set; } = default!;
+
+        /// <summary>
+        /// Plan the product will be on after the change. `FREE` indicates the enrollment will be dropped.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("to_plan")]
+        public string To_plan { get; set; } = default!;
+
+        /// <summary>
+        /// Monthly cost in cents of this enrollment after the change. `0` when the enrollment will be dropped.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("monthly_cents")]
+        public int Monthly_cents { get; set; } = default!;
+
+        /// <summary>
+        /// `IMMEDIATE` when the change takes effect at confirmation time (and a prorated charge may apply today). `NEXT_PERIOD` when the change takes effect at the end of the current billing period.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("effect")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<SubscriptionChangeProjectionEffect>))]
+        public SubscriptionChangeProjectionEffect Effect { get; set; } = default!;
+
+        /// <summary>
+        /// When `effect` is `IMMEDIATE`, the estimated prorated charge for the remainder of the current billing period in cents. Always `0` when `effect` is `NEXT_PERIOD`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("prorated_charge_today_cents")]
+        public int Prorated_charge_today_cents { get; set; } = 0;
+
+        /// <summary>
+        /// When `effect` is `NEXT_PERIOD`, the ISO-8601 timestamp at which the change takes effect. `null` when `effect` is `IMMEDIATE` (the change applies on confirmation).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("starts_at")]
+        public string? Starts_at { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// One product enrollment as supplied by the caller.
+    /// <br/>
+    /// <br/>The caller supplies the *desired* (product, plan) pair for each product
+    /// <br/>they want enrolled. Products absent from the request are interpreted as
+    /// <br/>scheduled-for-drop at the end of the current billing period.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SubscriptionItemRequest
+    {
+
+        /// <summary>
+        /// Product key (e.g. `audit`, `config`, `flags`, `logging`).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("product")]
+        public string Product { get; set; } = default!;
+
+        /// <summary>
+        /// Target plan for this product. Must be a paid plan such as `STANDARD` or `PRO`; the free plan is implicit when a product is not listed.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("plan")]
+        public string Plan { get; set; } = default!;
+
+    }
+
+    /// <summary>
+    /// One product enrollment as exposed in subscription responses.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SubscriptionItemResponse
+    {
+
+        /// <summary>
+        /// Unique identifier for this enrollment.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public System.Guid Id { get; set; } = default!;
+
+        /// <summary>
+        /// Product key (e.g. `audit`, `config`, `flags`, `logging`).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("product")]
+        public string Product { get; set; } = default!;
+
+        /// <summary>
+        /// Current plan for this product (e.g. `STANDARD`, `PRO`).
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("plan")]
         public string Plan { get; set; } = default!;
 
         /// <summary>
-        /// Lifecycle state of the subscription, e.g. `active`, `trialing`, `past_due`, `canceled`.
+        /// Monthly list price for this enrollment, in cents. This value is locked at the time the enrollment was created or last had its plan changed; subsequent changes to the public price list do not affect this enrollment until the customer themselves changes their plan.
         /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("status")]
-        public string? Status { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("price_monthly_cents")]
+        public int Price_monthly_cents { get; set; } = default!;
 
         /// <summary>
-        /// When `true`, the subscription is complimentary and is not billed through the billing provider.
+        /// When a plan change is scheduled for the end of the current billing period, this is the plan that will take effect. Otherwise `null`. The value `FREE` indicates the enrollment will be dropped.
         /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("comped")]
-        public bool Comped { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("pending_plan_change")]
+        public string? Pending_plan_change { get; set; } = default!;
 
         /// <summary>
-        /// When `true`, the subscription is billed through Stripe; otherwise it is a free or complimentary subscription that does not produce invoices.
+        /// ISO-8601 timestamp at which the pending plan change takes effect. Matches the subscription's `current_period_end`.
         /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("stripe_managed")]
-        public bool Stripe_managed { get; set; } = default!;
-
-        /// <summary>
-        /// End of the current billing period (ISO 8601 timestamp).
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("current_period_end")]
-        public string? Current_period_end { get; set; } = default!;
-
-        /// <summary>
-        /// Stripe payment intent client secret returned when a subscription create requires additional authentication (3DS). Returned only on create.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("client_secret")]
-        public string? Client_secret { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("scheduled_change_effective_at")]
+        public string? Scheduled_change_effective_at { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -13536,48 +13193,66 @@ namespace Smplkit.Internal.Generated.App
     }
 
     /// <summary>
-    /// Discount and totals summary attached to a subscription collection response.
+    /// Projected totals and per-change breakdown for a hypothetical change.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class SubscriptionListMeta
+    public partial class SubscriptionPreviewAttributes
     {
 
         /// <summary>
-        /// Sum of list prices across all subscriptions in cents.
+        /// Projected sum of item monthly list prices after the change.
         /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("subtotal_cents")]
-        public int Subtotal_cents { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("projected_subtotal_cents")]
+        public int Projected_subtotal_cents { get; set; } = default!;
 
         /// <summary>
-        /// Effective discount percentage applied.
+        /// Projected discount percentage that will apply after the change.
         /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("discount_pct")]
-        public int Discount_pct { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("projected_discount_pct")]
+        public int Projected_discount_pct { get; set; } = default!;
 
         /// <summary>
-        /// Discount amount in cents.
+        /// `VOLUME` when the projected discount comes from the multi-product schedule; `OVERRIDE` when an administrator's discount applies.
         /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("discount_amount_cents")]
-        public int Discount_amount_cents { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("projected_discount_source")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<SubscriptionPreviewAttributesProjected_discount_source>))]
+        public SubscriptionPreviewAttributesProjected_discount_source Projected_discount_source { get; set; } = default!;
 
         /// <summary>
-        /// Source of the discount. `VOLUME` indicates the standard volume-discount schedule; `OVERRIDE` indicates a custom discount set on the account.
+        /// Projected discount amount in cents after the change.
         /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("discount_source")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<SubscriptionListMetaDiscount_source>))]
-        public SubscriptionListMetaDiscount_source Discount_source { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("projected_discount_amount_cents")]
+        public int Projected_discount_amount_cents { get; set; } = default!;
 
         /// <summary>
-        /// Final monthly total in cents after the discount.
+        /// Projected final monthly total in cents after the change.
         /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("total_cents")]
-        public int Total_cents { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("projected_total_cents")]
+        public int Projected_total_cents { get; set; } = default!;
 
         /// <summary>
-        /// Information about the next volume-discount tier, or `null` if the account is already at the top tier or on an override.
+        /// Hint describing additional savings available by subscribing to another product after the change is applied. `null` when no better tier is reachable.
         /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("next_tier")]
-        public NextTierMeta? Next_tier { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("projected_next_tier")]
+        public NextTierResponse? Projected_next_tier { get; set; } = default!;
+
+        /// <summary>
+        /// Per-product breakdown of changes the desired state would produce. Products that would remain unchanged are omitted.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("changes")]
+        public System.Collections.Generic.List<SubscriptionChangeProjection> Changes { get; set; } = new System.Collections.Generic.List<SubscriptionChangeProjection>();
+
+        /// <summary>
+        /// Total amount that would be charged at confirmation time, in cents. The sum of `prorated_charge_today_cents` across `IMMEDIATE` changes.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("total_charge_today_cents")]
+        public int Total_charge_today_cents { get; set; } = default!;
+
+        /// <summary>
+        /// Projected total of the next monthly invoice in cents, after all scheduled changes have taken effect.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("next_invoice_total_cents")]
+        public int Next_invoice_total_cents { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -13591,17 +13266,49 @@ namespace Smplkit.Internal.Generated.App
     }
 
     /// <summary>
-    /// JSON:API collection response for subscriptions.
+    /// JSON:API resource object for a subscription preview.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class SubscriptionListResponse
+    public partial class SubscriptionPreviewResource
+    {
+
+        /// <summary>
+        /// Always `preview`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<SubscriptionPreviewResourceId>))]
+        public SubscriptionPreviewResourceId? Id { get; set; } = Smplkit.Internal.Generated.App.SubscriptionPreviewResourceId.Preview;
+
+        /// <summary>
+        /// JSON:API resource type.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<SubscriptionPreviewResourceType>))]
+        public SubscriptionPreviewResourceType Type { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
+        public SubscriptionPreviewAttributes Attributes { get; set; } = new SubscriptionPreviewAttributes();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Response envelope for the preview action.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SubscriptionPreviewResponse
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("data")]
-        public System.Collections.Generic.List<SubscriptionResource> Data { get; set; } = new System.Collections.Generic.List<SubscriptionResource>();
-
-        [System.Text.Json.Serialization.JsonPropertyName("meta")]
-        public SubscriptionListMeta? Meta { get; set; } = default!;
+        public SubscriptionPreviewResource Data { get; set; } = new SubscriptionPreviewResource();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -13615,23 +13322,112 @@ namespace Smplkit.Internal.Generated.App
     }
 
     /// <summary>
-    /// JSON:API resource envelope for a subscription.
-    /// <br/>
-    /// <br/>`id` must not be specified for create requests (the server assigns it).
+    /// Single-resource request envelope for replacing the subscription.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SubscriptionRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public SubscriptionRequestResource Data { get; set; } = new SubscriptionRequestResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Customer's desired subscription state.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SubscriptionRequestAttributes
+    {
+
+        /// <summary>
+        /// Desired enrollments. Products listed are scheduled to be on the specified plan immediately (for upgrades and new enrollments) or at the end of the current billing period (for downgrades). Products not listed are scheduled to be dropped at the end of the current billing period.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("items")]
+        public System.Collections.Generic.List<SubscriptionItemRequest> Items { get; set; } = new System.Collections.Generic.List<SubscriptionItemRequest>();
+
+        /// <summary>
+        /// Optional identifier of the payment method to bill against. If omitted, the account's default payment method is used.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("payment_method")]
+        public System.Guid? Payment_method { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API resource object for a subscription update request.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SubscriptionRequestResource
+    {
+
+        /// <summary>
+        /// Subscription identifier; the server ignores this and uses the auth context.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string? Id { get; set; } = default!;
+
+        /// <summary>
+        /// JSON:API resource type.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<SubscriptionRequestResourceType>))]
+        public SubscriptionRequestResourceType Type { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
+        public SubscriptionRequestAttributes Attributes { get; set; } = new SubscriptionRequestAttributes();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API resource object for a subscription.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class SubscriptionResource
     {
 
+        /// <summary>
+        /// Subscription identifier. Always `current` on response; absent on create-style requests.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("id")]
         public string? Id { get; set; } = default!;
 
+        /// <summary>
+        /// JSON:API resource type.
+        /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("type")]
         [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<SubscriptionResourceType>))]
         public SubscriptionResourceType Type { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("attributes")]
-        public SubscriptionAttributes Attributes { get; set; } = new SubscriptionAttributes();
+        public SubscriptionResponseAttributes Attributes { get; set; } = new SubscriptionResponseAttributes();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -13645,7 +13441,7 @@ namespace Smplkit.Internal.Generated.App
     }
 
     /// <summary>
-    /// JSON:API single-resource response envelope for a subscription.
+    /// Single-resource response envelope for a subscription.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class SubscriptionResponse
@@ -13653,6 +13449,91 @@ namespace Smplkit.Internal.Generated.App
 
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public SubscriptionResource Data { get; set; } = new SubscriptionResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Customer's subscription as returned by the API.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SubscriptionResponseAttributes
+    {
+
+        /// <summary>
+        /// Lifecycle state of the subscription. `ACTIVE` while billing is current; `PAST_DUE` after a failed charge; `CANCELED` once the subscription has ended; `null` when the subscription has no billing object (fully comped at 100% discount).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        public string? Status { get; set; } = default!;
+
+        /// <summary>
+        /// ISO-8601 timestamp of the current billing period's start.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("current_period_start")]
+        public string? Current_period_start { get; set; } = default!;
+
+        /// <summary>
+        /// ISO-8601 timestamp of the current billing period's end. Scheduled plan changes take effect at this moment.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("current_period_end")]
+        public string? Current_period_end { get; set; } = default!;
+
+        /// <summary>
+        /// Effective discount percentage applied to the subscription's monthly invoice. This is the value locked at the time of the customer's last subscription change; subsequent changes to the public discount schedule do not affect this customer until they themselves change their subscription.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("discount_pct")]
+        public int Discount_pct { get; set; } = default!;
+
+        /// <summary>
+        /// `VOLUME` when the discount comes from the multi-product discount schedule; `OVERRIDE` when an administrator has applied a custom discount.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("discount_source")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<SubscriptionResponseAttributesDiscount_source>))]
+        public SubscriptionResponseAttributesDiscount_source Discount_source { get; set; } = default!;
+
+        /// <summary>
+        /// Sum of all item list prices in cents, before discount.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("subtotal_cents")]
+        public int Subtotal_cents { get; set; } = default!;
+
+        /// <summary>
+        /// Amount discounted from the subtotal in cents.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("discount_amount_cents")]
+        public int Discount_amount_cents { get; set; } = default!;
+
+        /// <summary>
+        /// Final monthly total in cents after the discount is applied.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("total_cents")]
+        public int Total_cents { get; set; } = default!;
+
+        /// <summary>
+        /// When `discount_source` is `VOLUME` and the customer is below the top tier, describes the additional savings available by subscribing to another product. `null` otherwise.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("next_tier")]
+        public NextTierResponse? Next_tier { get; set; } = default!;
+
+        /// <summary>
+        /// Identifier of the default payment method used to bill this subscription. `null` when the subscription has no associated payment method (e.g. fully comped).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("payment_method")]
+        public System.Guid? Payment_method { get; set; } = default!;
+
+        /// <summary>
+        /// One entry per product currently enrolled on the subscription.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("items")]
+        public System.Collections.Generic.List<SubscriptionItemResponse> Items { get; set; } = new System.Collections.Generic.List<SubscriptionItemResponse>();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -14200,43 +14081,10 @@ namespace Smplkit.Internal.Generated.App
     }
 
     /// <summary>
-    /// Field to sort by. Prefix with `-` for descending order. Default: `product`. Allowed values: `created_at`, `-created_at`, `plan`, `-plan`, `product`, `-product`, `status`, `-status`.
-    /// </summary>
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum Anonymous12
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
-        Created_at = 0,
-
-        [System.Runtime.Serialization.EnumMember(Value = @"-created_at")]
-        Minuscreated_at = 1,
-
-        [System.Runtime.Serialization.EnumMember(Value = @"plan")]
-        Plan = 2,
-
-        [System.Runtime.Serialization.EnumMember(Value = @"-plan")]
-        Minusplan = 3,
-
-        [System.Runtime.Serialization.EnumMember(Value = @"product")]
-        Product = 4,
-
-        [System.Runtime.Serialization.EnumMember(Value = @"-product")]
-        Minusproduct = 5,
-
-        [System.Runtime.Serialization.EnumMember(Value = @"status")]
-        Status = 6,
-
-        [System.Runtime.Serialization.EnumMember(Value = @"-status")]
-        Minusstatus = 7,
-
-    }
-
-    /// <summary>
     /// Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `exp_year`, `-exp_year`, `is_default`, `-is_default`, `updated_at`, `-updated_at`.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum Anonymous13
+    public enum Anonymous12
     {
 
         [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
@@ -14269,7 +14117,7 @@ namespace Smplkit.Internal.Generated.App
     /// Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `status`, `-status`, `total`, `-total`.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum Anonymous14
+    public enum Anonymous13
     {
 
         [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
@@ -14307,6 +14155,15 @@ namespace Smplkit.Internal.Generated.App
 
         [System.Runtime.Serialization.EnumMember(Value = @"payment_method")]
         Payment_method = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum AdminSubscriptionRequestResourceType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"subscription")]
+        Subscription = 0,
 
     }
 
@@ -14491,7 +14348,19 @@ namespace Smplkit.Internal.Generated.App
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum SubscriptionListMetaDiscount_source
+    public enum SubscriptionChangeProjectionEffect
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"IMMEDIATE")]
+        IMMEDIATE = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"NEXT_PERIOD")]
+        NEXT_PERIOD = 1,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum SubscriptionPreviewAttributesProjected_discount_source
     {
 
         [System.Runtime.Serialization.EnumMember(Value = @"VOLUME")]
@@ -14503,11 +14372,50 @@ namespace Smplkit.Internal.Generated.App
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum SubscriptionPreviewResourceId
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"preview")]
+        Preview = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum SubscriptionPreviewResourceType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"subscription_preview")]
+        Subscription_preview = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum SubscriptionRequestResourceType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"subscription")]
+        Subscription = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public enum SubscriptionResourceType
     {
 
         [System.Runtime.Serialization.EnumMember(Value = @"subscription")]
         Subscription = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum SubscriptionResponseAttributesDiscount_source
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"VOLUME")]
+        VOLUME = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"OVERRIDE")]
+        OVERRIDE = 1,
 
     }
 
