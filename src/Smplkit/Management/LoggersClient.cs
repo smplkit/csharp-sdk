@@ -49,11 +49,17 @@ public sealed class LoggersClient
             updatedAt: null);
     }
 
-    /// <summary>Lists all loggers.</summary>
-    public async Task<List<Logger>> ListAsync(CancellationToken ct = default)
+    /// <summary>Lists loggers. Returns one page; defaults to the server's first page.</summary>
+    /// <param name="pageNumber">1-based page number; null lets the server default (1) apply.</param>
+    /// <param name="pageSize">Items per page; null lets the server default (1000) apply.</param>
+    /// <param name="ct">Cancellation token.</param>
+    public async Task<List<Logger>> ListAsync(
+        int? pageNumber = null,
+        int? pageSize = null,
+        CancellationToken ct = default)
     {
         var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genClient.List_loggersAsync(cancellationToken: ct)).ConfigureAwait(false);
+            () => _genClient.List_loggersAsync(null, null, null, null, pageNumber, pageSize, null, ct)).ConfigureAwait(false);
         if (response.Data is null) return new List<Logger>();
         return response.Data.Select(r => MapLoggerResource(r)!).Where(l => l is not null).ToList();
     }

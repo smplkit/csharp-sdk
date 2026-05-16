@@ -90,11 +90,17 @@ public sealed class FlagsClient
             updatedAt: null);
     }
 
-    /// <summary>Lists all flags.</summary>
-    public async Task<List<Flag>> ListAsync(CancellationToken ct = default)
+    /// <summary>Lists flags. Returns one page; defaults to the server's first page.</summary>
+    /// <param name="pageNumber">1-based page number; null lets the server default (1) apply.</param>
+    /// <param name="pageSize">Items per page; null lets the server default (1000) apply.</param>
+    /// <param name="ct">Cancellation token.</param>
+    public async Task<List<Flag>> ListAsync(
+        int? pageNumber = null,
+        int? pageSize = null,
+        CancellationToken ct = default)
     {
         var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genFlagsClient.List_flagsAsync(cancellationToken: ct)).ConfigureAwait(false);
+            () => _genFlagsClient.List_flagsAsync(null, null, null, null, null, pageNumber, pageSize, null, ct)).ConfigureAwait(false);
         if (response.Data is null) return new List<Flag>();
         return response.Data.Select(r => MapFlagResource(r)!).Where(f => f is not null).ToList();
     }

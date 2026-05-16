@@ -120,8 +120,8 @@ public sealed class LoggingClient
         await FlushLoggerBufferAsync(ct).ConfigureAwait(false);
 
         // 5. Fetch all loggers and groups from the server
-        var loggers = _parent?.Manage.Loggers is { } mgmtL ? await mgmtL.ListAsync(ct).ConfigureAwait(false) : new List<Logger>();
-        if (_parent?.Manage.LogGroups is { } mgmtG) { await mgmtG.ListAsync(ct).ConfigureAwait(false); }
+        var loggers = await FetchAllLoggersAsync(ct).ConfigureAwait(false);
+        await FetchAllLogGroupsAsync(ct).ConfigureAwait(false);
 
         // 6. Apply levels from server-managed loggers to adapters, seed level cache
         ApplyLevels(loggers);
@@ -448,7 +448,7 @@ public sealed class LoggingClient
             if (_parent?.Manage.LogGroups is not { } mgmtG) return;
             var group = await mgmtG.GetAsync(groupId).ConfigureAwait(false);
             // A group level change affects all loggers in that group — re-apply all
-            var loggers = _parent?.Manage.Loggers is { } mgmtLn ? await mgmtLn.ListAsync().ConfigureAwait(false) : new List<Logger>();
+            var loggers = await FetchAllLoggersAsync(default).ConfigureAwait(false);
             ApplyLevels(loggers);
 
             // Diff and fire for loggers whose effective level changed
@@ -526,8 +526,8 @@ public sealed class LoggingClient
     private async Task RefetchAndApplyAsync(string source, CancellationToken ct = default)
     {
         // Full refetch of both loggers and groups
-        var loggers = _parent?.Manage.Loggers is { } mgmtLn ? await mgmtLn.ListAsync(ct).ConfigureAwait(false) : new List<Logger>();
-        if (_parent?.Manage.LogGroups is { } mgmtGn) { await mgmtGn.ListAsync(ct).ConfigureAwait(false); }
+        var loggers = await FetchAllLoggersAsync(ct).ConfigureAwait(false);
+        await FetchAllLogGroupsAsync(ct).ConfigureAwait(false);
         ApplyLevels(loggers);
 
         // Diff and fire per-key listeners for changed loggers
@@ -566,6 +566,32 @@ public sealed class LoggingClient
             var evt = new LoggerChangeEvent(changedId, level, source);
             FireScopedListeners(changedId, evt);
         }
+    }
+
+    /// <summary>
+    /// Walks <c>Manage.Loggers.ListAsync</c> page by page until the server
+    /// returns fewer rows than requested. The runtime needs every managed
+    /// logger to apply effective levels to adapters; customers who want
+    /// pagination control go through <c>Manage.Loggers.ListAsync</c>.
+    /// </summary>
+    private async Task<List<Logger>> FetchAllLoggersAsync(CancellationToken ct)
+    {
+        if (_parent?.Manage.Loggers is not { } mgmtLn) return new List<Logger>();
+        return await Smplkit.Internal.Helpers.FetchAllPagesAsync(
+            (page, size, c) => mgmtLn.ListAsync(page, size, c), ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Walks <c>Manage.LogGroups.ListAsync</c> page by page until the server
+    /// returns a short page. The runtime doesn't consume the result today;
+    /// the call still happens for parity with the pre-pagination behavior
+    /// (warming server caches / surfacing transient errors at startup).
+    /// </summary>
+    private async Task FetchAllLogGroupsAsync(CancellationToken ct)
+    {
+        if (_parent?.Manage.LogGroups is not { } mgmtGn) return;
+        await Smplkit.Internal.Helpers.FetchAllPagesAsync(
+            (page, size, c) => mgmtGn.ListAsync(page, size, c), ct).ConfigureAwait(false);
     }
 
     private void FireListeners(string loggerId, LoggerChangeEvent evt)

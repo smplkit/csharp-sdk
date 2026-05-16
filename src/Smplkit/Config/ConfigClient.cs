@@ -106,7 +106,7 @@ public sealed class ConfigClient
             var environment = _parent?.Environment
                 ?? throw new SmplkitException("No environment set.");
 
-            var allConfigs = (_parent?.Manage.Config.ListAsync() ?? Task.FromResult(new List<Config>())).GetAwaiter().GetResult();
+            var allConfigs = FetchAllConfigsAsync(default).GetAwaiter().GetResult();
             RebuildCache(allConfigs, environment);
             _runtimeConnected = true;
 
@@ -137,9 +137,7 @@ public sealed class ConfigClient
         var environment = _parent?.Environment
             ?? throw new SmplkitException("No environment set.");
 
-        var allConfigs = _parent?.Manage.Config is { } mgmtConfig
-            ? await mgmtConfig.ListAsync(ct).ConfigureAwait(false)
-            : new List<Config>();
+        var allConfigs = await FetchAllConfigsAsync(ct).ConfigureAwait(false);
 
         var oldCache = _configCache;
         RebuildCache(allConfigs, environment);
@@ -282,7 +280,7 @@ public sealed class ConfigClient
 
         try
         {
-            var allConfigs = (_parent?.Manage.Config.ListAsync() ?? Task.FromResult(new List<Config>())).GetAwaiter().GetResult();
+            var allConfigs = FetchAllConfigsAsync(default).GetAwaiter().GetResult();
             var oldCache = _configCache;
             RebuildCache(allConfigs, environment);
             DiffAndFire(oldCache, _configCache, "websocket");
@@ -293,6 +291,19 @@ public sealed class ConfigClient
                 "[smplkit] Configs bulk refresh failed: {0}", ex.Message);
             DebugLog.Log("websocket", $"Configs bulk refresh failed: {ex}");
         }
+    }
+
+    /// <summary>
+    /// Walks <c>Manage.Config.ListAsync</c> page by page until the server
+    /// returns fewer rows than requested. The runtime needs the full set to
+    /// build its resolved-value cache, so paging silently here is correct;
+    /// customers can still page the management surface directly.
+    /// </summary>
+    private async Task<List<Config>> FetchAllConfigsAsync(CancellationToken ct)
+    {
+        if (_parent?.Manage.Config is not { } mgmtConfig) return new List<Config>();
+        return await Helpers.FetchAllPagesAsync(
+            (page, size, c) => mgmtConfig.ListAsync(page, size, c), ct).ConfigureAwait(false);
     }
 
     // ------------------------------------------------------------------

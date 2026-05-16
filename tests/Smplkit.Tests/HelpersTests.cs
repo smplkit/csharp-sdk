@@ -32,4 +32,86 @@ public class HelpersTests
     {
         Assert.Equal("Already Snake Case", InternalHelpers.KeyToDisplayName("already_snake_case"));
     }
+
+    // ------------------------------------------------------------------
+    // FetchAllPagesAsync
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task FetchAllPagesAsync_SinglePage_StopsAfterShortBatch()
+    {
+        var calls = new List<(int Page, int Size)>();
+        var result = await InternalHelpers.FetchAllPagesAsync<int>(
+            (page, size, _) =>
+            {
+                calls.Add((page, size));
+                return Task.FromResult(new List<int> { 1, 2, 3 });
+            });
+
+        Assert.Single(calls);
+        Assert.Equal(1, calls[0].Page);
+        Assert.Equal(InternalHelpers.RuntimePageSize, calls[0].Size);
+        Assert.Equal(new[] { 1, 2, 3 }, result);
+    }
+
+    [Fact]
+    public async Task FetchAllPagesAsync_EmptyFirstPage_StopsAfterOneCall()
+    {
+        var callCount = 0;
+        var result = await InternalHelpers.FetchAllPagesAsync<int>(
+            (_, _, _) =>
+            {
+                callCount++;
+                return Task.FromResult(new List<int>());
+            });
+
+        Assert.Equal(1, callCount);
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task FetchAllPagesAsync_FullFirstPage_FetchesSecondPage()
+    {
+        var calls = new List<int>();
+        var full = Enumerable.Range(0, InternalHelpers.RuntimePageSize).ToList();
+        var tail = new List<int> { 9001, 9002 };
+
+        var result = await InternalHelpers.FetchAllPagesAsync<int>(
+            (page, _, _) =>
+            {
+                calls.Add(page);
+                return Task.FromResult(page == 1 ? full : tail);
+            });
+
+        Assert.Equal(new[] { 1, 2 }, calls);
+        Assert.Equal(InternalHelpers.RuntimePageSize + 2, result.Count);
+        Assert.Equal(9002, result[^1]);
+    }
+
+    [Fact]
+    public async Task FetchAllPagesAsync_TwoFullPagesThenShort_StopsOnShort()
+    {
+        var calls = new List<int>();
+        var full = Enumerable.Range(0, InternalHelpers.RuntimePageSize).ToList();
+
+        var result = await InternalHelpers.FetchAllPagesAsync<int>(
+            (page, _, _) =>
+            {
+                calls.Add(page);
+                return Task.FromResult(page < 3 ? full : new List<int> { 42 });
+            });
+
+        Assert.Equal(new[] { 1, 2, 3 }, calls);
+        Assert.Equal(2 * InternalHelpers.RuntimePageSize + 1, result.Count);
+    }
+
+    [Fact]
+    public async Task FetchAllPagesAsync_PropagatesCancellation()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAsync<TaskCanceledException>(() =>
+            InternalHelpers.FetchAllPagesAsync<int>(
+                (_, _, c) => Task.FromCanceled<List<int>>(c), cts.Token));
+    }
 }

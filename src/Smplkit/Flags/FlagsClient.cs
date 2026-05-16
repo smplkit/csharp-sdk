@@ -575,16 +575,13 @@ public sealed class FlagsClient
             // Snapshot pre-state
             var preStore = _flagStore.ToDictionary(kv => kv.Key, kv => kv.Value);
 
-            var response = _genFlagsClient.List_flagsAsync().GetAwaiter().GetResult();
+            var resources = FetchAllFlagResourcesAsync(default).GetAwaiter().GetResult();
             _flagStore.Clear();
-            if (response.Data is not null)
+            foreach (var resource in resources)
             {
-                foreach (var resource in response.Data)
-                {
-                    var flag = ParseFlagDef(resource);
-                    if (flag is not null && flag.TryGetValue("id", out var fk) && fk is string fks)
-                        _flagStore[fks] = flag;
-                }
+                var flag = ParseFlagDef(resource);
+                if (flag is not null && flag.TryGetValue("id", out var fk) && fk is string fks)
+                    _flagStore[fks] = flag;
             }
 
             _cache.Clear();
@@ -624,16 +621,31 @@ public sealed class FlagsClient
 
     private async Task FetchAllFlagsAsync(CancellationToken ct = default)
     {
-        var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genFlagsClient.List_flagsAsync(cancellationToken: ct)).ConfigureAwait(false);
+        var resources = await FetchAllFlagResourcesAsync(ct).ConfigureAwait(false);
         _flagStore.Clear();
-        if (response.Data is null) return;
-        foreach (var resource in response.Data)
+        foreach (var resource in resources)
         {
             var flag = ParseFlagDef(resource);
             if (flag is not null && flag.TryGetValue("id", out var k) && k is string ks)
                 _flagStore[ks] = flag;
         }
+    }
+
+    /// <summary>
+    /// Walks the generated flags-list endpoint page by page until the server
+    /// returns fewer rows than requested. The runtime needs every flag for
+    /// evaluation, so paging silently here is correct; customers who want
+    /// pagination control go through <c>Manage.Flags.ListAsync</c>.
+    /// </summary>
+    private async Task<List<GenFlags.FlagResource>> FetchAllFlagResourcesAsync(CancellationToken ct)
+    {
+        return await Helpers.FetchAllPagesAsync<GenFlags.FlagResource>(
+            async (page, size, c) =>
+            {
+                var response = await ApiExceptionMapper.ExecuteAsync(
+                    () => _genFlagsClient.List_flagsAsync(null, null, null, null, null, page, size, null, c)).ConfigureAwait(false);
+                return response.Data?.ToList() ?? new List<GenFlags.FlagResource>();
+            }, ct).ConfigureAwait(false);
     }
 
     // ------------------------------------------------------------------

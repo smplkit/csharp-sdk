@@ -40,11 +40,17 @@ public sealed class EnvironmentsClient
         EnvironmentClassification classification = EnvironmentClassification.Standard)
         => New(id, name, new Color(color), classification);
 
-    /// <summary>Lists all environments.</summary>
-    public async Task<List<Environment>> ListAsync(CancellationToken ct = default)
+    /// <summary>Lists environments. Returns one page; defaults to the server's first page.</summary>
+    /// <param name="pageNumber">1-based page number; null lets the server default (1) apply.</param>
+    /// <param name="pageSize">Items per page; null lets the server default (1000) apply.</param>
+    /// <param name="ct">Cancellation token.</param>
+    public async Task<List<Environment>> ListAsync(
+        int? pageNumber = null,
+        int? pageSize = null,
+        CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _appClient.List_environmentsAsync(cancellationToken: ct)).ConfigureAwait(false);
+            () => _appClient.List_environmentsAsync(null, pageNumber, pageSize, null, ct)).ConfigureAwait(false);
         return resp.Data.Select(MapResource).ToList();
     }
 
@@ -132,11 +138,17 @@ public sealed class ContextTypesClient
             createdAt: null, updatedAt: null);
     }
 
-    /// <summary>Lists all context types.</summary>
-    public async Task<List<ContextType>> ListAsync(CancellationToken ct = default)
+    /// <summary>Lists context types. Returns one page; defaults to the server's first page.</summary>
+    /// <param name="pageNumber">1-based page number; null lets the server default (1) apply.</param>
+    /// <param name="pageSize">Items per page; null lets the server default (1000) apply.</param>
+    /// <param name="ct">Cancellation token.</param>
+    public async Task<List<ContextType>> ListAsync(
+        int? pageNumber = null,
+        int? pageSize = null,
+        CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _appClient.List_context_typesAsync(cancellationToken: ct)).ConfigureAwait(false);
+            () => _appClient.List_context_typesAsync(null, pageNumber, pageSize, null, ct)).ConfigureAwait(false);
         return resp.Data.Select(MapResource).ToList();
     }
 
@@ -279,11 +291,19 @@ public sealed class ContextsClient : IContextSink
                 new GenApp.ContextBulkRegister { Contexts = items }, ct)).ConfigureAwait(false);
     }
 
-    /// <summary>Lists all contexts of a given type.</summary>
-    public async Task<List<Smplkit.Context>> ListAsync(string type, CancellationToken ct = default)
+    /// <summary>Lists contexts of a given type. Returns one page; defaults to the server's first page.</summary>
+    /// <param name="type">Context type filter (required).</param>
+    /// <param name="pageNumber">1-based page number; null lets the server default (1) apply.</param>
+    /// <param name="pageSize">Items per page; null lets the server default (1000) apply.</param>
+    /// <param name="ct">Cancellation token.</param>
+    public async Task<List<Smplkit.Context>> ListAsync(
+        string type,
+        int? pageNumber = null,
+        int? pageSize = null,
+        CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _appClient.List_contextsAsync(filtercontext_type: type, cancellationToken: ct)).ConfigureAwait(false);
+            () => _appClient.List_contextsAsync(type, null, null, pageNumber, pageSize, null, ct)).ConfigureAwait(false);
         return resp.Data.Select(MapResource).ToList();
     }
 
