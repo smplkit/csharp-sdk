@@ -108,6 +108,44 @@ public class AuditClientTests
     }
 
     [Fact]
+    public async Task Record_ForwardsCustomerSuppliedActorFields()
+    {
+        string? capturedBody = null;
+        var (gen, _, _) = MakeGen(async req =>
+        {
+            if (req.Content is not null)
+            {
+                capturedBody = await req.Content.ReadAsStringAsync();
+            }
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = new StringContent(SuccessJson, Encoding.UTF8, "application/vnd.api+json"),
+            };
+        });
+        await using var client = new AuditClient(gen);
+
+        client.Events.Record(new CreateEventInput
+        {
+            Action = "user.created",
+            ResourceType = "user",
+            ResourceId = "u-1",
+            ActorType = "EXTERNAL_SERVICE",
+            ActorId = "not-a-uuid:billing-bot",
+            ActorLabel = "Billing Bot",
+        });
+        await client.Events.FlushAsync(TimeSpan.FromSeconds(2));
+        var deadline = DateTime.UtcNow.AddSeconds(2);
+        while (capturedBody is null && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(20);
+        }
+        Assert.NotNull(capturedBody);
+        Assert.Contains("\"actor_type\":\"EXTERNAL_SERVICE\"", capturedBody);
+        Assert.Contains("\"actor_id\":\"not-a-uuid:billing-bot\"", capturedBody);
+        Assert.Contains("\"actor_label\":\"Billing Bot\"", capturedBody);
+    }
+
+    [Fact]
     public async Task GetAsync_RoundTripsAnEvent()
     {
         var eventId = Guid.Parse("11111111-2222-3333-4444-555555555555");

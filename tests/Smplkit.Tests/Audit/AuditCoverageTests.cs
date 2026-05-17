@@ -145,14 +145,13 @@ public class AuditCoverageTests
             });
         });
         await using var client = new AuditClient(gen);
-        var actorId = Guid.Parse("11111111-2222-3333-4444-555555555555");
         await client.Events.ListAsync(new ListEventsInput
         {
             Action = "user.created",
             ResourceType = "user",
             ResourceId = "u-1",
             ActorType = "USER",
-            ActorId = actorId,
+            ActorId = "not-a-uuid:billing-bot",
             OccurredAtRange = "[2026-04-01T00:00:00Z,*)",
             Search = "inv-",
             PageSize = 25,
