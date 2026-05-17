@@ -558,31 +558,65 @@ public class AuditForwardersTests
     }
 
     [Fact]
-    public async Task Transform_NonStringValue_SerializesToWire()
+    public void New_TransformTypeWithoutTransform_Throws()
     {
-        // The wire transform field is untyped (any value compatible with the
-        // chosen engine); wrapper passes it through verbatim. A dict transform
-        // round-trips as a JSON object on the wire.
-        string? capturedBody = null;
-        var (gen, _) = MakeGen(async req =>
-        {
-            capturedBody = await req.Content!.ReadAsStringAsync();
-            return new HttpResponseMessage(HttpStatusCode.Created)
-            {
-                Content = JsonApi("{\"data\":" + ForwarderResource() + "}"),
-            };
-        });
-        var fwds = new AuditManagementClient(gen).Forwarders;
-        var fwd = fwds.New(
+        // Pairing rule (reverse direction): transformType requires transform too.
+        var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var ex = Assert.Throws<ArgumentException>(() => fwds.New(
+            name: "n",
+            forwarderType: ForwarderType.Http,
+            configuration: new HttpConfiguration { Url = "u" },
+            transformType: TransformType.Jsonata));
+        Assert.Contains("transform is required", ex.Message);
+    }
+
+    [Fact]
+    public async Task SaveAsync_TransformTypeSetLater_WithoutTransform_Throws()
+    {
+        // Reverse pairing rule re-enforced at save time.
+        var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var fwd = fwds.New("n", ForwarderType.Http, new HttpConfiguration { Url = "u" });
+        fwd.TransformType = TransformType.Jsonata;
+        await Assert.ThrowsAsync<ArgumentException>(() => fwd.SaveAsync());
+    }
+
+    [Fact]
+    public void New_JsonataWithNonStringTransform_Throws()
+    {
+        // JSONATA expressions are always strings — a dict or other value is
+        // rejected even though the wire field is untyped.
+        var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var ex = Assert.Throws<ArgumentException>(() => fwds.New(
             name: "n",
             forwarderType: ForwarderType.Http,
             configuration: new HttpConfiguration { Url = "u" },
             transform: new Dictionary<string, object?> { ["expr"] = "$" },
-            transformType: TransformType.Jsonata);
-        await fwd.SaveAsync();
-        Assert.NotNull(capturedBody);
-        Assert.Contains("\"transform\":{\"expr\":\"$\"}", capturedBody!);
-        Assert.Contains("\"transform_type\":\"JSONATA\"", capturedBody);
+            transformType: TransformType.Jsonata));
+        Assert.Contains("string", ex.Message);
+    }
+
+    [Fact]
+    public async Task SaveAsync_JsonataWithNonStringTransform_SetAfterNew_Throws()
+    {
+        // Same constraint re-enforced at save time.
+        var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var fwd = fwds.New("n", ForwarderType.Http, new HttpConfiguration { Url = "u" });
+        fwd.TransformType = TransformType.Jsonata;
+        fwd.Transform = 42;
+        await Assert.ThrowsAsync<ArgumentException>(() => fwd.SaveAsync());
+    }
+
+    [Fact]
+    public void ConvertTransform_PassesNonJsonElementValueThrough()
+    {
+        // Exercises the fallback arm of ConvertTransform — anything that's
+        // already typed (not a JsonElement, not null) is returned as-is. In
+        // production the wire DTO always yields JsonElement; this arm guards
+        // future code paths or hand-constructed DTOs.
+        var method = typeof(ManagementForwardersClient).GetMethod(
+            "ConvertTransform",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        Assert.Equal("plain-string", method.Invoke(null, new object?[] { "plain-string" }));
     }
 
     [Fact]

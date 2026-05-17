@@ -52,6 +52,7 @@ public sealed class ManagementForwardersClient
         object? transform = null,
         TransformType? transformType = null)
     {
+        Forwarder.ValidateTransformPairing(transform, transformType);
         return new Forwarder(
             this,
             name: name,
@@ -134,14 +135,15 @@ public sealed class ManagementForwardersClient
             attrs.Filter = new Dictionary<string, object>(
                 src.Filter.Select(kv => new KeyValuePair<string, object>(kv.Key, kv.Value!)));
         }
+        // Re-validate at the wire boundary so mutations after construction
+        // (e.g. setting Forwarder.Transform on a fetched instance) are caught
+        // here too. ValidateTransformPairing enforces (1) both-or-neither and
+        // (2) string-required-for-JSONATA.
+        Forwarder.ValidateTransformPairing(src.Transform, src.TransformType);
         if (src.Transform != null)
         {
-            if (src.TransformType is null)
-                throw new ArgumentException(
-                    "TransformType is required when Transform is set.",
-                    nameof(src));
             attrs.Transform = src.Transform;
-            attrs.Transform_type = src.TransformType.Value.ToWireValue();
+            attrs.Transform_type = src.TransformType!.Value.ToWireValue();
         }
         var r = new GenAudit.ForwarderResource
         {
@@ -189,7 +191,7 @@ public sealed class ManagementForwardersClient
             enabled: a.Enabled,
             description: a.Description,
             filter: ConvertJson(a.Filter),
-            transform: a.Transform as string,
+            transform: ConvertTransform(a.Transform),
             transformType: FromGenTransformType(a.Transform_type),
             id: string.IsNullOrEmpty(r.Id) ? null : Guid.Parse(r.Id),
             createdAt: a.Created_at,
@@ -247,6 +249,19 @@ public sealed class ManagementForwardersClient
         }
         return out_;
     }
+
+    /// <summary>
+    /// Normalize the wire <c>transform</c> field to a typed wrapper value.
+    /// System.Text.Json deserializes the untyped wire field as <see cref="System.Text.Json.JsonElement"/>;
+    /// unwrap it to the matching CLR type so customers see a real string for
+    /// JSONATA responses (or a dict/list/scalar for future engines).
+    /// </summary>
+    private static object? ConvertTransform(object? raw) => raw switch
+    {
+        null => null,
+        System.Text.Json.JsonElement el => JsonElementToObject(el),
+        _ => raw,
+    };
 
     private static IDictionary<string, object?>? ConvertJson(object? raw)
     {

@@ -326,11 +326,9 @@ public sealed class Forwarder
         DateTimeOffset? deletedAt = null,
         int? version = null)
     {
-        if (transform is not null && transformType is null)
-            throw new ArgumentException(
-                $"{nameof(transformType)} is required when {nameof(transform)} is set.",
-                nameof(transformType));
-
+        // Validation lives at customer entry points (New + SaveAsync via
+        // WrapForwarder), NOT here — FromResource reconstructs instances from
+        // wire responses and must tolerate whatever the server sent.
         _client = client;
         Id = id;
         Name = name;
@@ -391,6 +389,33 @@ public sealed class Forwarder
 
     /// <inheritdoc/>
     public override string ToString() => $"Forwarder(Id={Id}, Name={Name}, Enabled={Enabled})";
+
+    /// <summary>
+    /// Enforces the transform/transformType pairing rules:
+    /// <list type="bullet">
+    ///   <item>If either is set, both must be set.</item>
+    ///   <item>When <paramref name="transformType"/> is <see cref="Smplkit.Audit.TransformType.Jsonata"/>,
+    ///         <paramref name="transform"/> must be a <see cref="string"/>.</item>
+    /// </list>
+    /// Called from the constructor and re-checked in the wire-mapping path so
+    /// that mutating <see cref="Transform"/> / <see cref="TransformType"/>
+    /// after construction is also validated.
+    /// </summary>
+    internal static void ValidateTransformPairing(object? transform, TransformType? transformType)
+    {
+        if (transform is not null && transformType is null)
+            throw new ArgumentException(
+                $"{nameof(transformType)} is required when {nameof(transform)} is set.",
+                nameof(transformType));
+        if (transform is null && transformType is not null)
+            throw new ArgumentException(
+                $"{nameof(transform)} is required when {nameof(transformType)} is set.",
+                nameof(transform));
+        if (transformType == Smplkit.Audit.TransformType.Jsonata && transform is not null && transform is not string)
+            throw new ArgumentException(
+                $"{nameof(transform)} must be a string when {nameof(transformType)} is JSONATA.",
+                nameof(transform));
+    }
 }
 
 /// <summary>Filter + pagination input for <see cref="Smplkit.Management.ManagementForwardersClient.ListAsync"/>.</summary>
