@@ -117,7 +117,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<SearchEventsResponse> Search_eventsAsync(SearchEventsRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<EventSearchResponse> Search_eventsAsync(EventSearchRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -701,7 +701,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<SearchEventsResponse> Search_eventsAsync(SearchEventsRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<EventSearchResponse> Search_eventsAsync(EventSearchRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (body == null)
                 throw new System.ArgumentNullException("body");
@@ -749,7 +749,7 @@ namespace Smplkit.Internal.Generated.Audit
                         var status_ = (int)response_.StatusCode;
                         if (status_ == 200)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<SearchEventsResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<EventSearchResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
@@ -2350,6 +2350,218 @@ namespace Smplkit.Internal.Generated.Audit
 
     }
 
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class EventSearchListLinks
+    {
+
+        /// <summary>
+        /// Opaque cursor token for the next page. POST the same body with `page[after]` set to this value to fetch the next page. Unlike the URL-form `links.next` returned by `GET /api/v1/events`, this is a bare cursor token — the client must re-issue a POST with its body, which the URL form cannot capture.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("next")]
+        public string? Next { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Cursor-pagination + scan meta for the search response.
+    /// <br/>
+    /// <br/>Mirrors `EventListMeta` (cursor pagination — `page_size` is the
+    /// <br/>only pagination field) and adds the `scan` block above.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class EventSearchListMeta
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("page_size")]
+        public int Page_size { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("scan")]
+        public EventSearchScanMeta Scan { get; set; } = new EventSearchScanMeta();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Request body for ``POST /api/v1/search/events``.
+    /// <br/>
+    /// <br/>Mirrors every column filter accepted by ``GET /api/v1/events`` with
+    /// <br/>identical semantics, and adds a top-level ``filter`` field carrying
+    /// <br/>a JSON Logic expression. When ``filter`` is present the search is
+    /// <br/>silently capped to the last 30 days by ``occurred_at``; the
+    /// <br/>expression is then evaluated in memory against each row that passes
+    /// <br/>the column filters using the same ``json-logic-qubit`` evaluator
+    /// <br/>that runs in the forwarder pipeline (so search results match what
+    /// <br/>would be forwarded).
+    /// <br/>
+    /// <br/>Filter-combination rules match ``GET /api/v1/events`` exactly:
+    /// <br/>
+    /// <br/>- ``filter[resource_id]`` must be accompanied by
+    /// <br/>  ``filter[resource_type]`` — the index is keyed on the pair.
+    /// <br/>- ``filter[search]`` must be accompanied by either
+    /// <br/>  ``filter[occurred_at]`` or ``filter[resource_type]`` +
+    /// <br/>  ``filter[resource_id]`` — substring matching has no index, so an
+    /// <br/>  unbounded substring scan is rejected.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class EventSearchRequest
+    {
+
+        /// <summary>
+        /// Optional JSON Logic expression evaluated against each row after column filters narrow the candidate set. Null, absent, or an empty object disables JSON Logic filtering. When present, the search is silently capped to the last 30 days by `occurred_at` (intersected with any explicit `filter[occurred_at]` the caller supplied).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("filter")]
+        public object? Filter { get; set; } = default!;
+
+        /// <summary>
+        /// Exact match on the event's `action` field.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("filter[action]")]
+        public string? Filteraction { get; set; } = default!;
+
+        /// <summary>
+        /// Exact match on the event's `resource_type` field.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("filter[resource_type]")]
+        public string? Filterresource_type { get; set; } = default!;
+
+        /// <summary>
+        /// Exact match on the event's `resource_id` field. Must be accompanied by `filter[resource_type]`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("filter[resource_id]")]
+        public string? Filterresource_id { get; set; } = default!;
+
+        /// <summary>
+        /// Exact match on the event's `actor_type` field.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("filter[actor_type]")]
+        public string? Filteractor_type { get; set; } = default!;
+
+        /// <summary>
+        /// Exact match on the event's `actor_id` field.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("filter[actor_id]")]
+        public string? Filteractor_id { get; set; } = default!;
+
+        /// <summary>
+        /// Date range using interval notation, e.g. `[2026-04-01T00:00:00Z,2026-04-15T00:00:00Z)`. Required by `filter[search]` when the resource pair isn't provided. When a JSON Logic `filter` is present, the effective range is intersected with the last 30 days.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("filter[occurred_at]")]
+        public string? Filteroccurred_at { get; set; } = default!;
+
+        /// <summary>
+        /// Case-insensitive substring match on `resource_id` or `description`. Must be accompanied by either `filter[occurred_at]` or `filter[resource_type]` + `filter[resource_id]`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("filter[search]")]
+        public string? Filtersearch { get; set; } = default!;
+
+        /// <summary>
+        /// Maximum events to return. Range 1..1000, default 1000 — matches every other list / search endpoint on the platform. Set explicitly to a smaller value when the consumer is rendering results card-by-card.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("page[size]")]
+        public int Pagesize { get; set; } = 1000;
+
+        /// <summary>
+        /// Opaque cursor — pass the previous response's `links.next` cursor verbatim to fetch the next page. Keep the same `sort` value across paginated requests.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("page[after]")]
+        public string? Pageafter { get; set; } = default!;
+
+        /// <summary>
+        /// Sort field: `occurred_at` or `created_at`, optionally prefixed with `-` for descending order. Default `-occurred_at` (newest first).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("sort")]
+        public string Sort { get; set; } = "-occurred_at";
+
+    }
+
+    /// <summary>
+    /// JSON:API list envelope returned by the search endpoint.
+    /// <br/>
+    /// <br/>Structurally identical to ``EventListResponse`` from the list
+    /// <br/>endpoint — the only difference is the extra `scan` block inside
+    /// <br/>`meta` (`EventSearchListMeta` vs `EventListMeta`).
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class EventSearchResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public System.Collections.Generic.List<EventResource> Data { get; set; } = new System.Collections.Generic.List<EventResource>();
+
+        [System.Text.Json.Serialization.JsonPropertyName("meta")]
+        public EventSearchListMeta Meta { get; set; } = new EventSearchListMeta();
+
+        [System.Text.Json.Serialization.JsonPropertyName("links")]
+        public EventSearchListLinks? Links { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Scan statistics for a search response.
+    /// <br/>
+    /// <br/>Exposed so a selective JSON Logic filter doesn't silently look like
+    /// <br/>"0 matches" when the truth is "the scan ceiling was reached before
+    /// <br/>the filter had a chance to find page[size] matches."
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class EventSearchScanMeta
+    {
+
+        /// <summary>
+        /// Rows scanned after column filters narrowed the candidate set, before the JSON Logic expression was applied.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("scanned")]
+        public int Scanned { get; set; } = default!;
+
+        /// <summary>
+        /// Rows the JSON Logic expression matched. Equal to `len(data)` for the page being returned plus any matches found beyond the page size.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("matched")]
+        public int Matched { get; set; } = default!;
+
+        /// <summary>
+        /// `true` if the server hit the per-request scan ceiling before finding `page[size]` matches. When true, paginate again with the returned `links.next` cursor to continue scanning past the ceiling.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("exhausted")]
+        public bool Exhausted { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
     /// <summary>
     /// A destination that receives audit events recorded for the account.
     /// <br/>
@@ -3012,218 +3224,6 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("failed")]
         public int Failed { get; set; } = default!;
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class SearchEventsListLinks
-    {
-
-        /// <summary>
-        /// Opaque cursor token for the next page. POST the same body with `page[after]` set to this value to fetch the next page. Unlike the URL-form `links.next` returned by `GET /api/v1/events`, this is a bare cursor token — the client must re-issue a POST with its body, which the URL form cannot capture.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("next")]
-        public string? Next { get; set; } = default!;
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    /// <summary>
-    /// Cursor-pagination + scan meta for the search response.
-    /// <br/>
-    /// <br/>Mirrors `EventListMeta` (cursor pagination — `page_size` is the
-    /// <br/>only pagination field) and adds the `scan` block above.
-    /// </summary>
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class SearchEventsListMeta
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("page_size")]
-        public int Page_size { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("scan")]
-        public SearchScanMeta Scan { get; set; } = new SearchScanMeta();
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    /// <summary>
-    /// Request body for ``POST /api/v1/search/events``.
-    /// <br/>
-    /// <br/>Mirrors every column filter accepted by ``GET /api/v1/events`` with
-    /// <br/>identical semantics, and adds a top-level ``filter`` field carrying
-    /// <br/>a JSON Logic expression. When ``filter`` is present the search is
-    /// <br/>silently capped to the last 30 days by ``occurred_at``; the
-    /// <br/>expression is then evaluated in memory against each row that passes
-    /// <br/>the column filters using the same ``json-logic-qubit`` evaluator
-    /// <br/>that runs in the forwarder pipeline (so search results match what
-    /// <br/>would be forwarded).
-    /// <br/>
-    /// <br/>Filter-combination rules match ``GET /api/v1/events`` exactly:
-    /// <br/>
-    /// <br/>- ``filter[resource_id]`` must be accompanied by
-    /// <br/>  ``filter[resource_type]`` — the index is keyed on the pair.
-    /// <br/>- ``filter[search]`` must be accompanied by either
-    /// <br/>  ``filter[occurred_at]`` or ``filter[resource_type]`` +
-    /// <br/>  ``filter[resource_id]`` — substring matching has no index, so an
-    /// <br/>  unbounded substring scan is rejected.
-    /// </summary>
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class SearchEventsRequest
-    {
-
-        /// <summary>
-        /// Optional JSON Logic expression evaluated against each row after column filters narrow the candidate set. Null, absent, or an empty object disables JSON Logic filtering. When present, the search is silently capped to the last 30 days by `occurred_at` (intersected with any explicit `filter[occurred_at]` the caller supplied).
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("filter")]
-        public object? Filter { get; set; } = default!;
-
-        /// <summary>
-        /// Exact match on the event's `action` field.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("filter[action]")]
-        public string? Filteraction { get; set; } = default!;
-
-        /// <summary>
-        /// Exact match on the event's `resource_type` field.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("filter[resource_type]")]
-        public string? Filterresource_type { get; set; } = default!;
-
-        /// <summary>
-        /// Exact match on the event's `resource_id` field. Must be accompanied by `filter[resource_type]`.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("filter[resource_id]")]
-        public string? Filterresource_id { get; set; } = default!;
-
-        /// <summary>
-        /// Exact match on the event's `actor_type` field.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("filter[actor_type]")]
-        public string? Filteractor_type { get; set; } = default!;
-
-        /// <summary>
-        /// Exact match on the event's `actor_id` field.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("filter[actor_id]")]
-        public string? Filteractor_id { get; set; } = default!;
-
-        /// <summary>
-        /// Date range using interval notation, e.g. `[2026-04-01T00:00:00Z,2026-04-15T00:00:00Z)`. Required by `filter[search]` when the resource pair isn't provided. When a JSON Logic `filter` is present, the effective range is intersected with the last 30 days.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("filter[occurred_at]")]
-        public string? Filteroccurred_at { get; set; } = default!;
-
-        /// <summary>
-        /// Case-insensitive substring match on `resource_id` or `description`. Must be accompanied by either `filter[occurred_at]` or `filter[resource_type]` + `filter[resource_id]`.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("filter[search]")]
-        public string? Filtersearch { get; set; } = default!;
-
-        /// <summary>
-        /// Maximum events to return. Range 1..1000, default 1000 — matches every other list / search endpoint on the platform. Set explicitly to a smaller value when the consumer is rendering results card-by-card.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("page[size]")]
-        public int Pagesize { get; set; } = 1000;
-
-        /// <summary>
-        /// Opaque cursor — pass the previous response's `links.next` cursor verbatim to fetch the next page. Keep the same `sort` value across paginated requests.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("page[after]")]
-        public string? Pageafter { get; set; } = default!;
-
-        /// <summary>
-        /// Sort field: `occurred_at` or `created_at`, optionally prefixed with `-` for descending order. Default `-occurred_at` (newest first).
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("sort")]
-        public string Sort { get; set; } = "-occurred_at";
-
-    }
-
-    /// <summary>
-    /// JSON:API list envelope returned by the search endpoint.
-    /// <br/>
-    /// <br/>Structurally identical to ``EventListResponse`` from the list
-    /// <br/>endpoint — the only difference is the extra `scan` block inside
-    /// <br/>`meta` (`SearchEventsListMeta` vs `EventListMeta`).
-    /// </summary>
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class SearchEventsResponse
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("data")]
-        public System.Collections.Generic.List<EventResource> Data { get; set; } = new System.Collections.Generic.List<EventResource>();
-
-        [System.Text.Json.Serialization.JsonPropertyName("meta")]
-        public SearchEventsListMeta Meta { get; set; } = new SearchEventsListMeta();
-
-        [System.Text.Json.Serialization.JsonPropertyName("links")]
-        public SearchEventsListLinks? Links { get; set; } = default!;
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    /// <summary>
-    /// Scan statistics for a search response.
-    /// <br/>
-    /// <br/>Exposed so a selective JSON Logic filter doesn't silently look like
-    /// <br/>"0 matches" when the truth is "the scan ceiling was reached before
-    /// <br/>the filter had a chance to find page[size] matches."
-    /// </summary>
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class SearchScanMeta
-    {
-
-        /// <summary>
-        /// Rows scanned after column filters narrowed the candidate set, before the JSON Logic expression was applied.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("scanned")]
-        public int Scanned { get; set; } = default!;
-
-        /// <summary>
-        /// Rows the JSON Logic expression matched. Equal to `len(data)` for the page being returned plus any matches found beyond the page size.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("matched")]
-        public int Matched { get; set; } = default!;
-
-        /// <summary>
-        /// `true` if the server hit the per-request scan ceiling before finding `page[size]` matches. When true, paginate again with the returned `links.next` cursor to continue scanning past the ceiling.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("exhausted")]
-        public bool Exhausted { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
