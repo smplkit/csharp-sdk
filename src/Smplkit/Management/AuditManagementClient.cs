@@ -33,8 +33,15 @@ public sealed class ManagementForwardersClient
     /// <param name="description">Optional free-text description.</param>
     /// <param name="filter">Optional JSON Logic filter; events that don't match
     /// are recorded as <c>filtered_out</c> deliveries.</param>
-    /// <param name="transform">Optional JSONata template applied to the event
-    /// payload before POST. <c>null</c> sends the event JSON as-is.</param>
+    /// <param name="transform">Optional template applied to the event payload
+    /// before POST. Shape depends on <paramref name="transformType"/>; the wire
+    /// field is untyped so any compatible value is accepted. <c>null</c> sends
+    /// the event JSON as-is.</param>
+    /// <param name="transformType">Engine used to evaluate
+    /// <paramref name="transform"/>. Required whenever
+    /// <paramref name="transform"/> is non-null; passing <paramref name="transform"/>
+    /// without <paramref name="transformType"/> throws
+    /// <see cref="ArgumentException"/>.</param>
     public Forwarder New(
         string name,
         ForwarderType forwarderType,
@@ -42,7 +49,8 @@ public sealed class ManagementForwardersClient
         bool enabled = true,
         string? description = null,
         IDictionary<string, object?>? filter = null,
-        string? transform = null)
+        object? transform = null,
+        TransformType? transformType = null)
     {
         return new Forwarder(
             this,
@@ -52,7 +60,8 @@ public sealed class ManagementForwardersClient
             enabled: enabled,
             description: description,
             filter: filter,
-            transform: transform);
+            transform: transform,
+            transformType: transformType);
     }
 
     /// <summary>List forwarders for the authenticated account.</summary>
@@ -127,11 +136,12 @@ public sealed class ManagementForwardersClient
         }
         if (src.Transform != null)
         {
+            if (src.TransformType is null)
+                throw new ArgumentException(
+                    "TransformType is required when Transform is set.",
+                    nameof(src));
             attrs.Transform = src.Transform;
-            // Spec requires transform_type whenever transform is set; today
-            // only JSONATA is defined. Apply the default if the caller didn't
-            // set it explicitly.
-            attrs.Transform_type = (src.TransformType ?? TransformType.Jsonata).ToWireValue();
+            attrs.Transform_type = src.TransformType.Value.ToWireValue();
         }
         var r = new GenAudit.ForwarderResource
         {

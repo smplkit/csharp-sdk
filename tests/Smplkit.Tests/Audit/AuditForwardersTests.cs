@@ -92,7 +92,8 @@ public class AuditForwardersTests
                 Headers = new List<HttpHeader> { new("DD-API-KEY", "real-secret") },
             },
             filter: new Dictionary<string, object?> { ["=="] = new[] { 1, 1 } },
-            transform: "$");
+            transform: "$",
+            transformType: TransformType.Jsonata);
         await fwd.SaveAsync();
         // POST verb, wrapper writes `configuration` (not `http`).
         Assert.Equal("POST", capturedMethod);
@@ -532,6 +533,56 @@ public class AuditForwardersTests
                 + "\"transform\":\"$\",\"transform_type\":\"JSONATA\"}}}"),
         })).GetAsync(FwdId);
         Assert.Equal(TransformType.Jsonata, fwd.TransformType);
+    }
+
+    [Fact]
+    public void New_TransformWithoutTransformType_Throws()
+    {
+        // Pairing rule: transform requires transformType. Enforced at New().
+        var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        Assert.Throws<ArgumentException>(() => fwds.New(
+            name: "n",
+            forwarderType: ForwarderType.Http,
+            configuration: new HttpConfiguration { Url = "u" },
+            transform: "$"));
+    }
+
+    [Fact]
+    public async Task SaveAsync_TransformSetLater_WithoutTransformType_Throws()
+    {
+        // Pairing rule re-enforced at save time when fields are mutated after New().
+        var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var fwd = fwds.New("n", ForwarderType.Http, new HttpConfiguration { Url = "u" });
+        fwd.Transform = "$";
+        await Assert.ThrowsAsync<ArgumentException>(() => fwd.SaveAsync());
+    }
+
+    [Fact]
+    public async Task Transform_NonStringValue_SerializesToWire()
+    {
+        // The wire transform field is untyped (any value compatible with the
+        // chosen engine); wrapper passes it through verbatim. A dict transform
+        // round-trips as a JSON object on the wire.
+        string? capturedBody = null;
+        var (gen, _) = MakeGen(async req =>
+        {
+            capturedBody = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = JsonApi("{\"data\":" + ForwarderResource() + "}"),
+            };
+        });
+        var fwds = new AuditManagementClient(gen).Forwarders;
+        var fwd = fwds.New(
+            name: "n",
+            forwarderType: ForwarderType.Http,
+            configuration: new HttpConfiguration { Url = "u" },
+            transform: new Dictionary<string, object?> { ["expr"] = "$" },
+            transformType: TransformType.Jsonata);
+        await fwd.SaveAsync();
+        Assert.NotNull(capturedBody);
+        Assert.Contains("\"transform\":{\"expr\":\"$\"}", capturedBody!);
+        Assert.Contains("\"transform_type\":\"JSONATA\"", capturedBody);
     }
 
     [Fact]

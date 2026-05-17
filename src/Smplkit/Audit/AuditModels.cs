@@ -291,13 +291,15 @@ public sealed class Forwarder
     public IDictionary<string, object?>? Filter { get; set; }
     /// <summary>Optional template applied to each event before delivery.
     /// Shape depends on <see cref="TransformType"/>; for
-    /// <see cref="TransformType.Jsonata"/>, a JSONata expression. <c>null</c>
-    /// delivers the event JSON as-is.</summary>
-    public string? Transform { get; set; }
-    /// <summary>Engine used to evaluate <see cref="Transform"/>. Set
-    /// automatically by <see cref="SaveAsync"/> when <see cref="Transform"/>
-    /// is non-null.</summary>
-    public TransformType? TransformType { get; internal set; }
+    /// <see cref="TransformType.Jsonata"/>, a JSONata expression (string).
+    /// Future engines may accept other shapes — the wire field is
+    /// untyped, so any value compatible with the chosen engine is accepted
+    /// here. <c>null</c> delivers the event JSON as-is.</summary>
+    public object? Transform { get; set; }
+    /// <summary>Engine used to evaluate <see cref="Transform"/>. Must be
+    /// non-null whenever <see cref="Transform"/> is non-null; the SDK
+    /// enforces this at construction time and on <see cref="SaveAsync"/>.</summary>
+    public TransformType? TransformType { get; set; }
     /// <summary>When the audit service first persisted this forwarder.
     /// <c>null</c> for an unsaved instance.</summary>
     public DateTimeOffset? CreatedAt { get; internal set; }
@@ -316,7 +318,7 @@ public sealed class Forwarder
         bool enabled = true,
         string? description = null,
         IDictionary<string, object?>? filter = null,
-        string? transform = null,
+        object? transform = null,
         TransformType? transformType = null,
         Guid? id = null,
         DateTimeOffset? createdAt = null,
@@ -324,6 +326,11 @@ public sealed class Forwarder
         DateTimeOffset? deletedAt = null,
         int? version = null)
     {
+        if (transform is not null && transformType is null)
+            throw new ArgumentException(
+                $"{nameof(transformType)} is required when {nameof(transform)} is set.",
+                nameof(transformType));
+
         _client = client;
         Id = id;
         Name = name;

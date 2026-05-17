@@ -51,7 +51,8 @@ var forwarder = manage.Audit.Forwarders.New(
         Headers = new List<HttpHeader> { new("X-Showcase", "ok") },
     },
     filter: invoiceFilter,
-    transform: SiemTransform);
+    transform: SiemTransform,
+    transformType: TransformType.Jsonata);
 await forwarder.SaveAsync();
 Console.WriteLine($"Created forwarder: {forwarder.Name} (id={forwarder.Id})");
 
