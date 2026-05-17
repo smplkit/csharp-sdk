@@ -522,18 +522,17 @@ public sealed class LoggingClient
         DebugLog.Log("websocket", $"logger_deleted event received, id={loggerId ?? "<unknown>"}");
         if (loggerId is null || !_started) return;
 
+        // Deletion is a cache eviction, not a level change — no event fires
+        // for the deleted id itself. Dependent loggers that had inherited
+        // from this logger via dot-ancestry re-resolve through the normal
+        // apply path; their listeners fire only if the resolved level moves.
         bool wasKnown;
         lock (_loggerCacheLock)
         {
             wasKnown = _loggersCache.Remove(loggerId);
-            _loggerLevelCache.Remove(loggerId);
         }
-
         if (wasKnown)
-        {
-            var evt = new LoggerChangeEvent(loggerId, null, "websocket", Deleted: true);
-            FireListeners(loggerId, evt);
-        }
+            FireDeltasFromApply("websocket");
     }
 
     private void HandleGroupChanged(Dictionary<string, object?> data)
@@ -632,26 +631,20 @@ public sealed class LoggingClient
             ReplaceGroupsCacheLocked(groups);
         }
 
-        var changedLoggers = ApplyResolvedLevels(seedDiffCache: false);
-        if (changedLoggers.Count == 0) return;
-
-        // Fire global listener exactly once
-        var globalEvt = new LoggerChangeEvent(changedLoggers[0].Id, changedLoggers[0].Level, source);
-        FireGlobalListeners(globalEvt);
-
-        // Fire per-key listeners for each changed logger
-        foreach (var (changedId, level) in changedLoggers)
-        {
-            var evt = new LoggerChangeEvent(changedId, level, source);
-            FireScopedListeners(changedId, evt);
-        }
+        // Per-logger fanout — global subscribers see one event per affected
+        // logger, not a single summary event. Identical to the websocket
+        // handlers; only the source label differs.
+        FireDeltasFromApply(source);
     }
 
     /// <summary>
     /// Re-resolves every managed logger and fires <see cref="FireListeners"/>
-    /// (global + scoped) for each delta. Shared by the logger_changed,
-    /// group_changed, and group_deleted handlers. The diff cache is updated
-    /// in place — callers don't need to track previous state.
+    /// (every global subscriber + matching key-scoped subscribers) once per
+    /// logger whose effective level moved. Shared by every handler that
+    /// needs to drive an apply/fire cycle: logger_changed, logger_deleted,
+    /// group_changed, group_deleted, loggers_changed, and the public
+    /// <see cref="RefreshAsync"/>. The diff cache is updated in place —
+    /// callers don't need to track previous state.
     /// </summary>
     private void FireDeltasFromApply(string source)
     {
@@ -711,35 +704,6 @@ public sealed class LoggingClient
                 try { cb(evt); }
                 catch { /* Ignore listener exceptions */ }
             }
-        }
-    }
-
-    private void FireGlobalListeners(LoggerChangeEvent evt)
-    {
-        List<Action<LoggerChangeEvent>> globalCopy;
-        lock (_listenerLock)
-        {
-            globalCopy = new List<Action<LoggerChangeEvent>>(_globalListeners);
-        }
-        foreach (var cb in globalCopy)
-        {
-            try { cb(evt); }
-            catch { /* Ignore listener exceptions */ }
-        }
-    }
-
-    private void FireScopedListeners(string loggerId, LoggerChangeEvent evt)
-    {
-        List<Action<LoggerChangeEvent>>? scopedCopy;
-        lock (_listenerLock)
-        {
-            if (!_scopedListeners.TryGetValue(loggerId, out var scoped)) return;
-            scopedCopy = new List<Action<LoggerChangeEvent>>(scoped);
-        }
-        foreach (var cb in scopedCopy)
-        {
-            try { cb(evt); }
-            catch { /* Ignore listener exceptions */ }
         }
     }
 

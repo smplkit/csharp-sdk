@@ -301,8 +301,12 @@ public class LoggingRuntimeTests
     }
 
     [Fact]
-    public async Task HandleLoggerDeleted_FiresDeletedEvent()
+    public async Task HandleLoggerDeleted_FiresNoEventForDeletedKey()
     {
+        // Deletion is a cache eviction, not a level change. The deleted key's
+        // own listener must NOT fire — there is no "deleted" event in the
+        // public contract. (Inheriting descendants are exercised separately
+        // in InheritanceTests.)
         var (client, _) = MakeClient(req =>
         {
             var path = req.RequestUri!.AbsolutePath;
@@ -314,8 +318,10 @@ public class LoggingRuntimeTests
         client.Logging.RegisterAdapter(fake);
         await client.Logging.InstallAsync();
 
-        var fired = false;
-        client.Logging.OnChange("showcase", evt => fired = evt.Deleted);
+        var keyFired = 0;
+        var globalFired = 0;
+        client.Logging.OnChange("showcase", _ => keyFired++);
+        client.Logging.OnChange(_ => globalFired++);
 
         var method = typeof(LoggingClient).GetMethod("HandleLoggerDeleted",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
@@ -324,7 +330,8 @@ public class LoggingRuntimeTests
             new Dictionary<string, object?> { ["id"] = "showcase" },
         });
 
-        Assert.True(fired);
+        Assert.Equal(0, keyFired);
+        Assert.Equal(0, globalFired);
     }
 
     [Fact]
@@ -410,7 +417,6 @@ public class LoggingRuntimeTests
         Assert.NotNull(captured);
         Assert.Equal("showcase-inh", captured!.Id);
         Assert.Equal(LogLevel.Info, captured.Level); // fell back from WARN to INFO
-        Assert.False(captured.Deleted);
     }
 
     [Fact]
@@ -810,7 +816,7 @@ public class LoggingRuntimeTests
 
     // Listener fire paths — exception swallowing
     [Fact]
-    public async Task FireScoped_ListenerThrows_DoesNotPropagate()
+    public async Task FireListeners_ScopedListenerThrows_DoesNotPropagate()
     {
         var (client, _) = MakeClient(req =>
         {
@@ -827,7 +833,7 @@ public class LoggingRuntimeTests
         bool second = false;
         client.Logging.OnChange("X", _ => second = true);
 
-        var method = typeof(LoggingClient).GetMethod("FireScopedListeners",
+        var method = typeof(LoggingClient).GetMethod("FireListeners",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
         method.Invoke(client.Logging, new object?[] { "X", new LoggerChangeEvent("X", LogLevel.Info, "test") });
 
@@ -835,7 +841,7 @@ public class LoggingRuntimeTests
     }
 
     [Fact]
-    public async Task FireScoped_NoListenersForId_NoOp()
+    public async Task FireListeners_NoScopedListenersForId_OnlyGlobalFires()
     {
         var (client, _) = MakeClient(req =>
         {
@@ -848,18 +854,23 @@ public class LoggingRuntimeTests
         client.Logging.RegisterAdapter(fake);
         await client.Logging.InstallAsync();
 
-        var method = typeof(LoggingClient).GetMethod("FireScopedListeners",
+        var globalFired = 0;
+        client.Logging.OnChange(_ => globalFired++);
+        client.Logging.OnChange("other-id", _ => { });
+
+        var method = typeof(LoggingClient).GetMethod("FireListeners",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
-        // No listener registered for "no-listeners" — should silently no-op
         method.Invoke(client.Logging, new object?[]
         {
             "no-listeners",
-            new LoggerChangeEvent("no-listeners", null, "test")
+            new LoggerChangeEvent("no-listeners", LogLevel.Info, "test")
         });
+
+        Assert.Equal(1, globalFired);
     }
 
     [Fact]
-    public async Task FireGlobal_ListenerThrows_DoesNotPropagate()
+    public async Task FireListeners_GlobalListenerThrows_DoesNotPropagate()
     {
         var (client, _) = MakeClient(req =>
         {
@@ -876,9 +887,9 @@ public class LoggingRuntimeTests
         bool second = false;
         client.Logging.OnChange(_ => second = true);
 
-        var method = typeof(LoggingClient).GetMethod("FireGlobalListeners",
+        var method = typeof(LoggingClient).GetMethod("FireListeners",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
-        method.Invoke(client.Logging, new object?[] { new LoggerChangeEvent("x", null, "test") });
+        method.Invoke(client.Logging, new object?[] { "x", new LoggerChangeEvent("x", LogLevel.Info, "test") });
         Assert.True(second);
     }
 

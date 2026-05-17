@@ -210,5 +210,15 @@ public sealed class LogGroup
     public override string ToString() => $"LogGroup(Id={Id}, Level={Level})";
 }
 
-/// <summary>Describes a logger change.</summary>
-public sealed record LoggerChangeEvent(string Id, LogLevel? Level, string Source, bool Deleted = false);
+/// <summary>
+/// Describes one effective-level change for a single managed logger. Emitted
+/// to global and key-scoped subscribers in lockstep — every adapter
+/// <c>ApplyLevel</c> call is paired with one <see cref="LoggerChangeEvent"/>
+/// per subscriber.
+/// </summary>
+/// <param name="Id">The affected logger's normalized id.</param>
+/// <param name="Level">The newly-applied effective level. Always non-null —
+/// resolution falls back to <see cref="LogLevel.Info"/> if nothing else matches.</param>
+/// <param name="Source">Trigger label: <c>"websocket"</c> for push updates
+/// from the server, <c>"manual"</c> for <see cref="LoggingClient.RefreshAsync"/>.</param>
+public sealed record LoggerChangeEvent(string Id, LogLevel Level, string Source);

@@ -196,7 +196,6 @@ public class InheritanceTests
         Assert.Contains((Id: "my-logger", Level: LogLevel.Info), capture.Applied);
         Assert.NotNull(captured);
         Assert.Equal(LogLevel.Info, captured!.Level);
-        Assert.False(captured.Deleted);
     }
 
     [Fact]
@@ -262,33 +261,52 @@ public class InheritanceTests
     }
 
     [Fact]
-    public async Task LoggerDeleted_RemovesFromCache_AndFiresDeleted()
+    public async Task LoggerDeleted_FiresNoEventForDeletedKey_AndDescendantReResolves()
     {
+        // Setup: com.acme (WARN) + com.acme.payments inheriting via dot-ancestry.
+        // Deleting com.acme removes it from cache; com.acme.payments now resolves
+        // to INFO (fallback). The deleted key's own listener does NOT fire — only
+        // the descendant's, with the new effective level.
+        var listJson = """
+        {
+          "data": [
+            {"id":"com.acme","type":"logger","attributes":{
+                "name":"com.acme","level":"WARN","group":null,
+                "managed":true,"sources":[],"environments":{}}},
+            {"id":"com.acme.payments","type":"logger","attributes":{
+                "name":"com.acme.payments","level":null,"group":null,
+                "managed":true,"sources":[],"environments":{}}}
+          ]
+        }
+        """;
         var (client, _) = MakeClient(req =>
         {
             var path = req.RequestUri!.AbsolutePath;
-            if (path.EndsWith("/loggers"))
-                return Task.FromResult(Json(LoggerListJson("my-logger", "WARN", null)));
-            if (path.EndsWith("/log_groups"))
-                return Task.FromResult(Json("""{"data":[]}"""));
+            if (path.EndsWith("/loggers")) return Task.FromResult(Json(listJson));
+            if (path.EndsWith("/log_groups")) return Task.FromResult(Json("""{"data":[]}"""));
             return Task.FromResult(Json("{}"));
         });
         var capture = new CaptureAdapter();
         client.Logging.RegisterAdapter(capture);
         await client.Logging.InstallAsync();
+        Assert.Contains((Id: "com.acme.payments", Level: LogLevel.Warn), capture.Applied);
 
-        LoggerChangeEvent? captured = null;
-        client.Logging.OnChange("my-logger", evt => captured = evt);
+        var deletedKeyFired = 0;
+        LoggerChangeEvent? descendantEvt = null;
+        client.Logging.OnChange("com.acme", _ => deletedKeyFired++);
+        client.Logging.OnChange("com.acme.payments", evt => descendantEvt = evt);
 
         var method = typeof(LoggingClient).GetMethod("HandleLoggerDeleted",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
         method.Invoke(client.Logging, new object?[]
         {
-            new Dictionary<string, object?> { ["id"] = "my-logger" },
+            new Dictionary<string, object?> { ["id"] = "com.acme" },
         });
 
-        Assert.NotNull(captured);
-        Assert.True(captured!.Deleted);
+        Assert.Equal(0, deletedKeyFired);
+        Assert.NotNull(descendantEvt);
+        Assert.Equal("com.acme.payments", descendantEvt!.Id);
+        Assert.Equal(LogLevel.Info, descendantEvt.Level);
     }
 
     [Fact]
