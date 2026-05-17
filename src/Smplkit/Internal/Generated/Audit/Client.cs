@@ -2659,7 +2659,7 @@ namespace Smplkit.Internal.Generated.Audit
         public HttpConfigurationMethod Method { get; set; } = Smplkit.Internal.Generated.Audit.HttpConfigurationMethod.POST;
 
         /// <summary>
-        /// Destination URL.
+        /// Destination URL. Must be an absolute `http://` or `https://` URL with a hostname (e.g. `https://siem.example.com/in`).
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("url")]
         public string Url { get; set; } = default!;
@@ -2909,7 +2909,7 @@ namespace Smplkit.Internal.Generated.Audit
         public TestForwarderRequestMethod Method { get; set; } = Smplkit.Internal.Generated.Audit.TestForwarderRequestMethod.POST;
 
         /// <summary>
-        /// Destination URL.
+        /// Destination URL. Must be an absolute `http://` or `https://` URL with a hostname (e.g. `https://siem.example.com/in`).
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("url")]
         public string Url { get; set; } = default!;
