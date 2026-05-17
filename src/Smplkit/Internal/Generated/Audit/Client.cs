@@ -76,7 +76,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`, `-occurred_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, System.Guid? filteractor_id = null, string? filteraction = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, int? pagesize = null, string? pageafter = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, string? filteractor_id = null, string? filteraction = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, int? pagesize = null, string? pageafter = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -452,7 +452,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`, `-occurred_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, System.Guid? filteractor_id = null, string? filteraction = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, int? pagesize = null, string? pageafter = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, string? filteractor_id = null, string? filteraction = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, int? pagesize = null, string? pageafter = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -1992,13 +1992,13 @@ namespace Smplkit.Internal.Generated.Audit
     {
 
         /// <summary>
-        /// Slug for what happened, e.g. `user.created`. Lowercase, dot-separated.
+        /// What happened, e.g. `user.created`. Any non-empty string.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("action")]
         public string Action { get; set; } = default!;
 
         /// <summary>
-        /// Slug for the kind of resource the event is about, e.g. `user`. Lowercase, dot-separated.
+        /// Kind of resource the event is about, e.g. `user`. Any non-empty string.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("resource_type")]
         public string Resource_type { get; set; } = default!;
@@ -2022,6 +2022,24 @@ namespace Smplkit.Internal.Generated.Audit
         public System.DateTimeOffset? Occurred_at { get; set; } = default!;
 
         /// <summary>
+        /// Kind of actor that caused the event, e.g. `USER`, `API_KEY`, `SYSTEM`, or any other label you choose. Free-form string; the API does not constrain or interpret it.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("actor_type")]
+        public string? Actor_type { get; set; } = default!;
+
+        /// <summary>
+        /// Identifier of the actor that caused the event. Free-form string — any identifier scheme is accepted.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("actor_id")]
+        public string? Actor_id { get; set; } = default!;
+
+        /// <summary>
+        /// Human-readable label for the actor (e.g. an email address or API key name) at the time the event was recorded.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("actor_label")]
+        public string? Actor_label { get; set; } = default!;
+
+        /// <summary>
         /// Free-form payload attached to the event. Use it for resource snapshots (by convention under `data.snapshot`), request identifiers, or any other context the event needs to carry.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("data")]
@@ -2038,24 +2056,6 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
         public System.DateTimeOffset? Created_at { get; set; } = default!;
-
-        /// <summary>
-        /// Kind of credential that emitted the event, e.g. `USER` or `API_KEY`. Resolved server-side from the request credential.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("actor_type")]
-        public string? Actor_type { get; set; } = default!;
-
-        /// <summary>
-        /// Identifier of the actor that emitted the event.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("actor_id")]
-        public System.Guid? Actor_id { get; set; } = default!;
-
-        /// <summary>
-        /// Human-readable label for the actor (e.g. the user's email address or the API key name) at the time the event was recorded.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("actor_label")]
-        public string? Actor_label { get; set; } = default!;
 
         /// <summary>
         /// The idempotency key used to deduplicate the record. Echoes the `Idempotency-Key` header if one was supplied, otherwise a key derived from the event's content.
