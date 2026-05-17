@@ -29,6 +29,7 @@ bld/
 ## Test results
 TestResults/
 coverage/
+coverage.json
 *.trx
 *.cobertura.xml
 
