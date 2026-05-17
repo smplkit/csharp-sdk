@@ -168,8 +168,6 @@ public sealed class ForwarderHttp
     public required string Url { get; set; }
     /// <summary>Headers sent to the destination.</summary>
     public IList<HttpHeader> Headers { get; set; } = new List<HttpHeader>();
-    /// <summary>Optional body to send. If null, the transformed event payload is sent.</summary>
-    public string? Body { get; set; }
     /// <summary>Status code or class that signals delivery success.</summary>
     public string SuccessStatus { get; set; } = "2xx";
 }
@@ -182,7 +180,6 @@ public sealed class ForwarderHttp
 /// </summary>
 /// <param name="Id">Server-assigned forwarder id.</param>
 /// <param name="Name">Customer-supplied display name.</param>
-/// <param name="Slug">Server-derived snake_case key, unique per account.</param>
 /// <param name="ForwarderType">One of <c>http</c>, <c>datadog</c>, <c>splunk_hec</c>, etc.</param>
 /// <param name="Enabled">Whether the forwarder is active.</param>
 /// <param name="Filter">Optional JSON Logic expression; events that don't match are filtered out.</param>
@@ -195,7 +192,6 @@ public sealed class ForwarderHttp
 public sealed record Forwarder(
     Guid Id,
     string Name,
-    string Slug,
     ForwarderType ForwarderType,
     bool Enabled,
     IDictionary<string, object?>? Filter,

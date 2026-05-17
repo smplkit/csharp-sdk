@@ -36,7 +36,7 @@ var fwd = await mgmt.Audit.Forwarders.CreateAsync(new CreateForwarderInput
     Filter = new Dictionary<string, object?> { ["=="] = new object[] { new Dictionary<string, object?> { ["var"] = "resource_type" }, "invoice" } },
     Transform = "$",
 });
-Console.WriteLine($"Created forwarder: id={fwd.Id}  slug={fwd.Slug}  type={fwd.ForwarderType}");
+Console.WriteLine($"Created forwarder: id={fwd.Id}  name={fwd.Name}  type={fwd.ForwarderType}");
 System.Diagnostics.Debug.Assert(fwd.Name == name);
 System.Diagnostics.Debug.Assert(fwd.ForwarderType == ForwarderType.Http);
 System.Diagnostics.Debug.Assert(fwd.Enabled);
@@ -45,7 +45,7 @@ try
 {
     // get the forwarder by id
     var fetched = await mgmt.Audit.Forwarders.GetAsync(fwd.Id);
-    Console.WriteLine($"Fetched: id={fetched.Id}  slug={fetched.Slug}");
+    Console.WriteLine($"Fetched: id={fetched.Id}  name={fetched.Name}");
     System.Diagnostics.Debug.Assert(fetched.Id == fwd.Id);
     System.Diagnostics.Debug.Assert(fetched.Name == fwd.Name);
 
