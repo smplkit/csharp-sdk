@@ -13,8 +13,19 @@ internal static class Debug
 {
     internal static bool Enabled = ParseDebugEnv(System.Environment.GetEnvironmentVariable("SMPLKIT_DEBUG"));
 
-    /// <summary>Output writer — field so tests can substitute it without Console.Error races.</summary>
-    internal static System.IO.TextWriter Out = Console.Error;
+    // Per-async-context override of the output writer. Tests substitute a StringWriter
+    // here to capture output without colliding with concurrently-running test classes
+    // whose production code may also call Debug.Log. AsyncLocal scopes the override to
+    // the test's ExecutionContext, so other tests' Debug.Log calls fall through to the
+    // Console.Error default rather than writing into a foreign StringWriter.
+    private static readonly System.Threading.AsyncLocal<System.IO.TextWriter?> _outOverride = new();
+
+    /// <summary>Output writer — settable per-async-context so tests can capture in isolation.</summary>
+    internal static System.IO.TextWriter Out
+    {
+        get => _outOverride.Value ?? Console.Error;
+        set => _outOverride.Value = value;
+    }
 
     private static readonly object _writeLock = new();
 
