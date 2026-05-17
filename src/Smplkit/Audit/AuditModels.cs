@@ -192,27 +192,27 @@ public static class HttpMethodExtensions
 
 /// <summary>Template engine used to evaluate a forwarder's <c>Transform</c>.</summary>
 /// <remarks>Single-member today (JSONATA). Reserved for future engines.</remarks>
-public enum TransformEngine
+public enum TransformType
 {
     /// <summary>JSONata expression — see <see href="https://jsonata.org"/>.</summary>
     Jsonata,
 }
 
-/// <summary>Wire-value conversions for <see cref="TransformEngine"/>.</summary>
-public static class TransformEngineExtensions
+/// <summary>Wire-value conversions for <see cref="TransformType"/>.</summary>
+public static class TransformTypeExtensions
 {
     /// <summary>Returns the uppercase wire slug — e.g. <c>"JSONATA"</c>.</summary>
-    public static string ToWireValue(this TransformEngine engine) => engine switch
+    public static string ToWireValue(this TransformType type) => type switch
     {
-        TransformEngine.Jsonata => "JSONATA",
-        _ => throw new ArgumentOutOfRangeException(nameof(engine)),
+        TransformType.Jsonata => "JSONATA",
+        _ => throw new ArgumentOutOfRangeException(nameof(type)),
     };
 
     /// <summary>Parse a wire-format engine slug. Unknown values throw.</summary>
-    public static TransformEngine FromWireValue(string value) => value?.ToUpperInvariant() switch
+    public static TransformType FromWireValue(string value) => value?.ToUpperInvariant() switch
     {
-        "JSONATA" => TransformEngine.Jsonata,
-        _ => throw new ArgumentException($"Unknown TransformEngine: {value}", nameof(value)),
+        "JSONATA" => TransformType.Jsonata,
+        _ => throw new ArgumentException($"Unknown TransformType: {value}", nameof(value)),
     };
 }
 
@@ -276,13 +276,13 @@ public sealed class Forwarder
     public IDictionary<string, object?>? Filter { get; set; }
     /// <summary>Optional template applied to each event before delivery.
     /// Shape depends on <see cref="TransformType"/>; for
-    /// <see cref="TransformEngine.Jsonata"/>, a JSONata expression. <c>null</c>
+    /// <see cref="TransformType.Jsonata"/>, a JSONata expression. <c>null</c>
     /// delivers the event JSON as-is.</summary>
     public string? Transform { get; set; }
     /// <summary>Engine used to evaluate <see cref="Transform"/>. Set
     /// automatically by <see cref="SaveAsync"/> when <see cref="Transform"/>
     /// is non-null.</summary>
-    public TransformEngine? TransformType { get; internal set; }
+    public TransformType? TransformType { get; internal set; }
     /// <summary>When the audit service first persisted this forwarder.
     /// <c>null</c> for an unsaved instance.</summary>
     public DateTimeOffset? CreatedAt { get; internal set; }
@@ -302,7 +302,7 @@ public sealed class Forwarder
         string? description = null,
         IDictionary<string, object?>? filter = null,
         string? transform = null,
-        TransformEngine? transformType = null,
+        TransformType? transformType = null,
         Guid? id = null,
         DateTimeOffset? createdAt = null,
         DateTimeOffset? updatedAt = null,

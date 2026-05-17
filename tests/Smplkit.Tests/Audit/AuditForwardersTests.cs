@@ -493,31 +493,31 @@ public class AuditForwardersTests
     }
 
     // ----------------------------------------------------------------------
-    // TransformEngine — wire round-trip
+    // TransformType — wire round-trip
     // ----------------------------------------------------------------------
 
     [Fact]
-    public void TransformEngineExtensions_ToWireValue()
+    public void TransformTypeExtensions_ToWireValue()
     {
-        Assert.Equal("JSONATA", TransformEngine.Jsonata.ToWireValue());
+        Assert.Equal("JSONATA", TransformType.Jsonata.ToWireValue());
     }
 
     [Fact]
-    public void TransformEngineExtensions_ToWireValue_OutOfRangeThrows()
+    public void TransformTypeExtensions_ToWireValue_OutOfRangeThrows()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => ((TransformEngine)999).ToWireValue());
+        Assert.Throws<ArgumentOutOfRangeException>(() => ((TransformType)999).ToWireValue());
     }
 
     [Fact]
-    public void TransformEngineExtensions_FromWireValue_Known()
+    public void TransformTypeExtensions_FromWireValue_Known()
     {
-        Assert.Equal(TransformEngine.Jsonata, TransformEngineExtensions.FromWireValue("JSONATA"));
+        Assert.Equal(TransformType.Jsonata, TransformTypeExtensions.FromWireValue("JSONATA"));
     }
 
     [Fact]
-    public void TransformEngineExtensions_FromWireValue_UnknownThrows()
+    public void TransformTypeExtensions_FromWireValue_UnknownThrows()
     {
-        Assert.Throws<ArgumentException>(() => TransformEngineExtensions.FromWireValue("OTHER"));
+        Assert.Throws<ArgumentException>(() => TransformTypeExtensions.FromWireValue("OTHER"));
     }
 
     [Fact]
@@ -531,7 +531,7 @@ public class AuditForwardersTests
                 + "\"name\":\"x\",\"forwarder_type\":\"http\",\"enabled\":true,"
                 + "\"transform\":\"$\",\"transform_type\":\"JSONATA\"}}}"),
         })).GetAsync(FwdId);
-        Assert.Equal(TransformEngine.Jsonata, fwd.TransformType);
+        Assert.Equal(TransformType.Jsonata, fwd.TransformType);
     }
 
     [Fact]

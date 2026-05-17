@@ -131,7 +131,7 @@ public sealed class ManagementForwardersClient
             // Spec requires transform_type whenever transform is set; today
             // only JSONATA is defined. Apply the default if the caller didn't
             // set it explicitly.
-            attrs.Transform_type = (src.TransformType ?? TransformEngine.Jsonata).ToWireValue();
+            attrs.Transform_type = (src.TransformType ?? TransformType.Jsonata).ToWireValue();
         }
         var r = new GenAudit.ForwarderResource
         {
@@ -188,10 +188,10 @@ public sealed class ManagementForwardersClient
             version: a.Version);
     }
 
-    private static TransformEngine? FromGenTransformType(string? wire)
+    private static TransformType? FromGenTransformType(string? wire)
     {
         if (string.IsNullOrEmpty(wire)) return null;
-        return TransformEngineExtensions.FromWireValue(wire);
+        return TransformTypeExtensions.FromWireValue(wire);
     }
 
     private static GenAudit.ForwarderType ToGenForwarderType(ForwarderType src) =>
