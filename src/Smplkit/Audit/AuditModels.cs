@@ -11,9 +11,13 @@ namespace Smplkit.Audit;
 /// <param name="ResourceId">Identifier of the affected resource.</param>
 /// <param name="OccurredAt">When the event happened in the originating system.</param>
 /// <param name="CreatedAt">When the audit service recorded the event.</param>
-/// <param name="ActorType"><c>USER</c>, <c>API_KEY</c>, or <c>SYSTEM</c>.</param>
-/// <param name="ActorId">UUID of the user or API key; null for <c>API_KEY</c> or <c>SYSTEM</c>.</param>
-/// <param name="ActorLabel">Denormalized display string captured at write time.</param>
+/// <param name="ActorType">Free-form label for the kind of actor that caused the
+/// event (e.g. <c>USER</c>, <c>API_KEY</c>, <c>SYSTEM</c>, or any custom value).
+/// Null when not supplied; the audit service never backfills from the request credential.</param>
+/// <param name="ActorId">Free-form identifier of the actor — any string scheme is
+/// accepted, including non-UUID values. Null when not supplied.</param>
+/// <param name="ActorLabel">Human-readable label for the actor (e.g. an email address
+/// or API key name). Null when not supplied.</param>
 /// <param name="Data">Free-form contextual extras. Any resource snapshot
 /// recorded with the event lives inside <c>Data</c>; smplkit's internal
 /// convention nests it at <c>Data["snapshot"]</c>, but the shape is
@@ -27,9 +31,9 @@ public sealed record AuditEvent(
     string ResourceId,
     DateTimeOffset OccurredAt,
     DateTimeOffset CreatedAt,
-    string ActorType,
-    Guid? ActorId,
-    string ActorLabel,
+    string? ActorType,
+    string? ActorId,
+    string? ActorLabel,
     IDictionary<string, object?> Data,
     string IdempotencyKey,
     bool DoNotForward
@@ -52,6 +56,17 @@ public sealed class CreateEventInput
     public required string ResourceId { get; set; }
     /// <summary>Optional. Defaults to server-side <c>now()</c> if null.</summary>
     public DateTimeOffset? OccurredAt { get; set; }
+    /// <summary>
+    /// Optional free-form label for the kind of actor that caused the event
+    /// (e.g. <c>USER</c>, <c>API_KEY</c>, <c>SYSTEM</c>, or any custom value).
+    /// The audit service never backfills this from the request credential —
+    /// set it explicitly when you want the event attributed.
+    /// </summary>
+    public string? ActorType { get; set; }
+    /// <summary>Optional free-form identifier of the actor. Any string scheme is accepted.</summary>
+    public string? ActorId { get; set; }
+    /// <summary>Optional human-readable label for the actor (e.g. email or API key name).</summary>
+    public string? ActorLabel { get; set; }
     /// <summary>
     /// Optional contextual extras. To record a resource snapshot, nest
     /// it inside <c>Data</c> -- smplkit's internal convention is
@@ -78,10 +93,10 @@ public sealed class ListEventsInput
     public string? ResourceType { get; set; }
     /// <summary>Filter by exact-match resource id.</summary>
     public string? ResourceId { get; set; }
-    /// <summary>Filter by exact-match actor type (<c>USER</c>, <c>API_KEY</c>, etc.).</summary>
+    /// <summary>Filter by exact-match actor type — the literal string stored on the event.</summary>
     public string? ActorType { get; set; }
-    /// <summary>Filter by exact-match actor UUID.</summary>
-    public Guid? ActorId { get; set; }
+    /// <summary>Filter by exact-match actor id — the literal string stored on the event.</summary>
+    public string? ActorId { get; set; }
     /// <summary>Range syntax per ADR-014, e.g. <c>[2026-01-01T00:00:00Z,*)</c>.</summary>
     public string? OccurredAtRange { get; set; }
     /// <summary>Case-insensitive substring match against <c>resource_id</c>.</summary>
