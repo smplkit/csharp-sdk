@@ -15,20 +15,20 @@ namespace Smplkit.Audit;
 /// </remarks>
 public enum ForwarderType
 {
-    /// <summary>Generic HTTP/HTTPS endpoint.</summary>
-    Http,
     /// <summary>Datadog Logs Intake.</summary>
     Datadog,
+    /// <summary>Elastic Logs ingest API.</summary>
+    Elastic,
+    /// <summary>Honeycomb Events API.</summary>
+    Honeycomb,
+    /// <summary>Generic HTTP/HTTPS endpoint.</summary>
+    Http,
+    /// <summary>New Relic Log API.</summary>
+    NewRelic,
     /// <summary>Splunk HTTP Event Collector.</summary>
     SplunkHec,
     /// <summary>Sumo Logic HTTP Source.</summary>
     SumoLogic,
-    /// <summary>New Relic Log API.</summary>
-    NewRelic,
-    /// <summary>Honeycomb Events API.</summary>
-    Honeycomb,
-    /// <summary>Elastic Logs ingest API.</summary>
-    Elastic,
 }
 
 /// <summary>Wire-value conversions for <see cref="ForwarderType"/>.</summary>
@@ -37,25 +37,25 @@ public static class ForwarderTypeExtensions
     private static readonly IReadOnlyDictionary<ForwarderType, string> _toWire =
         new Dictionary<ForwarderType, string>
         {
-            { ForwarderType.Http, "HTTP" },
             { ForwarderType.Datadog, "DATADOG" },
+            { ForwarderType.Elastic, "ELASTIC" },
+            { ForwarderType.Honeycomb, "HONEYCOMB" },
+            { ForwarderType.Http, "HTTP" },
+            { ForwarderType.NewRelic, "NEW_RELIC" },
             { ForwarderType.SplunkHec, "SPLUNK_HEC" },
             { ForwarderType.SumoLogic, "SUMO_LOGIC" },
-            { ForwarderType.NewRelic, "NEW_RELIC" },
-            { ForwarderType.Honeycomb, "HONEYCOMB" },
-            { ForwarderType.Elastic, "ELASTIC" },
         };
 
     private static readonly IReadOnlyDictionary<string, ForwarderType> _fromWire =
         new Dictionary<string, ForwarderType>(StringComparer.Ordinal)
         {
-            { "HTTP", ForwarderType.Http },
             { "DATADOG", ForwarderType.Datadog },
+            { "ELASTIC", ForwarderType.Elastic },
+            { "HONEYCOMB", ForwarderType.Honeycomb },
+            { "HTTP", ForwarderType.Http },
+            { "NEW_RELIC", ForwarderType.NewRelic },
             { "SPLUNK_HEC", ForwarderType.SplunkHec },
             { "SUMO_LOGIC", ForwarderType.SumoLogic },
-            { "NEW_RELIC", ForwarderType.NewRelic },
-            { "HONEYCOMB", ForwarderType.Honeycomb },
-            { "ELASTIC", ForwarderType.Elastic },
         };
 
     /// <summary>Returns the wire-format slug — e.g. <c>"SPLUNK_HEC"</c>.</summary>

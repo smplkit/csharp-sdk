@@ -8,14 +8,14 @@ public enum FlagType
     /// <summary>Boolean flag type.</summary>
     Boolean,
 
-    /// <summary>String flag type.</summary>
-    String,
+    /// <summary>JSON flag type.</summary>
+    Json,
 
     /// <summary>Numeric flag type.</summary>
     Numeric,
 
-    /// <summary>JSON flag type.</summary>
-    Json,
+    /// <summary>String flag type.</summary>
+    String,
 }
 
 /// <summary>
@@ -29,9 +29,9 @@ public static class FlagTypeExtensions
     public static string ToWireString(this FlagType flagType) => flagType switch
     {
         FlagType.Boolean => "BOOLEAN",
-        FlagType.String => "STRING",
-        FlagType.Numeric => "NUMERIC",
         FlagType.Json => "JSON",
+        FlagType.Numeric => "NUMERIC",
+        FlagType.String => "STRING",
         _ => throw new ArgumentOutOfRangeException(nameof(flagType)),
     };
 
@@ -41,9 +41,9 @@ public static class FlagTypeExtensions
     public static FlagType ParseFlagType(string wireString) => wireString switch
     {
         "BOOLEAN" => FlagType.Boolean,
-        "STRING" => FlagType.String,
-        "NUMERIC" => FlagType.Numeric,
         "JSON" => FlagType.Json,
+        "NUMERIC" => FlagType.Numeric,
+        "STRING" => FlagType.String,
         _ => throw new ArgumentException($"Unknown flag type: {wireString}", nameof(wireString)),
     };
 }

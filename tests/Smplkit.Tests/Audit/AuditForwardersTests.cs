@@ -1,11 +1,11 @@
 using System.Net;
 using System.Text;
 using Smplkit.Audit;
-using Smplkit.Errors;
 using Smplkit.Management;
 using Smplkit.Tests.Helpers;
 using Xunit;
 using GenAudit = Smplkit.Internal.Generated.Audit;
+using HttpMethod = Smplkit.Audit.HttpMethod;
 
 namespace Smplkit.Tests.Audit;
 
@@ -14,7 +14,9 @@ namespace Smplkit.Tests.Audit;
 ///
 /// <para>Stubs the audit service via <see cref="MockHttpMessageHandler"/>;
 /// no real network. Coverage on the wrapper must reach 100% to satisfy
-/// the SDK CI gate.</para>
+/// the SDK CI gate. Exercises the active-record API:
+/// <c>mgmt.Audit.Forwarders.New(...)</c> → mutate → <c>SaveAsync</c> /
+/// <c>DeleteAsync</c>.</para>
 /// </summary>
 public class AuditForwardersTests
 {
@@ -32,7 +34,7 @@ public class AuditForwardersTests
     private static StringContent JsonApi(string body) =>
         new(body, Encoding.UTF8, "application/vnd.api+json");
 
-    private static string ForwarderResource(string name = "Datadog production", string _unused = "") =>
+    private static string ForwarderResource(string name = "Datadog production") =>
         "{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\",\"attributes\":{"
             + "\"name\":\"" + name + "\","
             + "\"forwarder_type\":\"DATADOG\",\"enabled\":true,"
@@ -50,15 +52,29 @@ public class AuditForwardersTests
     }
 
     // ----------------------------------------------------------------------
-    // CRUD
+    // Active record — New + SaveAsync (create path)
     // ----------------------------------------------------------------------
 
     [Fact]
-    public async Task Create_ReturnsForwarder()
+    public void New_ReturnsUnsavedForwarder_NoNetwork()
+    {
+        var calls = 0;
+        var fwds = MakeForwarders(_ => { calls++; return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)); });
+        var fwd = fwds.New(
+            name: "n",
+            forwarderType: ForwarderType.Http,
+            configuration: new HttpConfiguration { Url = "u" });
+        Assert.Null(fwd.Id);
+        Assert.Null(fwd.CreatedAt);
+        Assert.Equal(0, calls);
+    }
+
+    [Fact]
+    public async Task SaveAsync_OnNewInstance_PostsAndApplies()
     {
         string? capturedBody = null;
         string? capturedMethod = null;
-        var fwd = await MakeForwarders(async req =>
+        var fwds = MakeForwarders(async req =>
         {
             capturedMethod = req.Method.Method;
             capturedBody = await req.Content!.ReadAsStringAsync();
@@ -66,35 +82,98 @@ public class AuditForwardersTests
             {
                 Content = JsonApi("{\"data\":" + ForwarderResource() + "}"),
             };
-        }).CreateAsync(new CreateForwarderInput
-        {
-            Name = "Datadog production",
-            ForwarderType = ForwarderType.Datadog,
-            Http = new ForwarderHttp
+        });
+        var fwd = fwds.New(
+            name: "Datadog production",
+            forwarderType: ForwarderType.Datadog,
+            configuration: new HttpConfiguration
             {
                 Url = "https://siem.example.com/in",
                 Headers = new List<HttpHeader> { new("DD-API-KEY", "real-secret") },
             },
-            Filter = new Dictionary<string, object?> { ["=="] = new[] { 1, 1 } },
-            Transform = "$",
-        });
-        Assert.Equal("Datadog production", fwd.Name);
+            filter: new Dictionary<string, object?> { ["=="] = new[] { 1, 1 } },
+            transform: "$");
+        await fwd.SaveAsync();
+        // POST verb, wrapper writes `configuration` (not `http`).
         Assert.Equal("POST", capturedMethod);
-        Assert.Contains("real-secret", capturedBody!);
-        // Wrapper writes `configuration`, not the deprecated `http` field.
         Assert.Contains("\"configuration\":", capturedBody);
         Assert.DoesNotContain("\"http\":", capturedBody);
-        // Transform forces transform_type=JSONATA per the new spec.
+        // Real header value reaches the wire (redacted only on reads).
+        Assert.Contains("real-secret", capturedBody!);
+        // Transform forces transform_type=JSONATA per spec.
         Assert.Contains("\"transform_type\":\"JSONATA\"", capturedBody);
+        // Server-assigned fields applied to the instance.
+        Assert.Equal(FwdId, fwd.Id);
+        Assert.NotNull(fwd.CreatedAt);
+        Assert.Equal(1, fwd.Version);
     }
 
     [Fact]
-    public async Task Create_ThrowsOnNullInput()
+    public async Task SaveAsync_OnExistingInstance_PutsAndApplies()
     {
-        await Assert.ThrowsAsync<ArgumentNullException>(
-            () => MakeForwarders(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)))
-                .CreateAsync(null!));
+        string? capturedMethod = null;
+        var fwds = MakeForwarders(req =>
+        {
+            capturedMethod = req.Method.Method;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":" + ForwarderResource("Renamed") + "}"),
+            });
+        });
+        // GET first to obtain a saved (CreatedAt-set) instance.
+        var fwd = await fwds.GetAsync(FwdId);
+        fwd.Name = "Renamed";
+        fwd.Enabled = false;
+        await fwd.SaveAsync();
+        Assert.Equal("PUT", capturedMethod);
+        Assert.Equal("Renamed", fwd.Name);
     }
+
+    [Fact]
+    public async Task SaveAsync_WithoutClient_Throws()
+    {
+        var fwd = new ForwarderTestHelper().BuildClientlessForwarder();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => fwd.SaveAsync());
+    }
+
+    [Fact]
+    public async Task DeleteAsync_OnInstance_IssuesDelete()
+    {
+        string? method = null;
+        var fwds = MakeForwarders(req =>
+        {
+            if (req.Method == System.Net.Http.HttpMethod.Get)
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonApi("{\"data\":" + ForwarderResource() + "}"),
+                });
+            method = req.Method.Method;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
+        });
+        var fwd = await fwds.GetAsync(FwdId);
+        await fwd.DeleteAsync();
+        Assert.Equal("DELETE", method);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WithoutClient_Throws()
+    {
+        var fwd = new ForwarderTestHelper().BuildClientlessForwarder();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => fwd.DeleteAsync());
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WithoutId_Throws()
+    {
+        var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var fwd = fwds.New("n", ForwarderType.Http, new HttpConfiguration { Url = "u" });
+        // Unsaved — has a client but no id.
+        await Assert.ThrowsAsync<InvalidOperationException>(() => fwd.DeleteAsync());
+    }
+
+    // ----------------------------------------------------------------------
+    // List / Get
+    // ----------------------------------------------------------------------
 
     [Fact]
     public async Task List_PaginatesViaOffset()
@@ -106,9 +185,9 @@ public class AuditForwardersTests
             calls++;
             if (calls == 2) secondUrl = req.RequestUri!.ToString();
             var body = calls == 1
-                ? "{\"data\":[" + ForwarderResource("A", "a")
+                ? "{\"data\":[" + ForwarderResource("A")
                     + "],\"meta\":{\"pagination\":{\"page\":1,\"size\":1,\"total\":2,\"total_pages\":2}}}"
-                : "{\"data\":[" + ForwarderResource("B", "b")
+                : "{\"data\":[" + ForwarderResource("B")
                     + "],\"meta\":{\"pagination\":{\"page\":2,\"size\":1,\"total\":2,\"total_pages\":2}}}";
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
@@ -151,48 +230,19 @@ public class AuditForwardersTests
     }
 
     [Fact]
-    public async Task Get_Success()
+    public async Task Get_Success_ReturnsClientBoundInstance()
     {
         var fwd = await MakeForwarders(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = JsonApi("{\"data\":" + ForwarderResource() + "}"),
         })).GetAsync(FwdId);
         Assert.Equal(FwdId, fwd.Id);
-        Assert.Single(fwd.Http.Headers);
-        Assert.Equal("<redacted>", fwd.Http.Headers[0].Value);
+        Assert.Single(fwd.Configuration.Headers);
+        Assert.Equal("<redacted>", fwd.Configuration.Headers[0].Value);
     }
 
     [Fact]
-    public async Task Update_Success()
-    {
-        string? method = null;
-        var fwd = await MakeForwarders(req =>
-        {
-            method = req.Method.Method;
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = JsonApi("{\"data\":" + ForwarderResource("Renamed", "renamed") + "}"),
-            });
-        }).UpdateAsync(FwdId, new CreateForwarderInput
-        {
-            Name = "Renamed",
-            ForwarderType = ForwarderType.Datadog,
-            Http = new ForwarderHttp { Url = "https://x" },
-        });
-        Assert.Equal("PUT", method);
-        Assert.Equal("Renamed", fwd.Name);
-    }
-
-    [Fact]
-    public async Task Update_ThrowsOnNullInput()
-    {
-        await Assert.ThrowsAsync<ArgumentNullException>(
-            () => MakeForwarders(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)))
-                .UpdateAsync(FwdId, null!));
-    }
-
-    [Fact]
-    public async Task Delete_Success()
+    public async Task Delete_ById_Success()
     {
         string? method = null;
         await MakeForwarders(req =>
@@ -204,26 +254,22 @@ public class AuditForwardersTests
     }
 
     // ----------------------------------------------------------------------
-    // Coverage corner cases
+    // ToString + property coverage
     // ----------------------------------------------------------------------
 
     [Fact]
-    public void ForwarderRecordAccessors_FullyCovered()
+    public void Forwarder_ToString_IncludesIdNameEnabled()
     {
-        var fwd = new Forwarder(
-            FwdId, "n", ForwarderType.Http, true,
-            new Dictionary<string, object?>(), "tx",
-            new ForwarderHttp { Url = "u" },
-            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, 1);
-        Assert.Equal(ForwarderType.Http, fwd.ForwarderType);
-        Assert.True(fwd.Enabled);
-        Assert.NotNull(fwd.Filter);
-        Assert.Equal("tx", fwd.Transform);
-        Assert.NotNull(fwd.CreatedAt);
-        Assert.NotNull(fwd.UpdatedAt);
-        Assert.NotNull(fwd.DeletedAt);
-        Assert.Equal(1, fwd.Version);
+        var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var fwd = fwds.New("n", ForwarderType.Http, new HttpConfiguration { Url = "u" });
+        var s = fwd.ToString();
+        Assert.Contains("Name=n", s);
+        Assert.Contains("Enabled=True", s);
     }
+
+    // ----------------------------------------------------------------------
+    // Wire format — minimal payload (no configuration, no version, no headers)
+    // ----------------------------------------------------------------------
 
     [Fact]
     public async Task ConvertJson_HandlesIDictionaryStringObject()
@@ -260,8 +306,8 @@ public class AuditForwardersTests
                 "{\"data\":{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\",\"attributes\":{"
                 + "\"name\":\"x\",\"forwarder_type\":\"http\",\"enabled\":false}}}"),
         })).GetAsync(FwdId);
-        Assert.Equal(string.Empty, fwd.Http.Url);
-        Assert.Empty(fwd.Http.Headers);
+        Assert.Equal(string.Empty, fwd.Configuration.Url);
+        Assert.Empty(fwd.Configuration.Headers);
     }
 
     // ----------------------------------------------------------------------
@@ -281,9 +327,9 @@ public class AuditForwardersTests
         string? capturedBody = null;
         var (gen, _) = MakeGen(async req =>
         {
-            if (req.Method == HttpMethod.Post)
+            if (req.Method == System.Net.Http.HttpMethod.Post)
                 capturedBody = await req.Content!.ReadAsStringAsync();
-            return new HttpResponseMessage(req.Method == HttpMethod.Post ? HttpStatusCode.Created : HttpStatusCode.OK)
+            return new HttpResponseMessage(req.Method == System.Net.Http.HttpMethod.Post ? HttpStatusCode.Created : HttpStatusCode.OK)
             {
                 Content = JsonApi(
                     "{\"data\":{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\",\"attributes\":{"
@@ -291,15 +337,11 @@ public class AuditForwardersTests
                     + "\"configuration\":{\"method\":\"POST\",\"url\":\"u\",\"headers\":[],\"success_status\":\"2xx\"}}}}"),
             };
         });
-        var client = new AuditManagementClient(gen).Forwarders;
-        var created = await client.CreateAsync(new CreateForwarderInput
-        {
-            Name = "n",
-            ForwarderType = type,
-            Http = new ForwarderHttp { Url = "u" },
-        });
+        var fwds = new AuditManagementClient(gen).Forwarders;
+        var fwd = fwds.New("n", type, new HttpConfiguration { Url = "u" });
+        await fwd.SaveAsync();
         Assert.NotNull(capturedBody);
-        Assert.Equal(type, created.ForwarderType);
+        Assert.Equal(type, fwd.ForwarderType);
     }
 
     [Fact]
@@ -335,16 +377,11 @@ public class AuditForwardersTests
     public async Task ForwarderType_ConverterDefaultArmsThrowOnOutOfRange()
     {
         var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
-        var client = new AuditManagementClient(gen).Forwarders;
+        var fwds = new AuditManagementClient(gen).Forwarders;
 
-        // ToGen default arm.
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
-            client.CreateAsync(new CreateForwarderInput
-            {
-                Name = "n",
-                ForwarderType = (ForwarderType)999,
-                Http = new ForwarderHttp { Url = "u" },
-            }));
+        // ToGen default arm — invoked when the customer passes an out-of-range enum.
+        var fwd = fwds.New("n", (ForwarderType)999, new HttpConfiguration { Url = "u" });
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => fwd.SaveAsync());
 
         // FromGen default arm — invoke via reflection.
         var method = typeof(ManagementForwardersClient).GetMethod(
@@ -356,40 +393,53 @@ public class AuditForwardersTests
         Assert.IsType<ArgumentOutOfRangeException>(ex.InnerException);
     }
 
-    [Fact]
-    public async Task ParseHttpMethod_NonStandardFallsToPost()
+    // ----------------------------------------------------------------------
+    // HttpMethod — wire round-trip
+    // ----------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(HttpMethod.Get, "GET")]
+    [InlineData(HttpMethod.Post, "POST")]
+    [InlineData(HttpMethod.Put, "PUT")]
+    [InlineData(HttpMethod.Patch, "PATCH")]
+    [InlineData(HttpMethod.Delete, "DELETE")]
+    public void HttpMethodExtensions_ToWireValue(HttpMethod method, string wire)
     {
-        // Exercises the default arm in ParseHttpMethod — any unrecognised
-        // method string falls through to POST.
-        string? capturedBody = null;
-        var (gen, _) = MakeGen(async req =>
-        {
-            capturedBody = await req.Content!.ReadAsStringAsync();
-            return new HttpResponseMessage(HttpStatusCode.Created)
-            {
-                Content = JsonApi("{\"data\":" + ForwarderResource() + "}"),
-            };
-        });
-        var client = new AuditManagementClient(gen).Forwarders;
-        await client.CreateAsync(new CreateForwarderInput
-        {
-            Name = "n",
-            ForwarderType = ForwarderType.Http,
-            Http = new ForwarderHttp { Url = "u", Method = "UNKNOWN" },
-        });
-        // Body was sent — that's all we need; the POST vs UNKNOWN fallback
-        // is an internal detail. Assert the call succeeded.
-        Assert.NotNull(capturedBody);
+        Assert.Equal(wire, method.ToWireValue());
     }
 
     [Theory]
-    [InlineData("GET")]
-    [InlineData("PUT")]
-    [InlineData("PATCH")]
-    [InlineData("DELETE")]
-    public async Task ParseHttpMethod_NamedMethodsForwardCorrectly(string httpMethod)
+    [InlineData("GET", HttpMethod.Get)]
+    [InlineData("POST", HttpMethod.Post)]
+    [InlineData("PUT", HttpMethod.Put)]
+    [InlineData("PATCH", HttpMethod.Patch)]
+    [InlineData("DELETE", HttpMethod.Delete)]
+    public void HttpMethodExtensions_FromWireValue_Known(string wire, HttpMethod expected)
     {
-        // Exercises the explicit arms in ParseHttpMethod (GET, PUT, PATCH, DELETE).
+        Assert.Equal(expected, HttpMethodExtensions.FromWireValue(wire));
+    }
+
+    [Fact]
+    public void HttpMethodExtensions_FromWireValue_UnknownDefaultsToPost()
+    {
+        Assert.Equal(HttpMethod.Post, HttpMethodExtensions.FromWireValue("UNKNOWN"));
+        Assert.Equal(HttpMethod.Post, HttpMethodExtensions.FromWireValue(null!));
+    }
+
+    [Fact]
+    public void HttpMethodExtensions_ToWireValue_OutOfRangeThrows()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => ((HttpMethod)999).ToWireValue());
+    }
+
+    [Theory]
+    [InlineData(HttpMethod.Get, "GET")]
+    [InlineData(HttpMethod.Put, "PUT")]
+    [InlineData(HttpMethod.Patch, "PATCH")]
+    [InlineData(HttpMethod.Delete, "DELETE")]
+    public async Task HttpMethod_NonPostForwardsCorrectly(HttpMethod method, string wire)
+    {
+        // Exercise each ToGenHttpMethod arm via SaveAsync.
         string? capturedBody = null;
         var (gen, _) = MakeGen(async req =>
         {
@@ -399,14 +449,108 @@ public class AuditForwardersTests
                 Content = JsonApi("{\"data\":" + ForwarderResource() + "}"),
             };
         });
-        var client = new AuditManagementClient(gen).Forwarders;
-        await client.CreateAsync(new CreateForwarderInput
+        var fwds = new AuditManagementClient(gen).Forwarders;
+        var fwd = fwds.New("n", ForwarderType.Http, new HttpConfiguration
         {
-            Name = "n",
-            ForwarderType = ForwarderType.Http,
-            Http = new ForwarderHttp { Url = "u", Method = httpMethod },
+            Url = "u",
+            Method = method,
         });
+        await fwd.SaveAsync();
         Assert.NotNull(capturedBody);
+        Assert.Contains($"\"method\":\"{wire}\"", capturedBody!);
+    }
+
+    [Fact]
+    public async Task HttpMethod_ToGenOutOfRange_Throws()
+    {
+        var (gen, _) = MakeGen(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var fwds = new AuditManagementClient(gen).Forwarders;
+        var fwd = fwds.New("n", ForwarderType.Http, new HttpConfiguration
+        {
+            Url = "u",
+            Method = (HttpMethod)999,
+        });
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => fwd.SaveAsync());
+    }
+
+    [Fact]
+    public async Task SaveUpdateAsync_NoId_Throws()
+    {
+        // Drive SaveUpdateAsync directly with an unsaved Forwarder (Id is null) —
+        // the guard branch only reachable via reflection because public
+        // SaveAsync would route to SaveCreateAsync instead.
+        var (gen, _) = MakeGen(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var fwds = new AuditManagementClient(gen).Forwarders;
+        var fwd = fwds.New("n", ForwarderType.Http, new HttpConfiguration { Url = "u" });
+        var method = typeof(ManagementForwardersClient).GetMethod(
+            "SaveUpdateAsync",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            var task = (Task)method.Invoke(fwds, new object?[] { fwd, default(CancellationToken) })!;
+            await task;
+        });
+    }
+
+    // ----------------------------------------------------------------------
+    // TransformEngine — wire round-trip
+    // ----------------------------------------------------------------------
+
+    [Fact]
+    public void TransformEngineExtensions_ToWireValue()
+    {
+        Assert.Equal("JSONATA", TransformEngine.Jsonata.ToWireValue());
+    }
+
+    [Fact]
+    public void TransformEngineExtensions_ToWireValue_OutOfRangeThrows()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => ((TransformEngine)999).ToWireValue());
+    }
+
+    [Fact]
+    public void TransformEngineExtensions_FromWireValue_Known()
+    {
+        Assert.Equal(TransformEngine.Jsonata, TransformEngineExtensions.FromWireValue("JSONATA"));
+    }
+
+    [Fact]
+    public void TransformEngineExtensions_FromWireValue_UnknownThrows()
+    {
+        Assert.Throws<ArgumentException>(() => TransformEngineExtensions.FromWireValue("OTHER"));
+    }
+
+    [Fact]
+    public async Task TransformType_PopulatedFromWireResponse()
+    {
+        // Server returns transform_type=JSONATA → wrapper exposes the typed enum.
+        var fwd = await MakeForwarders(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi(
+                "{\"data\":{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\",\"attributes\":{"
+                + "\"name\":\"x\",\"forwarder_type\":\"http\",\"enabled\":true,"
+                + "\"transform\":\"$\",\"transform_type\":\"JSONATA\"}}}"),
+        })).GetAsync(FwdId);
+        Assert.Equal(TransformEngine.Jsonata, fwd.TransformType);
+    }
+
+    [Fact]
+    public async Task Description_RoundTrips()
+    {
+        // Set Description before save, confirm it appears in the wire body.
+        string? capturedBody = null;
+        var (gen, _) = MakeGen(async req =>
+        {
+            capturedBody = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = JsonApi("{\"data\":" + ForwarderResource() + "}"),
+            };
+        });
+        var fwds = new AuditManagementClient(gen).Forwarders;
+        var fwd = fwds.New("n", ForwarderType.Http, new HttpConfiguration { Url = "u" }, description: "demo");
+        await fwd.SaveAsync();
+        Assert.Contains("\"description\":\"demo\"", capturedBody!);
     }
 
     [Fact]
@@ -426,5 +570,34 @@ public class AuditForwardersTests
         Assert.Equal(42L, fwd.Filter!["count"]);
         Assert.Equal(true, fwd.Filter["on"]);
         Assert.Equal(false, fwd.Filter["off"]);
+    }
+
+    /// <summary>Helper to construct a <see cref="Forwarder"/> with no bound client,
+    /// for testing the guard clauses on SaveAsync / DeleteAsync.</summary>
+    private sealed class ForwarderTestHelper
+    {
+        internal Forwarder BuildClientlessForwarder() =>
+            (Forwarder)System.Activator.CreateInstance(
+                typeof(Forwarder),
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance,
+                binder: null,
+                args: new object?[]
+                {
+                    null,  // client
+                    "n",   // name
+                    ForwarderType.Http,
+                    new HttpConfiguration { Url = "u" },
+                    true,  // enabled
+                    null,  // description
+                    null,  // filter
+                    null,  // transform
+                    null,  // transformType
+                    null,  // id
+                    null,  // createdAt
+                    null,  // updatedAt
+                    null,  // deletedAt
+                    null,  // version
+                },
+                culture: null)!;
     }
 }

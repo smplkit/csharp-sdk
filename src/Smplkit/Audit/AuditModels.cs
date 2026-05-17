@@ -149,78 +149,229 @@ public sealed record ListActionsPage(IReadOnlyList<AuditAction> Actions, Paginat
 // Forwarders (SIEM streaming) — domain models shared with the management plane
 // ---------------------------------------------------------------------------
 
+/// <summary>HTTP verb used by a forwarder's outbound delivery request.</summary>
+/// <remarks>Mirrors the audit spec's <c>HttpConfigurationMethod</c> enum.</remarks>
+public enum HttpMethod
+{
+    /// <summary><c>DELETE</c>.</summary>
+    Delete,
+    /// <summary><c>GET</c>.</summary>
+    Get,
+    /// <summary><c>PATCH</c>.</summary>
+    Patch,
+    /// <summary><c>POST</c>.</summary>
+    Post,
+    /// <summary><c>PUT</c>.</summary>
+    Put,
+}
+
+/// <summary>Wire-value conversions for <see cref="HttpMethod"/>.</summary>
+public static class HttpMethodExtensions
+{
+    /// <summary>Returns the uppercase wire slug — e.g. <c>"POST"</c>.</summary>
+    public static string ToWireValue(this HttpMethod method) => method switch
+    {
+        HttpMethod.Delete => "DELETE",
+        HttpMethod.Get => "GET",
+        HttpMethod.Patch => "PATCH",
+        HttpMethod.Post => "POST",
+        HttpMethod.Put => "PUT",
+        _ => throw new ArgumentOutOfRangeException(nameof(method)),
+    };
+
+    /// <summary>Parse a wire-format method slug. Unknown values default to <see cref="HttpMethod.Post"/>.</summary>
+    public static HttpMethod FromWireValue(string value) => value?.ToUpperInvariant() switch
+    {
+        "DELETE" => HttpMethod.Delete,
+        "GET" => HttpMethod.Get,
+        "PATCH" => HttpMethod.Patch,
+        "PUT" => HttpMethod.Put,
+        _ => HttpMethod.Post,
+    };
+}
+
+/// <summary>Template engine used to evaluate a forwarder's <c>Transform</c>.</summary>
+/// <remarks>Single-member today (JSONATA). Reserved for future engines.</remarks>
+public enum TransformEngine
+{
+    /// <summary>JSONata expression — see <see href="https://jsonata.org"/>.</summary>
+    Jsonata,
+}
+
+/// <summary>Wire-value conversions for <see cref="TransformEngine"/>.</summary>
+public static class TransformEngineExtensions
+{
+    /// <summary>Returns the uppercase wire slug — e.g. <c>"JSONATA"</c>.</summary>
+    public static string ToWireValue(this TransformEngine engine) => engine switch
+    {
+        TransformEngine.Jsonata => "JSONATA",
+        _ => throw new ArgumentOutOfRangeException(nameof(engine)),
+    };
+
+    /// <summary>Parse a wire-format engine slug. Unknown values throw.</summary>
+    public static TransformEngine FromWireValue(string value) => value?.ToUpperInvariant() switch
+    {
+        "JSONATA" => TransformEngine.Jsonata,
+        _ => throw new ArgumentException($"Unknown TransformEngine: {value}", nameof(value)),
+    };
+}
+
 /// <summary>A single name/value HTTP header on a forwarder destination.</summary>
-/// <param name="Name">Header name.</param>
-/// <param name="Value">Header value (redacted when echoed back on reads).</param>
+/// <param name="Name">Header name (e.g. <c>"Authorization"</c>, <c>"DD-API-KEY"</c>).</param>
+/// <param name="Value">Header value, plaintext on writes. The audit service encrypts
+/// values at rest; reads return them as <c>"&lt;redacted&gt;"</c>.</param>
 public sealed record HttpHeader(string Name, string Value);
 
 /// <summary>
 /// Forwarder destination HTTP request shape.
 ///
-/// <para><c>SuccessStatus</c> is a 3-character string: an exact code
-/// (e.g. <c>"200"</c>) or a class (e.g. <c>"2xx"</c>).</para>
+/// <para><c>SuccessStatus</c> is either an exact status code
+/// (e.g. <c>"200"</c>, <c>"204"</c>) or a class (e.g. <c>"2xx"</c>).</para>
 /// </summary>
-public sealed class ForwarderHttp
+public sealed class HttpConfiguration
 {
-    /// <summary>HTTP method to use against the destination. Defaults to <c>POST</c>.</summary>
-    public string Method { get; set; } = "POST";
-    /// <summary>Destination URL. Must be <c>http</c> or <c>https</c>.</summary>
+    /// <summary>HTTP method used for delivery. Defaults to <see cref="HttpMethod.Post"/>.</summary>
+    public HttpMethod Method { get; set; } = HttpMethod.Post;
+    /// <summary>Destination URL the audit service posts each event to.</summary>
     public required string Url { get; set; }
-    /// <summary>Headers sent to the destination.</summary>
+    /// <summary>Headers attached to every outbound request. Values carry
+    /// credentials and are encrypted at rest server-side; reads return them
+    /// redacted.</summary>
     public IList<HttpHeader> Headers { get; set; } = new List<HttpHeader>();
-    /// <summary>Status code or class that signals delivery success.</summary>
+    /// <summary>Status code or class that signals delivery success.
+    /// Defaults to <c>"2xx"</c>.</summary>
     public string SuccessStatus { get; set; } = "2xx";
 }
 
 /// <summary>
-/// SIEM streaming forwarder configured on the customer's account.
+/// A SIEM streaming forwarder configured on the customer's account.
 ///
-/// <para>Header values returned on reads are always redacted.
-/// Re-supply real values when calling update.</para>
+/// <para>Active-record style: mutate fields directly and call
+/// <see cref="SaveAsync"/> to persist, or <see cref="DeleteAsync"/> to remove.
+/// Header values in <see cref="Configuration"/>.Headers are always returned
+/// redacted on reads — the GET path on the audit API replaces every header
+/// value with <c>"&lt;redacted&gt;"</c>. Re-supply the real values before
+/// calling <see cref="SaveAsync"/> (the SDK does not cache them client-side).</para>
 /// </summary>
-/// <param name="Id">Server-assigned forwarder id.</param>
-/// <param name="Name">Customer-supplied display name.</param>
-/// <param name="ForwarderType">One of <c>http</c>, <c>datadog</c>, <c>splunk_hec</c>, etc.</param>
-/// <param name="Enabled">Whether the forwarder is active.</param>
-/// <param name="Filter">Optional JSON Logic expression; events that don't match are filtered out.</param>
-/// <param name="Transform">Optional JSONata template applied to the event payload.</param>
-/// <param name="Http">Destination HTTP configuration (header values redacted on reads).</param>
-/// <param name="CreatedAt">When the forwarder was created.</param>
-/// <param name="UpdatedAt">When the forwarder was last updated.</param>
-/// <param name="DeletedAt">Soft-delete timestamp, or null.</param>
-/// <param name="Version">Optimistic-concurrency version counter.</param>
-public sealed record Forwarder(
-    Guid Id,
-    string Name,
-    ForwarderType ForwarderType,
-    bool Enabled,
-    IDictionary<string, object?>? Filter,
-    string? Transform,
-    ForwarderHttp Http,
-    DateTimeOffset? CreatedAt,
-    DateTimeOffset? UpdatedAt,
-    DateTimeOffset? DeletedAt,
-    int? Version
-);
-
-/// <summary>Input for forwarder create and full-replace update.</summary>
-public sealed class CreateForwarderInput
+public sealed class Forwarder
 {
-    /// <summary>Display name. Server derives the slug from this.</summary>
-    public required string Name { get; set; }
-    /// <summary>The destination type — see <see cref="Smplkit.Audit.ForwarderType"/>.</summary>
-    public required ForwarderType ForwarderType { get; set; }
-    /// <summary>Destination HTTP configuration.</summary>
-    public required ForwarderHttp Http { get; set; }
-    /// <summary>Whether the forwarder is active. Defaults to true.</summary>
-    public bool Enabled { get; set; } = true;
-    /// <summary>Optional JSON Logic filter; non-matching events become <c>filtered_out</c> deliveries.</summary>
+    private readonly Smplkit.Management.ManagementForwardersClient? _client;
+
+    /// <summary>Server-assigned UUID. <c>null</c> until <see cref="SaveAsync"/> has run for the first time.</summary>
+    public Guid? Id { get; internal set; }
+    /// <summary>Display name. Free-form.</summary>
+    public string Name { get; set; }
+    /// <summary>Destination type — see <see cref="Smplkit.Audit.ForwarderType"/>.</summary>
+    public ForwarderType ForwarderType { get; set; }
+    /// <summary>Destination request configuration.</summary>
+    public HttpConfiguration Configuration { get; set; }
+    /// <summary>When <c>false</c>, the audit service skips delivery for this
+    /// forwarder but still records <c>filtered_out</c> deliveries.</summary>
+    public bool Enabled { get; set; }
+    /// <summary>Optional free-text description.</summary>
+    public string? Description { get; set; }
+    /// <summary>Optional JSON Logic expression evaluated per event. When set,
+    /// events that don't match are recorded as <c>filtered_out</c> deliveries
+    /// instead of being POSTed to the destination.</summary>
     public IDictionary<string, object?>? Filter { get; set; }
-    /// <summary>Optional JSONata template applied to the event payload before POST.</summary>
+    /// <summary>Optional template applied to each event before delivery.
+    /// Shape depends on <see cref="TransformType"/>; for
+    /// <see cref="TransformEngine.Jsonata"/>, a JSONata expression. <c>null</c>
+    /// delivers the event JSON as-is.</summary>
     public string? Transform { get; set; }
+    /// <summary>Engine used to evaluate <see cref="Transform"/>. Set
+    /// automatically by <see cref="SaveAsync"/> when <see cref="Transform"/>
+    /// is non-null.</summary>
+    public TransformEngine? TransformType { get; internal set; }
+    /// <summary>When the audit service first persisted this forwarder.
+    /// <c>null</c> for an unsaved instance.</summary>
+    public DateTimeOffset? CreatedAt { get; internal set; }
+    /// <summary>When this forwarder was last mutated.</summary>
+    public DateTimeOffset? UpdatedAt { get; internal set; }
+    /// <summary>Soft-delete timestamp. <c>null</c> for live forwarders.</summary>
+    public DateTimeOffset? DeletedAt { get; internal set; }
+    /// <summary>Monotonic version counter; bumped on every server-side write.</summary>
+    public int? Version { get; internal set; }
+
+    internal Forwarder(
+        Smplkit.Management.ManagementForwardersClient? client,
+        string name,
+        ForwarderType forwarderType,
+        HttpConfiguration configuration,
+        bool enabled = true,
+        string? description = null,
+        IDictionary<string, object?>? filter = null,
+        string? transform = null,
+        TransformEngine? transformType = null,
+        Guid? id = null,
+        DateTimeOffset? createdAt = null,
+        DateTimeOffset? updatedAt = null,
+        DateTimeOffset? deletedAt = null,
+        int? version = null)
+    {
+        _client = client;
+        Id = id;
+        Name = name;
+        ForwarderType = forwarderType;
+        Configuration = configuration;
+        Enabled = enabled;
+        Description = description;
+        Filter = filter;
+        Transform = transform;
+        TransformType = transformType;
+        CreatedAt = createdAt;
+        UpdatedAt = updatedAt;
+        DeletedAt = deletedAt;
+        Version = version;
+    }
+
+    /// <summary>
+    /// Create or update this forwarder on the server. Upsert behavior is
+    /// driven by <see cref="CreatedAt"/>: an unsaved forwarder is POSTed,
+    /// otherwise full-replace PUT. After the call, every server-authoritative
+    /// field is refreshed from the response.
+    /// </summary>
+    public async Task SaveAsync(CancellationToken ct = default)
+    {
+        if (_client is null)
+            throw new InvalidOperationException("Forwarder was constructed without a client; cannot save.");
+        var refreshed = CreatedAt is null
+            ? await _client.SaveCreateAsync(this, ct).ConfigureAwait(false)
+            : await _client.SaveUpdateAsync(this, ct).ConfigureAwait(false);
+        Apply(refreshed);
+    }
+
+    /// <summary>Soft-delete this forwarder on the server.</summary>
+    public Task DeleteAsync(CancellationToken ct = default)
+    {
+        if (_client is null || Id is null)
+            throw new InvalidOperationException("Forwarder was constructed without a client or id; cannot delete.");
+        return _client.DeleteAsync(Id.Value, ct);
+    }
+
+    /// <summary>Copy every server-authoritative field from <paramref name="other"/> onto self.</summary>
+    internal void Apply(Forwarder other)
+    {
+        Id = other.Id;
+        Name = other.Name;
+        ForwarderType = other.ForwarderType;
+        Configuration = other.Configuration;
+        Enabled = other.Enabled;
+        Description = other.Description;
+        Filter = other.Filter;
+        Transform = other.Transform;
+        TransformType = other.TransformType;
+        CreatedAt = other.CreatedAt;
+        UpdatedAt = other.UpdatedAt;
+        DeletedAt = other.DeletedAt;
+        Version = other.Version;
+    }
+
+    /// <inheritdoc/>
+    public override string ToString() => $"Forwarder(Id={Id}, Name={Name}, Enabled={Enabled})";
 }
 
-/// <summary>Filter + pagination input for the forwarders list.</summary>
+/// <summary>Filter + pagination input for <see cref="Smplkit.Management.ManagementForwardersClient.ListAsync"/>.</summary>
 public sealed class ListForwardersInput
 {
     /// <summary>Filter by exact-match forwarder type.</summary>
@@ -231,7 +382,7 @@ public sealed class ListForwardersInput
     public int? PageNumber { get; set; }
     /// <summary>Page size.</summary>
     public int? PageSize { get; set; }
-    /// <summary>When true, request total counts in the response meta.</summary>
+    /// <summary>When <c>true</c>, request total counts in the response meta.</summary>
     public bool? MetaTotal { get; set; }
 }
 

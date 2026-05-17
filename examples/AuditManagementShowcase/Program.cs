@@ -1,87 +1,81 @@
 // Demonstrates the smplkit management SDK for Smpl Audit.
 //
-// Covers: SIEM forwarder create / get / list / update / delete.
-//
-// JSON Logic (https://jsonlogic.com) filters route events selectively to your
-// SIEM. JSONata (https://jsonata.org) transforms reshape each event payload
-// before delivery.
-//
 // Prerequisites:
 //     - dotnet add package Smplkit.Sdk
-//     - A valid smplkit API key (Pro tier required for forwarders)
+//     - A valid smplkit API key, provided via one of:
+//         - SMPLKIT_API_KEY environment variable
+//         - ~/.smplkit configuration file (see SDK docs)
 //
 // Usage:
 //     dotnet run --project examples/AuditManagementShowcase
 
+using System.Diagnostics;
 using Smplkit;
 using Smplkit.Audit;
+using HttpMethod = Smplkit.Audit.HttpMethod;
 
-// create the management client
-using var mgmt = new SmplManagementClient();
 
-var name = "showcase " + Guid.NewGuid().ToString("N")[..8];
-
-// create a forwarder
-// - filter: JSON Logic expression — only forward invoice events
-// - transform: JSONata expression — reshape the payload before delivery
-var fwd = await mgmt.Audit.Forwarders.CreateAsync(new CreateForwarderInput
+// JSON Logic filter — only forward `invoice.*` actions.
+// Events that don't match are recorded as `filtered_out` deliveries.
+// See https://jsonlogic.com for the full operator reference.
+var invoiceFilter = new Dictionary<string, object?>
 {
-    Name = name,
-    ForwarderType = ForwarderType.Http,
-    Http = new ForwarderHttp
+    ["in"] = new object[] { "invoice.", new Dictionary<string, object?> { ["var"] = "action" } },
+};
+
+// JSONata template — reshape the event payload before POSTing to the
+// destination. This example flattens the event into a compact SIEM-style
+// record. See https://jsonata.org for the full language reference.
+const string SiemTransform = """
     {
+        "event": action,
+        "subject": resource_type & ":" & resource_id,
+        "ts": occurred_at,
+        "actor": actor_label
+    }
+    """;
+
+
+// create the client
+using var manage = new SmplManagementClient();
+var forwarderName = $"showcase-{Guid.NewGuid().ToString("N")[..6]}";
+
+// create a new forwarder
+var forwarder = manage.Audit.Forwarders.New(
+    name: forwarderName,
+    forwarderType: ForwarderType.Http,
+    configuration: new HttpConfiguration
+    {
+        Method = HttpMethod.Post,
         Url = "https://httpbin.org/post",
         Headers = new List<HttpHeader> { new("X-Showcase", "ok") },
     },
-    Filter = new Dictionary<string, object?> { ["=="] = new object[] { new Dictionary<string, object?> { ["var"] = "resource_type" }, "invoice" } },
-    Transform = "$",
-});
-Console.WriteLine($"Created forwarder: id={fwd.Id}  name={fwd.Name}  type={fwd.ForwarderType}");
-System.Diagnostics.Debug.Assert(fwd.Name == name);
-System.Diagnostics.Debug.Assert(fwd.ForwarderType == ForwarderType.Http);
-System.Diagnostics.Debug.Assert(fwd.Enabled);
+    filter: invoiceFilter,
+    transform: SiemTransform);
+await forwarder.SaveAsync();
+Console.WriteLine($"Created forwarder: {forwarder.Name} (id={forwarder.Id})");
 
-try
-{
-    // get the forwarder by id
-    var fetched = await mgmt.Audit.Forwarders.GetAsync(fwd.Id);
-    Console.WriteLine($"Fetched: id={fetched.Id}  name={fetched.Name}");
-    System.Diagnostics.Debug.Assert(fetched.Id == fwd.Id);
-    System.Diagnostics.Debug.Assert(fetched.Name == fwd.Name);
+// list forwarders
+var listed = await manage.Audit.Forwarders.ListAsync();
+Debug.Assert(listed.Forwarders.Any(f => f.Id == forwarder.Id));
+Console.WriteLine($"Account has {listed.Forwarders.Count} forwarder(s)");
 
-    // list forwarders — the one we just created should appear
-    var page = await mgmt.Audit.Forwarders.ListAsync(new ListForwardersInput
-    {
-        ForwarderType = ForwarderType.Http,
-        Enabled = true,
-        PageSize = 50,
-    });
-    Console.WriteLine($"Listed {page.Forwarders.Count} forwarder(s) (page={page.Pagination.Page} size={page.Pagination.Size})");
-    System.Diagnostics.Debug.Assert(page.Forwarders.Any(f => f.Id == fwd.Id));
+// get a forwarder
+var fetched = await manage.Audit.Forwarders.GetAsync(forwarder.Id!.Value);
+Debug.Assert(fetched.Id == forwarder.Id);
+Debug.Assert(fetched.Enabled == true);
+Console.WriteLine($"Fetched forwarder: {fetched.Name}");
 
-    // update the forwarder (rename and add a header)
-    var updated = await mgmt.Audit.Forwarders.UpdateAsync(fwd.Id, new CreateForwarderInput
-    {
-        Name = name + " updated",
-        ForwarderType = ForwarderType.Http,
-        Http = new ForwarderHttp
-        {
-            Url = "https://httpbin.org/post",
-            Headers = new List<HttpHeader>
-            {
-                new("X-Showcase", "ok"),
-                new("X-Updated", "true"),
-            },
-        },
-    });
-    Console.WriteLine($"Updated: name={updated.Name}  headers={updated.Http.Headers.Count}");
-    System.Diagnostics.Debug.Assert(updated.Http.Headers.Count == 2);
-}
-finally
-{
-    // delete the forwarder
-    await mgmt.Audit.Forwarders.DeleteAsync(fwd.Id);
-    Console.WriteLine($"Deleted forwarder: {fwd.Id}");
-}
+// update a forwarder
+fetched.Enabled = false;
+await fetched.SaveAsync();
+Debug.Assert(fetched.Enabled == false);
+Console.WriteLine($"Disabled forwarder: {fetched.Name} (enabled={fetched.Enabled})");
+
+// delete a forwarder
+await fetched.DeleteAsync();
+var remaining = await manage.Audit.Forwarders.ListAsync();
+Debug.Assert(remaining.Forwarders.All(f => f.Id != fetched.Id));
+Console.WriteLine($"Deleted forwarder: {fetched.Name}");
 
 Console.WriteLine("Done!");

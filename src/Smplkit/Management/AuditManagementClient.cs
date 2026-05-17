@@ -5,11 +5,14 @@ using GenAudit = Smplkit.Internal.Generated.Audit;
 namespace Smplkit.Management;
 
 /// <summary>
-/// SIEM forwarder CRUD surface for the management plane.
+/// SIEM forwarder management surface for the management plane.
 /// Accessed via <see cref="AuditManagementClient.Forwarders"/>.
 ///
-/// <para>Create/get/list/update/delete only — delivery log, retry, and
-/// test_forwarder endpoints are internal and not exposed here.</para>
+/// <para>The customer-facing API is active-record: use <see cref="New"/> to
+/// build an unsaved <see cref="Forwarder"/>, mutate fields directly, then
+/// call <see cref="Forwarder.SaveAsync"/> to persist. Reads come from
+/// <see cref="GetAsync"/> / <see cref="ListAsync"/>; the returned instances
+/// are bound to this client so <c>save()</c>/<c>delete()</c> work.</para>
 /// </summary>
 public sealed class ManagementForwardersClient
 {
@@ -17,14 +20,39 @@ public sealed class ManagementForwardersClient
 
     internal ManagementForwardersClient(GenAudit.AuditClient gen) => _gen = gen;
 
-    /// <summary>Create a forwarder.</summary>
-    public async Task<Forwarder> CreateAsync(CreateForwarderInput input, CancellationToken ct = default)
+    /// <summary>
+    /// Returns an unsaved <see cref="Forwarder"/> bound to this client. Call
+    /// <see cref="Forwarder.SaveAsync"/> to persist.
+    /// </summary>
+    /// <param name="name">Display name. Free-form.</param>
+    /// <param name="forwarderType">Destination type — see <see cref="ForwarderType"/>.</param>
+    /// <param name="configuration">Destination HTTP request configuration.
+    /// Headers carry credentials and are encrypted at rest server-side; reads
+    /// return them redacted.</param>
+    /// <param name="enabled">Whether the forwarder is active. Defaults to <c>true</c>.</param>
+    /// <param name="description">Optional free-text description.</param>
+    /// <param name="filter">Optional JSON Logic filter; events that don't match
+    /// are recorded as <c>filtered_out</c> deliveries.</param>
+    /// <param name="transform">Optional JSONata template applied to the event
+    /// payload before POST. <c>null</c> sends the event JSON as-is.</param>
+    public Forwarder New(
+        string name,
+        ForwarderType forwarderType,
+        HttpConfiguration configuration,
+        bool enabled = true,
+        string? description = null,
+        IDictionary<string, object?>? filter = null,
+        string? transform = null)
     {
-        ArgumentNullException.ThrowIfNull(input);
-        var body = WrapForwarder(null, input);
-        var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.Create_forwarderAsync(body, ct)).ConfigureAwait(false);
-        return FromResource(resp.Data);
+        return new Forwarder(
+            this,
+            name: name,
+            forwarderType: forwarderType,
+            configuration: configuration,
+            enabled: enabled,
+            description: description,
+            filter: filter,
+            transform: transform);
     }
 
     /// <summary>List forwarders for the authenticated account.</summary>
@@ -40,7 +68,8 @@ public sealed class ManagementForwardersClient
         return new ListForwardersPage(rows, AuditResourceTypes.ExtractPagination(resp.Meta));
     }
 
-    /// <summary>Retrieve a single forwarder by id.</summary>
+    /// <summary>Retrieve a single forwarder by id. The returned instance is bound to
+    /// this client so <see cref="Forwarder.SaveAsync"/> / <see cref="Forwarder.DeleteAsync"/> work.</summary>
     public async Task<Forwarder> GetAsync(Guid forwarderId, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
@@ -48,45 +77,61 @@ public sealed class ManagementForwardersClient
         return FromResource(resp.Data);
     }
 
-    /// <summary>Full-replace update. Re-supply real header values; reads return them redacted.</summary>
-    public async Task<Forwarder> UpdateAsync(
-        Guid forwarderId, CreateForwarderInput input, CancellationToken ct = default)
+    /// <summary>Soft-delete a forwarder by id. Prefer <see cref="Forwarder.DeleteAsync"/>
+    /// when you already have a <see cref="Forwarder"/> instance.</summary>
+    public Task DeleteAsync(Guid forwarderId, CancellationToken ct = default)
+        => ApiExceptionMapper.ExecuteAsync(() => _gen.Delete_forwarderAsync(forwarderId, ct));
+
+    // ------------------------------------------------------------------
+    // Internal: drive Forwarder.SaveAsync
+    // ------------------------------------------------------------------
+
+    /// <summary>POST a new forwarder. Called by <see cref="Forwarder.SaveAsync"/>; not for direct use.</summary>
+    internal async Task<Forwarder> SaveCreateAsync(Forwarder forwarder, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(input);
-        var body = WrapForwarder(forwarderId, input);
+        var body = WrapForwarder(null, forwarder);
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.Update_forwarderAsync(forwarderId, body, ct)).ConfigureAwait(false);
+            () => _gen.Create_forwarderAsync(body, ct)).ConfigureAwait(false);
         return FromResource(resp.Data);
     }
 
-    /// <summary>Soft-delete a forwarder.</summary>
-    public Task DeleteAsync(Guid forwarderId, CancellationToken ct = default)
-        => ApiExceptionMapper.ExecuteAsync(() => _gen.Delete_forwarderAsync(forwarderId, ct));
+    /// <summary>Full-replace PUT. Called by <see cref="Forwarder.SaveAsync"/>; not for direct use.</summary>
+    internal async Task<Forwarder> SaveUpdateAsync(Forwarder forwarder, CancellationToken ct)
+    {
+        if (forwarder.Id is null)
+            throw new InvalidOperationException("Cannot update a Forwarder with no id");
+        var body = WrapForwarder(forwarder.Id, forwarder);
+        var resp = await ApiExceptionMapper.ExecuteAsync(
+            () => _gen.Update_forwarderAsync(forwarder.Id.Value, body, ct)).ConfigureAwait(false);
+        return FromResource(resp.Data);
+    }
 
     // ------------------------------------------------------------------
     // Wire <-> wrapper conversions
     // ------------------------------------------------------------------
 
-    private static GenAudit.ForwarderRequest WrapForwarder(Guid? id, CreateForwarderInput input)
+    private static GenAudit.ForwarderRequest WrapForwarder(Guid? id, Forwarder src)
     {
         var attrs = new GenAudit.Forwarder
         {
-            Name = input.Name,
-            Forwarder_type = ToGenForwarderType(input.ForwarderType),
-            Enabled = input.Enabled,
-            Configuration = ToGenHttpConfiguration(input.Http),
+            Name = src.Name,
+            Forwarder_type = ToGenForwarderType(src.ForwarderType),
+            Enabled = src.Enabled,
+            Configuration = ToGenHttpConfiguration(src.Configuration),
         };
-        if (input.Filter != null)
+        if (src.Description is not null) attrs.Description = src.Description;
+        if (src.Filter != null)
         {
             attrs.Filter = new Dictionary<string, object>(
-                input.Filter.Select(kv => new KeyValuePair<string, object>(kv.Key, kv.Value!)));
+                src.Filter.Select(kv => new KeyValuePair<string, object>(kv.Key, kv.Value!)));
         }
-        if (input.Transform != null)
+        if (src.Transform != null)
         {
-            attrs.Transform = input.Transform;
-            // Spec: transform_type is required whenever transform is set.
-            // Only JSONATA is currently supported.
-            attrs.Transform_type = "JSONATA";
+            attrs.Transform = src.Transform;
+            // Spec requires transform_type whenever transform is set; today
+            // only JSONATA is defined. Apply the default if the caller didn't
+            // set it explicitly.
+            attrs.Transform_type = (src.TransformType ?? TransformEngine.Jsonata).ToWireValue();
         }
         var r = new GenAudit.ForwarderResource
         {
@@ -97,7 +142,7 @@ public sealed class ManagementForwardersClient
         return new GenAudit.ForwarderRequest { Data = r };
     }
 
-    private static GenAudit.HttpConfiguration ToGenHttpConfiguration(ForwarderHttp src)
+    private static GenAudit.HttpConfiguration ToGenHttpConfiguration(HttpConfiguration src)
     {
         var headers = new List<GenAudit.HttpHeader>(src.Headers.Count);
         foreach (var h in src.Headers)
@@ -105,73 +150,82 @@ public sealed class ManagementForwardersClient
 
         return new GenAudit.HttpConfiguration
         {
-            Method = ParseHttpMethod(src.Method),
+            Method = ToGenHttpMethod(src.Method),
             Url = src.Url,
             Headers = headers,
             Success_status = src.SuccessStatus,
         };
     }
 
-    private static GenAudit.HttpConfigurationMethod ParseHttpMethod(string method) =>
-        method.ToUpperInvariant() switch
+    private static GenAudit.HttpConfigurationMethod ToGenHttpMethod(Smplkit.Audit.HttpMethod method) =>
+        method switch
         {
-            "GET" => GenAudit.HttpConfigurationMethod.GET,
-            "PUT" => GenAudit.HttpConfigurationMethod.PUT,
-            "PATCH" => GenAudit.HttpConfigurationMethod.PATCH,
-            "DELETE" => GenAudit.HttpConfigurationMethod.DELETE,
-            _ => GenAudit.HttpConfigurationMethod.POST,
+            Smplkit.Audit.HttpMethod.Delete => GenAudit.HttpConfigurationMethod.DELETE,
+            Smplkit.Audit.HttpMethod.Get => GenAudit.HttpConfigurationMethod.GET,
+            Smplkit.Audit.HttpMethod.Patch => GenAudit.HttpConfigurationMethod.PATCH,
+            Smplkit.Audit.HttpMethod.Post => GenAudit.HttpConfigurationMethod.POST,
+            Smplkit.Audit.HttpMethod.Put => GenAudit.HttpConfigurationMethod.PUT,
+            _ => throw new ArgumentOutOfRangeException(nameof(method)),
         };
 
-    private static Forwarder FromResource(GenAudit.ForwarderResource r)
+    private Forwarder FromResource(GenAudit.ForwarderResource r)
     {
         var a = r.Attributes;
-        var http = HttpFromGen(a.Configuration);
         return new Forwarder(
-            string.IsNullOrEmpty(r.Id) ? Guid.Empty : Guid.Parse(r.Id),
-            a.Name ?? string.Empty,
-            FromGenForwarderType(a.Forwarder_type),
-            a.Enabled,
-            ConvertJson(a.Filter),
-            a.Transform as string,
-            http,
-            a.Created_at,
-            a.Updated_at,
-            a.Deleted_at,
-            a.Version);
+            this,
+            name: a.Name ?? string.Empty,
+            forwarderType: FromGenForwarderType(a.Forwarder_type),
+            configuration: HttpFromGen(a.Configuration),
+            enabled: a.Enabled,
+            description: a.Description,
+            filter: ConvertJson(a.Filter),
+            transform: a.Transform as string,
+            transformType: FromGenTransformType(a.Transform_type),
+            id: string.IsNullOrEmpty(r.Id) ? null : Guid.Parse(r.Id),
+            createdAt: a.Created_at,
+            updatedAt: a.Updated_at,
+            deletedAt: a.Deleted_at,
+            version: a.Version);
+    }
+
+    private static TransformEngine? FromGenTransformType(string? wire)
+    {
+        if (string.IsNullOrEmpty(wire)) return null;
+        return TransformEngineExtensions.FromWireValue(wire);
     }
 
     private static GenAudit.ForwarderType ToGenForwarderType(ForwarderType src) =>
         src switch
         {
-            ForwarderType.Http => GenAudit.ForwarderType.HTTP,
             ForwarderType.Datadog => GenAudit.ForwarderType.DATADOG,
+            ForwarderType.Elastic => GenAudit.ForwarderType.ELASTIC,
+            ForwarderType.Honeycomb => GenAudit.ForwarderType.HONEYCOMB,
+            ForwarderType.Http => GenAudit.ForwarderType.HTTP,
+            ForwarderType.NewRelic => GenAudit.ForwarderType.NEW_RELIC,
             ForwarderType.SplunkHec => GenAudit.ForwarderType.SPLUNK_HEC,
             ForwarderType.SumoLogic => GenAudit.ForwarderType.SUMO_LOGIC,
-            ForwarderType.NewRelic => GenAudit.ForwarderType.NEW_RELIC,
-            ForwarderType.Honeycomb => GenAudit.ForwarderType.HONEYCOMB,
-            ForwarderType.Elastic => GenAudit.ForwarderType.ELASTIC,
             _ => throw new ArgumentOutOfRangeException(nameof(src), src, null),
         };
 
     private static ForwarderType FromGenForwarderType(GenAudit.ForwarderType src) =>
         src switch
         {
-            GenAudit.ForwarderType.HTTP => ForwarderType.Http,
             GenAudit.ForwarderType.DATADOG => ForwarderType.Datadog,
+            GenAudit.ForwarderType.ELASTIC => ForwarderType.Elastic,
+            GenAudit.ForwarderType.HONEYCOMB => ForwarderType.Honeycomb,
+            GenAudit.ForwarderType.HTTP => ForwarderType.Http,
+            GenAudit.ForwarderType.NEW_RELIC => ForwarderType.NewRelic,
             GenAudit.ForwarderType.SPLUNK_HEC => ForwarderType.SplunkHec,
             GenAudit.ForwarderType.SUMO_LOGIC => ForwarderType.SumoLogic,
-            GenAudit.ForwarderType.NEW_RELIC => ForwarderType.NewRelic,
-            GenAudit.ForwarderType.HONEYCOMB => ForwarderType.Honeycomb,
-            GenAudit.ForwarderType.ELASTIC => ForwarderType.Elastic,
             _ => throw new ArgumentOutOfRangeException(nameof(src), src, null),
         };
 
-    private static ForwarderHttp HttpFromGen(GenAudit.HttpConfiguration? src)
+    private static HttpConfiguration HttpFromGen(GenAudit.HttpConfiguration? src)
     {
-        if (src == null) return new ForwarderHttp { Url = string.Empty };
-        var out_ = new ForwarderHttp
+        if (src == null) return new HttpConfiguration { Url = string.Empty };
+        var out_ = new HttpConfiguration
         {
-            Method = src.Method.ToString(),
+            Method = HttpMethodExtensions.FromWireValue(src.Method.ToString()),
             Url = src.Url ?? string.Empty,
             SuccessStatus = src.Success_status ?? "2xx",
         };
@@ -208,7 +262,6 @@ public sealed class ManagementForwardersClient
         System.Text.Json.JsonValueKind.Array => el.EnumerateArray().Select(JsonElementToObject).ToList(),
         _ => null,
     };
-
 }
 
 /// <summary>
@@ -220,7 +273,7 @@ public sealed class ManagementForwardersClient
 /// </summary>
 public sealed class AuditManagementClient
 {
-    /// <summary>SIEM forwarder CRUD.</summary>
+    /// <summary>SIEM forwarder management surface.</summary>
     public ManagementForwardersClient Forwarders { get; }
 
     internal AuditManagementClient(GenAudit.AuditClient generated)

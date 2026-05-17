@@ -13,11 +13,11 @@ namespace Smplkit.Management;
 /// </remarks>
 public enum EnvironmentClassification
 {
-    /// <summary>A customer deploy target (production, staging, development).</summary>
-    Standard,
-
     /// <summary>A transient target (preview branch, individual sandbox).</summary>
     AdHoc,
+
+    /// <summary>A customer deploy target (production, staging, development).</summary>
+    Standard,
 }
 
 /// <summary>Extension methods for <see cref="EnvironmentClassification"/>.</summary>
@@ -26,8 +26,8 @@ public static class EnvironmentClassificationExtensions
     /// <summary>Returns the generated wire enum used by the app client.</summary>
     public static GenApp.EnvironmentClassification ToWireString(this EnvironmentClassification classification) => classification switch
     {
-        EnvironmentClassification.Standard => GenApp.EnvironmentClassification.STANDARD,
         EnvironmentClassification.AdHoc => GenApp.EnvironmentClassification.AD_HOC,
+        EnvironmentClassification.Standard => GenApp.EnvironmentClassification.STANDARD,
         _ => throw new ArgumentOutOfRangeException(nameof(classification)),
     };
 

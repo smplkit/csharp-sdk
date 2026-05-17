@@ -3,39 +3,39 @@ namespace Smplkit.Config;
 /// <summary>The type of a <see cref="ConfigItem"/> value.</summary>
 public enum ItemType
 {
-    /// <summary>String value.</summary>
-    String,
-
-    /// <summary>Numeric value.</summary>
-    Number,
-
     /// <summary>Boolean value.</summary>
     Boolean,
 
     /// <summary>JSON value.</summary>
     Json,
+
+    /// <summary>Numeric value.</summary>
+    Number,
+
+    /// <summary>String value.</summary>
+    String,
 }
 
 /// <summary>Extension methods for <see cref="ItemType"/>.</summary>
 public static class ItemTypeExtensions
 {
-    /// <summary>Returns the wire-format string ("STRING", "NUMBER", etc.).</summary>
+    /// <summary>Returns the wire-format string ("BOOLEAN", "JSON", "NUMBER", "STRING").</summary>
     public static string ToWireString(this ItemType type) => type switch
     {
-        ItemType.String => "STRING",
-        ItemType.Number => "NUMBER",
         ItemType.Boolean => "BOOLEAN",
         ItemType.Json => "JSON",
+        ItemType.Number => "NUMBER",
+        ItemType.String => "STRING",
         _ => throw new ArgumentOutOfRangeException(nameof(type)),
     };
 
     /// <summary>Parses a wire-format string. Unknown values default to <see cref="ItemType.Json"/>.</summary>
     public static ItemType Parse(string wire) => wire switch
     {
-        "STRING" => ItemType.String,
-        "NUMBER" => ItemType.Number,
         "BOOLEAN" => ItemType.Boolean,
         "JSON" => ItemType.Json,
+        "NUMBER" => ItemType.Number,
+        "STRING" => ItemType.String,
         _ => ItemType.Json,
     };
 }
