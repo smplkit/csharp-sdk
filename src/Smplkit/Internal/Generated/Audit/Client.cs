@@ -64,13 +64,19 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>which is a case-insensitive substring match against `resource_id` or
         /// <br/>`description`.
         /// <br/>
-        /// <br/>To bound the rows scanned per request, the endpoint requires either:
+        /// <br/>Two filter-combination rules:
         /// <br/>
-        /// <br/>- `filter[resource_id]` (which must be accompanied by
-        /// <br/>  `filter[resource_type]`), or
-        /// <br/>- `filter[occurred_at]` with a span no greater than 30 days.
+        /// <br/>- `filter[resource_id]` must be accompanied by `filter[resource_type]`
+        /// <br/>  (the index is keyed on the pair).
+        /// <br/>- `filter[search]` must be accompanied by either `filter[occurred_at]`
+        /// <br/>  or `filter[resource_type]` + `filter[resource_id]` (substring
+        /// <br/>  matching has no index, so an unbounded substring scan is rejected).
         /// <br/>
-        /// <br/>`page[size]` defaults to 50 and must not exceed 1000.
+        /// <br/>No other filter combinations are required — calling the endpoint with
+        /// <br/>no query parameters returns the latest events for the account,
+        /// <br/>paginated.
+        /// <br/>
+        /// <br/>`page[size]` defaults to 1000 and must not exceed 1000.
         /// </remarks>
         /// <param name="filtersearch">Case-insensitive substring match against `resource_id` or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`, `-occurred_at`.</param>
@@ -440,13 +446,19 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>which is a case-insensitive substring match against `resource_id` or
         /// <br/>`description`.
         /// <br/>
-        /// <br/>To bound the rows scanned per request, the endpoint requires either:
+        /// <br/>Two filter-combination rules:
         /// <br/>
-        /// <br/>- `filter[resource_id]` (which must be accompanied by
-        /// <br/>  `filter[resource_type]`), or
-        /// <br/>- `filter[occurred_at]` with a span no greater than 30 days.
+        /// <br/>- `filter[resource_id]` must be accompanied by `filter[resource_type]`
+        /// <br/>  (the index is keyed on the pair).
+        /// <br/>- `filter[search]` must be accompanied by either `filter[occurred_at]`
+        /// <br/>  or `filter[resource_type]` + `filter[resource_id]` (substring
+        /// <br/>  matching has no index, so an unbounded substring scan is rejected).
         /// <br/>
-        /// <br/>`page[size]` defaults to 50 and must not exceed 1000.
+        /// <br/>No other filter combinations are required — calling the endpoint with
+        /// <br/>no query parameters returns the latest events for the account,
+        /// <br/>paginated.
+        /// <br/>
+        /// <br/>`page[size]` defaults to 1000 and must not exceed 1000.
         /// </remarks>
         /// <param name="filtersearch">Case-insensitive substring match against `resource_id` or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`, `-occurred_at`.</param>
