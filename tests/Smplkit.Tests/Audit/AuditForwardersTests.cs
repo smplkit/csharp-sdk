@@ -32,11 +32,11 @@ public class AuditForwardersTests
     private static StringContent JsonApi(string body) =>
         new(body, Encoding.UTF8, "application/vnd.api+json");
 
-    private static string ForwarderResource(string name = "Datadog production", string slug = "datadog_production") =>
+    private static string ForwarderResource(string name = "Datadog production", string _unused = "") =>
         "{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\",\"attributes\":{"
-            + "\"name\":\"" + name + "\",\"slug\":\"" + slug + "\","
+            + "\"name\":\"" + name + "\","
             + "\"forwarder_type\":\"DATADOG\",\"enabled\":true,"
-            + "\"http\":{\"method\":\"POST\",\"url\":\"https://siem.example.com/in\","
+            + "\"configuration\":{\"method\":\"POST\",\"url\":\"https://siem.example.com/in\","
             + "\"headers\":[{\"name\":\"DD-API-KEY\",\"value\":\"<redacted>\"}],"
             + "\"success_status\":\"2xx\"},"
             + "\"created_at\":\"2026-05-07T12:00:00Z\","
@@ -78,9 +78,14 @@ public class AuditForwardersTests
             Filter = new Dictionary<string, object?> { ["=="] = new[] { 1, 1 } },
             Transform = "$",
         });
-        Assert.Equal("datadog_production", fwd.Slug);
+        Assert.Equal("Datadog production", fwd.Name);
         Assert.Equal("POST", capturedMethod);
         Assert.Contains("real-secret", capturedBody!);
+        // Wrapper writes `configuration`, not the deprecated `http` field.
+        Assert.Contains("\"configuration\":", capturedBody);
+        Assert.DoesNotContain("\"http\":", capturedBody);
+        // Transform forces transform_type=JSONATA per the new spec.
+        Assert.Contains("\"transform_type\":\"JSONATA\"", capturedBody);
     }
 
     [Fact]
@@ -206,7 +211,7 @@ public class AuditForwardersTests
     public void ForwarderRecordAccessors_FullyCovered()
     {
         var fwd = new Forwarder(
-            FwdId, "n", "s", ForwarderType.Http, true,
+            FwdId, "n", ForwarderType.Http, true,
             new Dictionary<string, object?>(), "tx",
             new ForwarderHttp { Url = "u" },
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, 1);
@@ -227,7 +232,7 @@ public class AuditForwardersTests
         {
             Content = JsonApi(
                 "{\"data\":{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\",\"attributes\":{"
-                + "\"name\":\"x\",\"slug\":\"x\",\"forwarder_type\":\"http\",\"enabled\":true,"
+                + "\"name\":\"x\",\"forwarder_type\":\"http\",\"enabled\":true,"
                 + "\"filter\":{\"==\":[1,1]}}}}"),
         })).GetAsync(FwdId);
         Assert.NotNull(fwd.Filter);
@@ -240,7 +245,7 @@ public class AuditForwardersTests
         {
             Content = JsonApi(
                 "{\"data\":{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\",\"attributes\":{"
-                + "\"name\":\"x\",\"slug\":\"x\",\"forwarder_type\":\"http\",\"enabled\":true,"
+                + "\"name\":\"x\",\"forwarder_type\":\"http\",\"enabled\":true,"
                 + "\"filter\":\"not-an-object\"}}}"),
         })).GetAsync(FwdId);
         Assert.Null(fwd.Filter);
@@ -253,7 +258,7 @@ public class AuditForwardersTests
         {
             Content = JsonApi(
                 "{\"data\":{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\",\"attributes\":{"
-                + "\"name\":\"x\",\"slug\":\"x\",\"forwarder_type\":\"http\",\"enabled\":false}}}"),
+                + "\"name\":\"x\",\"forwarder_type\":\"http\",\"enabled\":false}}}"),
         })).GetAsync(FwdId);
         Assert.Equal(string.Empty, fwd.Http.Url);
         Assert.Empty(fwd.Http.Headers);
@@ -282,8 +287,8 @@ public class AuditForwardersTests
             {
                 Content = JsonApi(
                     "{\"data\":{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\",\"attributes\":{"
-                    + "\"name\":\"n\",\"slug\":\"n\",\"forwarder_type\":\"" + wire + "\",\"enabled\":true,"
-                    + "\"http\":{\"method\":\"POST\",\"url\":\"u\",\"headers\":[],\"success_status\":\"2xx\"}}}}"),
+                    + "\"name\":\"n\",\"forwarder_type\":\"" + wire + "\",\"enabled\":true,"
+                    + "\"configuration\":{\"method\":\"POST\",\"url\":\"u\",\"headers\":[],\"success_status\":\"2xx\"}}}}"),
             };
         });
         var client = new AuditManagementClient(gen).Forwarders;
@@ -413,7 +418,7 @@ public class AuditForwardersTests
         {
             Content = JsonApi(
                 "{\"data\":{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\",\"attributes\":{"
-                + "\"name\":\"x\",\"slug\":\"x\",\"forwarder_type\":\"http\",\"enabled\":true,"
+                + "\"name\":\"x\",\"forwarder_type\":\"http\",\"enabled\":true,"
                 + "\"filter\":{\"count\":42,\"on\":true,\"off\":false,"
                 + "\"nested\":{\"k\":\"v\"},\"items\":[1,2.5,\"three\",null]}}}}"),
         })).GetAsync(FwdId);

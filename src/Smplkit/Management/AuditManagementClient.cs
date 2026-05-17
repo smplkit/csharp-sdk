@@ -74,14 +74,20 @@ public sealed class ManagementForwardersClient
             Name = input.Name,
             Forwarder_type = ToGenForwarderType(input.ForwarderType),
             Enabled = input.Enabled,
-            Http = ToGenHttp(input.Http),
+            Configuration = ToGenHttpConfiguration(input.Http),
         };
         if (input.Filter != null)
         {
             attrs.Filter = new Dictionary<string, object>(
                 input.Filter.Select(kv => new KeyValuePair<string, object>(kv.Key, kv.Value!)));
         }
-        if (input.Transform != null) attrs.Transform = input.Transform;
+        if (input.Transform != null)
+        {
+            attrs.Transform = input.Transform;
+            // Spec: transform_type is required whenever transform is set.
+            // Only JSONATA is currently supported.
+            attrs.Transform_type = "JSONATA";
+        }
         var r = new GenAudit.ForwarderResource
         {
             Id = id?.ToString() ?? string.Empty,
@@ -91,46 +97,42 @@ public sealed class ManagementForwardersClient
         return new GenAudit.ForwarderRequest { Data = r };
     }
 
-    private static GenAudit.ForwarderHttp ToGenHttp(ForwarderHttp src)
+    private static GenAudit.HttpConfiguration ToGenHttpConfiguration(ForwarderHttp src)
     {
         var headers = new List<GenAudit.HttpHeader>(src.Headers.Count);
         foreach (var h in src.Headers)
             headers.Add(new GenAudit.HttpHeader { Name = h.Name, Value = h.Value });
 
-        var method = ParseHttpMethod(src.Method);
-        var out_ = new GenAudit.ForwarderHttp
+        return new GenAudit.HttpConfiguration
         {
-            Method = method,
+            Method = ParseHttpMethod(src.Method),
             Url = src.Url,
             Headers = headers,
             Success_status = src.SuccessStatus,
         };
-        if (src.Body != null) out_.Body = src.Body;
-        return out_;
     }
 
-    private static GenAudit.ForwarderHttpMethod ParseHttpMethod(string method) =>
+    private static GenAudit.HttpConfigurationMethod ParseHttpMethod(string method) =>
         method.ToUpperInvariant() switch
         {
-            "GET" => GenAudit.ForwarderHttpMethod.GET,
-            "PUT" => GenAudit.ForwarderHttpMethod.PUT,
-            "PATCH" => GenAudit.ForwarderHttpMethod.PATCH,
-            "DELETE" => GenAudit.ForwarderHttpMethod.DELETE,
-            _ => GenAudit.ForwarderHttpMethod.POST,
+            "GET" => GenAudit.HttpConfigurationMethod.GET,
+            "PUT" => GenAudit.HttpConfigurationMethod.PUT,
+            "PATCH" => GenAudit.HttpConfigurationMethod.PATCH,
+            "DELETE" => GenAudit.HttpConfigurationMethod.DELETE,
+            _ => GenAudit.HttpConfigurationMethod.POST,
         };
 
     private static Forwarder FromResource(GenAudit.ForwarderResource r)
     {
         var a = r.Attributes;
-        var http = HttpFromGen(a.Http);
+        var http = HttpFromGen(a.Configuration);
         return new Forwarder(
             string.IsNullOrEmpty(r.Id) ? Guid.Empty : Guid.Parse(r.Id),
             a.Name ?? string.Empty,
-            a.Slug ?? string.Empty,
             FromGenForwarderType(a.Forwarder_type),
             a.Enabled,
             ConvertJson(a.Filter),
-            a.Transform,
+            a.Transform as string,
             http,
             a.Created_at,
             a.Updated_at,
@@ -164,14 +166,13 @@ public sealed class ManagementForwardersClient
             _ => throw new ArgumentOutOfRangeException(nameof(src), src, null),
         };
 
-    private static ForwarderHttp HttpFromGen(GenAudit.ForwarderHttp? src)
+    private static ForwarderHttp HttpFromGen(GenAudit.HttpConfiguration? src)
     {
         if (src == null) return new ForwarderHttp { Url = string.Empty };
         var out_ = new ForwarderHttp
         {
             Method = src.Method.ToString(),
             Url = src.Url ?? string.Empty,
-            Body = src.Body,
             SuccessStatus = src.Success_status ?? "2xx",
         };
         if (src.Headers != null)
