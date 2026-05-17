@@ -3146,10 +3146,10 @@ namespace Smplkit.Internal.Generated.Audit
         public string? Filtersearch { get; set; } = default!;
 
         /// <summary>
-        /// Maximum events to return. Range 1..1000, default 10. The default is intentionally smaller than the list endpoint's default of 1000 because the search UI typically renders results one card at a time.
+        /// Maximum events to return. Range 1..1000, default 1000 — matches every other list / search endpoint on the platform. Set explicitly to a smaller value when the consumer is rendering results card-by-card.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("page[size]")]
-        public int Pagesize { get; set; } = 10;
+        public int Pagesize { get; set; } = 1000;
 
         /// <summary>
         /// Opaque cursor — pass the previous response's `links.next` cursor verbatim to fetch the next page. Keep the same `sort` value across paginated requests.
