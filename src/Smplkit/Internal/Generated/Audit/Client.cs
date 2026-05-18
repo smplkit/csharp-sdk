@@ -2618,7 +2618,7 @@ namespace Smplkit.Internal.Generated.Audit
         public object? Transform { get; set; } = default!;
 
         /// <summary>
-        /// Transport-specific delivery configuration. Shape is discriminated by ``forwarder_type``; today all destination types use ``HttpConfiguration``.
+        /// Transport-specific delivery configuration. Shape is discriminated by ``forwarder_type``; today all destination types use ``HttpConfiguration``. Each managed vendor type (`DATADOG`, `NEW_RELIC`, `HONEYCOMB`, `SPLUNK_HEC`, `ELASTIC`) requires a vendor-specific authentication header to be present with a non-empty value; see the destination's documentation for the expected header name.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("configuration")]
         public HttpConfiguration Configuration { get; set; } = new HttpConfiguration();
@@ -3026,9 +3026,11 @@ namespace Smplkit.Internal.Generated.Audit
     /// <summary>
     /// A single HTTP header attached to a forwarder delivery request.
     /// <br/>
-    /// <br/>Header values carrying secrets (API keys, bearer tokens, HEC tokens)
-    /// <br/>are encrypted at the application layer before persistence; the wire
-    /// <br/>representation here is always plaintext.
+    /// <br/>Header values are encrypted at the application layer before
+    /// <br/>persistence regardless of header name; the wire representation here
+    /// <br/>is always plaintext on both the request and the response, so a
+    /// <br/>`GET → mutate → PUT` round-trip preserves header values without
+    /// <br/>requiring the customer to re-enter secrets.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class HttpHeader
@@ -3041,7 +3043,7 @@ namespace Smplkit.Internal.Generated.Audit
         public string Name { get; set; } = default!;
 
         /// <summary>
-        /// Header value.
+        /// Header value. Stored encrypted at rest; returned as plaintext on `GET`.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("value")]
         public string Value { get; set; } = default!;
