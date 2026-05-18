@@ -1320,7 +1320,7 @@ namespace Smplkit.Internal.Generated.Flags
     {
 
         /// <summary>
-        /// Human-readable display name for the flag.
+        /// Human-readable display name for the flag. Cannot be empty or whitespace-only.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = default!;
