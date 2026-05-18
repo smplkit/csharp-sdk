@@ -2575,7 +2575,7 @@ namespace Smplkit.Internal.Generated.Audit
     {
 
         /// <summary>
-        /// Human-readable name for the forwarder.
+        /// Human-readable name for the forwarder. Must contain at least one non-whitespace character.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = default!;
