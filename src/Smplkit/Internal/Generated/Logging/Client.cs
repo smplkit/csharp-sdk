@@ -2571,10 +2571,10 @@ namespace Smplkit.Internal.Generated.Logging
         public object? Environments { get; set; } = default!;
 
         /// <summary>
-        /// Per-environment summary of what runtimes are reporting for this logger. Keyed by environment name; each entry is one of `{"status": "none"}`, `{"status": "agrees", "level": "&lt;LEVEL&gt;"}`, or `{"status": "varies"}`. `agrees` means every observed source in that environment reports the same resolved level; `varies` means at least two sources disagree.
+        /// Per-environment summary of what runtimes are reporting for this logger. Keyed by environment name; each value is the list of distinct resolved levels observed across all source rows in that environment, ordered from most-verbose (`TRACE`) to least-verbose (`SILENT`). A single-element list means every source agrees; a multi-element list means sources disagree. Environments with no observed sources are omitted — cross-reference `environments` to find environments that are configured but have not yet been reported in.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("effective_levels")]
-        public object? Effective_levels { get; set; } = default!;
+        public System.Collections.Generic.IDictionary<string, System.Collections.Generic.List<Anonymous5>>? Effective_levels { get; set; } = default!;
 
         /// <summary>
         /// When the logger was first created or discovered.
@@ -3297,6 +3297,33 @@ namespace Smplkit.Internal.Generated.Logging
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public enum LoggerLevel
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"TRACE")]
+        TRACE = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"DEBUG")]
+        DEBUG = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"INFO")]
+        INFO = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"WARN")]
+        WARN = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"ERROR")]
+        ERROR = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"FATAL")]
+        FATAL = 5,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"SILENT")]
+        SILENT = 6,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous5
     {
 
         [System.Runtime.Serialization.EnumMember(Value = @"TRACE")]
