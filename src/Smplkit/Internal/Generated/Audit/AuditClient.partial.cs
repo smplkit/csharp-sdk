@@ -23,5 +23,6 @@ public partial class AuditClient
     static partial void UpdateJsonSerializerSettings(System.Text.Json.JsonSerializerOptions settings)
     {
         settings.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+        settings.Converters.Add(new JsonStringEnumConverter());
     }
 }

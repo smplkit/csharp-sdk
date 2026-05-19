@@ -22,16 +22,10 @@ namespace Smplkit.Internal.Generated.Logging
     }
 }
 
-namespace Smplkit.Internal.Generated.Audit
-{
-    public partial class AuditClient
-    {
-        static partial void UpdateJsonSerializerSettings(JsonSerializerOptions settings)
-        {
-            settings.Converters.Add(new JsonStringEnumConverter());
-        }
-    }
-}
+// AuditClient's UpdateJsonSerializerSettings is implemented in
+// Internal/Generated/Audit/AuditClient.partial.cs — it sets
+// DefaultIgnoreCondition and registers JsonStringEnumConverter there to
+// keep partial-method declarations unique per class.
 
 namespace Smplkit.Internal.Generated.Config
 {
