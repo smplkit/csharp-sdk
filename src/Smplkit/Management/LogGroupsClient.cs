@@ -122,7 +122,7 @@ public sealed class LogGroupsClient
                     Name = logGroup.Name,
                     Level = logGroup.Level is null
                         ? null
-                        : (GenLogging.LogGroupLevel)System.Enum.Parse(typeof(GenLogging.LogGroupLevel), logGroup.Level.Value.ToWireString()),
+                        : (GenLogging.LogLevel)System.Enum.Parse(typeof(GenLogging.LogLevel), logGroup.Level.Value.ToWireString()),
                     Parent_id = logGroup.Group,
                     Environments = LoggersClient.BuildEnvironmentsPayload(logGroup.Environments),
                 },
