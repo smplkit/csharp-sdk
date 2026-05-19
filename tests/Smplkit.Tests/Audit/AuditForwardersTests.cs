@@ -316,13 +316,13 @@ public class AuditForwardersTests
     // ----------------------------------------------------------------------
 
     [Theory]
-    [InlineData(ForwarderType.Http, "HTTP")]
-    [InlineData(ForwarderType.Datadog, "DATADOG")]
-    [InlineData(ForwarderType.SplunkHec, "SPLUNK_HEC")]
-    [InlineData(ForwarderType.SumoLogic, "SUMO_LOGIC")]
-    [InlineData(ForwarderType.NewRelic, "NEW_RELIC")]
-    [InlineData(ForwarderType.Honeycomb, "HONEYCOMB")]
-    [InlineData(ForwarderType.Elastic, "ELASTIC")]
+    [InlineData(ForwarderType.Http, "http")]
+    [InlineData(ForwarderType.Datadog, "datadog")]
+    [InlineData(ForwarderType.SplunkHec, "splunk_hec")]
+    [InlineData(ForwarderType.SumoLogic, "sumo_logic")]
+    [InlineData(ForwarderType.NewRelic, "new_relic")]
+    [InlineData(ForwarderType.Honeycomb, "honeycomb")]
+    [InlineData(ForwarderType.Elastic, "elastic")]
     public async Task ForwarderType_RoundTripsThroughCreateAndGet(ForwarderType type, string wire)
     {
         string? capturedBody = null;
@@ -348,19 +348,19 @@ public class AuditForwardersTests
     [Fact]
     public void ForwarderTypeExtensions_ToWireValue_RoundTrips()
     {
-        Assert.Equal("HTTP", ForwarderType.Http.ToWireValue());
-        Assert.Equal("SPLUNK_HEC", ForwarderType.SplunkHec.ToWireValue());
-        Assert.Equal("ELASTIC", ForwarderType.Elastic.ToWireValue());
+        Assert.Equal("http", ForwarderType.Http.ToWireValue());
+        Assert.Equal("splunk_hec", ForwarderType.SplunkHec.ToWireValue());
+        Assert.Equal("elastic", ForwarderType.Elastic.ToWireValue());
     }
 
     [Theory]
-    [InlineData("HTTP", ForwarderType.Http)]
-    [InlineData("DATADOG", ForwarderType.Datadog)]
-    [InlineData("SPLUNK_HEC", ForwarderType.SplunkHec)]
-    [InlineData("SUMO_LOGIC", ForwarderType.SumoLogic)]
-    [InlineData("NEW_RELIC", ForwarderType.NewRelic)]
-    [InlineData("HONEYCOMB", ForwarderType.Honeycomb)]
-    [InlineData("ELASTIC", ForwarderType.Elastic)]
+    [InlineData("http", ForwarderType.Http)]
+    [InlineData("datadog", ForwarderType.Datadog)]
+    [InlineData("splunk_hec", ForwarderType.SplunkHec)]
+    [InlineData("sumo_logic", ForwarderType.SumoLogic)]
+    [InlineData("new_relic", ForwarderType.NewRelic)]
+    [InlineData("honeycomb", ForwarderType.Honeycomb)]
+    [InlineData("elastic", ForwarderType.Elastic)]
     public void ForwarderTypeExtensions_FromWireValue_AcceptsKnown(string wire, ForwarderType expected)
     {
         Assert.Equal(expected, ForwarderTypeExtensions.FromWireValue(wire));

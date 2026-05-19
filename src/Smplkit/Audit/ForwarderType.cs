@@ -37,28 +37,28 @@ public static class ForwarderTypeExtensions
     private static readonly IReadOnlyDictionary<ForwarderType, string> _toWire =
         new Dictionary<ForwarderType, string>
         {
-            { ForwarderType.Datadog, "DATADOG" },
-            { ForwarderType.Elastic, "ELASTIC" },
-            { ForwarderType.Honeycomb, "HONEYCOMB" },
-            { ForwarderType.Http, "HTTP" },
-            { ForwarderType.NewRelic, "NEW_RELIC" },
-            { ForwarderType.SplunkHec, "SPLUNK_HEC" },
-            { ForwarderType.SumoLogic, "SUMO_LOGIC" },
+            { ForwarderType.Datadog, "datadog" },
+            { ForwarderType.Elastic, "elastic" },
+            { ForwarderType.Honeycomb, "honeycomb" },
+            { ForwarderType.Http, "http" },
+            { ForwarderType.NewRelic, "new_relic" },
+            { ForwarderType.SplunkHec, "splunk_hec" },
+            { ForwarderType.SumoLogic, "sumo_logic" },
         };
 
     private static readonly IReadOnlyDictionary<string, ForwarderType> _fromWire =
         new Dictionary<string, ForwarderType>(StringComparer.Ordinal)
         {
-            { "DATADOG", ForwarderType.Datadog },
-            { "ELASTIC", ForwarderType.Elastic },
-            { "HONEYCOMB", ForwarderType.Honeycomb },
-            { "HTTP", ForwarderType.Http },
-            { "NEW_RELIC", ForwarderType.NewRelic },
-            { "SPLUNK_HEC", ForwarderType.SplunkHec },
-            { "SUMO_LOGIC", ForwarderType.SumoLogic },
+            { "datadog", ForwarderType.Datadog },
+            { "elastic", ForwarderType.Elastic },
+            { "honeycomb", ForwarderType.Honeycomb },
+            { "http", ForwarderType.Http },
+            { "new_relic", ForwarderType.NewRelic },
+            { "splunk_hec", ForwarderType.SplunkHec },
+            { "sumo_logic", ForwarderType.SumoLogic },
         };
 
-    /// <summary>Returns the wire-format slug — e.g. <c>"SPLUNK_HEC"</c>.</summary>
+    /// <summary>Returns the wire-format slug — e.g. <c>"splunk_hec"</c>.</summary>
     public static string ToWireValue(this ForwarderType value) => _toWire[value];
 
     /// <summary>Parse a wire-format slug. Throws on unknown values.</summary>
