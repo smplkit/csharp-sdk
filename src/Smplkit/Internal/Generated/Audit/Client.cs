@@ -263,6 +263,33 @@ namespace Smplkit.Internal.Generated.Audit
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
+        /// List Forwarder Types
+        /// </summary>
+        /// <remarks>
+        /// List all forwarder types in the catalog.
+        /// <br/>
+        /// <br/>Returns every branded HTTP forwarder type defined in
+        /// <br/>`forwarder_types/*.yaml` plus the synthetic `http` (Custom HTTP) entry.
+        /// <br/>The response drives the console's create-forwarder UX, the docs
+        /// <br/>vendor-reference page, and audit's own server-side template validation.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<ForwarderTypeListResponse> List_forwarder_types_api_v1_forwarder_types_getAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Get Forwarder Type
+        /// </summary>
+        /// <remarks>
+        /// Fetch a single forwarder type from the catalog.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<ForwarderTypeResponse> Get_forwarder_type_api_v1_forwarder_types__id__getAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
         /// List Resource Types
         /// </summary>
         /// <remarks>
@@ -1699,6 +1726,169 @@ namespace Smplkit.Internal.Generated.Audit
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
+        /// List Forwarder Types
+        /// </summary>
+        /// <remarks>
+        /// List all forwarder types in the catalog.
+        /// <br/>
+        /// <br/>Returns every branded HTTP forwarder type defined in
+        /// <br/>`forwarder_types/*.yaml` plus the synthetic `http` (Custom HTTP) entry.
+        /// <br/>The response drives the console's create-forwarder UX, the docs
+        /// <br/>vendor-reference page, and audit's own server-side template validation.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<ForwarderTypeListResponse> List_forwarder_types_api_v1_forwarder_types_getAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        {
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    request_.Method = new System.Net.Http.HttpMethod("GET");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
+                    // Operation Path: "api/v1/forwarder_types"
+                    urlBuilder_.Append("api/v1/forwarder_types");
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ForwarderTypeListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Get Forwarder Type
+        /// </summary>
+        /// <remarks>
+        /// Fetch a single forwarder type from the catalog.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<ForwarderTypeResponse> Get_forwarder_type_api_v1_forwarder_types__id__getAsync(string id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        {
+            if (id == null)
+                throw new System.ArgumentNullException("id");
+
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    request_.Method = new System.Net.Http.HttpMethod("GET");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
+                    // Operation Path: "api/v1/forwarder_types/{id}"
+                    urlBuilder_.Append("api/v1/forwarder_types/");
+                    urlBuilder_.Append(System.Uri.EscapeDataString(ConvertToString(id, System.Globalization.CultureInfo.InvariantCulture)));
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ForwarderTypeResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
         /// List Resource Types
         /// </summary>
         /// <remarks>
@@ -2618,7 +2808,7 @@ namespace Smplkit.Internal.Generated.Audit
         public object? Transform { get; set; } = default!;
 
         /// <summary>
-        /// Transport-specific delivery configuration. Shape is discriminated by ``forwarder_type``; today all destination types use ``HttpConfiguration``. Each managed vendor type (`DATADOG`, `NEW_RELIC`, `HONEYCOMB`, `SPLUNK_HEC`, `ELASTIC`) requires a vendor-specific authentication header to be present with a non-empty value; see the destination's documentation for the expected header name.
+        /// Transport-specific delivery configuration. Shape is discriminated by ``forwarder_type``; today all destination types use ``HttpConfiguration``. Branded vendor types (everything except `http`) constrain the configuration against a per-vendor template — see `GET /api/v1/forwarder_types` for the URL pattern, fixed headers, and customer-supplied placeholders for each type.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("configuration")]
         public HttpConfiguration Configuration { get; set; } = new HttpConfiguration();
@@ -2953,32 +3143,283 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     /// <summary>
-    /// Supported forwarder destination types.
+    /// Supported forwarder destination types (ADR-050).
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public enum ForwarderType
     {
 
-        [System.Runtime.Serialization.EnumMember(Value = @"HTTP")]
-        HTTP = 0,
+        [System.Runtime.Serialization.EnumMember(Value = @"datadog")]
+        Datadog = 0,
 
-        [System.Runtime.Serialization.EnumMember(Value = @"DATADOG")]
-        DATADOG = 1,
+        [System.Runtime.Serialization.EnumMember(Value = @"elastic")]
+        Elastic = 1,
 
-        [System.Runtime.Serialization.EnumMember(Value = @"SPLUNK_HEC")]
-        SPLUNK_HEC = 2,
+        [System.Runtime.Serialization.EnumMember(Value = @"honeycomb")]
+        Honeycomb = 2,
 
-        [System.Runtime.Serialization.EnumMember(Value = @"SUMO_LOGIC")]
-        SUMO_LOGIC = 3,
+        [System.Runtime.Serialization.EnumMember(Value = @"http")]
+        Http = 3,
 
-        [System.Runtime.Serialization.EnumMember(Value = @"NEW_RELIC")]
-        NEW_RELIC = 4,
+        [System.Runtime.Serialization.EnumMember(Value = @"new_relic")]
+        New_relic = 4,
 
-        [System.Runtime.Serialization.EnumMember(Value = @"HONEYCOMB")]
-        HONEYCOMB = 5,
+        [System.Runtime.Serialization.EnumMember(Value = @"splunk_hec")]
+        Splunk_hec = 5,
 
-        [System.Runtime.Serialization.EnumMember(Value = @"ELASTIC")]
-        ELASTIC = 6,
+        [System.Runtime.Serialization.EnumMember(Value = @"sumo_logic")]
+        Sumo_logic = 6,
+
+    }
+
+    /// <summary>
+    /// The catalog entry's attributes — one branded forwarder type or the
+    /// <br/>synthetic Custom HTTP entry.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ForwarderTypeAttributes
+    {
+
+        /// <summary>
+        /// Human-readable label shown in the type-picker.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string Name { get; set; } = default!;
+
+        /// <summary>
+        /// Absolute URL to the icon asset, served by audit at `/api/v1/forwarder_types/{id}/icon`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("icon")]
+        public string Icon { get; set; } = default!;
+
+        /// <summary>
+        /// Transport family — today only `HTTP`. New base types will add their own configuration shape and runtime handler.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("base_type")]
+        public string Base_type { get; set; } = default!;
+
+        /// <summary>
+        /// Link to the vendor's own documentation for this destination.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("docs_url")]
+        public string? Docs_url { get; set; } = default!;
+
+        /// <summary>
+        /// True for the synthetic `http` Custom HTTP entry, which has no vendor template — the customer supplies URL, headers, and transform from scratch. False for branded types.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("is_custom")]
+        public bool Is_custom { get; set; } = default!;
+
+        /// <summary>
+        /// Delivery template. Shape depends on `base_type`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("configuration")]
+        public ForwarderTypeHttpConfiguration Configuration { get; set; } = new ForwarderTypeHttpConfiguration();
+
+        /// <summary>
+        /// UI metadata keyed by placeholder name. Each `{name}` token appearing in `configuration` (URL, header value) has a matching entry here describing how to prompt for it.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("placeholders")]
+        public System.Collections.Generic.IDictionary<string, ForwarderTypePlaceholder> Placeholders { get; set; } = new System.Collections.Generic.Dictionary<string, ForwarderTypePlaceholder>();
+
+        /// <summary>
+        /// Default transform shipped with the type, or `null` if none.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("transform")]
+        public ForwarderTypeTransform? Transform { get; set; } = default!;
+
+    }
+
+    /// <summary>
+    /// A header entry in a catalog entry's configuration template.
+    /// <br/>
+    /// <br/>``value`` may contain ``{placeholder}`` tokens that the customer fills
+    /// <br/>in at create time; header values without placeholders are fixed by the
+    /// <br/>vendor and the server enforces the literal value.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ForwarderTypeHeader
+    {
+
+        /// <summary>
+        /// Header name.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string Name { get; set; } = default!;
+
+        /// <summary>
+        /// Header value template. Strings of the form `{name}` are placeholders the customer fills in; look up `name` in `placeholders` for the UI metadata.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("value")]
+        public string Value { get; set; } = default!;
+
+    }
+
+    /// <summary>
+    /// HTTP-base-type delivery template.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ForwarderTypeHttpConfiguration
+    {
+
+        /// <summary>
+        /// HTTP method.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("method")]
+        public string Method { get; set; } = default!;
+
+        /// <summary>
+        /// URL template. `null` for the synthetic `http` (Custom HTTP) entry, where the customer supplies the URL from scratch. May contain `{name}` placeholders that map to the `placeholders` block.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("url")]
+        public string? Url { get; set; } = default!;
+
+        /// <summary>
+        /// HTTP response status indicating a successful delivery — either a specific code (`200`, `204`) or a class (`2xx`).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("success_status")]
+        public string Success_status { get; set; } = default!;
+
+        /// <summary>
+        /// Headers attached to each delivery request.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("headers")]
+        public System.Collections.Generic.List<ForwarderTypeHeader> Headers { get; set; } = new System.Collections.Generic.List<ForwarderTypeHeader>();
+
+    }
+
+    /// <summary>
+    /// JSON:API collection response for forwarder types.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ForwarderTypeListResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public System.Collections.Generic.List<ForwarderTypeResource> Data { get; set; } = new System.Collections.Generic.List<ForwarderTypeResource>();
+
+        [System.Text.Json.Serialization.JsonPropertyName("meta")]
+        public ListMeta Meta { get; set; } = new ListMeta();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// UI metadata for one ``{name}`` placeholder in the configuration.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ForwarderTypePlaceholder
+    {
+
+        /// <summary>
+        /// Human-readable label for the input.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("label")]
+        public string Label { get; set; } = default!;
+
+        /// <summary>
+        /// If true, mask the value in the UI and treat as a credential.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("secret")]
+        public bool Secret { get; set; } = false;
+
+        /// <summary>
+        /// If set, the value must be one of the listed strings — render as a dropdown.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("enum")]
+        public System.Collections.Generic.List<string>? Enum { get; set; } = default!;
+
+        /// <summary>
+        /// Pre-selected value when `enum` is set, or the default for a free-text field.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("default")]
+        public string? Default { get; set; } = default!;
+
+        /// <summary>
+        /// HTML-input hint text shown when the field is empty.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("placeholder")]
+        public string? Placeholder { get; set; } = default!;
+
+    }
+
+    /// <summary>
+    /// JSON:API resource envelope for a forwarder type.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ForwarderTypeResource
+    {
+
+        /// <summary>
+        /// Lowercase forwarder type id — matches `forwarder.forwarder_type` values and is the filename stem of `forwarder_types/&lt;id&gt;.yaml`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string Id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        public string Type { get; set; } = "forwarder_type";
+
+        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
+        public ForwarderTypeAttributes Attributes { get; set; } = new ForwarderTypeAttributes();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API single-resource response for a forwarder type.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ForwarderTypeResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public ForwarderTypeResource Data { get; set; } = new ForwarderTypeResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Default transform shipped with the type.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ForwarderTypeTransform
+    {
+
+        /// <summary>
+        /// Engine name. Today only `JSONATA`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        public string Type { get; set; } = default!;
+
+        /// <summary>
+        /// Default template; customers can override per forwarder.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("default")]
+        public string Default { get; set; } = default!;
 
     }
 
