@@ -100,6 +100,7 @@ public sealed class AuditEvents
             input.ResourceType,
             input.ResourceId,
             input.Search,
+            input.DoNotForward,
             input.PageSize,
             input.PageAfter,
             null,
