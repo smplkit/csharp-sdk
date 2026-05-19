@@ -193,7 +193,7 @@ public sealed class LoggersClient
                     Name = logger.Name,
                     Level = logger.Level is null
                         ? null
-                        : (GenLogging.LoggerLevel)System.Enum.Parse(typeof(GenLogging.LoggerLevel), logger.Level.Value.ToWireString()),
+                        : (GenLogging.LogLevel)System.Enum.Parse(typeof(GenLogging.LogLevel), logger.Level.Value.ToWireString()),
                     Group = logger.Group,
                     Managed = logger.Managed,
                     Environments = BuildEnvironmentsPayload(logger.Environments),
