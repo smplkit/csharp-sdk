@@ -10,6 +10,9 @@ using System.Text.Json.Serialization;
 // Each generated client exposes a `static partial void UpdateJsonSerializerSettings`
 // hook on its own partial class. Implementing it registers a global converter that
 // handles every enum in the type graph regardless of nesting.
+//
+// AuditClient's hook lives in Internal/Generated/Audit/AuditClient.partial.cs (it
+// also sets DefaultIgnoreCondition); the remaining four clients are covered below.
 
 namespace Smplkit.Internal.Generated.Logging
 {
