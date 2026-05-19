@@ -101,6 +101,14 @@ public sealed class ListEventsInput
     public string? OccurredAtRange { get; set; }
     /// <summary>Case-insensitive substring match against <c>resource_id</c>.</summary>
     public string? Search { get; set; }
+    /// <summary>
+    /// Restrict to events whose <c>do_not_forward</c> flag matches the given
+    /// boolean. Forwarder previews typically pass <c>false</c> to match
+    /// live-pipeline semantics (events flagged <c>do_not_forward=true</c>
+    /// are skipped by the forwarder pipeline). <c>null</c> leaves the
+    /// filter unset.
+    /// </summary>
+    public bool? DoNotForward { get; set; }
     /// <summary>Page size; default 50, max 200 server-side.</summary>
     public int? PageSize { get; set; }
     /// <summary>Opaque cursor returned as <c>NextCursor</c> by the previous page.</summary>
