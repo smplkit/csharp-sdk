@@ -79,10 +79,11 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>`page[size]` defaults to 1000 and must not exceed 1000.
         /// </remarks>
         /// <param name="filtersearch">Case-insensitive substring match against `resource_id` or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.</param>
+        /// <param name="filterdo_not_forward">When set, restrict to events whose `do_not_forward` flag matches the given boolean. Forwarder previews typically pass `false` to match live-pipeline semantics (events flagged `do_not_forward=true` are skipped by the forwarder pipeline).</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`, `-occurred_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, string? filteractor_id = null, string? filteraction = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, int? pagesize = null, string? pageafter = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, string? filteractor_id = null, string? filteraction = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, bool? filterdo_not_forward = null, int? pagesize = null, string? pageafter = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -512,10 +513,11 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>`page[size]` defaults to 1000 and must not exceed 1000.
         /// </remarks>
         /// <param name="filtersearch">Case-insensitive substring match against `resource_id` or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.</param>
+        /// <param name="filterdo_not_forward">When set, restrict to events whose `do_not_forward` flag matches the given boolean. Forwarder previews typically pass `false` to match live-pipeline semantics (events flagged `do_not_forward=true` are skipped by the forwarder pipeline).</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`, `-occurred_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, string? filteractor_id = null, string? filteraction = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, int? pagesize = null, string? pageafter = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, string? filteractor_id = null, string? filteraction = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, bool? filterdo_not_forward = null, int? pagesize = null, string? pageafter = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -558,6 +560,10 @@ namespace Smplkit.Internal.Generated.Audit
                     if (filtersearch != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[search]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtersearch, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filterdo_not_forward != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[do_not_forward]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterdo_not_forward, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     if (pagesize != null)
                     {
@@ -2662,6 +2668,12 @@ namespace Smplkit.Internal.Generated.Audit
         public string? Filtersearch { get; set; } = default!;
 
         /// <summary>
+        /// When set, restrict to events whose `do_not_forward` flag matches the given boolean. Forwarder previews typically pass `false` to match live-pipeline semantics (events flagged `do_not_forward=true` are skipped by the forwarder pipeline).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("filter[do_not_forward]")]
+        public bool? Filterdo_not_forward { get; set; } = default!;
+
+        /// <summary>
         /// Maximum events to return. Range 1..1000, default 1000 — matches every other list / search endpoint on the platform. Set explicitly to a smaller value when the consumer is rendering results card-by-card.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("page[size]")]
@@ -3719,6 +3731,12 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("timeout_ms")]
         public int? Timeout_ms { get; set; } = default!;
+
+        /// <summary>
+        /// Request body sent to the destination. When omitted, an empty body is sent (suitable for connectivity probes). When set, the body is sent verbatim — pair with an appropriate `Content-Type` entry in `headers` so the destination interprets it correctly. Limit 1 MiB.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("body")]
+        public string? Body { get; set; } = default!;
 
     }
 
