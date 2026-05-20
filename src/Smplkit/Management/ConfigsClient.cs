@@ -57,7 +57,10 @@ public sealed class ConfigsClient
         CancellationToken ct = default)
     {
         var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genClient.List_configsAsync(null, null, pageNumber, pageSize, null, ct)).ConfigureAwait(false);
+            () => _genClient.List_configsAsync(
+                pagenumber: pageNumber,
+                pagesize: pageSize,
+                cancellationToken: ct)).ConfigureAwait(false);
 
         if (response.Data is null)
             return new List<Smplkit.Config.Config>();
