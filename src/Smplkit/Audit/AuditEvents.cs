@@ -26,8 +26,8 @@ public sealed class AuditEvents
     public void Record(CreateEventInput input)
     {
         ArgumentNullException.ThrowIfNull(input);
-        if (string.IsNullOrEmpty(input.Action))
-            throw new ArgumentException("Action is required", nameof(input));
+        if (string.IsNullOrEmpty(input.EventType))
+            throw new ArgumentException("EventType is required", nameof(input));
         if (string.IsNullOrEmpty(input.ResourceType))
             throw new ArgumentException("ResourceType is required", nameof(input));
         if (string.IsNullOrEmpty(input.ResourceId))
@@ -35,7 +35,7 @@ public sealed class AuditEvents
 
         var attrs = new GenAudit.Event
         {
-            Action = input.Action,
+            Event_type = input.EventType,
             Resource_type = input.ResourceType,
             Resource_id = input.ResourceId,
         };
@@ -96,7 +96,7 @@ public sealed class AuditEvents
             input.OccurredAtRange,
             input.ActorType,
             input.ActorId,
-            input.Action,
+            input.EventType,
             input.ResourceType,
             input.ResourceId,
             input.Search,
@@ -133,7 +133,7 @@ public sealed class AuditEvents
         var a = r.Attributes;
         return new AuditEvent(
             string.IsNullOrEmpty(r.Id) ? Guid.Empty : Guid.Parse(r.Id),
-            a.Action ?? string.Empty,
+            a.Event_type ?? string.Empty,
             a.Resource_type ?? string.Empty,
             a.Resource_id ?? string.Empty,
             a.Occurred_at ?? default,

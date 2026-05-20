@@ -8,7 +8,7 @@ namespace Smplkit.Audit;
 /// <para>Sub-clients: <see cref="Events"/> for event recording / listing /
 /// retrieval (fire-and-forget <c>Record</c> plus list/get reads);
 /// <see cref="ResourceTypes"/> for distinct resource_type slugs;
-/// <see cref="Actions"/> for distinct action slugs.</para>
+/// <see cref="EventTypes"/> for distinct event_type slugs.</para>
 ///
 /// <para>SIEM forwarder CRUD lives on the management plane —
 /// <c>SmplManagementClient.Audit.Forwarders</c>.</para>
@@ -21,14 +21,14 @@ public sealed class AuditClient : IAsyncDisposable
     /// <summary>Distinct resource_type slugs sub-client.</summary>
     public AuditResourceTypes ResourceTypes { get; }
 
-    /// <summary>Distinct action slugs sub-client.</summary>
-    public AuditActions Actions { get; }
+    /// <summary>Distinct event_type slugs sub-client.</summary>
+    public AuditEventTypes EventTypes { get; }
 
     internal AuditClient(GenAudit.AuditClient generated)
     {
         Events = new AuditEvents(generated);
         ResourceTypes = new AuditResourceTypes(generated);
-        Actions = new AuditActions(generated);
+        EventTypes = new AuditEventTypes(generated);
     }
 
     /// <inheritdoc />

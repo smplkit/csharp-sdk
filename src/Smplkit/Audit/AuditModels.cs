@@ -6,7 +6,7 @@ namespace Smplkit.Audit;
 /// envelope. ADR-047 §2.3.1.
 /// </summary>
 /// <param name="Id">Server-assigned event id.</param>
-/// <param name="Action"><c>{resource_type}.{verb}</c> per ADR-047 §2.4.</param>
+/// <param name="EventType"><c>{resource_type}.{verb}</c> per ADR-047 §2.4.</param>
 /// <param name="ResourceType">The resource type the event acts on.</param>
 /// <param name="ResourceId">Identifier of the affected resource.</param>
 /// <param name="OccurredAt">When the event happened in the originating system.</param>
@@ -26,7 +26,7 @@ namespace Smplkit.Audit;
 /// <param name="DoNotForward">When true, the event was recorded but not forwarded to any SIEM forwarder.</param>
 public sealed record AuditEvent(
     Guid Id,
-    string Action,
+    string EventType,
     string ResourceType,
     string ResourceId,
     DateTimeOffset OccurredAt,
@@ -49,7 +49,7 @@ public sealed record AuditEvent(
 public sealed class CreateEventInput
 {
     /// <summary><c>{resource_type}.{verb}</c>, e.g. <c>"invoice.created"</c>.</summary>
-    public required string Action { get; set; }
+    public required string EventType { get; set; }
     /// <summary>Resource type the event acts on (must NOT start with <c>smpl.</c>).</summary>
     public required string ResourceType { get; set; }
     /// <summary>Identifier of the affected resource.</summary>
@@ -87,8 +87,8 @@ public sealed class CreateEventInput
 /// <summary>Filters and pagination cursor for <see cref="AuditEvents.ListAsync"/>.</summary>
 public sealed class ListEventsInput
 {
-    /// <summary>Filter by exact-match action.</summary>
-    public string? Action { get; set; }
+    /// <summary>Filter by exact-match event type.</summary>
+    public string? EventType { get; set; }
     /// <summary>Filter by exact-match resource type.</summary>
     public string? ResourceType { get; set; }
     /// <summary>Filter by exact-match resource id.</summary>
@@ -121,7 +121,7 @@ public sealed class ListEventsInput
 public sealed record ListEventsPage(IReadOnlyList<AuditEvent> Events, string? NextCursor);
 
 // ---------------------------------------------------------------------------
-// Resource types and actions
+// Resource types and event types
 // ---------------------------------------------------------------------------
 
 /// <summary>A distinct resource_type slug seen in the account's audit log.</summary>
@@ -145,15 +145,15 @@ public sealed class ListResourceTypesInput
 /// <param name="Pagination">Pagination meta (page, size, and optionally total/total_pages).</param>
 public sealed record ListResourceTypesPage(IReadOnlyList<ResourceType> ResourceTypes, Pagination Pagination);
 
-/// <summary>A distinct action slug seen in the account's audit log.</summary>
-/// <param name="Id">The action slug (same as the JSON:API id).</param>
-/// <param name="CreatedAt">First sighting of this action for the account.</param>
-public sealed record AuditAction(string Id, DateTimeOffset CreatedAt);
+/// <summary>A distinct event type slug seen in the account's audit log.</summary>
+/// <param name="Id">The event type slug (same as the JSON:API id).</param>
+/// <param name="CreatedAt">First sighting of this event type for the account.</param>
+public sealed record AuditEventType(string Id, DateTimeOffset CreatedAt);
 
-/// <summary>Filter + pagination input for <see cref="AuditActions.ListAsync"/>.</summary>
-public sealed class ListActionsInput
+/// <summary>Filter + pagination input for <see cref="AuditEventTypes.ListAsync"/>.</summary>
+public sealed class ListEventTypesInput
 {
-    /// <summary>Restrict to actions seen with this resource type.</summary>
+    /// <summary>Restrict to event types seen with this resource type.</summary>
     public string? FilterResourceType { get; set; }
     /// <summary>1-based page number to fetch.</summary>
     public int? PageNumber { get; set; }
@@ -163,10 +163,10 @@ public sealed class ListActionsInput
     public bool? MetaTotal { get; set; }
 }
 
-/// <summary>One page of <see cref="AuditAction"/>s plus the pagination meta block.</summary>
-/// <param name="Actions">The page's actions.</param>
+/// <summary>One page of <see cref="AuditEventType"/>s plus the pagination meta block.</summary>
+/// <param name="EventTypes">The page's event types.</param>
 /// <param name="Pagination">Pagination meta (page, size, and optionally total/total_pages).</param>
-public sealed record ListActionsPage(IReadOnlyList<AuditAction> Actions, Pagination Pagination);
+public sealed record EventTypeListPage(IReadOnlyList<AuditEventType> EventTypes, Pagination Pagination);
 
 // ---------------------------------------------------------------------------
 // Forwarders (SIEM streaming) — domain models shared with the management plane

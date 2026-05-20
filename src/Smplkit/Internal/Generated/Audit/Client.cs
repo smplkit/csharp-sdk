@@ -83,7 +83,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`, `-occurred_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, string? filteractor_id = null, string? filteraction = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, bool? filterdo_not_forward = null, int? pagesize = null, string? pageafter = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, string? filteractor_id = null, string? filterevent_type = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, bool? filterdo_not_forward = null, int? pagesize = null, string? pageafter = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -310,15 +310,15 @@ namespace Smplkit.Internal.Generated.Audit
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// List Actions
+        /// List Event Types
         /// </summary>
         /// <remarks>
-        /// List the distinct `action` slugs recorded for this account.
+        /// List the distinct `event_type` slugs recorded for this account.
         /// <br/>
         /// <br/>Default sort is `key` ascending; pass `sort=-key` for descending.
         /// <br/>Without `filter[resource_type]`, returns one row per distinct
-        /// <br/>action. With `filter[resource_type]`, returns the actions recorded
-        /// <br/>for that specific resource type.
+        /// <br/>event_type. With `filter[resource_type]`, returns the event_types
+        /// <br/>recorded for that specific resource type.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
@@ -326,7 +326,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ActionListResponse> List_actionsAsync(string? filterresource_type = null, Anonymous4? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<EventTypeListResponse> List_event_typesAsync(string? filterresource_type = null, Anonymous4? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
     }
 
@@ -517,7 +517,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`, `-occurred_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, string? filteractor_id = null, string? filteraction = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, bool? filterdo_not_forward = null, int? pagesize = null, string? pageafter = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, string? filteractor_id = null, string? filterevent_type = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, bool? filterdo_not_forward = null, int? pagesize = null, string? pageafter = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -545,9 +545,9 @@ namespace Smplkit.Internal.Generated.Audit
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[actor_id]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filteractor_id, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
-                    if (filteraction != null)
+                    if (filterevent_type != null)
                     {
-                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[action]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filteraction, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[event_type]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterevent_type, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     if (filterresource_type != null)
                     {
@@ -1998,15 +1998,15 @@ namespace Smplkit.Internal.Generated.Audit
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// List Actions
+        /// List Event Types
         /// </summary>
         /// <remarks>
-        /// List the distinct `action` slugs recorded for this account.
+        /// List the distinct `event_type` slugs recorded for this account.
         /// <br/>
         /// <br/>Default sort is `key` ascending; pass `sort=-key` for descending.
         /// <br/>Without `filter[resource_type]`, returns one row per distinct
-        /// <br/>action. With `filter[resource_type]`, returns the actions recorded
-        /// <br/>for that specific resource type.
+        /// <br/>event_type. With `filter[resource_type]`, returns the event_types
+        /// <br/>recorded for that specific resource type.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
@@ -2014,7 +2014,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ActionListResponse> List_actionsAsync(string? filterresource_type = null, Anonymous4? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<EventTypeListResponse> List_event_typesAsync(string? filterresource_type = null, Anonymous4? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -2027,8 +2027,8 @@ namespace Smplkit.Internal.Generated.Audit
 
                     var urlBuilder_ = new System.Text.StringBuilder();
                     if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
-                    // Operation Path: "api/v1/actions"
-                    urlBuilder_.Append("api/v1/actions");
+                    // Operation Path: "api/v1/event_types"
+                    urlBuilder_.Append("api/v1/event_types");
                     urlBuilder_.Append('?');
                     if (filterresource_type != null)
                     {
@@ -2077,7 +2077,7 @@ namespace Smplkit.Internal.Generated.Audit
                         var status_ = (int)response_.StatusCode;
                         if (status_ == 200)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<ActionListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<EventTypeListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
@@ -2233,81 +2233,6 @@ namespace Smplkit.Internal.Generated.Audit
         }
     }
 
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class ActionAttributes
-    {
-
-        /// <summary>
-        /// The action slug. Same as the JSON:API ``id``.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("action")]
-        public string Action { get; set; } = default!;
-
-        /// <summary>
-        /// First sighting of this action for the account. When the request includes ``filter[resource_type]``, this is the first sighting of the (action, resource_type) triple rather than the action overall.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("created_at")]
-        public System.DateTimeOffset Created_at { get; set; } = default!;
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class ActionListResponse
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("data")]
-        public System.Collections.Generic.List<ActionResource> Data { get; set; } = new System.Collections.Generic.List<ActionResource>();
-
-        [System.Text.Json.Serialization.JsonPropertyName("meta")]
-        public ListMeta Meta { get; set; } = new ListMeta();
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class ActionResource
-    {
-
-        /// <summary>
-        /// The action slug.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("id")]
-        public string Id { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("type")]
-        public string Type { get; set; } = "action";
-
-        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
-        public ActionAttributes Attributes { get; set; } = new ActionAttributes();
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
     /// <summary>
     /// An audit event — a record that something happened, attributed to
     /// <br/>an actor and a resource.
@@ -2323,8 +2248,8 @@ namespace Smplkit.Internal.Generated.Audit
         /// <summary>
         /// What happened, e.g. `user.created`. Any non-empty string.
         /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("action")]
-        public string Action { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("event_type")]
+        public string Event_type { get; set; } = default!;
 
         /// <summary>
         /// Kind of resource the event is about, e.g. `user`. Any non-empty string.
@@ -2626,10 +2551,10 @@ namespace Smplkit.Internal.Generated.Audit
         public object? Filter { get; set; } = default!;
 
         /// <summary>
-        /// Exact match on the event's `action` field.
+        /// Exact match on the event's `event_type` field.
         /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("filter[action]")]
-        public string? Filteraction { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("filter[event_type]")]
+        public string? Filterevent_type { get; set; } = default!;
 
         /// <summary>
         /// Exact match on the event's `resource_type` field.
@@ -2752,6 +2677,81 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("exhausted")]
         public bool Exhausted { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class EventTypeAttributes
+    {
+
+        /// <summary>
+        /// The event_type slug. Same as the JSON:API ``id``.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("event_type")]
+        public string Event_type { get; set; } = default!;
+
+        /// <summary>
+        /// First sighting of this event_type for the account. When the request includes ``filter[resource_type]``, this is the first sighting of the (event_type, resource_type) triple rather than the event_type overall.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("created_at")]
+        public System.DateTimeOffset Created_at { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class EventTypeListResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public System.Collections.Generic.List<EventTypeResource> Data { get; set; } = new System.Collections.Generic.List<EventTypeResource>();
+
+        [System.Text.Json.Serialization.JsonPropertyName("meta")]
+        public ListMeta Meta { get; set; } = new ListMeta();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class EventTypeResource
+    {
+
+        /// <summary>
+        /// The event_type slug.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string Id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        public string Type { get; set; } = "event_type";
+
+        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
+        public EventTypeAttributes Attributes { get; set; } = new EventTypeAttributes();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 

@@ -11,7 +11,7 @@ namespace Smplkit.Tests.Audit;
 
 public class AuditClientTests
 {
-    private const string SuccessJson = "{\"data\":{\"id\":\"00000000-0000-0000-0000-000000000001\",\"type\":\"event\",\"attributes\":{\"action\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"data\":{},\"idempotency_key\":\"\"}}}";
+    private const string SuccessJson = "{\"data\":{\"id\":\"00000000-0000-0000-0000-000000000001\",\"type\":\"event\",\"attributes\":{\"event_type\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"data\":{},\"idempotency_key\":\"\"}}}";
 
     private static (GenAudit.AuditClient gen, HttpClient http, MockHttpMessageHandler mock) MakeGen(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> handler)
@@ -42,7 +42,7 @@ public class AuditClientTests
         {
             client.Events.Record(new CreateEventInput
             {
-                Action = "user.created",
+                EventType = "user.created",
                 ResourceType = "user",
                 ResourceId = $"u-{i}",
             });
@@ -68,7 +68,7 @@ public class AuditClientTests
         var client = new AuditClient(gen);
         Assert.Throws<ArgumentException>(() => client.Events.Record(new CreateEventInput
         {
-            Action = "",
+            EventType = "",
             ResourceType = "user",
             ResourceId = "u-1",
         }));
@@ -93,7 +93,7 @@ public class AuditClientTests
 
         client.Events.Record(new CreateEventInput
         {
-            Action = "user.created",
+            EventType = "user.created",
             ResourceType = "user",
             ResourceId = "u-1",
             IdempotencyKey = "key-abc",
@@ -126,7 +126,7 @@ public class AuditClientTests
 
         client.Events.Record(new CreateEventInput
         {
-            Action = "user.created",
+            EventType = "user.created",
             ResourceType = "user",
             ResourceId = "u-1",
             ActorType = "EXTERNAL_SERVICE",
@@ -152,14 +152,14 @@ public class AuditClientTests
         var (gen, _, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(
-                "{\"data\":{\"id\":\"11111111-2222-3333-4444-555555555555\",\"type\":\"event\",\"attributes\":{\"action\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"data\":{},\"idempotency_key\":\"k\"}}}",
+                "{\"data\":{\"id\":\"11111111-2222-3333-4444-555555555555\",\"type\":\"event\",\"attributes\":{\"event_type\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"data\":{},\"idempotency_key\":\"k\"}}}",
                 Encoding.UTF8, "application/vnd.api+json"),
         }));
         await using var client = new AuditClient(gen);
 
         var ev = await client.Events.GetAsync(eventId);
         Assert.Equal(eventId, ev.Id);
-        Assert.Equal("x.created", ev.Action);
+        Assert.Equal("x.created", ev.EventType);
         Assert.Equal("x", ev.ResourceType);
         Assert.Equal("1", ev.ResourceId);
         Assert.Equal(DateTimeOffset.Parse("2026-05-06T12:00:00Z"), ev.OccurredAt);
@@ -177,7 +177,7 @@ public class AuditClientTests
         var (gen, _, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(
-                "{\"data\":[{\"id\":\"11111111-2222-3333-4444-555555555555\",\"type\":\"event\",\"attributes\":{\"action\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"data\":{},\"idempotency_key\":\"k\"}}],\"meta\":{\"page_size\":1},\"links\":{\"next\":\"/api/v1/events?page[size]=1&page[after]=tok-xyz\"}}",
+                "{\"data\":[{\"id\":\"11111111-2222-3333-4444-555555555555\",\"type\":\"event\",\"attributes\":{\"event_type\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"data\":{},\"idempotency_key\":\"k\"}}],\"meta\":{\"page_size\":1},\"links\":{\"next\":\"/api/v1/events?page[size]=1&page[after]=tok-xyz\"}}",
                 Encoding.UTF8, "application/vnd.api+json"),
         }));
         await using var client = new AuditClient(gen);
@@ -204,7 +204,7 @@ public class AuditClientTests
         var (gen, _, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(
-                "{\"data\":{\"id\":\"11111111-2222-3333-4444-555555555555\",\"type\":\"event\",\"attributes\":{\"action\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"data\":{},\"idempotency_key\":\"\",\"do_not_forward\":true}}}",
+                "{\"data\":{\"id\":\"11111111-2222-3333-4444-555555555555\",\"type\":\"event\",\"attributes\":{\"event_type\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"data\":{},\"idempotency_key\":\"\",\"do_not_forward\":true}}}",
                 Encoding.UTF8, "application/vnd.api+json"),
         }));
         await using var client = new AuditClient(gen);
@@ -229,7 +229,7 @@ public class AuditClientTests
 
         client.Events.Record(new CreateEventInput
         {
-            Action = "invoice.created",
+            EventType = "invoice.created",
             ResourceType = "invoice",
             ResourceId = "u-1",
             DoNotForward = true,

@@ -15,12 +15,12 @@ using Smplkit.Audit;
 using HttpMethod = Smplkit.Audit.HttpMethod;
 
 
-// JSON Logic filter — only forward `invoice.*` actions.
+// JSON Logic filter — only forward `invoice.*` event types.
 // Events that don't match are recorded as `filtered_out` deliveries.
 // See https://jsonlogic.com for the full operator reference.
 var invoiceFilter = new Dictionary<string, object?>
 {
-    ["in"] = new object[] { "invoice.", new Dictionary<string, object?> { ["var"] = "action" } },
+    ["in"] = new object[] { "invoice.", new Dictionary<string, object?> { ["var"] = "event_type" } },
 };
 
 // JSONata template — reshape the event payload before POSTing to the
@@ -28,7 +28,7 @@ var invoiceFilter = new Dictionary<string, object?>
 // record. See https://jsonata.org for the full language reference.
 const string SiemTransform = """
     {
-        "event": action,
+        "event": event_type,
         "subject": resource_type & ":" & resource_id,
         "ts": occurred_at,
         "actor": actor_label
