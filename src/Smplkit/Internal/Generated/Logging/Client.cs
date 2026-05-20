@@ -39,22 +39,24 @@ namespace Smplkit.Internal.Generated.Logging
         /// <br/>
         /// <br/>Default sort is `key` ascending. Supports `filter[managed]` to narrow
         /// <br/>to managed (or unmanaged) loggers, `filter[service]` to keep only
-        /// <br/>loggers observed in a specific service, and `filter[last_seen]`
+        /// <br/>loggers observed in a specific service, `filter[last_seen]`
         /// <br/>(interval notation `[&lt;from&gt;,*)`) to keep only loggers with a source
-        /// <br/>observation at or after the given timestamp.
+        /// <br/>observation at or after the given timestamp, and `filter[search]`
+        /// <br/>for a case-insensitive substring match against `key` or `name`.
         /// <br/>
         /// <br/>``filter[service]`` and ``filter[last_seen]`` are applied via a
         /// <br/>cross-table membership check in Python after the SQL fetch, so
         /// <br/>pagination for those calls is applied in memory after the filter;
         /// <br/>the common path (no source-bound filter) paginates at the SQL level.
         /// </remarks>
+        /// <param name="filtersearch">Case-insensitive substring match against the logger `key` and `name`. A logger is returned if either field contains the search term.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<LoggerListResponse> List_loggersAsync(bool? filtermanaged = null, string? filterservice = null, string? filterlast_seen = null, Sort? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<LoggerListResponse> List_loggersAsync(bool? filtermanaged = null, string? filterservice = null, string? filterlast_seen = null, string? filtersearch = null, Sort? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -302,22 +304,24 @@ namespace Smplkit.Internal.Generated.Logging
         /// <br/>
         /// <br/>Default sort is `key` ascending. Supports `filter[managed]` to narrow
         /// <br/>to managed (or unmanaged) loggers, `filter[service]` to keep only
-        /// <br/>loggers observed in a specific service, and `filter[last_seen]`
+        /// <br/>loggers observed in a specific service, `filter[last_seen]`
         /// <br/>(interval notation `[&lt;from&gt;,*)`) to keep only loggers with a source
-        /// <br/>observation at or after the given timestamp.
+        /// <br/>observation at or after the given timestamp, and `filter[search]`
+        /// <br/>for a case-insensitive substring match against `key` or `name`.
         /// <br/>
         /// <br/>``filter[service]`` and ``filter[last_seen]`` are applied via a
         /// <br/>cross-table membership check in Python after the SQL fetch, so
         /// <br/>pagination for those calls is applied in memory after the filter;
         /// <br/>the common path (no source-bound filter) paginates at the SQL level.
         /// </remarks>
+        /// <param name="filtersearch">Case-insensitive substring match against the logger `key` and `name`. A logger is returned if either field contains the search term.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<LoggerListResponse> List_loggersAsync(bool? filtermanaged = null, string? filterservice = null, string? filterlast_seen = null, Sort? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<LoggerListResponse> List_loggersAsync(bool? filtermanaged = null, string? filterservice = null, string? filterlast_seen = null, string? filtersearch = null, Sort? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -344,6 +348,10 @@ namespace Smplkit.Internal.Generated.Logging
                     if (filterlast_seen != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[last_seen]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterlast_seen, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filtersearch != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[search]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtersearch, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     if (sort != null)
                     {
