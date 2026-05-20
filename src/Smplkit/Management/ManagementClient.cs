@@ -50,7 +50,10 @@ public sealed class EnvironmentsClient
         CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _appClient.List_environmentsAsync(null, pageNumber, pageSize, null, ct)).ConfigureAwait(false);
+            () => _appClient.List_environmentsAsync(
+                pagenumber: pageNumber,
+                pagesize: pageSize,
+                cancellationToken: ct)).ConfigureAwait(false);
         return resp.Data.Select(MapResource).ToList();
     }
 
