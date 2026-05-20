@@ -643,7 +643,10 @@ public sealed class FlagsClient
             async (page, size, c) =>
             {
                 var response = await ApiExceptionMapper.ExecuteAsync(
-                    () => _genFlagsClient.List_flagsAsync(null, null, null, null, null, page, size, null, c)).ConfigureAwait(false);
+                    () => _genFlagsClient.List_flagsAsync(
+                        pagenumber: page,
+                        pagesize: size,
+                        cancellationToken: c)).ConfigureAwait(false);
                 return response.Data?.ToList() ?? new List<GenFlags.FlagResource>();
             }, ct).ConfigureAwait(false);
     }
