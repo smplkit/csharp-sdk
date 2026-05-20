@@ -293,7 +293,7 @@ public sealed class ManagementForwardersClient
 /// Audit management surface — accessed via <c>SmplManagementClient.Audit</c>.
 ///
 /// <para>Currently exposes SIEM forwarder CRUD via <see cref="Forwarders"/>.
-/// Runtime read surfaces (events, resource types, actions) live on
+/// Runtime read surfaces (events, resource types, event types) live on
 /// <c>SmplClient.Audit</c>.</para>
 /// </summary>
 public sealed class AuditManagementClient

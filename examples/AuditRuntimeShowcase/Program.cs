@@ -1,6 +1,6 @@
 // Demonstrates the smplkit runtime SDK for Smpl Audit.
 //
-// Covers: event record / list / get, resource_types list, and actions list.
+// Covers: event record / list / get, resource_types list, and event_types list.
 //
 // Prerequisites:
 //     - dotnet add package Smplkit.Sdk
@@ -23,7 +23,7 @@ using var client = new SmplClient(new SmplClientOptions
 var someResourceId = "showcase-" + Guid.NewGuid().ToString("N")[..8];
 client.Audit.Events.Record(new CreateEventInput
 {
-    Action = "invoice.created",
+    EventType = "invoice.created",
     ResourceType = "invoice",
     ResourceId = someResourceId,
     OccurredAt = DateTimeOffset.UtcNow,
@@ -52,14 +52,14 @@ var page = await client.Audit.Events.ListAsync(new ListEventsInput
 Console.WriteLine($"Found {page.Events.Count} events for {someResourceId}:");
 foreach (var ev in page.Events)
 {
-    Console.WriteLine($"  {ev.Action}  id={ev.Id}  actor={ev.ActorType}");
+    Console.WriteLine($"  {ev.EventType}  id={ev.Id}  actor={ev.ActorType}");
 }
 System.Diagnostics.Debug.Assert(page.Events.Count == 1, $"Expected 1 event, got {page.Events.Count}");
 
 // fetch an event by ID
 var first = await client.Audit.Events.GetAsync(page.Events[0].Id);
-Console.WriteLine($"Round-tripped: {first.Action} at {first.OccurredAt}");
-System.Diagnostics.Debug.Assert(first.Action == "invoice.created");
+Console.WriteLine($"Round-tripped: {first.EventType} at {first.OccurredAt}");
+System.Diagnostics.Debug.Assert(first.EventType == "invoice.created");
 System.Diagnostics.Debug.Assert(first.ResourceType == "invoice");
 System.Diagnostics.Debug.Assert(first.ResourceId == someResourceId);
 
@@ -74,18 +74,18 @@ System.Diagnostics.Debug.Assert(
     rtPage.ResourceTypes.Any(r => r.Id == "invoice"),
     "Expected 'invoice' in resource types");
 
-// list distinct actions (at least "invoice.created" should be present now)
-var actPage = await client.Audit.Actions.ListAsync(new ListActionsInput
+// list distinct event types (at least "invoice.created" should be present now)
+var etPage = await client.Audit.EventTypes.ListAsync(new ListEventTypesInput
 {
     FilterResourceType = "invoice",
 });
-Console.WriteLine($"Actions for 'invoice' ({actPage.Actions.Count}):");
-foreach (var a in actPage.Actions)
+Console.WriteLine($"Event types for 'invoice' ({etPage.EventTypes.Count}):");
+foreach (var a in etPage.EventTypes)
 {
     Console.WriteLine($"  {a.Id}");
 }
 System.Diagnostics.Debug.Assert(
-    actPage.Actions.Any(a => a.Id == "invoice.created"),
-    "Expected 'invoice.created' in actions");
+    etPage.EventTypes.Any(a => a.Id == "invoice.created"),
+    "Expected 'invoice.created' in event types");
 
 Console.WriteLine("Done!");

@@ -14,7 +14,7 @@ namespace Smplkit.Tests.Audit;
 /// </summary>
 public class AuditCoverageTests
 {
-    private const string SuccessJson = "{\"data\":{\"id\":\"00000000-0000-0000-0000-000000000001\",\"type\":\"event\",\"attributes\":{\"action\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"data\":{},\"idempotency_key\":\"\"}}}";
+    private const string SuccessJson = "{\"data\":{\"id\":\"00000000-0000-0000-0000-000000000001\",\"type\":\"event\",\"attributes\":{\"event_type\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"data\":{},\"idempotency_key\":\"\"}}}";
 
     private static (GenAudit.AuditClient gen, HttpClient http) MakeGen(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> handler)
@@ -41,14 +41,14 @@ public class AuditCoverageTests
         // Missing ResourceType
         Assert.Throws<ArgumentException>(() => client.Events.Record(new CreateEventInput
         {
-            Action = "x",
+            EventType = "x",
             ResourceType = "",
             ResourceId = "1",
         }));
         // Missing ResourceId
         Assert.Throws<ArgumentException>(() => client.Events.Record(new CreateEventInput
         {
-            Action = "x",
+            EventType = "x",
             ResourceType = "user",
             ResourceId = "",
         }));
@@ -72,7 +72,7 @@ public class AuditCoverageTests
         await using var client = new AuditClient(gen);
         client.Events.Record(new CreateEventInput
         {
-            Action = "invoice.created",
+            EventType = "invoice.created",
             ResourceType = "invoice",
             ResourceId = "inv-1",
             OccurredAt = new DateTimeOffset(2026, 5, 6, 12, 0, 0, TimeSpan.Zero),
@@ -116,7 +116,7 @@ public class AuditCoverageTests
         await using var client = new AuditClient(gen);
         client.Events.Record(new CreateEventInput
         {
-            Action = "invoice.updated",
+            EventType = "invoice.updated",
             ResourceType = "invoice",
             ResourceId = "inv-1",
             // Data deliberately omitted.
@@ -147,7 +147,7 @@ public class AuditCoverageTests
         await using var client = new AuditClient(gen);
         await client.Events.ListAsync(new ListEventsInput
         {
-            Action = "user.created",
+            EventType = "user.created",
             ResourceType = "user",
             ResourceId = "u-1",
             ActorType = "USER",
@@ -158,7 +158,7 @@ public class AuditCoverageTests
             PageAfter = "cursor-abc",
         });
         var url = capturedUrls[0];
-        Assert.Contains("filter%5Baction%5D=user.created", url);
+        Assert.Contains("filter%5Bevent_type%5D=user.created", url);
         Assert.Contains("filter%5Bsearch%5D=inv-", url);
         Assert.Contains("page%5Bsize%5D=25", url);
         Assert.Contains("page%5Bafter%5D=cursor-abc", url);
@@ -168,7 +168,7 @@ public class AuditCoverageTests
     public async Task EventResource_JsonElement_FalseValueInsideData()
     {
         const string body = """
-            {"data":{"id":"11111111-2222-3333-4444-555555555555","type":"event","attributes":{"action":"x","resource_type":"x","resource_id":"1","occurred_at":"2026-05-06T12:00:00Z","created_at":"2026-05-06T12:00:01Z","actor_type":"USER","actor_id":null,"actor_label":"","data":{"snapshot":{"flag": false}},"idempotency_key":"k"}}}
+            {"data":{"id":"11111111-2222-3333-4444-555555555555","type":"event","attributes":{"event_type":"x","resource_type":"x","resource_id":"1","occurred_at":"2026-05-06T12:00:00Z","created_at":"2026-05-06T12:00:01Z","actor_type":"USER","actor_id":null,"actor_label":"","data":{"snapshot":{"flag": false}},"idempotency_key":"k"}}}
             """;
         var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
@@ -189,7 +189,7 @@ public class AuditCoverageTests
                 "id": "11111111-2222-3333-4444-555555555555",
                 "type": "event",
                 "attributes": {
-                  "action": "x.created",
+                  "event_type": "x.created",
                   "resource_type": "x",
                   "resource_id": "1",
                   "occurred_at": "2026-05-06T12:00:00Z",
@@ -248,7 +248,7 @@ public class AuditCoverageTests
             {
                 client.Events.Record(new CreateEventInput
                 {
-                    Action = "x.created",
+                    EventType = "x.created",
                     ResourceType = "x",
                     ResourceId = i.ToString(),
                 });
@@ -279,7 +279,7 @@ public class AuditCoverageTests
         {
             client.Events.Record(new CreateEventInput
             {
-                Action = "x.created",
+                EventType = "x.created",
                 ResourceType = "x",
                 ResourceId = "1",
             });
@@ -317,7 +317,7 @@ public class AuditCoverageTests
         {
             client.Events.Record(new CreateEventInput
             {
-                Action = "x.created",
+                EventType = "x.created",
                 ResourceType = "x",
                 ResourceId = "1",
             });
@@ -372,7 +372,7 @@ public class AuditCoverageTests
         {
             client.Events.Record(new CreateEventInput
             {
-                Action = "x.created",
+                EventType = "x.created",
                 ResourceType = "x",
                 ResourceId = "1",
             });
@@ -400,7 +400,7 @@ public class AuditCoverageTests
         // "raw is JsonElement but not Object" path in ConvertJsonObject,
         // which falls through to an empty dictionary at the wrapper.
         const string body = """
-            {"data":{"id":"11111111-2222-3333-4444-555555555555","type":"event","attributes":{"action":"x","resource_type":"x","resource_id":"1","occurred_at":"2026-05-06T12:00:00Z","created_at":"2026-05-06T12:00:01Z","actor_type":"USER","actor_id":null,"actor_label":"","data":"unexpected-string","idempotency_key":"k"}}}
+            {"data":{"id":"11111111-2222-3333-4444-555555555555","type":"event","attributes":{"event_type":"x","resource_type":"x","resource_id":"1","occurred_at":"2026-05-06T12:00:00Z","created_at":"2026-05-06T12:00:01Z","actor_type":"USER","actor_id":null,"actor_label":"","data":"unexpected-string","idempotency_key":"k"}}}
             """;
         var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
@@ -440,7 +440,7 @@ public class AuditCoverageTests
             {
                 client.Events.Record(new CreateEventInput
                 {
-                    Action = "x.created",
+                    EventType = "x.created",
                     ResourceType = "x",
                     ResourceId = i.ToString(),
                 });
@@ -483,7 +483,7 @@ public class AuditCoverageTests
             {
                 client.Events.Record(new CreateEventInput
                 {
-                    Action = "x.created",
+                    EventType = "x.created",
                     ResourceType = "x",
                     ResourceId = i.ToString(),
                 });
