@@ -59,7 +59,10 @@ public sealed class LoggersClient
         CancellationToken ct = default)
     {
         var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genClient.List_loggersAsync(null, null, null, null, pageNumber, pageSize, null, ct)).ConfigureAwait(false);
+            () => _genClient.List_loggersAsync(
+                pagenumber: pageNumber,
+                pagesize: pageSize,
+                cancellationToken: ct)).ConfigureAwait(false);
         if (response.Data is null) return new List<Logger>();
         return response.Data.Select(r => MapLoggerResource(r)!).Where(l => l is not null).ToList();
     }
