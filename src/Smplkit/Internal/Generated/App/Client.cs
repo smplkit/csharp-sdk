@@ -10958,28 +10958,10 @@ namespace Smplkit.Internal.Generated.App
         public bool? Show_sample_data { get; set; } = default!;
 
         /// <summary>
-        /// Custom discount percentage applied to the account in place of the volume-based discount schedule. `null` means the volume schedule applies.
+        /// Custom discount percentage applied to the account in place of the volume-based discount schedule. `null` means the volume schedule applies. Who set it, when, and why are captured in the audit-event stream rather than on the subscription row.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("discount_override_pct")]
         public int? Discount_override_pct { get; set; } = default!;
-
-        /// <summary>
-        /// Free-form note explaining why the override was set.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("discount_override_reason")]
-        public string? Discount_override_reason { get; set; } = default!;
-
-        /// <summary>
-        /// UUID of the user who set the override.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("discount_override_set_by_user_id")]
-        public string? Discount_override_set_by_user_id { get; set; } = default!;
-
-        /// <summary>
-        /// When the override was last changed.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("discount_override_set_at")]
-        public System.DateTimeOffset? Discount_override_set_at { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
