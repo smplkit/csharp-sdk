@@ -100,7 +100,10 @@ public sealed class FlagsClient
         CancellationToken ct = default)
     {
         var response = await ApiExceptionMapper.ExecuteAsync(
-            () => _genFlagsClient.List_flagsAsync(null, null, null, null, null, pageNumber, pageSize, null, ct)).ConfigureAwait(false);
+            () => _genFlagsClient.List_flagsAsync(
+                pagenumber: pageNumber,
+                pagesize: pageSize,
+                cancellationToken: ct)).ConfigureAwait(false);
         if (response.Data is null) return new List<Flag>();
         return response.Data.Select(r => MapFlagResource(r)!).Where(f => f is not null).ToList();
     }
