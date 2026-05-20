@@ -231,15 +231,17 @@ namespace Smplkit.Internal.Generated.App
         /// List Environments
         /// </summary>
         /// <remarks>
-        /// List all environments for the authenticated account.
+        /// List all environments for the authenticated account. `filter[search]` does a case-insensitive substring match against the environment `key` and `name`. `filter[classification]` narrows the result to one classification (`STANDARD` or `AD_HOC`).
         /// </remarks>
+        /// <param name="filtersearch">Case-insensitive substring match against the environment `key` and `name`. An environment is returned if either field contains the search term.</param>
+        /// <param name="filterclassification">Narrow the result to environments with the given classification. One of `STANDARD` or `AD_HOC`.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<EnvironmentListResponse> List_environmentsAsync(Sort? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<EnvironmentListResponse> List_environmentsAsync(string? filtersearch = null, string? filterclassification = null, Sort? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -302,15 +304,16 @@ namespace Smplkit.Internal.Generated.App
         /// List API Keys
         /// </summary>
         /// <remarks>
-        /// List all API keys for the authenticated account.
+        /// List all API keys for the authenticated account. `filter[search]` does a case-insensitive substring match against the API key `name`.
         /// </remarks>
+        /// <param name="filtersearch">Case-insensitive substring match against the API key `name`.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `expires_at`, `-expires_at`, `last_used_at`, `-last_used_at`, `name`, `-name`, `status`, `-status`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ApiKeyListResponse> List_api_keysAsync(string? filterstatus = null, Anonymous? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiKeyListResponse> List_api_keysAsync(string? filterstatus = null, string? filtersearch = null, Anonymous? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -513,15 +516,16 @@ namespace Smplkit.Internal.Generated.App
         /// List Services
         /// </summary>
         /// <remarks>
-        /// List all services for the authenticated account.
+        /// List all services for the authenticated account. `filter[search]` does a case-insensitive substring match against the service `key` and `name`.
         /// </remarks>
+        /// <param name="filtersearch">Case-insensitive substring match against the service `key` and `name`. A service is returned if either field contains the search term.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ServiceListResponse> List_servicesAsync(Anonymous4? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ServiceListResponse> List_servicesAsync(string? filtersearch = null, Anonymous4? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -3236,15 +3240,17 @@ namespace Smplkit.Internal.Generated.App
         /// List Environments
         /// </summary>
         /// <remarks>
-        /// List all environments for the authenticated account.
+        /// List all environments for the authenticated account. `filter[search]` does a case-insensitive substring match against the environment `key` and `name`. `filter[classification]` narrows the result to one classification (`STANDARD` or `AD_HOC`).
         /// </remarks>
+        /// <param name="filtersearch">Case-insensitive substring match against the environment `key` and `name`. An environment is returned if either field contains the search term.</param>
+        /// <param name="filterclassification">Narrow the result to environments with the given classification. One of `STANDARD` or `AD_HOC`.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<EnvironmentListResponse> List_environmentsAsync(Sort? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<EnvironmentListResponse> List_environmentsAsync(string? filtersearch = null, string? filterclassification = null, Sort? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -3260,6 +3266,14 @@ namespace Smplkit.Internal.Generated.App
                     // Operation Path: "api/v1/environments"
                     urlBuilder_.Append("api/v1/environments");
                     urlBuilder_.Append('?');
+                    if (filtersearch != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[search]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtersearch, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filterclassification != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[classification]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterclassification, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
                     if (sort != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
@@ -3992,15 +4006,16 @@ namespace Smplkit.Internal.Generated.App
         /// List API Keys
         /// </summary>
         /// <remarks>
-        /// List all API keys for the authenticated account.
+        /// List all API keys for the authenticated account. `filter[search]` does a case-insensitive substring match against the API key `name`.
         /// </remarks>
+        /// <param name="filtersearch">Case-insensitive substring match against the API key `name`.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `expires_at`, `-expires_at`, `last_used_at`, `-last_used_at`, `name`, `-name`, `status`, `-status`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ApiKeyListResponse> List_api_keysAsync(string? filterstatus = null, Anonymous? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ApiKeyListResponse> List_api_keysAsync(string? filterstatus = null, string? filtersearch = null, Anonymous? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -4019,6 +4034,10 @@ namespace Smplkit.Internal.Generated.App
                     if (filterstatus != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[status]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterstatus, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filtersearch != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[search]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtersearch, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     if (sort != null)
                     {
@@ -6163,15 +6182,16 @@ namespace Smplkit.Internal.Generated.App
         /// List Services
         /// </summary>
         /// <remarks>
-        /// List all services for the authenticated account.
+        /// List all services for the authenticated account. `filter[search]` does a case-insensitive substring match against the service `key` and `name`.
         /// </remarks>
+        /// <param name="filtersearch">Case-insensitive substring match against the service `key` and `name`. A service is returned if either field contains the search term.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ServiceListResponse> List_servicesAsync(Anonymous4? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ServiceListResponse> List_servicesAsync(string? filtersearch = null, Anonymous4? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -6187,6 +6207,10 @@ namespace Smplkit.Internal.Generated.App
                     // Operation Path: "api/v1/services"
                     urlBuilder_.Append("api/v1/services");
                     urlBuilder_.Append('?');
+                    if (filtersearch != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[search]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtersearch, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
                     if (sort != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
