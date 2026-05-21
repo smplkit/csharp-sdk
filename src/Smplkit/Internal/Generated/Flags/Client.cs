@@ -2056,7 +2056,7 @@ namespace Smplkit.Internal.Generated.Flags
     {
 
         /// <summary>
-        /// Identifier of the metered limit, e.g. `flags.items`.
+        /// Identifier of the metered limit, e.g. `flags.managed_flags`.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("limit_key")]
         public string Limit_key { get; set; } = default!;
