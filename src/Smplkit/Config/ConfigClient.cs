@@ -68,7 +68,72 @@ public sealed class ConfigClient
         _metrics?.Record("config.resolutions", unit: "resolutions",
             dimensions: new Dictionary<string, string> { ["config"] = id });
 
-        return new LiveConfigProxy(this, id);
+        return CachedProxy(id);
+    }
+
+    private readonly Dictionary<string, LiveConfigProxy> _proxies = new();
+    private readonly object _proxyLock = new();
+
+    /// <summary>
+    /// Declares a configuration from code; returns a live, read-only proxy.
+    /// Idempotent — repeat calls with the same id return the same
+    /// <see cref="LiveConfigProxy"/> instance, so callers can hold one as a
+    /// parent reference. The first call queues a discovery payload (the
+    /// config and any items declared via typed getters on the returned
+    /// handle) for upload to <c>POST /api/v1/configs/bulk</c> on next flush.
+    /// </summary>
+    public LiveConfigProxy GetOrCreate(
+        string id,
+        object? parent = null,
+        string? name = null,
+        string? description = null)
+    {
+        string? parentId = parent switch
+        {
+            string s => s,
+            LiveConfigProxy p => p.ConfigId,
+            null => null,
+            _ => throw new ArgumentException(
+                $"parent must be a string id or LiveConfigProxy; got {parent.GetType().Name}"),
+        };
+        ObserveConfigDeclaration(id, parentId, name, description);
+        EnsureInitialized();
+        return CachedProxy(id);
+    }
+
+    private LiveConfigProxy CachedProxy(string id)
+    {
+        lock (_proxyLock)
+        {
+            if (!_proxies.TryGetValue(id, out var proxy))
+            {
+                proxy = new LiveConfigProxy(this, id);
+                _proxies[id] = proxy;
+            }
+            return proxy;
+        }
+    }
+
+    /// <summary>Internal: queue a config declaration with the management buffer.</summary>
+    internal void ObserveConfigDeclaration(string configId, string? parent, string? name, string? description)
+    {
+        var mgmt = _parent?.Manage;
+        if (mgmt is null) return;
+        mgmt.Config.RegisterConfig(
+            configId,
+            _parent!.Service,
+            _parent.Environment,
+            parent,
+            name,
+            description);
+    }
+
+    /// <summary>Internal: queue a config item declaration with the management buffer.</summary>
+    internal void ObserveItemDeclaration(string configId, string itemKey, string itemType, object? defaultValue, string? description)
+    {
+        var mgmt = _parent?.Manage;
+        if (mgmt is null) return;
+        mgmt.Config.RegisterConfigItem(configId, itemKey, itemType, defaultValue, description);
     }
 
     /// <summary>
@@ -105,6 +170,18 @@ public sealed class ConfigClient
 
             var environment = _parent?.Environment
                 ?? throw new SmplkitException("No environment set.");
+
+            // Per ADR-037 §2.14: flush any buffered discovery declarations
+            // BEFORE the initial fetch so newly-discovered configs appear
+            // in the cache.
+            try
+            {
+                _parent?.Manage?.Config.FlushAsync().GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Log("registration", "pre-start discovery flush failed: " + ex.Message);
+            }
 
             var allConfigs = FetchAllConfigsAsync(default).GetAwaiter().GetResult();
             RebuildCache(allConfigs, environment);

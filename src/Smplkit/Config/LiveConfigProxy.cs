@@ -101,6 +101,77 @@ public sealed class LiveConfigProxy : IReadOnlyDictionary<string, object?>
                 $"Failed to deserialize config '{_configId}' to {typeof(T).Name}");
     }
 
+    // ------------------------------------------------------------------
+    // Typed getters (ADR-037 §2.13)
+    //
+    // Each registers the item (key, type, default, description) on first
+    // call within the process and returns the resolved value. When the
+    // resolved value cannot be coerced to the getter's type — including
+    // the "not yet set on the server" case — the in-code default is
+    // returned and a structured warning is logged.
+    // ------------------------------------------------------------------
+
+    /// <summary>Read a BOOLEAN item, registering the declaration on first call.</summary>
+    public bool GetBool(string key, bool defaultValue, string? description = null)
+    {
+        _client.ObserveItemDeclaration(_configId, key, "BOOLEAN", defaultValue, description);
+        if (!Snapshot().TryGetValue(key, out var value)) return defaultValue;
+        if (value is bool b) return b;
+        Console.Error.WriteLine($"[smplkit] config {_configId} item {key}: expected BOOLEAN, got {value?.GetType().Name ?? "null"}; returning default");
+        return defaultValue;
+    }
+
+    /// <summary>Read a NUMBER item as int, registering the declaration on first call.</summary>
+    public int GetInt(string key, int defaultValue, string? description = null)
+    {
+        _client.ObserveItemDeclaration(_configId, key, "NUMBER", defaultValue, description);
+        if (!Snapshot().TryGetValue(key, out var value)) return defaultValue;
+        if (value is bool) goto mismatch;
+        if (value is int i) return i;
+        if (value is long l) return (int)l;
+        if (value is double d && d == Math.Floor(d)) return (int)d;
+        if (value is System.Text.Json.JsonElement el && el.ValueKind == System.Text.Json.JsonValueKind.Number
+            && el.TryGetInt32(out var iv)) return iv;
+        mismatch:
+        Console.Error.WriteLine($"[smplkit] config {_configId} item {key}: expected NUMBER (int), got {value?.GetType().Name ?? "null"}; returning default");
+        return defaultValue;
+    }
+
+    /// <summary>Read a NUMBER item as double, registering the declaration on first call.</summary>
+    public double GetFloat(string key, double defaultValue, string? description = null)
+    {
+        _client.ObserveItemDeclaration(_configId, key, "NUMBER", defaultValue, description);
+        if (!Snapshot().TryGetValue(key, out var value)) return defaultValue;
+        if (value is bool) goto mismatch;
+        if (value is double d) return d;
+        if (value is int i) return i;
+        if (value is long l) return l;
+        if (value is System.Text.Json.JsonElement el && el.ValueKind == System.Text.Json.JsonValueKind.Number
+            && el.TryGetDouble(out var dv)) return dv;
+        mismatch:
+        Console.Error.WriteLine($"[smplkit] config {_configId} item {key}: expected NUMBER (float), got {value?.GetType().Name ?? "null"}; returning default");
+        return defaultValue;
+    }
+
+    /// <summary>Read a STRING item, registering the declaration on first call.</summary>
+    public string GetString(string key, string defaultValue, string? description = null)
+    {
+        _client.ObserveItemDeclaration(_configId, key, "STRING", defaultValue, description);
+        if (!Snapshot().TryGetValue(key, out var value)) return defaultValue;
+        if (value is string s) return s;
+        if (value is System.Text.Json.JsonElement el && el.ValueKind == System.Text.Json.JsonValueKind.String)
+            return el.GetString() ?? defaultValue;
+        Console.Error.WriteLine($"[smplkit] config {_configId} item {key}: expected STRING, got {value?.GetType().Name ?? "null"}; returning default");
+        return defaultValue;
+    }
+
+    /// <summary>Read a JSON item, registering the declaration on first call.</summary>
+    public object? GetJson(string key, object? defaultValue, string? description = null)
+    {
+        _client.ObserveItemDeclaration(_configId, key, "JSON", defaultValue, description);
+        return Snapshot().TryGetValue(key, out var value) ? value : defaultValue;
+    }
+
     /// <summary>
     /// Register a change listener scoped to this config — sugar for
     /// <c>client.Config.OnChange(configId, callback)</c>.

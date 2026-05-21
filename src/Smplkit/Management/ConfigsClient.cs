@@ -12,11 +12,99 @@ namespace Smplkit.Management;
 /// </summary>
 public sealed class ConfigsClient
 {
+    private const int RegistrationFlushSize = 50;
+
     private readonly GenConfig.ConfigClient _genClient;
+    private readonly ConfigRegistrationBuffer _buffer = new();
 
     internal ConfigsClient(GeneratedClientFactory clients)
     {
         _genClient = clients.Config;
+    }
+
+    /// <summary>
+    /// Internal: queue a configuration declaration for bulk-discovery upload.
+    /// Called by <see cref="Smplkit.Config.ConfigClient.GetOrCreate"/>.
+    /// </summary>
+    internal void RegisterConfig(string configId, string? service, string? environment,
+        string? parent = null, string? name = null, string? description = null)
+    {
+        _buffer.Declare(configId, service, environment, parent, name, description);
+        if (_buffer.PendingCount >= RegistrationFlushSize)
+        {
+            _ = Task.Run(async () => { try { await FlushAsync().ConfigureAwait(false); } catch { } });
+        }
+    }
+
+    /// <summary>
+    /// Internal: queue a config item declaration. Called by typed getters on
+    /// <see cref="Smplkit.Config.LiveConfigProxy"/>.
+    /// </summary>
+    internal void RegisterConfigItem(string configId, string itemKey, string itemType,
+        object? defaultValue, string? description = null)
+    {
+        _buffer.AddItem(configId, itemKey, itemType, defaultValue, description);
+        if (_buffer.PendingCount >= RegistrationFlushSize)
+        {
+            _ = Task.Run(async () => { try { await FlushAsync().ConfigureAwait(false); } catch { } });
+        }
+    }
+
+    /// <summary>Number of pending config declarations awaiting flush.</summary>
+    public int PendingCount => _buffer.PendingCount;
+
+    /// <summary>
+    /// Sends any pending config declarations to <c>POST /api/v1/configs/bulk</c>.
+    /// Per ADR-024 §2.9 the bulk endpoint is plan-limit-exempt; failures here
+    /// never propagate to customer code. Drained entries are not requeued.
+    /// </summary>
+    public async Task FlushAsync(CancellationToken ct = default)
+    {
+        var batch = _buffer.Drain();
+        if (batch.Count == 0) return;
+
+        var items = new List<GenConfig.ConfigBulkItem>(batch.Count);
+        foreach (var entry in batch)
+        {
+            var item = new GenConfig.ConfigBulkItem { Id = entry.Id };
+            if (entry.Service is not null) item.Service = entry.Service;
+            if (entry.Environment is not null) item.Environment = entry.Environment;
+            if (entry.Parent is not null) item.Parent = entry.Parent;
+            if (entry.Name is not null) item.Name = entry.Name;
+            if (entry.Description is not null) item.Description = entry.Description;
+            if (entry.Items.Count > 0)
+            {
+                var dict = new Dictionary<string, GenConfig.ConfigItemDefinition>(entry.Items.Count);
+                foreach (var (key, def) in entry.Items)
+                {
+                    var gd = new GenConfig.ConfigItemDefinition
+                    {
+                        Value = def.DefaultValue!,
+                        Type = def.ItemType switch
+                        {
+                            "STRING" => GenConfig.ConfigItemDefinitionType.STRING,
+                            "NUMBER" => GenConfig.ConfigItemDefinitionType.NUMBER,
+                            "BOOLEAN" => GenConfig.ConfigItemDefinitionType.BOOLEAN,
+                            "JSON" => GenConfig.ConfigItemDefinitionType.JSON,
+                            _ => null,
+                        },
+                    };
+                    if (def.Description is not null) gd.Description = def.Description;
+                    dict[key] = gd;
+                }
+                item.Items = dict;
+            }
+            items.Add(item);
+        }
+        var body = new GenConfig.ConfigBulkRequest { Configs = items };
+        try
+        {
+            await _genClient.Bulk_register_configsAsync(body, ct).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Fire-and-forget per ADR-024 §2.9.
+        }
     }
 
     /// <summary>Creates an unsaved config.</summary>
