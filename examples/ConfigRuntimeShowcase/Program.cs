@@ -57,7 +57,9 @@ try
     await ConfigRuntimeSetup.SimulateAdminOverrideAsync(client.Manage);
 
     // wait for the WebSocket push to deliver the change, then refetch
-    await Task.Delay(1500);
+    var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+    while (DateTime.UtcNow < deadline && billing.GetInt("plan.max_seats", 5) != 25)
+        await Task.Delay(100);
 
     // get the latest value
     var updatedSeats = billing.GetInt("plan.max_seats", 5);

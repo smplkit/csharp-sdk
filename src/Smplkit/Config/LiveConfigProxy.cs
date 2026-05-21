@@ -126,13 +126,14 @@ public sealed class LiveConfigProxy : IReadOnlyDictionary<string, object?>
     {
         _client.ObserveItemDeclaration(_configId, key, "NUMBER", defaultValue, description);
         if (!Snapshot().TryGetValue(key, out var value)) return defaultValue;
-        if (value is bool) goto mismatch;
-        if (value is int i) return i;
-        if (value is long l) return (int)l;
-        if (value is double d && d == Math.Floor(d)) return (int)d;
-        if (value is System.Text.Json.JsonElement el && el.ValueKind == System.Text.Json.JsonValueKind.Number
-            && el.TryGetInt32(out var iv)) return iv;
-        mismatch:
+        if (value is not bool)
+        {
+            if (value is int i) return i;
+            if (value is long l) return (int)l;
+            if (value is double d && d == Math.Floor(d)) return (int)d;
+            if (value is System.Text.Json.JsonElement el && el.ValueKind == System.Text.Json.JsonValueKind.Number
+                && el.TryGetInt32(out var iv)) return iv;
+        }
         Console.Error.WriteLine($"[smplkit] config {_configId} item {key}: expected NUMBER (int), got {value?.GetType().Name ?? "null"}; returning default");
         return defaultValue;
     }
@@ -142,13 +143,14 @@ public sealed class LiveConfigProxy : IReadOnlyDictionary<string, object?>
     {
         _client.ObserveItemDeclaration(_configId, key, "NUMBER", defaultValue, description);
         if (!Snapshot().TryGetValue(key, out var value)) return defaultValue;
-        if (value is bool) goto mismatch;
-        if (value is double d) return d;
-        if (value is int i) return i;
-        if (value is long l) return l;
-        if (value is System.Text.Json.JsonElement el && el.ValueKind == System.Text.Json.JsonValueKind.Number
-            && el.TryGetDouble(out var dv)) return dv;
-        mismatch:
+        if (value is not bool)
+        {
+            if (value is double d) return d;
+            if (value is int i) return i;
+            if (value is long l) return l;
+            if (value is System.Text.Json.JsonElement el && el.ValueKind == System.Text.Json.JsonValueKind.Number
+                && el.TryGetDouble(out var dv)) return dv;
+        }
         Console.Error.WriteLine($"[smplkit] config {_configId} item {key}: expected NUMBER (float), got {value?.GetType().Name ?? "null"}; returning default");
         return defaultValue;
     }

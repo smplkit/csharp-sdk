@@ -173,21 +173,19 @@ public sealed class ConfigClient
 
             // Per ADR-037 §2.14: flush any buffered discovery declarations
             // BEFORE the initial fetch so newly-discovered configs appear
-            // in the cache.
-            try
-            {
-                _parent?.Manage?.Config.FlushAsync().GetAwaiter().GetResult();
-            }
-            catch (Exception ex)
-            {
-                DebugLog.Log("registration", "pre-start discovery flush failed: " + ex.Message);
-            }
+            // in the cache. FlushAsync swallows network/server failures
+            // internally; no outer defensive wrapper needed.
+            _parent?.Manage?.Config.FlushAsync().GetAwaiter().GetResult();
 
             var allConfigs = FetchAllConfigsAsync(default).GetAwaiter().GetResult();
             RebuildCache(allConfigs, environment);
             _runtimeConnected = true;
 
-            // Register on the shared WebSocket
+            // Register on the shared WebSocket. Block on the initial connect
+            // so that any subsequent management mutation that produces a
+            // push event can be received — otherwise the customer can race
+            // their first PUT past the still-connecting socket and miss the
+            // change notification.
             if (_ensureWs is not null)
             {
                 DebugLog.Log("registration", "registering config_changed, config_deleted, and configs_changed handlers");
@@ -195,6 +193,11 @@ public sealed class ConfigClient
                 _wsManager.On("config_changed", HandleConfigChanged);
                 _wsManager.On("config_deleted", HandleConfigDeleted);
                 _wsManager.On("configs_changed", HandleConfigsChanged);
+                // The inner task completes with a bool — never faults — so no
+                // defensive wrapper is needed. We block on it because a customer
+                // PUT immediately after EnsureInitialized must not race the
+                // still-connecting socket and miss the resulting push event.
+                _wsManager.WaitForInitialConnectAsync().GetAwaiter().GetResult();
                 DebugLog.Log("websocket", "config runtime connected");
             }
         }
