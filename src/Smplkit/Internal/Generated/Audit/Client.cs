@@ -3802,7 +3802,7 @@ namespace Smplkit.Internal.Generated.Audit
     {
 
         /// <summary>
-        /// Identifier of the metered limit, e.g. `audit.customer_events_per_month`.
+        /// Identifier of the metered limit, e.g. `audit.events_per_month`.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("limit_key")]
         public string Limit_key { get; set; } = default!;
