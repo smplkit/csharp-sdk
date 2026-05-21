@@ -1175,7 +1175,7 @@ namespace Smplkit.Internal.Generated.Config
     {
 
         /// <summary>
-        /// Identifier of the metered limit, e.g. `config.items` or `config.inheritance_depth`.
+        /// Identifier of the metered limit, e.g. `config.managed_configurations` or `config.inheritance_depth`.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("limit_key")]
         public string Limit_key { get; set; } = default!;
