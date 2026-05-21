@@ -104,6 +104,30 @@ namespace Smplkit.Internal.Generated.Config
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
+        /// Bulk Register Configs
+        /// </summary>
+        /// <remarks>
+        /// Register configs declared by an SDK.
+        /// <br/>
+        /// <br/>For each item in the batch:
+        /// <br/>- If no config with that key exists, create one with ``managed=false``
+        /// <br/>  (auto-discovered) using the declared items, parent, name, and
+        /// <br/>  description.
+        /// <br/>- If a config with that key already exists, leave the config row
+        /// <br/>  untouched (per ADR-024 §2.9).
+        /// <br/>- Either way, upsert a ``config_source`` row for ``(config, service,
+        /// <br/>  environment)`` and refresh its ``last_seen`` timestamp.
+        /// <br/>
+        /// <br/>Per ADR-022 §2.11 rule 2 this endpoint never enforces
+        /// <br/>``config.managed_configurations`` — discovered configs do not consume
+        /// <br/>a managed slot.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<ConfigBulkResponse> Bulk_register_configsAsync(ConfigBulkRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
         /// List Config Usage
         /// </summary>
         /// <remarks>
@@ -617,6 +641,103 @@ namespace Smplkit.Internal.Generated.Config
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
+        /// Bulk Register Configs
+        /// </summary>
+        /// <remarks>
+        /// Register configs declared by an SDK.
+        /// <br/>
+        /// <br/>For each item in the batch:
+        /// <br/>- If no config with that key exists, create one with ``managed=false``
+        /// <br/>  (auto-discovered) using the declared items, parent, name, and
+        /// <br/>  description.
+        /// <br/>- If a config with that key already exists, leave the config row
+        /// <br/>  untouched (per ADR-024 §2.9).
+        /// <br/>- Either way, upsert a ``config_source`` row for ``(config, service,
+        /// <br/>  environment)`` and refresh its ``last_seen`` timestamp.
+        /// <br/>
+        /// <br/>Per ADR-022 §2.11 rule 2 this endpoint never enforces
+        /// <br/>``config.managed_configurations`` — discovered configs do not consume
+        /// <br/>a managed slot.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<ConfigBulkResponse> Bulk_register_configsAsync(ConfigBulkRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        {
+            if (body == null)
+                throw new System.ArgumentNullException("body");
+
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/vnd.api+json");
+                    request_.Content = content_;
+                    request_.Method = new System.Net.Http.HttpMethod("POST");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
+                    // Operation Path: "api/v1/configs/bulk"
+                    urlBuilder_.Append("api/v1/configs/bulk");
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ConfigBulkResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
         /// List Config Usage
         /// </summary>
         /// <remarks>
@@ -893,6 +1014,12 @@ namespace Smplkit.Internal.Generated.Config
         public System.Collections.Generic.IDictionary<string, EnvironmentOverride>? Environments { get; set; } = default!;
 
         /// <summary>
+        /// Whether this config is admin-managed (`true`) or auto-discovered by an SDK and not yet claimed (`false`). Configs created through the console or `POST /api/v1/configs` are always managed. Configs registered via `POST /api/v1/configs/bulk` land unmanaged. Setting this field to `true` on a PUT promotes a discovered config to managed, which consumes a slot of the `config.managed_configurations` entitlement.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("managed")]
+        public bool? Managed { get; set; } = default!;
+
+        /// <summary>
         /// When the config was created.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("created_at")]
@@ -903,6 +1030,118 @@ namespace Smplkit.Internal.Generated.Config
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("updated_at")]
         public System.DateTimeOffset? Updated_at { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// One config declaration reported by an SDK during bulk registration.
+    /// <br/>
+    /// <br/>Each item declares an entire config from code — the config's key,
+    /// <br/>optional parent reference, and the items the calling code uses with
+    /// <br/>their declared types, default values, and descriptions.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ConfigBulkItem
+    {
+
+        /// <summary>
+        /// Config key as declared in code. URL-safe and stable for the lifetime of the config.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string Id { get; set; } = default!;
+
+        /// <summary>
+        /// Display name. Defaults to a humanized version of the `id` when omitted.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string? Name { get; set; } = default!;
+
+        /// <summary>
+        /// Optional human-readable description of the config.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("description")]
+        public string? Description { get; set; } = default!;
+
+        /// <summary>
+        /// Parent config key. Used only when creating a new (discovered) config. Ignored on subsequent observations of an existing config — discovery never modifies parent on a config that already exists.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("parent")]
+        public string? Parent { get; set; } = default!;
+
+        /// <summary>
+        /// Items declared by the SDK with their types, defaults, and descriptions. Used to populate items on a newly-discovered config; ignored on subsequent observations of an existing config.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("items")]
+        public System.Collections.Generic.IDictionary<string, ConfigItemDefinition>? Items { get; set; } = default!;
+
+        /// <summary>
+        /// Service reporting the declaration. Defaults to `unknown`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("service")]
+        public string? Service { get; set; } = default!;
+
+        /// <summary>
+        /// Environment reporting the declaration. Defaults to `unknown`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("environment")]
+        public string? Environment { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Inputs to the bulk-register-configs action.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ConfigBulkRequest
+    {
+
+        /// <summary>
+        /// Configs reported by the SDK in this batch.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("configs")]
+        public System.Collections.Generic.List<ConfigBulkItem> Configs { get; set; } = new System.Collections.Generic.List<ConfigBulkItem>();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Result of a bulk-register-configs action.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ConfigBulkResponse
+    {
+
+        /// <summary>
+        /// Number of items in the batch that were registered or refreshed (i.e. for which a source row was written or updated).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("registered")]
+        public int Registered { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
