@@ -14336,7 +14336,7 @@ namespace Smplkit.Internal.Generated.App
     {
 
         /// <summary>
-        /// Lifecycle state of the subscription. `ACTIVE` while billing is current; `PAST_DUE` after a failed charge; `CANCELED` once the subscription has ended; `null` when the subscription has no billing object (fully comped at 100% discount).
+        /// Lifecycle state of the subscription. `ACTIVE` while billing is current; `PAST_DUE` after a failed charge; `CANCELED` once the subscription has ended; `null` when the subscription is fully discounted (`discount_override_pct` of 100) and has no billing-provider object.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("status")]
         public string? Status { get; set; } = default!;
@@ -14391,7 +14391,7 @@ namespace Smplkit.Internal.Generated.App
         public NextTierResponse? Next_tier { get; set; } = default!;
 
         /// <summary>
-        /// Identifier of the default payment method used to bill this subscription. `null` when the subscription has no associated payment method (e.g. fully comped).
+        /// Identifier of the default payment method used to bill this subscription. `null` when the subscription has no associated payment method (e.g. fully discounted via `discount_override_pct` of 100).
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("payment_method")]
         public System.Guid? Payment_method { get; set; } = default!;
