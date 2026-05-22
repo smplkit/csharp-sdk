@@ -231,17 +231,18 @@ namespace Smplkit.Internal.Generated.App
         /// List Environments
         /// </summary>
         /// <remarks>
-        /// List all environments for the authenticated account. `filter[search]` does a case-insensitive substring match against the environment `key` and `name`. `filter[classification]` narrows the result to one classification (`STANDARD` or `AD_HOC`).
+        /// List all environments for the authenticated account. `filter[search]` does a case-insensitive substring match against the environment `key` and `name`. `filter[classification]` narrows the result to one classification (`STANDARD` or `AD_HOC`). `filter[managed]` narrows by managed state (`true` or `false`).
         /// </remarks>
         /// <param name="filtersearch">Case-insensitive substring match against the environment `key` and `name`. An environment is returned if either field contains the search term.</param>
         /// <param name="filterclassification">Narrow the result to environments with the given classification. One of `STANDARD` or `AD_HOC`.</param>
+        /// <param name="filtermanaged">Narrow the result to managed (`true`) or unmanaged (`false`) environments. Omit to return both.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<EnvironmentListResponse> List_environmentsAsync(string? filtersearch = null, string? filterclassification = null, Sort? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<EnvironmentListResponse> List_environmentsAsync(string? filtersearch = null, string? filterclassification = null, bool? filtermanaged = null, Sort? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -3240,17 +3241,18 @@ namespace Smplkit.Internal.Generated.App
         /// List Environments
         /// </summary>
         /// <remarks>
-        /// List all environments for the authenticated account. `filter[search]` does a case-insensitive substring match against the environment `key` and `name`. `filter[classification]` narrows the result to one classification (`STANDARD` or `AD_HOC`).
+        /// List all environments for the authenticated account. `filter[search]` does a case-insensitive substring match against the environment `key` and `name`. `filter[classification]` narrows the result to one classification (`STANDARD` or `AD_HOC`). `filter[managed]` narrows by managed state (`true` or `false`).
         /// </remarks>
         /// <param name="filtersearch">Case-insensitive substring match against the environment `key` and `name`. An environment is returned if either field contains the search term.</param>
         /// <param name="filterclassification">Narrow the result to environments with the given classification. One of `STANDARD` or `AD_HOC`.</param>
+        /// <param name="filtermanaged">Narrow the result to managed (`true`) or unmanaged (`false`) environments. Omit to return both.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `key`, `-key`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<EnvironmentListResponse> List_environmentsAsync(string? filtersearch = null, string? filterclassification = null, Sort? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<EnvironmentListResponse> List_environmentsAsync(string? filtersearch = null, string? filterclassification = null, bool? filtermanaged = null, Sort? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -3273,6 +3275,10 @@ namespace Smplkit.Internal.Generated.App
                     if (filterclassification != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[classification]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterclassification, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filtermanaged != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[managed]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtermanaged, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     if (sort != null)
                     {
@@ -12128,11 +12134,17 @@ namespace Smplkit.Internal.Generated.App
         public string? Color { get; set; } = default!;
 
         /// <summary>
-        /// `STANDARD` for environments the customer explicitly manages; `AD_HOC` for environments auto-created from SDK traffic. Case-insensitive on input.
+        /// `STANDARD` for environments deliberately created (and shown by default in the environment grid); `AD_HOC` for auto-discovered environments seen in SDK traffic (hidden from the default view). Case-insensitive on input. Independent of the `managed` flag.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("classification")]
         [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<EnvironmentClassification>))]
-        public EnvironmentClassification Classification { get; set; } = Smplkit.Internal.Generated.App.EnvironmentClassification.AD_HOC;
+        public EnvironmentClassification Classification { get; set; } = Smplkit.Internal.Generated.App.EnvironmentClassification.STANDARD;
+
+        /// <summary>
+        /// When `true`, per-environment resource values can be set against this environment and it counts toward the account's managed-environments quota. When `false`, the environment is view-only: existing values are displayed for comparison but no new values can be written. Promotion and demotion flip this boolean via `PUT /api/v1/environments/{id}`; promotion is subject to the quota.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("managed")]
+        public bool Managed { get; set; } = false;
 
         /// <summary>
         /// When the environment was created.
