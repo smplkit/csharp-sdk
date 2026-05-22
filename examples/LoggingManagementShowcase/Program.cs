@@ -34,19 +34,17 @@ await payments.SaveAsync();
 Console.WriteLine($"Created: {payments.Id} (level={payments.Level})");
 System.Diagnostics.Debug.Assert(payments.Level == LogLevel.Warn);
 
-// override log level for different environments
+// override log level for the production environment
 root.SetLevel(LogLevel.Error, environment: "production");
-root.SetLevel(LogLevel.Debug, environment: "staging");
 await root.SaveAsync();
 Console.WriteLine($"Set environment overrides: {root.Environments.Count} environments");
 System.Diagnostics.Debug.Assert(root.Environments.ContainsKey("production"));
-System.Diagnostics.Debug.Assert(root.Environments.ContainsKey("staging"));
 
 // clear environment override (inherits from the default level again)
-root.ClearLevel(environment: "staging");
+root.ClearLevel(environment: "production");
 await root.SaveAsync();
-Console.WriteLine($"Cleared staging override: {root.Environments.Count} environments");
-System.Diagnostics.Debug.Assert(!root.Environments.ContainsKey("staging"));
+Console.WriteLine($"Cleared production override: {root.Environments.Count} environments");
+System.Diagnostics.Debug.Assert(!root.Environments.ContainsKey("production"));
 
 // fetch a logger by id
 var fetched = await mgmt.Loggers.GetAsync("showcase");

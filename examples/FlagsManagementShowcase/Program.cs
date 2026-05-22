@@ -57,25 +57,22 @@ var themeFlag = mgmt.Flags.NewJsonFlag(
 await themeFlag.SaveAsync();
 Console.WriteLine($"Created flag: {themeFlag.Id}");
 
-// checkoutFlag (serve true in staging to enterprise US users)
-checkoutFlag.EnableRules(environment: "staging");
+// checkoutFlag (serve true in production to enterprise US users)
+checkoutFlag.EnableRules(environment: "production");
 checkoutFlag.AddRule(new Rule("Enable for enterprise users in US region")
-    .Environment("staging")
+    .Environment("production")
     .When("user.plan", "==", "enterprise")
     .When("account.region", "==", "us")
     .Serve(true)
     .Build());
 
-// checkoutFlag (serve true in staging for beta testers)
+// checkoutFlag (serve true in production for beta testers)
 checkoutFlag.AddRule(new Rule("Enable for beta testers")
-    .Environment("staging")
+    .Environment("production")
     .When("user.beta_tester", "==", true)
     .Serve(true)
     .Build());
 
-// checkoutFlag (disabled rules; serve false in production)
-checkoutFlag.DisableRules(environment: "production");
-checkoutFlag.SetDefault(false, environment: "production");
 await checkoutFlag.SaveAsync();
 Console.WriteLine($"Updated flag: {checkoutFlag.Id}");
 
@@ -105,11 +102,7 @@ await bannerFlag.SaveAsync();
 Console.WriteLine($"Updated flag: {bannerFlag.Id}");
 
 // delete all the rules of a flag
-checkoutFlag.ClearRules(environment: "staging");
-await checkoutFlag.SaveAsync();
-
-// revert production's default value back to the flag default
-checkoutFlag.ClearDefault(environment: "production");
+checkoutFlag.ClearRules(environment: "production");
 await checkoutFlag.SaveAsync();
 Console.WriteLine($"Updated flag: {checkoutFlag.Id}");
 

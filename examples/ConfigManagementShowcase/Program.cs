@@ -30,7 +30,6 @@ shared.SetNumber("request_timeout_ms", 5000);
 shared.SetNumber("pagination_default_page_size", 25);
 shared.SetNumber("max_retries", 5, environment: "production");
 shared.SetNumber("request_timeout_ms", 10000, environment: "production");
-shared.SetNumber("max_retries", 2, environment: "staging");
 await shared.SaveAsync();
 Console.WriteLine($"Created config: {shared.Id}");
 

@@ -55,7 +55,7 @@ var smallRetailAccount = new Dictionary<string, object?>
 // create the client
 using var client = new SmplClient(new SmplClientOptions
 {
-    Environment = "staging",
+    Environment = "production",
     Service = "showcase-service",
 });
 await FlagsRuntimeSetup.SetupRuntimeShowcaseAsync(client.Manage);
@@ -185,7 +185,7 @@ static async Task UpdateRulesAsync(SmplClient client)
 {
     var currentBanner = await client.Manage.Flags.GetAsync("banner-color");
     currentBanner.AddRule(new Rule("Red for small companies")
-        .Environment("staging")
+        .Environment("production")
         .When("account.employee_count", "<", 50)
         .Serve("red")
         .Build());
