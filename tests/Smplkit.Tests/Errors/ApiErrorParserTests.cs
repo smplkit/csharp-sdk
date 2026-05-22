@@ -122,6 +122,48 @@ public class ApiErrorParserTests
     }
 
     [Fact]
+    public void ErrorsArray_ExtractsCodeAndMeta()
+    {
+        // Regression: ParseErrors was dropping the JSON:API `code` and
+        // `meta` fields, so callers couldn't branch on machine-readable
+        // codes like `environment_unmanaged` (added by the new
+        // product-service env-validation work) without string-matching
+        // the human `detail`.
+        var body = """
+            {"errors":[{
+                "status":"400",
+                "code":"environment_unmanaged",
+                "title":"Environment is unmanaged",
+                "detail":"Promote it first.",
+                "meta":{"environment":"staging","count":2,"is_default":false,"ratio":0.5}
+            }]}
+            """;
+        var ex = Invoke(400, body);
+        var detail = ex.Errors[0];
+        Assert.Equal("environment_unmanaged", detail.Code);
+        Assert.NotNull(detail.Meta);
+        Assert.Equal("staging", detail.Meta!["environment"]);
+        Assert.Equal(2L, detail.Meta["count"]);
+        Assert.Equal(false, detail.Meta["is_default"]);
+        Assert.Equal(0.5, detail.Meta["ratio"]);
+        // ToJsonString round-trips both new fields.
+        var json = detail.ToJsonString();
+        Assert.Contains("\"code\":\"environment_unmanaged\"", json);
+        Assert.Contains("\"meta\":", json);
+    }
+
+    [Fact]
+    public void ErrorsArray_NonObjectMeta_HasNullMeta()
+    {
+        // Malformed meta (e.g. a string where the spec expects an object)
+        // is ignored rather than blowing up.
+        var body = """{"errors":[{"detail":"d","meta":"oops"}]}""";
+        var ex = Invoke(500, body);
+        Assert.Single(ex.Errors);
+        Assert.Null(ex.Errors[0].Meta);
+    }
+
+    [Fact]
     public void ErrorsArray_PartialFields_ParsesAvailableOnes()
     {
         var body = """{"errors":[{"detail":"only detail"}]}""";

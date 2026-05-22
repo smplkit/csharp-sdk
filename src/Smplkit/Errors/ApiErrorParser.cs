@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text.Json;
 
 namespace Smplkit.Errors;
@@ -53,6 +54,9 @@ internal static class ApiErrorParser
                 var status = errorElement.TryGetProperty("status", out var s) && s.ValueKind == JsonValueKind.String
                     ? s.GetString()
                     : null;
+                var code = errorElement.TryGetProperty("code", out var c) && c.ValueKind == JsonValueKind.String
+                    ? c.GetString()
+                    : null;
                 var title = errorElement.TryGetProperty("title", out var t) && t.ValueKind == JsonValueKind.String
                     ? t.GetString()
                     : null;
@@ -71,7 +75,19 @@ internal static class ApiErrorParser
                         source = new ApiErrorSource(pointer);
                 }
 
-                result.Add(new ApiErrorDetail(status, title, detail, source));
+                IReadOnlyDictionary<string, object?>? meta = null;
+                if (errorElement.TryGetProperty("meta", out var metaElement)
+                    && metaElement.ValueKind == JsonValueKind.Object)
+                {
+                    var dict = new Dictionary<string, object?>();
+                    foreach (var prop in metaElement.EnumerateObject())
+                    {
+                        dict[prop.Name] = JsonElementToObject(prop.Value);
+                    }
+                    meta = dict;
+                }
+
+                result.Add(new ApiErrorDetail(status, code, title, detail, source, meta));
             }
 
             return result;
@@ -80,5 +96,26 @@ internal static class ApiErrorParser
         {
             return Array.Empty<ApiErrorDetail>();
         }
+    }
+
+    /// <summary>
+    /// Convert a JsonElement into a native .NET object — string, double,
+    /// long, bool, null, list, or dictionary. Used to decode JSON:API
+    /// <c>meta</c> values without requiring a fixed schema.
+    /// </summary>
+    private static object? JsonElementToObject(JsonElement el)
+    {
+        return el.ValueKind switch
+        {
+            JsonValueKind.String => el.GetString(),
+            JsonValueKind.Number => el.TryGetInt64(out var i) ? (object)i : el.GetDouble(),
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Null => null,
+            JsonValueKind.Array => el.EnumerateArray().Select(JsonElementToObject).ToList(),
+            JsonValueKind.Object => el.EnumerateObject()
+                .ToDictionary(p => p.Name, p => JsonElementToObject(p.Value)),
+            _ => null,
+        };
     }
 }
