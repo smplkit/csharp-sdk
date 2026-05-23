@@ -20,7 +20,7 @@ namespace Smplkit.Tests.Audit;
 /// </summary>
 public class AuditForwardersTests
 {
-    private static readonly Guid FwdId = Guid.Parse("11111111-2222-3333-4444-555555555555");
+    private const string FwdId = "datadog-prod";
 
     private static (GenAudit.AuditClient gen, MockHttpMessageHandler mock) MakeGen(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> handler)
@@ -61,10 +61,11 @@ public class AuditForwardersTests
         var calls = 0;
         var fwds = MakeForwarders(_ => { calls++; return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)); });
         var fwd = fwds.New(
+            key: "k",
             name: "n",
             forwarderType: ForwarderType.Http,
             configuration: new HttpConfiguration { Url = "u" });
-        Assert.Null(fwd.Id);
+        Assert.Equal("k", fwd.Id);
         Assert.Null(fwd.CreatedAt);
         Assert.Equal(0, calls);
     }
@@ -84,6 +85,7 @@ public class AuditForwardersTests
             };
         });
         var fwd = fwds.New(
+            key: FwdId,
             name: "Datadog production",
             forwarderType: ForwarderType.Datadog,
             configuration: new HttpConfiguration
@@ -167,8 +169,11 @@ public class AuditForwardersTests
     public async Task DeleteAsync_WithoutId_Throws()
     {
         var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
-        var fwd = fwds.New("n", ForwarderType.Http, new HttpConfiguration { Url = "u" });
-        // Unsaved — has a client but no id.
+        var fwd = fwds.New("k", "n", ForwarderType.Http, new HttpConfiguration { Url = "u" });
+        // Clear the caller-supplied key to exercise the guard branch — the
+        // public API requires a key at New() time so this state is not
+        // reachable end-to-end, but the guard still needs coverage.
+        fwd.Id = null;
         await Assert.ThrowsAsync<InvalidOperationException>(() => fwd.DeleteAsync());
     }
 
@@ -262,7 +267,7 @@ public class AuditForwardersTests
     public void Forwarder_ToString_IncludesIdNameEnabled()
     {
         var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
-        var fwd = fwds.New("n", ForwarderType.Http, new HttpConfiguration { Url = "u" });
+        var fwd = fwds.New("k", "n", ForwarderType.Http, new HttpConfiguration { Url = "u" });
         var s = fwd.ToString();
         Assert.Contains("Name=n", s);
         Assert.Contains("Enabled=True", s);
@@ -339,7 +344,7 @@ public class AuditForwardersTests
             };
         });
         var fwds = new AuditManagementClient(gen).Forwarders;
-        var fwd = fwds.New("n", type, new HttpConfiguration { Url = "u" });
+        var fwd = fwds.New("k", "n", type, new HttpConfiguration { Url = "u" });
         await fwd.SaveAsync();
         Assert.NotNull(capturedBody);
         Assert.Equal(type, fwd.ForwarderType);
@@ -381,7 +386,7 @@ public class AuditForwardersTests
         var fwds = new AuditManagementClient(gen).Forwarders;
 
         // ToGen default arm — invoked when the customer passes an out-of-range enum.
-        var fwd = fwds.New("n", (ForwarderType)999, new HttpConfiguration { Url = "u" });
+        var fwd = fwds.New("k", "n", (ForwarderType)999, new HttpConfiguration { Url = "u" });
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => fwd.SaveAsync());
 
         // FromGen default arm — invoke via reflection.
@@ -451,7 +456,7 @@ public class AuditForwardersTests
             };
         });
         var fwds = new AuditManagementClient(gen).Forwarders;
-        var fwd = fwds.New("n", ForwarderType.Http, new HttpConfiguration
+        var fwd = fwds.New("k", "n", ForwarderType.Http, new HttpConfiguration
         {
             Url = "u",
             Method = method,
@@ -466,7 +471,7 @@ public class AuditForwardersTests
     {
         var (gen, _) = MakeGen(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
         var fwds = new AuditManagementClient(gen).Forwarders;
-        var fwd = fwds.New("n", ForwarderType.Http, new HttpConfiguration
+        var fwd = fwds.New("k", "n", ForwarderType.Http, new HttpConfiguration
         {
             Url = "u",
             Method = (HttpMethod)999,
@@ -475,14 +480,38 @@ public class AuditForwardersTests
     }
 
     [Fact]
-    public async Task SaveUpdateAsync_NoId_Throws()
+    public async Task SaveCreateAsync_NoId_Throws()
     {
-        // Drive SaveUpdateAsync directly with an unsaved Forwarder (Id is null) —
-        // the guard branch only reachable via reflection because public
-        // SaveAsync would route to SaveCreateAsync instead.
+        // The create guard mirrors the update guard: the audit service
+        // requires a caller-supplied key, so a Forwarder reaching
+        // SaveCreateAsync without one would fail at the wire boundary. The
+        // public API enforces this at New() time, so we clear Id manually
+        // and invoke via reflection to exercise the guard branch.
         var (gen, _) = MakeGen(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
         var fwds = new AuditManagementClient(gen).Forwarders;
-        var fwd = fwds.New("n", ForwarderType.Http, new HttpConfiguration { Url = "u" });
+        var fwd = fwds.New("k", "n", ForwarderType.Http, new HttpConfiguration { Url = "u" });
+        fwd.Id = null;
+        var method = typeof(ManagementForwardersClient).GetMethod(
+            "SaveCreateAsync",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            var task = (Task)method.Invoke(fwds, new object?[] { fwd, default(CancellationToken) })!;
+            await task;
+        });
+    }
+
+    [Fact]
+    public async Task SaveUpdateAsync_NoId_Throws()
+    {
+        // Drive SaveUpdateAsync directly with a Forwarder whose Id has been
+        // cleared — the guard branch is not reachable through the public API
+        // (New requires a key and Apply always preserves the server-returned
+        // id), so we clear it manually and invoke via reflection.
+        var (gen, _) = MakeGen(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var fwds = new AuditManagementClient(gen).Forwarders;
+        var fwd = fwds.New("k", "n", ForwarderType.Http, new HttpConfiguration { Url = "u" });
+        fwd.Id = null;
         var method = typeof(ManagementForwardersClient).GetMethod(
             "SaveUpdateAsync",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
@@ -541,6 +570,7 @@ public class AuditForwardersTests
         // Pairing rule: transform requires transformType. Enforced at New().
         var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
         Assert.Throws<ArgumentException>(() => fwds.New(
+            key: "k",
             name: "n",
             forwarderType: ForwarderType.Http,
             configuration: new HttpConfiguration { Url = "u" },
@@ -552,7 +582,7 @@ public class AuditForwardersTests
     {
         // Pairing rule re-enforced at save time when fields are mutated after New().
         var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
-        var fwd = fwds.New("n", ForwarderType.Http, new HttpConfiguration { Url = "u" });
+        var fwd = fwds.New("k", "n", ForwarderType.Http, new HttpConfiguration { Url = "u" });
         fwd.Transform = "$";
         await Assert.ThrowsAsync<ArgumentException>(() => fwd.SaveAsync());
     }
@@ -563,6 +593,7 @@ public class AuditForwardersTests
         // Pairing rule (reverse direction): transformType requires transform too.
         var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
         var ex = Assert.Throws<ArgumentException>(() => fwds.New(
+            key: "k",
             name: "n",
             forwarderType: ForwarderType.Http,
             configuration: new HttpConfiguration { Url = "u" },
@@ -575,7 +606,7 @@ public class AuditForwardersTests
     {
         // Reverse pairing rule re-enforced at save time.
         var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
-        var fwd = fwds.New("n", ForwarderType.Http, new HttpConfiguration { Url = "u" });
+        var fwd = fwds.New("k", "n", ForwarderType.Http, new HttpConfiguration { Url = "u" });
         fwd.TransformType = TransformType.Jsonata;
         await Assert.ThrowsAsync<ArgumentException>(() => fwd.SaveAsync());
     }
@@ -587,6 +618,7 @@ public class AuditForwardersTests
         // rejected even though the wire field is untyped.
         var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
         var ex = Assert.Throws<ArgumentException>(() => fwds.New(
+            key: "k",
             name: "n",
             forwarderType: ForwarderType.Http,
             configuration: new HttpConfiguration { Url = "u" },
@@ -600,7 +632,7 @@ public class AuditForwardersTests
     {
         // Same constraint re-enforced at save time.
         var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
-        var fwd = fwds.New("n", ForwarderType.Http, new HttpConfiguration { Url = "u" });
+        var fwd = fwds.New("k", "n", ForwarderType.Http, new HttpConfiguration { Url = "u" });
         fwd.TransformType = TransformType.Jsonata;
         fwd.Transform = 42;
         await Assert.ThrowsAsync<ArgumentException>(() => fwd.SaveAsync());
@@ -633,7 +665,7 @@ public class AuditForwardersTests
             };
         });
         var fwds = new AuditManagementClient(gen).Forwarders;
-        var fwd = fwds.New("n", ForwarderType.Http, new HttpConfiguration { Url = "u" }, description: "demo");
+        var fwd = fwds.New("k", "n", ForwarderType.Http, new HttpConfiguration { Url = "u" }, description: "demo");
         await fwd.SaveAsync();
         Assert.Contains("\"description\":\"demo\"", capturedBody!);
     }

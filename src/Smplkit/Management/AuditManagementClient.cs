@@ -24,6 +24,10 @@ public sealed class ManagementForwardersClient
     /// Returns an unsaved <see cref="Forwarder"/> bound to this client. Call
     /// <see cref="Forwarder.SaveAsync"/> to persist.
     /// </summary>
+    /// <param name="key">Caller-supplied forwarder key — required at create
+    /// time (the audit service does not auto-generate it). Use a stable,
+    /// human-readable identifier (e.g. <c>"splunk-prod"</c>); the key is what
+    /// appears in every URL and audit-log line for this forwarder.</param>
     /// <param name="name">Display name. Free-form.</param>
     /// <param name="forwarderType">Destination type — see <see cref="ForwarderType"/>.</param>
     /// <param name="configuration">Destination HTTP request configuration.
@@ -43,6 +47,7 @@ public sealed class ManagementForwardersClient
     /// without <paramref name="transformType"/> throws
     /// <see cref="ArgumentException"/>.</param>
     public Forwarder New(
+        string key,
         string name,
         ForwarderType forwarderType,
         HttpConfiguration configuration,
@@ -62,7 +67,8 @@ public sealed class ManagementForwardersClient
             description: description,
             filter: filter,
             transform: transform,
-            transformType: transformType);
+            transformType: transformType,
+            id: key);
     }
 
     /// <summary>List forwarders for the authenticated account.</summary>
@@ -80,7 +86,7 @@ public sealed class ManagementForwardersClient
 
     /// <summary>Retrieve a single forwarder by id. The returned instance is bound to
     /// this client so <see cref="Forwarder.SaveAsync"/> / <see cref="Forwarder.DeleteAsync"/> work.</summary>
-    public async Task<Forwarder> GetAsync(Guid forwarderId, CancellationToken ct = default)
+    public async Task<Forwarder> GetAsync(string forwarderId, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
             () => _gen.Get_forwarderAsync(forwarderId, ct)).ConfigureAwait(false);
@@ -89,7 +95,7 @@ public sealed class ManagementForwardersClient
 
     /// <summary>Soft-delete a forwarder by id. Prefer <see cref="Forwarder.DeleteAsync"/>
     /// when you already have a <see cref="Forwarder"/> instance.</summary>
-    public Task DeleteAsync(Guid forwarderId, CancellationToken ct = default)
+    public Task DeleteAsync(string forwarderId, CancellationToken ct = default)
         => ApiExceptionMapper.ExecuteAsync(() => _gen.Delete_forwarderAsync(forwarderId, ct));
 
     // ------------------------------------------------------------------
@@ -99,7 +105,9 @@ public sealed class ManagementForwardersClient
     /// <summary>POST a new forwarder. Called by <see cref="Forwarder.SaveAsync"/>; not for direct use.</summary>
     internal async Task<Forwarder> SaveCreateAsync(Forwarder forwarder, CancellationToken ct)
     {
-        var body = WrapForwarder(null, forwarder);
+        if (string.IsNullOrEmpty(forwarder.Id))
+            throw new InvalidOperationException("Cannot create a Forwarder with no key");
+        var body = WrapForwarderForCreate(forwarder);
         var resp = await ApiExceptionMapper.ExecuteAsync(
             () => _gen.Create_forwarderAsync(body, ct)).ConfigureAwait(false);
         return FromResource(resp.Data);
@@ -108,11 +116,11 @@ public sealed class ManagementForwardersClient
     /// <summary>Full-replace PUT. Called by <see cref="Forwarder.SaveAsync"/>; not for direct use.</summary>
     internal async Task<Forwarder> SaveUpdateAsync(Forwarder forwarder, CancellationToken ct)
     {
-        if (forwarder.Id is null)
+        if (string.IsNullOrEmpty(forwarder.Id))
             throw new InvalidOperationException("Cannot update a Forwarder with no id");
-        var body = WrapForwarder(forwarder.Id, forwarder);
+        var body = WrapForwarderForUpdate(forwarder);
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.Update_forwarderAsync(forwarder.Id.Value, body, ct)).ConfigureAwait(false);
+            () => _gen.Update_forwarderAsync(forwarder.Id, body, ct)).ConfigureAwait(false);
         return FromResource(resp.Data);
     }
 
@@ -120,7 +128,14 @@ public sealed class ManagementForwardersClient
     // Wire <-> wrapper conversions
     // ------------------------------------------------------------------
 
-    private static GenAudit.ForwarderRequest WrapForwarder(Guid? id, Forwarder src)
+    /// <summary>
+    /// Build the shared <see cref="GenAudit.Forwarder"/> attribute payload
+    /// from a wrapper instance. Re-validates the transform / transformType
+    /// pairing so mutations made after construction (e.g. setting
+    /// <see cref="Forwarder.Transform"/> on a fetched instance) are caught
+    /// at the wire boundary too.
+    /// </summary>
+    private static GenAudit.Forwarder BuildForwarderAttributes(Forwarder src)
     {
         var attrs = new GenAudit.Forwarder
         {
@@ -135,21 +150,33 @@ public sealed class ManagementForwardersClient
             attrs.Filter = new Dictionary<string, object>(
                 src.Filter.Select(kv => new KeyValuePair<string, object>(kv.Key, kv.Value!)));
         }
-        // Re-validate at the wire boundary so mutations after construction
-        // (e.g. setting Forwarder.Transform on a fetched instance) are caught
-        // here too. ValidateTransformPairing enforces (1) both-or-neither and
-        // (2) string-required-for-JSONATA.
         Forwarder.ValidateTransformPairing(src.Transform, src.TransformType);
         if (src.Transform != null)
         {
             attrs.Transform = src.Transform;
             attrs.Transform_type = src.TransformType!.Value.ToWireValue();
         }
+        return attrs;
+    }
+
+    private static GenAudit.ForwarderCreateRequest WrapForwarderForCreate(Forwarder src)
+    {
+        var r = new GenAudit.ForwarderCreateResource
+        {
+            Id = src.Id!,
+            Type = "forwarder",
+            Attributes = BuildForwarderAttributes(src),
+        };
+        return new GenAudit.ForwarderCreateRequest { Data = r };
+    }
+
+    private static GenAudit.ForwarderRequest WrapForwarderForUpdate(Forwarder src)
+    {
         var r = new GenAudit.ForwarderResource
         {
-            Id = id?.ToString() ?? string.Empty,
+            Id = src.Id,
             Type = "forwarder",
-            Attributes = attrs,
+            Attributes = BuildForwarderAttributes(src),
         };
         return new GenAudit.ForwarderRequest { Data = r };
     }
@@ -193,7 +220,7 @@ public sealed class ManagementForwardersClient
             filter: ConvertJson(a.Filter),
             transform: ConvertTransform(a.Transform),
             transformType: FromGenTransformType(a.Transform_type),
-            id: string.IsNullOrEmpty(r.Id) ? null : Guid.Parse(r.Id),
+            id: string.IsNullOrEmpty(r.Id) ? null : r.Id,
             createdAt: a.Created_at,
             updatedAt: a.Updated_at,
             deletedAt: a.Deleted_at,
