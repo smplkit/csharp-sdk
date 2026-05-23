@@ -42,6 +42,7 @@ var forwarderName = $"showcase-{Guid.NewGuid().ToString("N")[..6]}";
 
 // create a new forwarder
 var forwarder = manage.Audit.Forwarders.New(
+    key: forwarderName,
     name: forwarderName,
     forwarderType: ForwarderType.Http,
     configuration: new HttpConfiguration
@@ -62,7 +63,7 @@ Debug.Assert(listed.Forwarders.Any(f => f.Id == forwarder.Id));
 Console.WriteLine($"Account has {listed.Forwarders.Count} forwarder(s)");
 
 // get a forwarder
-var fetched = await manage.Audit.Forwarders.GetAsync(forwarder.Id!.Value);
+var fetched = await manage.Audit.Forwarders.GetAsync(forwarder.Id!);
 Debug.Assert(fetched.Id == forwarder.Id);
 Debug.Assert(fetched.Enabled == true);
 Console.WriteLine($"Fetched forwarder: {fetched.Name}");

@@ -280,8 +280,11 @@ public sealed class Forwarder
 {
     private readonly Smplkit.Management.ManagementForwardersClient? _client;
 
-    /// <summary>Server-assigned UUID. <c>null</c> until <see cref="SaveAsync"/> has run for the first time.</summary>
-    public Guid? Id { get; internal set; }
+    /// <summary>Caller-supplied key for this forwarder. Required at create
+    /// time (the audit service does not auto-generate it). <c>null</c> until
+    /// <see cref="SaveAsync"/> has run for an unsaved instance constructed
+    /// without an id.</summary>
+    public string? Id { get; internal set; }
     /// <summary>Display name. Free-form.</summary>
     public string Name { get; set; }
     /// <summary>Destination type — see <see cref="Smplkit.Audit.ForwarderType"/>.</summary>
@@ -328,7 +331,7 @@ public sealed class Forwarder
         IDictionary<string, object?>? filter = null,
         object? transform = null,
         TransformType? transformType = null,
-        Guid? id = null,
+        string? id = null,
         DateTimeOffset? createdAt = null,
         DateTimeOffset? updatedAt = null,
         DateTimeOffset? deletedAt = null,
@@ -374,7 +377,7 @@ public sealed class Forwarder
     {
         if (_client is null || Id is null)
             throw new InvalidOperationException("Forwarder was constructed without a client or id; cannot delete.");
-        return _client.DeleteAsync(Id.Value, ct);
+        return _client.DeleteAsync(Id, ct);
     }
 
     /// <summary>Copy every server-authoritative field from <paramref name="other"/> onto self.</summary>
