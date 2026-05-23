@@ -102,12 +102,8 @@ public sealed class ConfigClient
     {
         ArgumentNullException.ThrowIfNull(target);
 
-        lock (_bindingsLock)
-        {
-            if (_bindings.TryGetValue(id, out var existing))
-                return (T)existing;
-        }
-
+        // Parent lookup is read-only and can race safely against other
+        // Binds — it walks _bindings under the lock and returns.
         string? parentId = null;
         if (parent is not null)
         {
@@ -118,35 +114,41 @@ public sealed class ConfigClient
                     "Bind the parent first.", nameof(parent));
         }
 
-        string? configName = null;
-        string? configDescription = null;
-        var isDict = target is IDictionary<string, object?>;
-        if (!isDict)
-        {
-            configName = target.GetType().Name;
-            // No runtime-accessible XML doc comments → no description for POCO bind.
-        }
-
-        ObserveConfigDeclaration(id, parentId, configName, configDescription);
-
-        var items = isDict
-            ? IterDictItems((IDictionary<string, object?>)target)
-            : IterPocoItems(target);
-        foreach (var (key, type, value) in items)
-            ObserveItemDeclaration(id, key, type, value, null);
-
-        // Register the binding BEFORE EnsureInitialized so any WebSocket
-        // dispatch firing during the initial fetch finds it.
+        // Hold the lock for the full registration so two concurrent Binds
+        // for the same id can't both run the discovery / item-declaration
+        // path and then race on `_bindings[id] = …`. The buffer is fast
+        // (in-memory dict mutation), so contention here is negligible.
+        T resolved;
         lock (_bindingsLock)
         {
             if (_bindings.TryGetValue(id, out var existing))
                 return (T)existing;
+
+            string? configName = null;
+            var isDict = target is IDictionary<string, object?>;
+            if (!isDict)
+            {
+                // No runtime-accessible XML doc comments → no description for POCO bind.
+                configName = target.GetType().Name;
+            }
+
+            ObserveConfigDeclaration(id, parentId, configName, description: null);
+
+            var items = isDict
+                ? IterDictItems((IDictionary<string, object?>)target)
+                : IterPocoItems(target);
+            foreach (var (key, type, value) in items)
+                ObserveItemDeclaration(id, key, type, value, null);
+
+            // Register the binding BEFORE EnsureInitialized so any WebSocket
+            // dispatch firing during the initial fetch finds it.
             _bindings[id] = target;
+            resolved = target;
         }
 
         EnsureInitialized();
-        SyncTargetFromCache(target, id);
-        return target;
+        SyncTargetFromCache(resolved, id);
+        return resolved;
     }
 
     // ------------------------------------------------------------------
