@@ -70,19 +70,20 @@ public sealed class LogGroupsClient
     /// <summary>Internal: save a log group (create or update).</summary>
     internal async Task<LogGroup> SaveLogGroupInternalAsync(LogGroup logGroup, CancellationToken ct = default)
     {
-        var body = BuildLogGroupRequestBody(logGroup);
         if (logGroup.CreatedAt is null)
         {
+            var createBody = BuildLogGroupCreateRequestBody(logGroup);
             var response = await ApiExceptionMapper.ExecuteAsync(
-                () => _genClient.Create_log_groupAsync(body, ct)).ConfigureAwait(false);
+                () => _genClient.Create_log_groupAsync(createBody, ct)).ConfigureAwait(false);
             return MapLogGroupResource(response.Data)
                 ?? throw new ValidationException("Failed to create log group");
         }
         else
         {
             var groupId = logGroup.Id ?? throw new ValidationException("Cannot update a log group without an id");
+            var updateBody = BuildLogGroupRequestBody(logGroup);
             var response = await ApiExceptionMapper.ExecuteAsync(
-                () => _genClient.Update_log_groupAsync(groupId, body, ct)).ConfigureAwait(false);
+                () => _genClient.Update_log_groupAsync(groupId, updateBody, ct)).ConfigureAwait(false);
             return MapLogGroupResource(response.Data)
                 ?? throw new ValidationException("Failed to update log group");
         }
@@ -117,15 +118,29 @@ public sealed class LogGroupsClient
             {
                 Type = "log_group",
                 Id = logGroup.Id,
-                Attributes = new GenLogging.LogGroup
-                {
-                    Name = logGroup.Name,
-                    Level = logGroup.Level is null
-                        ? null
-                        : (GenLogging.LogLevel)System.Enum.Parse(typeof(GenLogging.LogLevel), logGroup.Level.Value.ToWireString()),
-                    Parent_id = logGroup.Group,
-                    Environments = LoggersClient.BuildEnvironmentsPayload(logGroup.Environments),
-                },
+                Attributes = BuildLogGroupAttributes(logGroup),
             }
+        };
+
+    private static GenLogging.LogGroupCreateRequest BuildLogGroupCreateRequestBody(LogGroup logGroup) =>
+        new()
+        {
+            Data = new GenLogging.LogGroupCreateResource
+            {
+                Type = "log_group",
+                Id = logGroup.Id ?? throw new ValidationException("Cannot create a log group without an id"),
+                Attributes = BuildLogGroupAttributes(logGroup),
+            }
+        };
+
+    private static GenLogging.LogGroup BuildLogGroupAttributes(LogGroup logGroup) =>
+        new()
+        {
+            Name = logGroup.Name,
+            Level = logGroup.Level is null
+                ? null
+                : (GenLogging.LogLevel)System.Enum.Parse(typeof(GenLogging.LogLevel), logGroup.Level.Value.ToWireString()),
+            Parent_id = logGroup.Group,
+            Environments = LoggersClient.BuildEnvironmentsPayload(logGroup.Environments),
         };
 }
