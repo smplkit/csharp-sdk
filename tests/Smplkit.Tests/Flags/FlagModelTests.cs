@@ -340,6 +340,17 @@ public class FlagModelTests
     }
 
     [Fact]
+    public async Task SaveAsync_OnUnsavedWithoutId_Throws()
+    {
+        // BuildCreateFlagBody requires a caller-supplied id; the create
+        // envelope's data.id is no longer optional.
+        var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
+        var flag = mgmt.Flags.NewBooleanFlag("placeholder", false);
+        flag.Id = null;
+        await Assert.ThrowsAsync<ValidationException>(() => flag.SaveAsync());
+    }
+
+    [Fact]
     public async Task ListAsync_EmptyData_ReturnsEmptyList()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("""{"data":null}""")));
