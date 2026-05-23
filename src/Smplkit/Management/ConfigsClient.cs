@@ -186,19 +186,20 @@ public sealed class ConfigsClient
     /// <summary>Internal: save a config (create or update).</summary>
     internal async Task<Smplkit.Config.Config> SaveConfigInternalAsync(Smplkit.Config.Config config, CancellationToken ct = default)
     {
-        var body = BuildRequestBody(config);
         if (config.CreatedAt is null)
         {
+            var createBody = BuildCreateRequestBody(config);
             var response = await ApiExceptionMapper.ExecuteAsync(
-                () => _genClient.Create_configAsync(body, ct)).ConfigureAwait(false);
+                () => _genClient.Create_configAsync(createBody, ct)).ConfigureAwait(false);
             return MapResource(response.Data)
                 ?? throw new ValidationException("Failed to create config");
         }
         else
         {
             var configId = config.Id ?? throw new ValidationException("Cannot update a config without an id");
+            var updateBody = BuildRequestBody(config);
             var response = await ApiExceptionMapper.ExecuteAsync(
-                () => _genClient.Update_configAsync(configId, body, ct)).ConfigureAwait(false);
+                () => _genClient.Update_configAsync(configId, updateBody, ct)).ConfigureAwait(false);
             return MapResource(response.Data)
                 ?? throw new ValidationException("Failed to update config");
         }
@@ -215,15 +216,29 @@ public sealed class ConfigsClient
             {
                 Type = "config",
                 Id = config.Id,
-                Attributes = new GenConfig.Config
-                {
-                    Name = config.Name,
-                    Description = config.Description,
-                    Parent = config.Parent,
-                    Items = WrapItemsForRequest(config.Items),
-                    Environments = WrapEnvsForRequest(config.Environments),
-                },
+                Attributes = BuildConfigAttributes(config),
             },
+        };
+
+    private static GenConfig.ConfigCreateRequest BuildCreateRequestBody(Smplkit.Config.Config config) =>
+        new()
+        {
+            Data = new GenConfig.ConfigCreateResource
+            {
+                Type = "config",
+                Id = config.Id ?? throw new ValidationException("Cannot create a config without an id"),
+                Attributes = BuildConfigAttributes(config),
+            },
+        };
+
+    private static GenConfig.Config BuildConfigAttributes(Smplkit.Config.Config config) =>
+        new()
+        {
+            Name = config.Name,
+            Description = config.Description,
+            Parent = config.Parent,
+            Items = WrapItemsForRequest(config.Items),
+            Environments = WrapEnvsForRequest(config.Environments),
         };
 
     private static IDictionary<string, GenConfig.ConfigItemDefinition>? WrapItemsForRequest(

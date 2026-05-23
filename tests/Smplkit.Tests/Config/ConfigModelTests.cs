@@ -236,6 +236,17 @@ public class ConfigModelTests
     }
 
     [Fact]
+    public async Task SaveAsync_OnUnsavedWithoutId_Throws()
+    {
+        // BuildCreateRequestBody requires a caller-supplied id; the create
+        // envelope's data.id is no longer optional.
+        var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
+        var cfg = mgmt.Config.New("placeholder");
+        cfg.Id = null;
+        await Assert.ThrowsAsync<ValidationException>(() => cfg.SaveAsync());
+    }
+
+    [Fact]
     public async Task GetAsync_NotFound_Throws()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(
