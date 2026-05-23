@@ -118,12 +118,13 @@ namespace Smplkit.Internal.Generated.Logging
         /// <remarks>
         /// Create a log group.
         /// <br/>
-        /// <br/>The caller may supply a key in `data.id`; if omitted, the server
-        /// <br/>generates one from `name`.
+        /// <br/>The caller supplies the log group's key as `data.id`. The id is
+        /// <br/>required, must be unique within the account across loggers and
+        /// <br/>groups, and is immutable for the lifetime of the group.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<LogGroupResponse> Create_log_groupAsync(LogGroupRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<LogGroupResponse> Create_log_groupAsync(LogGroupCreateRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -967,12 +968,13 @@ namespace Smplkit.Internal.Generated.Logging
         /// <remarks>
         /// Create a log group.
         /// <br/>
-        /// <br/>The caller may supply a key in `data.id`; if omitted, the server
-        /// <br/>generates one from `name`.
+        /// <br/>The caller supplies the log group's key as `data.id`. The id is
+        /// <br/>required, must be unique within the account across loggers and
+        /// <br/>groups, and is immutable for the lifetime of the group.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<LogGroupResponse> Create_log_groupAsync(LogGroupRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<LogGroupResponse> Create_log_groupAsync(LogGroupCreateRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (body == null)
                 throw new System.ArgumentNullException("body");
@@ -2432,6 +2434,60 @@ namespace Smplkit.Internal.Generated.Logging
     }
 
     /// <summary>
+    /// JSON:API request envelope for creating a log group.
+    /// <br/>
+    /// <br/>Distinct from :class:`LogGroupRequest` because create requires
+    /// <br/>caller-supplied ``data.id`` while update does not.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class LogGroupCreateRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public LogGroupCreateResource Data { get; set; } = new LogGroupCreateResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API resource envelope for creating a log group (id required).
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class LogGroupCreateResource
+    {
+
+        /// <summary>
+        /// Client-supplied resource id.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string Id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        public string Type { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
+        public LogGroup Attributes { get; set; } = new LogGroup();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
     /// JSON:API collection response for log groups.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -2456,7 +2512,7 @@ namespace Smplkit.Internal.Generated.Logging
     }
 
     /// <summary>
-    /// JSON:API request envelope for creating or updating a log group.
+    /// JSON:API request envelope for updating a log group.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class LogGroupRequest
