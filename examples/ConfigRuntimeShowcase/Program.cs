@@ -1,15 +1,5 @@
 // Demonstrates the smplkit runtime SDK for Smpl Config.
 //
-// Headline pattern: declare configurations as C# POCOs, `Bind` them to a
-// config id, then use the returned objects directly — property access
-// stays in sync with the server via the SDK's in-memory cache and
-// WebSocket push.
-//
-// Also demonstrates three lower-friction patterns:
-//   - `Bind` with an untyped Dictionary<string, object?>
-//   - `Get(id)` for dict-like lookup of an entire config
-//   - `GetValueOr(id, key, default)` for one-shot reads with fallback
-//
 // Prerequisites:
 //   - dotnet add package Smplkit.Sdk
 //   - A valid smplkit API key, provided via one of:
@@ -34,10 +24,8 @@ try
 {
     await ConfigRuntimeSetup.CleanupRuntimeShowcaseAsync(client.Manage);
 
-    // bind a typed POCO — property access stays in sync with the server
+    // bind POCOs
     var common = client.Config.Bind("showcase-common", new Common());
-
-    // bind a child config — parent activates inheritance at the server
     var billing = client.Config.Bind(
         "showcase-billing",
         new Billing { Plan = new Plan { MaxSeats = 5, TrialDays = 14, Tier = "free" } },
@@ -49,7 +37,7 @@ try
     Debug.Assert(common.App.Name == "Acme SaaS");
     Debug.Assert(billing.Plan.MaxSeats == 5);
 
-    // add a listener if desired
+    // add listeners if desired
     var changes = new List<ConfigChangeEvent>();
     client.Config.OnChange("showcase-billing", "plan.max_seats", evt =>
     {
@@ -84,14 +72,15 @@ try
     Debug.Assert((string)primary["host"]! == "db.acme.example");
     Debug.Assert((int)db["pool_size"]! == 10);
 
-    // or get a config by ID (raises NotFoundException if not found)
+    // or get a config by ID (raises NotFoundException if not found; pass
+    // a default if you want a fallback)
     var commonView = client.Config.Get("showcase-common");
     Console.WriteLine("showcase-common (via Get):");
     foreach (var (k, v) in commonView)
         Console.WriteLine($"    {k} = {v}");
     Debug.Assert((string)commonView["app.name"]! == "Acme SaaS");
 
-    // or skip the POCO/dict and just fetch specific keys with a default
+    // or skip the POCO/dict and just fetch specific keys directly
     var slowQueryMs = client.Config.GetValueOr(
         "showcase-database", "slow_query_threshold_ms", 500);
     Console.WriteLine(
@@ -106,8 +95,8 @@ finally
     await ConfigRuntimeSetup.CleanupRuntimeShowcaseAsync(client.Manage);
 }
 
-// Configuration classes for the showcase. Public auto-properties
-// declare the shape; defaults supply the in-code fallback values.
+// Example POCO configuration classes to showcase how "code-first"
+// configuration management works
 
 public class App
 {

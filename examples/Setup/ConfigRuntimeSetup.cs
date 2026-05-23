@@ -1,9 +1,4 @@
 // Setup and simulation helpers for ConfigRuntimeShowcase.
-//
-// The runtime showcase declares its own configs via client.Config.Bind(),
-// so this helper only handles cleanup and the live admin-override
-// simulation that stands in for an operator editing values in the
-// smplkit console.
 
 using Smplkit;
 using Smplkit.Errors;
