@@ -244,7 +244,7 @@ public sealed class FlagsClient
         return value;
     }
 
-    private static GenFlags.FlagRequest BuildCreateFlagBody(
+    private static GenFlags.FlagCreateRequest BuildCreateFlagBody(
         string? id, string name, string type, object? @default,
         string? description, List<Dictionary<string, object?>>? values,
         Dictionary<string, Dictionary<string, object?>> environments)
@@ -255,12 +255,12 @@ public sealed class FlagsClient
             Value = v.TryGetValue("value", out var val) ? val! : new object(),
         }).ToList();
 
-        return new GenFlags.FlagRequest
+        return new GenFlags.FlagCreateRequest
         {
-            Data = new GenFlags.FlagResource
+            Data = new GenFlags.FlagCreateResource
             {
                 Type = "flag",
-                Id = id,
+                Id = id ?? throw new ValidationException("Cannot create a flag without an id"),
                 Attributes = new GenFlags.Flag
                 {
                     Name = name,
