@@ -71,17 +71,18 @@ public sealed class EnvironmentsClient
 
     internal async Task<Environment> SaveInternalAsync(Environment env, CancellationToken ct)
     {
-        var body = BuildBody(env);
         GenApp.EnvironmentResponse resp;
         if (env.CreatedAt is null)
         {
+            var createBody = BuildCreateBody(env);
             resp = await ApiExceptionMapper.ExecuteAsync(
-                () => _appClient.Create_environmentAsync(body, ct)).ConfigureAwait(false);
+                () => _appClient.Create_environmentAsync(createBody, ct)).ConfigureAwait(false);
         }
         else
         {
+            var updateBody = BuildBody(env);
             resp = await ApiExceptionMapper.ExecuteAsync(
-                () => _appClient.Update_environmentAsync(env.Id!, body, ct)).ConfigureAwait(false);
+                () => _appClient.Update_environmentAsync(env.Id!, updateBody, ct)).ConfigureAwait(false);
         }
         return MapResource(resp.Data);
     }
@@ -107,13 +108,27 @@ public sealed class EnvironmentsClient
             {
                 Id = env.Id,
                 Type = GenApp.EnvironmentResourceType.Environment,
-                Attributes = new GenApp.Environment
-                {
-                    Name = env.Name,
-                    Color = env.Color?.Hex,
-                    Classification = env.Classification.ToWireString(),
-                },
+                Attributes = BuildAttributes(env),
             },
+        };
+
+    private static GenApp.EnvironmentCreateRequest BuildCreateBody(Environment env) =>
+        new()
+        {
+            Data = new GenApp.EnvironmentCreateResource
+            {
+                Id = env.Id ?? throw new ValidationException("Cannot create an environment without an id"),
+                Type = GenApp.EnvironmentCreateResourceType.Environment,
+                Attributes = BuildAttributes(env),
+            },
+        };
+
+    private static GenApp.Environment BuildAttributes(Environment env) =>
+        new()
+        {
+            Name = env.Name,
+            Color = env.Color?.Hex,
+            Classification = env.Classification.ToWireString(),
         };
 }
 
