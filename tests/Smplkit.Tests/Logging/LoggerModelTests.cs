@@ -277,6 +277,17 @@ public class LoggerModelTests
     }
 
     [Fact]
+    public async Task LogGroup_SaveAsync_OnUnsavedWithoutId_Throws()
+    {
+        // BuildLogGroupCreateRequestBody requires a caller-supplied id; the create
+        // envelope's data.id is no longer optional.
+        var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
+        var group = mgmt.LogGroups.New("placeholder");
+        group.Id = null;
+        await Assert.ThrowsAsync<ValidationException>(() => group.SaveAsync());
+    }
+
+    [Fact]
     public void LogGroup_ToString_IncludesIdAndLevel()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
