@@ -182,6 +182,17 @@ public class EnvironmentsClientTests
     }
 
     [Fact]
+    public async Task SaveAsync_OnUnsavedWithoutId_Throws()
+    {
+        // BuildCreateBody requires a caller-supplied id; the create
+        // envelope's data.id is no longer optional.
+        var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
+        var env = mgmt.Environments.New("placeholder", "Placeholder");
+        env.Id = null;
+        await Assert.ThrowsAsync<ValidationException>(() => env.SaveAsync());
+    }
+
+    [Fact]
     public async Task DeleteAsync_OnSavedEnvironment_SendsDelete()
     {
         HttpRequestMessage? captured = null;
