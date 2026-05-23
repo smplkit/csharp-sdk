@@ -141,10 +141,14 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         /// <remarks>
         /// Create a forwarder for this account.
+        /// <br/>
+        /// <br/>The caller supplies the forwarder's key as `data.id`. Keys are
+        /// <br/>unique within an account and immutable for the lifetime of the
+        /// <br/>forwarder.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ForwarderResponse> Create_forwarderAsync(ForwarderRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ForwarderResponse> Create_forwarderAsync(ForwarderCreateRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -175,7 +179,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ForwarderResponse> Get_forwarderAsync(System.Guid forwarder_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ForwarderResponse> Get_forwarderAsync(string forwarder_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -186,7 +190,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ForwarderResponse> Update_forwarderAsync(System.Guid forwarder_id, ForwarderRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ForwarderResponse> Update_forwarderAsync(string forwarder_id, ForwarderRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -196,11 +200,11 @@ namespace Smplkit.Internal.Generated.Audit
         /// Delete a forwarder.
         /// <br/>
         /// <br/>Past delivery log entries are retained. A new forwarder may be
-        /// <br/>created later under the same name.
+        /// <br/>created later under the same id.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task Delete_forwarderAsync(System.Guid forwarder_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task Delete_forwarderAsync(string forwarder_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -217,7 +221,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ForwarderDeliveryListResponse> List_forwarder_deliveriesAsync(System.Guid forwarder_id, string? filterstatus = null, string? filtercreated_at = null, string? filterevent_id = null, int? pagesize = null, string? pageafter = null, Anonymous2? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ForwarderDeliveryListResponse> List_forwarder_deliveriesAsync(string forwarder_id, string? filterstatus = null, string? filtercreated_at = null, string? filterevent_id = null, int? pagesize = null, string? pageafter = null, Anonymous2? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -230,7 +234,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ForwarderDeliveryResponse> Retry_forwarder_deliveryAsync(System.Guid forwarder_id, System.Guid delivery_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ForwarderDeliveryResponse> Retry_forwarder_deliveryAsync(string forwarder_id, System.Guid delivery_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -244,7 +248,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<RetryFailedDeliveriesSummary> Retry_failed_forwarder_deliveriesAsync(System.Guid forwarder_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<RetryFailedDeliveriesSummary> Retry_failed_forwarder_deliveriesAsync(string forwarder_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -914,10 +918,14 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         /// <remarks>
         /// Create a forwarder for this account.
+        /// <br/>
+        /// <br/>The caller supplies the forwarder's key as `data.id`. Keys are
+        /// <br/>unique within an account and immutable for the lifetime of the
+        /// <br/>forwarder.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ForwarderResponse> Create_forwarderAsync(ForwarderRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ForwarderResponse> Create_forwarderAsync(ForwarderCreateRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (body == null)
                 throw new System.ArgumentNullException("body");
@@ -1113,7 +1121,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ForwarderResponse> Get_forwarderAsync(System.Guid forwarder_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ForwarderResponse> Get_forwarderAsync(string forwarder_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (forwarder_id == null)
                 throw new System.ArgumentNullException("forwarder_id");
@@ -1194,7 +1202,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ForwarderResponse> Update_forwarderAsync(System.Guid forwarder_id, ForwarderRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ForwarderResponse> Update_forwarderAsync(string forwarder_id, ForwarderRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (forwarder_id == null)
                 throw new System.ArgumentNullException("forwarder_id");
@@ -1281,11 +1289,11 @@ namespace Smplkit.Internal.Generated.Audit
         /// Delete a forwarder.
         /// <br/>
         /// <br/>Past delivery log entries are retained. A new forwarder may be
-        /// <br/>created later under the same name.
+        /// <br/>created later under the same id.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task Delete_forwarderAsync(System.Guid forwarder_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task Delete_forwarderAsync(string forwarder_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (forwarder_id == null)
                 throw new System.ArgumentNullException("forwarder_id");
@@ -1366,7 +1374,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ForwarderDeliveryListResponse> List_forwarder_deliveriesAsync(System.Guid forwarder_id, string? filterstatus = null, string? filtercreated_at = null, string? filterevent_id = null, int? pagesize = null, string? pageafter = null, Anonymous2? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ForwarderDeliveryListResponse> List_forwarder_deliveriesAsync(string forwarder_id, string? filterstatus = null, string? filtercreated_at = null, string? filterevent_id = null, int? pagesize = null, string? pageafter = null, Anonymous2? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (forwarder_id == null)
                 throw new System.ArgumentNullException("forwarder_id");
@@ -1476,7 +1484,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ForwarderDeliveryResponse> Retry_forwarder_deliveryAsync(System.Guid forwarder_id, System.Guid delivery_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ForwarderDeliveryResponse> Retry_forwarder_deliveryAsync(string forwarder_id, System.Guid delivery_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (forwarder_id == null)
                 throw new System.ArgumentNullException("forwarder_id");
@@ -1567,7 +1575,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<RetryFailedDeliveriesSummary> Retry_failed_forwarder_deliveriesAsync(System.Guid forwarder_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<RetryFailedDeliveriesSummary> Retry_failed_forwarder_deliveriesAsync(string forwarder_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (forwarder_id == null)
                 throw new System.ArgumentNullException("forwarder_id");
@@ -2861,6 +2869,60 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     /// <summary>
+    /// JSON:API request envelope for creating a forwarder.
+    /// <br/>
+    /// <br/>Distinct from :class:`ForwarderRequest` because create requires
+    /// <br/>caller-supplied ``data.id`` while update does not.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ForwarderCreateRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public ForwarderCreateResource Data { get; set; } = new ForwarderCreateResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API resource envelope for creating a forwarder (id required).
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ForwarderCreateResource
+    {
+
+        /// <summary>
+        /// Client-supplied resource id.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string Id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        public string Type { get; set; } = "forwarder";
+
+        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
+        public Forwarder Attributes { get; set; } = new Forwarder();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
     /// A log entry for one attempt to deliver an event to a forwarder.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -3084,7 +3146,7 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     /// <summary>
-    /// JSON:API request envelope for creating or updating a forwarder.
+    /// JSON:API request envelope for updating a forwarder.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ForwarderRequest
@@ -3107,7 +3169,7 @@ namespace Smplkit.Internal.Generated.Audit
     /// <summary>
     /// JSON:API resource envelope for a forwarder.
     /// <br/>
-    /// <br/>`id` must not be specified for create requests (the server assigns it).
+    /// <br/>The caller supplies `id` (the forwarder's key) on create.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ForwarderResource
