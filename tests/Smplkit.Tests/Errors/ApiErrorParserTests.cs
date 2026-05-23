@@ -153,6 +153,55 @@ public class ApiErrorParserTests
     }
 
     [Fact]
+    public void ErrorsArray_MetaCoversAllJsonValueKinds()
+    {
+        // Lock in coverage for every branch of JsonElementToObject —
+        // string, long, double, true, false, null, array, nested object.
+        var body = """
+            {"errors":[{
+                "detail":"d",
+                "meta":{
+                    "s":"abc",
+                    "i":42,
+                    "f":3.14,
+                    "t":true,
+                    "f2":false,
+                    "n":null,
+                    "arr":[1, "two", true],
+                    "obj":{"nested":"yes"}
+                }
+            }]}
+            """;
+        var ex = Invoke(400, body);
+        var meta = ex.Errors[0].Meta!;
+        Assert.Equal("abc", meta["s"]);
+        Assert.Equal(42L, meta["i"]);
+        Assert.Equal(3.14, meta["f"]);
+        Assert.Equal(true, meta["t"]);
+        Assert.Equal(false, meta["f2"]);
+        Assert.Null(meta["n"]);
+        Assert.IsType<List<object?>>(meta["arr"]);
+        Assert.IsType<Dictionary<string, object?>>(meta["obj"]);
+        var nested = (Dictionary<string, object?>)meta["obj"]!;
+        Assert.Equal("yes", nested["nested"]);
+    }
+
+    [Fact]
+    public void JsonElementToObject_UndefinedKind_ReturnsNull()
+    {
+        // Reach the default arm of JsonElementToObject. Normally
+        // unreachable through public meta-parsing (every parsed JSON value
+        // has a definite kind), but a default(JsonElement) has Undefined
+        // and could in principle land in the meta dict from an exotic
+        // caller path; the fallback returns null instead of throwing.
+        var method = typeof(Smplkit.Errors.ApiErrorParser).GetMethod(
+            "JsonElementToObject",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+        var result = method.Invoke(null, new object?[] { default(System.Text.Json.JsonElement) });
+        Assert.Null(result);
+    }
+
+    [Fact]
     public void ErrorsArray_NonObjectMeta_HasNullMeta()
     {
         // Malformed meta (e.g. a string where the spec expects an object)

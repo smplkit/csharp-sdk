@@ -24,7 +24,8 @@ public sealed class ConfigsClient
 
     /// <summary>
     /// Internal: queue a configuration declaration for bulk-discovery upload.
-    /// Called by <see cref="Smplkit.Config.ConfigClient.GetOrCreate"/>.
+    /// Called from <see cref="Smplkit.Config.ConfigClient.Bind{T}(string, T, object?)"/>
+    /// and <see cref="Smplkit.Config.ConfigClient.GetValueOr{T}(string, string, T)"/>.
     /// </summary>
     internal void RegisterConfig(string configId, string? service, string? environment,
         string? parent = null, string? name = null, string? description = null)
@@ -37,8 +38,9 @@ public sealed class ConfigsClient
     }
 
     /// <summary>
-    /// Internal: queue a config item declaration. Called by typed getters on
-    /// <see cref="Smplkit.Config.LiveConfigProxy"/>.
+    /// Internal: queue a config item declaration. Called from
+    /// <see cref="Smplkit.Config.ConfigClient.Bind{T}(string, T, object?)"/>
+    /// and <see cref="Smplkit.Config.ConfigClient.GetValueOr{T}(string, string, T)"/>.
     /// </summary>
     internal void RegisterConfigItem(string configId, string itemKey, string itemType,
         object? defaultValue, string? description = null)

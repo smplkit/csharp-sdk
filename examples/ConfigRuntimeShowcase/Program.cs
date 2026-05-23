@@ -1,12 +1,25 @@
 // Demonstrates the smplkit runtime SDK for Smpl Config.
 //
+// Headline pattern: declare configurations as C# POCOs, `Bind` them to a
+// config id, then use the returned objects directly — property access
+// stays in sync with the server via the SDK's in-memory cache and
+// WebSocket push.
+//
+// Also demonstrates three lower-friction patterns:
+//   - `Bind` with an untyped Dictionary<string, object?>
+//   - `Get(id)` for dict-like lookup of an entire config
+//   - `GetValueOr(id, key, default)` for one-shot reads with fallback
+//
 // Prerequisites:
-//     - dotnet add package Smplkit.Sdk
-//     - A valid smplkit API key
+//   - dotnet add package Smplkit.Sdk
+//   - A valid smplkit API key, provided via one of:
+//       - SMPLKIT_API_KEY environment variable
+//       - ~/.smplkit configuration file (see SDK docs)
 //
 // Usage:
-//     dotnet run --project examples/ConfigRuntimeShowcase
+//   dotnet run --project examples/ConfigRuntimeShowcase
 
+using System.Diagnostics;
 using Smplkit;
 using Smplkit.Config;
 using Smplkit.Examples.Setup;
@@ -19,56 +32,109 @@ using var client = new SmplClient(new SmplClientOptions
 });
 try
 {
-    await ConfigRuntimeSetup.SetupRuntimeShowcaseAsync(client.Manage);
+    await ConfigRuntimeSetup.CleanupRuntimeShowcaseAsync(client.Manage);
 
-    // declare a common/shared configuration
-    var common = client.Config.GetOrCreate(
-        "showcase-common",
-        description: "Shared defaults for showcase services.");
+    // bind a typed POCO — property access stays in sync with the server
+    var common = client.Config.Bind("showcase-common", new Common());
 
-    // declare a configuration that inherits from some parent
-    var billing = client.Config.GetOrCreate(
+    // bind a child config — parent activates inheritance at the server
+    var billing = client.Config.Bind(
         "showcase-billing",
-        parent: common,
-        description: "Plan-limit configuration discovered from code.");
+        new Billing { Plan = new Plan { MaxSeats = 5, TrialDays = 14, Tier = "free" } },
+        parent: common);
 
-    // get a configured value
-    var appName = common.GetString("app.name", "Acme SaaS");
-    var supportEmail = common.GetString("support.email", "support@acme.dev");
-    var maxSeats = billing.GetInt("plan.max_seats", 5, description: "Maximum seats per organization.");
-    var trialDays = billing.GetInt("plan.trial_days", 14);
-    var tier = billing.GetString("plan.tier", "free");
+    Console.WriteLine($"common.App.Name = {common.App.Name}");
+    Console.WriteLine($"billing.App.Name = {billing.App.Name}  // inherited from common");
+    Console.WriteLine($"billing.Plan.MaxSeats = {billing.Plan.MaxSeats}");
+    Debug.Assert(common.App.Name == "Acme SaaS");
+    Debug.Assert(billing.Plan.MaxSeats == 5);
 
-    Console.WriteLine($"app.name = {appName}");
-    Console.WriteLine($"support.email = {supportEmail}");
-    Console.WriteLine($"plan.max_seats = {maxSeats}");
-    Console.WriteLine($"plan.trial_days = {trialDays}");
-    Console.WriteLine($"plan.tier = {tier}");
-
-    // listen for changes
+    // add a listener if desired
     var changes = new List<ConfigChangeEvent>();
-    billing.OnChange("plan.max_seats", evt =>
+    client.Config.OnChange("showcase-billing", "plan.max_seats", evt =>
     {
         changes.Add(evt);
-        Console.WriteLine($"    [CHANGE] {evt.ConfigId}.{evt.ItemKey}: {evt.OldValue} -> {evt.NewValue}");
+        Console.WriteLine(
+            $"    [CHANGE] {evt.ConfigId}.{evt.ItemKey}: {evt.OldValue} -> {evt.NewValue}");
     });
 
-    // simulate someone overriding a value in the console
+    // simulate someone making a change in the smplkit console
     await ConfigRuntimeSetup.SimulateAdminOverrideAsync(client.Manage);
+    await Task.Delay(400);
 
-    // wait for the WebSocket push to deliver the change, then refetch
-    var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-    while (DateTime.UtcNow < deadline && billing.GetInt("plan.max_seats", 5) != 25)
-        await Task.Delay(100);
+    // observe changes are automatically reflected in bound objects
+    Console.WriteLine($"billing.Plan.MaxSeats after override = {billing.Plan.MaxSeats}");
+    Debug.Assert(billing.Plan.MaxSeats == 25, $"Expected 25, got {billing.Plan.MaxSeats}");
+    Debug.Assert(changes.Count >= 1);
 
-    // get the latest value
-    var updatedSeats = billing.GetInt("plan.max_seats", 5);
-    Console.WriteLine($"plan.max_seats after override = {updatedSeats}");
-    System.Diagnostics.Debug.Assert(updatedSeats == 25, $"Expected 25, got {updatedSeats}");
-    System.Diagnostics.Debug.Assert(changes.Count >= 1, "Expected at least one change event");
+    // you can also bind plain-old dictionaries
+    var db = client.Config.Bind("showcase-database", new Dictionary<string, object?>
+    {
+        ["primary"] = new Dictionary<string, object?>
+        {
+            ["host"] = "db.acme.example",
+            ["port"] = 5432,
+        },
+        ["pool_size"] = 10,
+        ["statement_timeout_ms"] = 30000,
+    });
+    var primary = (IDictionary<string, object?>)db["primary"]!;
+    Console.WriteLine($"db[\"primary\"][\"host\"] = {primary["host"]}");
+    Console.WriteLine($"db[\"pool_size\"] = {db["pool_size"]}");
+    Debug.Assert((string)primary["host"]! == "db.acme.example");
+    Debug.Assert((int)db["pool_size"]! == 10);
+
+    // or get a config by ID (raises NotFoundException if not found)
+    var commonView = client.Config.Get("showcase-common");
+    Console.WriteLine("showcase-common (via Get):");
+    foreach (var (k, v) in commonView)
+        Console.WriteLine($"    {k} = {v}");
+    Debug.Assert((string)commonView["app.name"]! == "Acme SaaS");
+
+    // or skip the POCO/dict and just fetch specific keys with a default
+    var slowQueryMs = client.Config.GetValueOr(
+        "showcase-database", "slow_query_threshold_ms", 500);
+    Console.WriteLine(
+        $"showcase-database.slow_query_threshold_ms = {slowQueryMs}  " +
+        "// default used; now registered for visibility");
+    Debug.Assert(slowQueryMs == 500);
+
+    Console.WriteLine("Done!");
 }
 finally
 {
     await ConfigRuntimeSetup.CleanupRuntimeShowcaseAsync(client.Manage);
 }
-Console.WriteLine("Done!");
+
+// Configuration classes for the showcase. Public auto-properties
+// declare the shape; defaults supply the in-code fallback values.
+
+public class App
+{
+    public string Name { get; set; } = "Acme SaaS";
+}
+
+public class Support
+{
+    public string Email { get; set; } = "support@acme.dev";
+}
+
+public class Plan
+{
+    public int MaxSeats { get; set; } = 5;
+    public int TrialDays { get; set; } = 14;
+    public string Tier { get; set; } = "free";
+}
+
+public class Common
+{
+    public App App { get; set; } = new();
+    public Support Support { get; set; } = new();
+}
+
+public class Billing
+{
+    public App App { get; set; } = new();
+    public Support Support { get; set; } = new();
+    public Plan Plan { get; set; } = new();
+}

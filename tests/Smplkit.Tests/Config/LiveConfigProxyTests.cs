@@ -9,8 +9,8 @@ using Xunit;
 namespace Smplkit.Tests.Config;
 
 /// <summary>
-/// Tests for <see cref="LiveConfigProxy"/> — PR #127 rule 10. The proxy is
-/// dict-like, identity-stable, read-only, and reflects live cache state.
+/// Tests for <see cref="LiveConfigProxy"/>: dict-like access, identity
+/// stability, read-only mutation guards, listener sugar.
 /// </summary>
 public class LiveConfigProxyTests
 {
@@ -103,7 +103,7 @@ public class LiveConfigProxyTests
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json(ConfigListJson)));
         var proxy = client.Config.Get("user-svc");
-        Assert.Equal(3, proxy.Count); // host + retries + database.port
+        Assert.Equal(3, proxy.Count);
     }
 
     [Fact]
@@ -122,10 +122,25 @@ public class LiveConfigProxyTests
         var (client, _) = MakeClient(_ => Task.FromResult(Json(ConfigListJson)));
         var proxy = client.Config.Get("user-svc");
         var seen = new HashSet<string>();
-        foreach (var kv in proxy)
-            seen.Add(kv.Key);
+        foreach (var kv in proxy) seen.Add(kv.Key);
         Assert.Contains("host", seen);
         Assert.Contains("retries", seen);
+    }
+
+    [Fact]
+    public void NonGenericEnumeration_AlsoWorks()
+    {
+        // Cover the IEnumerable.GetEnumerator() explicit interface path.
+        var (client, _) = MakeClient(_ => Task.FromResult(Json(ConfigListJson)));
+        var proxy = client.Config.Get("user-svc");
+        var seen = new List<string>();
+        var enumerable = (System.Collections.IEnumerable)proxy;
+        foreach (var item in enumerable)
+        {
+            var kv = (KeyValuePair<string, object?>)item;
+            seen.Add(kv.Key);
+        }
+        Assert.Contains("host", seen);
     }
 
     [Fact]
@@ -145,84 +160,9 @@ public class LiveConfigProxyTests
         Assert.Null(proxy.GetOrDefault("nope"));
     }
 
-    public sealed class UserSvc { public string? Host { get; set; } public int Retries { get; set; } }
-
-    [Fact]
-    public void Into_DeserializesToTypedModel()
-    {
-        var (client, _) = MakeClient(_ => Task.FromResult(Json(ConfigListJson)));
-        var proxy = client.Config.Get("user-svc");
-        var typed = proxy.Into<UserSvc>();
-        Assert.Equal("test-host", typed.Host);
-        Assert.Equal(3, typed.Retries);
-    }
-
-    public sealed class Db { public string? Host { get; set; } public int Port { get; set; } }
-    public sealed class Cfg { public Db Database { get; set; } = new(); }
-
-    [Fact]
-    public void Into_ExpandsDotNotation()
-    {
-        var (client, _) = MakeClient(_ => Task.FromResult(Json(ConfigListJson)));
-        var proxy = client.Config.Get("user-svc");
-        var typed = proxy.Into<Cfg>();
-        Assert.Equal(5432, typed.Database.Port);
-    }
-
-    // Regression: config items come back snake_cased on the wire (e.g.
-    // "max_retries"); the typed model is PascalCase ("MaxRetries"). The
-    // default JsonOptions used CamelCase naming which couldn't bridge
-    // that gap and silently left every snake_cased property at its
-    // default value. Lock the snake_case mapping here so the bug can't
-    // return.
-    public sealed class SnakeModel
-    {
-        public int MaxRetries { get; set; }
-        public string? AppName { get; set; }
-        public bool EnableSignup { get; set; }
-    }
-
-    private const string SnakeKeysJson = """
-        {
-            "data": [
-                {
-                    "id": "snake-svc",
-                    "type": "config",
-                    "attributes": {
-                        "id": "snake-svc",
-                        "name": "Snake Service",
-                        "description": null,
-                        "parent": null,
-                        "items": {
-                            "max_retries": {"value": 7, "type": "NUMBER"},
-                            "app_name": {"value": "Acme", "type": "STRING"},
-                            "enable_signup": {"value": true, "type": "BOOLEAN"}
-                        },
-                        "environments": {},
-                        "created_at": "2024-01-15T10:30:00Z",
-                        "updated_at": "2024-01-15T10:30:00Z"
-                    }
-                }
-            ]
-        }
-        """;
-
-    [Fact]
-    public void Into_MapsSnakeCaseKeysToPascalCaseProperties()
-    {
-        var (client, _) = MakeClient(_ => Task.FromResult(Json(SnakeKeysJson)));
-        var proxy = client.Config.Get("snake-svc");
-        var typed = proxy.Into<SnakeModel>();
-        Assert.Equal(7, typed.MaxRetries);
-        Assert.Equal("Acme", typed.AppName);
-        Assert.True(typed.EnableSignup);
-    }
-
     [Fact]
     public async Task Live_ReflectsCacheUpdates()
     {
-        // Two list responses: first has host=local, second has host=updated.
-        // After RefreshAsync, the same proxy reflects the new value.
         int call = 0;
         var updated = ConfigListJson.Replace("\"localhost\"", "\"updated-host\"");
         var (client, _) = MakeClient(_ =>
@@ -234,8 +174,8 @@ public class LiveConfigProxyTests
         var initial = proxy["host"];
         await client.Config.RefreshAsync();
         var afterRefresh = proxy["host"];
-        // env override "test-host" still wins; refresh doesn't change that here.
-        // What we're verifying is the proxy doesn't cache stale data — every read goes through cache.
+        // env override "test-host" still wins; what we verify is that the
+        // proxy doesn't cache stale data — every read goes through cache.
         Assert.Equal(initial, afterRefresh);
         Assert.NotNull(initial);
     }
@@ -248,7 +188,6 @@ public class LiveConfigProxyTests
         var fired = new List<ConfigChangeEvent>();
         proxy.OnChange(evt => fired.Add(evt));
 
-        // Drive a change via DiffAndFire reflection
         var oldCache = new Dictionary<string, Dictionary<string, object?>>
         {
             ["user-svc"] = new() { ["host"] = "old" },
@@ -257,13 +196,12 @@ public class LiveConfigProxyTests
         var newCache = new Dictionary<string, Dictionary<string, object?>>
         {
             ["user-svc"] = new() { ["host"] = "new" },
-            ["other"] = new() { ["k"] = "x" }, // change in another config
+            ["other"] = new() { ["k"] = "x" },
         };
         var method = typeof(ConfigClient).GetMethod("DiffAndFire",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
         method.Invoke(client.Config, new object?[] { oldCache, newCache, "test" });
 
-        // Only the user-svc change should fire on this proxy.
         Assert.Single(fired);
         Assert.Equal("user-svc", fired[0].ConfigId);
     }
@@ -288,7 +226,6 @@ public class LiveConfigProxyTests
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
         method.Invoke(client.Config, new object?[] { oldCache, newCache, "test" });
 
-        // Only the host change should fire — not "other".
         Assert.Single(fired);
         Assert.Equal("host", fired[0].ItemKey);
     }
@@ -309,11 +246,20 @@ public class LiveConfigProxyTests
     }
 
     [Fact]
-    public void GetTyped_DeserializesViaProxyInto()
+    public void Snapshot_NotFoundAfterCacheEviction_Throws()
     {
+        // Cover the LiveConfigProxy.Snapshot null-cache path: build a proxy
+        // for a config that exists, then evict it from the cache and re-read.
         var (client, _) = MakeClient(_ => Task.FromResult(Json(ConfigListJson)));
-        var typed = client.Config.Get<UserSvc>("user-svc");
-        Assert.Equal("test-host", typed.Host);
-        Assert.Equal(3, typed.Retries);
+        var proxy = client.Config.Get("user-svc");
+        // Sanity: read once to confirm it works.
+        _ = proxy["host"];
+
+        var cacheField = typeof(ConfigClient).GetField("_configCache",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var cache = (Dictionary<string, Dictionary<string, object?>>)cacheField.GetValue(client.Config)!;
+        cache.Remove("user-svc");
+
+        Assert.Throws<NotFoundException>(() => _ = proxy["host"]);
     }
 }

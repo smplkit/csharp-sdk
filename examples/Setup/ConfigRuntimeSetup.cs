@@ -1,11 +1,9 @@
-// Setup, simulation, and cleanup helpers for ConfigRuntimeShowcase.
+// Setup and simulation helpers for ConfigRuntimeShowcase.
 //
-// The runtime showcase is intentionally runtime-only — declarations,
-// typed getters, change listeners. In a real deployment the configs
-// would either already exist (admin-curated) or be created by the
-// SDK's discovery on first run. Here we pre-create them through the
-// management API so the showcase can also demonstrate a live admin
-// override end-to-end in a single process.
+// The runtime showcase declares its own configs via client.Config.Bind(),
+// so this helper only handles cleanup and the live admin-override
+// simulation that stands in for an operator editing values in the
+// smplkit console.
 
 using Smplkit;
 using Smplkit.Errors;
@@ -14,31 +12,21 @@ namespace Smplkit.Examples.Setup;
 
 public static class ConfigRuntimeSetup
 {
-    private static readonly string[] DemoConfigIds = { "showcase-billing", "showcase-common" };
-
-    public static async Task SetupRuntimeShowcaseAsync(SmplManagementClient mgmt)
+    private static readonly string[] DemoConfigIds = new[]
     {
-        await CleanupRuntimeShowcaseAsync(mgmt);
-
-        var common = mgmt.Config.New(
-            "showcase-common",
-            description: "Shared defaults for showcase services.");
-        common.SetString("app.name", "Acme SaaS");
-        common.SetString("support.email", "support@acme.dev");
-        await common.SaveAsync();
-
-        var billing = mgmt.Config.New(
-            "showcase-billing",
-            description: "Plan-limit configuration for billing.",
-            parent: "showcase-common");
-        billing.SetNumber("plan.max_seats", 5, description: "Maximum seats per organization.");
-        billing.SetNumber("plan.trial_days", 14);
-        billing.SetString("plan.tier", "free");
-        await billing.SaveAsync();
-    }
+        "showcase-billing",
+        "showcase-common",
+        "showcase-database",
+    };
 
     public static async Task SimulateAdminOverrideAsync(SmplManagementClient mgmt)
     {
+        // Real customers never read back through the management API
+        // immediately after binding via the runtime client — this is a
+        // simulation-only step. Push pending runtime-side registrations
+        // through so the management-API lookup below can find the
+        // freshly-declared config.
+        await mgmt.Config.FlushAsync();
         var billing = await mgmt.Config.GetAsync("showcase-billing");
         billing.SetNumber("plan.max_seats", 25, environment: "production");
         await billing.SaveAsync();

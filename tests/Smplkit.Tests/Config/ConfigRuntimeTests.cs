@@ -10,9 +10,9 @@ namespace Smplkit.Tests.Config;
 
 /// <summary>
 /// Tests for the runtime <see cref="ConfigClient"/>: lazy initialization,
-/// resolved-value Get / Get&lt;T&gt;, OnChange listeners, RefreshAsync, and the
-/// WebSocket event handlers (HandleConfigChanged / HandleConfigDeleted /
-/// HandleConfigsChanged).
+/// resolved-value Get / GetValue / GetValueOr, OnChange listeners,
+/// RefreshAsync, and the WebSocket event handlers (HandleConfigChanged /
+/// HandleConfigDeleted / HandleConfigsChanged).
 /// </summary>
 public class ConfigRuntimeTests
 {
@@ -138,42 +138,6 @@ public class ConfigRuntimeTests
         Assert.Equal("user-svc", proxy.ConfigId);
         // Verify the proxy stays consistent across calls (identity-stable values).
         Assert.Equal(proxy["host"], client.Config.Get("user-svc")["host"]);
-    }
-
-    public sealed class UserSvcModel
-    {
-        public string? Host { get; set; }
-        public int Retries { get; set; }
-    }
-
-    [Fact]
-    public void GetTyped_DeserializesToTargetType()
-    {
-        var (client, _) = MakeClient(req =>
-        {
-            if (req.RequestUri!.ToString().Contains("config."))
-                return Task.FromResult(Json(ConfigListJson));
-            return Task.FromResult(Json("{}"));
-        });
-        var model = client.Config.Get<UserSvcModel>("user-svc");
-        Assert.Equal("test-host", model.Host);
-        Assert.Equal(3, model.Retries);
-    }
-
-    public sealed class NestedDb { public string? Host { get; set; } public int Port { get; set; } }
-    public sealed class NestedModel { public NestedDb Database { get; set; } = new(); }
-
-    [Fact]
-    public void GetTyped_ExpandsDotNotationKeys()
-    {
-        var (client, _) = MakeClient(req =>
-        {
-            if (req.RequestUri!.ToString().Contains("config."))
-                return Task.FromResult(Json(ConfigListJson));
-            return Task.FromResult(Json("{}"));
-        });
-        var model = client.Config.Get<NestedModel>("user-svc");
-        Assert.Equal(5432, model.Database.Port);
     }
 
     [Fact]
