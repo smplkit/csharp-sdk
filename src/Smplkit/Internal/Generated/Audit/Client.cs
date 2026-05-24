@@ -3536,6 +3536,18 @@ namespace Smplkit.Internal.Generated.Audit
         [System.Text.Json.Serialization.JsonPropertyName("success_status")]
         public string Success_status { get; set; } = "2xx";
 
+        /// <summary>
+        /// Whether to verify the destination server's TLS certificate against trusted certificate authorities. Defaults to `true` and should be left on for any production destination. Set to `false` only for development or short-lived testing against a destination that presents an untrusted certificate (e.g. a Splunk Cloud trial stack on `:8088` serving its default self-signed certificate). When `false`, deliveries proceed without certificate verification — they are vulnerable to man-in-the-middle attacks. For long-lived self-signed setups, pin the issuing CA via `ca_cert` instead of disabling verification entirely.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("tls_verify")]
+        public bool Tls_verify { get; set; } = true;
+
+        /// <summary>
+        /// Optional PEM-encoded certificate (or bundle) used to verify the destination server's TLS certificate, in addition to the system trust store. Use this to pin a private or self-signed CA (e.g. Splunk's default `SplunkCommonCA`) without disabling verification entirely via `tls_verify`. Must contain one or more `-----BEGIN CERTIFICATE-----` blocks. Ignored when `tls_verify` is `false`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("ca_cert")]
+        public string? Ca_cert { get; set; } = default!;
+
     }
 
     /// <summary>
@@ -3793,6 +3805,18 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("timeout_ms")]
         public int? Timeout_ms { get; set; } = default!;
+
+        /// <summary>
+        /// Whether to verify the destination server's TLS certificate. Mirrors the parent forwarder field of the same name — see its description for security guidance. Defaults to `true`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("tls_verify")]
+        public bool Tls_verify { get; set; } = true;
+
+        /// <summary>
+        /// Optional PEM-encoded certificate (or bundle) used to verify the destination server's TLS certificate. Mirrors the parent forwarder field. Must contain one or more `-----BEGIN CERTIFICATE-----` blocks.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("ca_cert")]
+        public string? Ca_cert { get; set; } = default!;
 
         /// <summary>
         /// Request body sent to the destination. When omitted, an empty body is sent (suitable for connectivity probes). When set, the body is sent verbatim — pair with an appropriate `Content-Type` entry in `headers` so the destination interprets it correctly. Limit 1 MiB.
