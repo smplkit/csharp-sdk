@@ -45,7 +45,7 @@ public class ConfigRuntimeTests
                             "database.port": {"value": 5432, "type": "NUMBER"}
                         },
                         "environments": {
-                            "test": {"values": {"host": {"value": "test-host", "type": "STRING"}}}
+                            "test": {"host": "test-host"}
                         },
                         "created_at": "2024-01-15T10:30:00Z",
                         "updated_at": "2024-01-15T10:30:00Z"

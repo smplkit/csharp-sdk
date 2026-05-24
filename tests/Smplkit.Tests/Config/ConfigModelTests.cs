@@ -169,7 +169,7 @@ public class ConfigModelTests
                     "parent": null,
                     "items": {"host": {"value": "localhost", "type": "STRING"}},
                     "environments": {
-                        "production": {"values": {"host": {"value": "prod.example.com", "type": "STRING"}}}
+                        "production": {"host": "prod.example.com"}
                     },
                     "created_at": "2024-01-15T10:30:00Z",
                     "updated_at": "2024-01-15T10:30:00Z"
