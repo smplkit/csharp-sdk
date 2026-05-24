@@ -258,20 +258,23 @@ public sealed class ConfigsClient
         return result;
     }
 
-    private static IDictionary<string, GenConfig.EnvironmentOverride>? WrapEnvsForRequest(
+    // Per ADR-024 §2.4 the wire shape is now flat — `{env: {key: rawValue}}` —
+    // so we emit each env's overrides as a plain dict of key → raw value with
+    // no wrapper envelope.
+    private static IDictionary<string, object>? WrapEnvsForRequest(
         Dictionary<string, Dictionary<string, object?>>? environments)
     {
         if (environments is null || environments.Count == 0) return null;
 
-        var result = new Dictionary<string, GenConfig.EnvironmentOverride>(environments.Count);
+        var result = new Dictionary<string, object>(environments.Count);
         foreach (var (envName, envData) in environments)
         {
-            var values = new Dictionary<string, GenConfig.ConfigItemOverride>(envData.Count);
+            var values = new Dictionary<string, object?>(envData.Count);
             foreach (var (key, value) in envData)
             {
-                values[key] = new GenConfig.ConfigItemOverride { Value = value! };
+                values[key] = value;
             }
-            result[envName] = new GenConfig.EnvironmentOverride { Values = values };
+            result[envName] = values;
         }
         return result;
     }
@@ -320,24 +323,24 @@ public sealed class ConfigsClient
         return result;
     }
 
+    // Per ADR-024 §2.4 the wire shape is flat — `{env: {key: rawValue}}`. The
+    // generated client surfaces each env as `object` (after JSON deserialization
+    // it's typically a `JsonElement` for an object, or a `Dictionary<string,
+    // object?>` if constructed in-memory). Normalize unwraps both into a flat
+    // dict of key → raw value, dropping anything that isn't an object shape.
     private static Dictionary<string, Dictionary<string, object?>> ExtractRawEnvironments(
-        IDictionary<string, GenConfig.EnvironmentOverride>? environments)
+        IDictionary<string, object>? environments)
     {
         if (environments is null)
             return new Dictionary<string, Dictionary<string, object?>>();
 
         var result = new Dictionary<string, Dictionary<string, object?>>(environments.Count);
-        foreach (var (envName, envOverride) in environments)
+        foreach (var (envName, envValue) in environments)
         {
-            var envValues = new Dictionary<string, object?>();
-            if (envOverride.Values is not null)
-            {
-                foreach (var (key, itemOverride) in envOverride.Values)
-                {
-                    envValues[key] = Smplkit.Config.Resolver.Normalize(itemOverride.Value);
-                }
-            }
-            result[envName] = envValues;
+            var normalized = Smplkit.Config.Resolver.Normalize(envValue);
+            result[envName] = normalized is Dictionary<string, object?> d
+                ? d
+                : new Dictionary<string, object?>();
         }
         return result;
     }
