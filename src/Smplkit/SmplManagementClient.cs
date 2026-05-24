@@ -35,6 +35,9 @@ public sealed class SmplManagementClient : IDisposable
     /// <summary>Gets the <c>environments</c> namespace.</summary>
     public EnvironmentsClient Environments { get; }
 
+    /// <summary>Gets the <c>services</c> namespace.</summary>
+    public ServicesClient Services { get; }
+
     /// <summary>Gets the <c>account_settings</c> namespace — account-level settings.</summary>
     public AccountSettingsClient AccountSettings { get; }
 
@@ -96,6 +99,7 @@ public sealed class SmplManagementClient : IDisposable
         var contextBuffer = new ContextRegistrationBuffer(lruSize: 10_000, flushSize: 100);
 
         Environments = new EnvironmentsClient(clients.App);
+        Services = new ServicesClient(clients.App);
         ContextTypes = new ContextTypesClient(clients.App);
         Contexts = new ContextsClient(clients.App, contextBuffer);
         AccountSettings = new AccountSettingsClient(_httpClient, appBaseUrl);
@@ -122,6 +126,7 @@ public sealed class SmplManagementClient : IDisposable
         _ownsHttpClient = false;
 
         Environments = new EnvironmentsClient(clients.App);
+        Services = new ServicesClient(clients.App);
         ContextTypes = new ContextTypesClient(clients.App);
         Contexts = new ContextsClient(clients.App, contextBuffer);
         AccountSettings = new AccountSettingsClient(_httpClient, appBaseUrl);

@@ -42,7 +42,7 @@ public class SmplManagementClientTests
     }
 
     [Fact]
-    public void NineFlatNamespaces_AreExposed()
+    public void TenFlatNamespaces_AreExposed()
     {
         using var mgmt = new SmplManagementClient(new SmplClientOptions
         {
@@ -52,6 +52,7 @@ public class SmplManagementClientTests
         Assert.NotNull(mgmt.Contexts);
         Assert.NotNull(mgmt.ContextTypes);
         Assert.NotNull(mgmt.Environments);
+        Assert.NotNull(mgmt.Services);
         Assert.NotNull(mgmt.AccountSettings);
         Assert.NotNull(mgmt.Config);
         Assert.NotNull(mgmt.Flags);

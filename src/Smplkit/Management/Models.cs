@@ -84,6 +84,70 @@ public sealed class Environment
 }
 
 // ---------------------------------------------------------------------------
+// Service
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// Represents a backend service or microservice in the customer's stack
+/// that contexts can be evaluated against. Modify properties and call
+/// <see cref="SaveAsync"/> to persist.
+/// </summary>
+public sealed class Service
+{
+    private readonly ServicesClient _client;
+
+    /// <summary>Gets the service identifier (slug). Null for unsaved services.</summary>
+    public string? Id { get; internal set; }
+
+    /// <summary>Gets or sets the display name.</summary>
+    public string Name { get; set; }
+
+    /// <summary>Gets the creation timestamp.</summary>
+    public DateTime? CreatedAt { get; internal set; }
+
+    /// <summary>Gets the last-modified timestamp.</summary>
+    public DateTime? UpdatedAt { get; internal set; }
+
+    internal Service(
+        ServicesClient client,
+        string? id,
+        string name,
+        DateTime? createdAt,
+        DateTime? updatedAt)
+    {
+        _client = client;
+        Id = id;
+        Name = name;
+        CreatedAt = createdAt;
+        UpdatedAt = updatedAt;
+    }
+
+    /// <summary>
+    /// Persists this service to the server. Creates if new, updates if existing.
+    /// </summary>
+    public async Task SaveAsync(CancellationToken ct = default)
+    {
+        var saved = await _client.SaveInternalAsync(this, ct).ConfigureAwait(false);
+        Id = saved.Id;
+        Name = saved.Name;
+        CreatedAt = saved.CreatedAt;
+        UpdatedAt = saved.UpdatedAt;
+    }
+
+    /// <summary>Deletes this service from the server.</summary>
+    public Task DeleteAsync(CancellationToken ct = default)
+    {
+        if (Id is null)
+            throw new InvalidOperationException("Cannot delete an unsaved service.");
+        return _client.DeleteAsync(Id, ct);
+    }
+
+    /// <inheritdoc />
+    public override string ToString() =>
+        $"Service(Id={Id}, Name={Name})";
+}
+
+// ---------------------------------------------------------------------------
 // ContextType
 // ---------------------------------------------------------------------------
 
