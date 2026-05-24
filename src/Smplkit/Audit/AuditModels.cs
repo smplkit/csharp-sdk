@@ -264,6 +264,17 @@ public sealed class HttpConfiguration
     /// <summary>Status code or class that signals delivery success.
     /// Defaults to <c>"2xx"</c>.</summary>
     public string SuccessStatus { get; set; } = "2xx";
+    /// <summary>Whether to verify the destination's TLS certificate chain.
+    /// Defaults to <c>true</c>; set to <c>false</c> only for short-lived
+    /// testing against a destination that serves an untrusted certificate.
+    /// Prefer pinning the issuing CA via <see cref="CaCert"/> for long-lived
+    /// self-signed setups.</summary>
+    public bool TlsVerify { get; set; } = true;
+    /// <summary>Optional PEM-encoded certificate (or bundle) trusted in
+    /// addition to the system CA store. Ignored when
+    /// <see cref="TlsVerify"/> is <c>false</c>. <c>null</c> (the default)
+    /// means "use system CAs only".</summary>
+    public string? CaCert { get; set; }
 }
 
 /// <summary>

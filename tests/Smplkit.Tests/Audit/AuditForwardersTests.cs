@@ -717,4 +717,80 @@ public class AuditForwardersTests
                 },
                 culture: null)!;
     }
+
+    // ----------------------------------------------------------------------
+    // TLS verification + custom CA cert per forwarder.
+    // ----------------------------------------------------------------------
+
+    [Fact]
+    public void HttpConfiguration_DefaultsTlsVerifyTrueAndCaCertNull()
+    {
+        var cfg = new HttpConfiguration { Url = "u" };
+        Assert.True(cfg.TlsVerify);
+        Assert.Null(cfg.CaCert);
+    }
+
+    [Fact]
+    public async Task SaveAsync_SendsTlsVerifyAndCaCert_OnWire()
+    {
+        string? capturedBody = null;
+        var fwds = MakeForwarders(async req =>
+        {
+            capturedBody = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = JsonApi("{\"data\":" + ForwarderResource() + "}"),
+            };
+        });
+        var fwd = fwds.New(
+            key: FwdId,
+            name: "Datadog production",
+            forwarderType: ForwarderType.Datadog,
+            configuration: new HttpConfiguration
+            {
+                Url = "https://siem.example.com/in",
+                Headers = new List<HttpHeader> { new("DD-API-KEY", "secret") },
+                TlsVerify = false,
+                CaCert = "-----BEGIN CERTIFICATE-----\nfoo\n-----END CERTIFICATE-----",
+            });
+        await fwd.SaveAsync();
+        Assert.Contains("\"tls_verify\":false", capturedBody);
+        Assert.Contains("\"ca_cert\":\"-----BEGIN CERTIFICATE-----", capturedBody);
+    }
+
+    [Fact]
+    public async Task GetAsync_ReadsTlsVerifyAndCaCert_FromWire()
+    {
+        var resource =
+            "{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\",\"attributes\":{"
+            + "\"name\":\"Datadog\",\"forwarder_type\":\"DATADOG\",\"enabled\":true,"
+            + "\"configuration\":{\"method\":\"POST\",\"url\":\"https://siem.example.com/in\","
+            + "\"headers\":[{\"name\":\"DD-API-KEY\",\"value\":\"<redacted>\"}],"
+            + "\"success_status\":\"2xx\","
+            + "\"tls_verify\":false,"
+            + "\"ca_cert\":\"-----BEGIN CERTIFICATE-----\\nfoo\\n-----END CERTIFICATE-----\"},"
+            + "\"created_at\":\"2026-05-07T12:00:00Z\","
+            + "\"updated_at\":\"2026-05-07T12:00:00Z\",\"version\":1}}";
+        var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi("{\"data\":" + resource + "}"),
+        }));
+        var fwd = await fwds.GetAsync(FwdId);
+        Assert.False(fwd.Configuration.TlsVerify);
+        Assert.Contains("BEGIN CERTIFICATE", fwd.Configuration.CaCert);
+    }
+
+    [Fact]
+    public async Task GetAsync_DefaultsTlsVerifyTrueWhenWireOmitsIt()
+    {
+        var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi("{\"data\":" + ForwarderResource() + "}"),
+        }));
+        var fwd = await fwds.GetAsync(FwdId);
+        // Pre-existing forwarders persisted before the field landed must
+        // read back as tls_verify=true so they keep their prior secure default.
+        Assert.True(fwd.Configuration.TlsVerify);
+        Assert.Null(fwd.Configuration.CaCert);
+    }
 }
