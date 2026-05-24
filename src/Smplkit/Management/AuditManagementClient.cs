@@ -193,6 +193,8 @@ public sealed class ManagementForwardersClient
             Url = src.Url,
             Headers = headers,
             Success_status = src.SuccessStatus,
+            Tls_verify = src.TlsVerify,
+            Ca_cert = src.CaCert,
         };
     }
 
@@ -267,6 +269,8 @@ public sealed class ManagementForwardersClient
             Method = HttpMethodExtensions.FromWireValue(src.Method.ToString()),
             Url = src.Url ?? string.Empty,
             SuccessStatus = src.Success_status ?? "2xx",
+            TlsVerify = src.Tls_verify,
+            CaCert = src.Ca_cert,
         };
         if (src.Headers != null)
         {
