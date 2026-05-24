@@ -1016,10 +1016,10 @@ namespace Smplkit.Internal.Generated.Config
         public System.Collections.Generic.IDictionary<string, ConfigItemDefinition>? Items { get; set; } = default!;
 
         /// <summary>
-        /// Map of environment keys to per-environment override sets. An environment override applies when this config is resolved against that environment.
+        /// Map of environment keys to per-environment overrides. Each environment maps to a flat object of item key to override value (e.g. `{"production": {"database.host": "db-prod.internal"}}`). Only the keys being overridden need to be present. Override values must conform to the item's declared `type`; `type` and `description` are always resolved from the defining configuration and are never redeclared on an override.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("environments")]
-        public System.Collections.Generic.IDictionary<string, EnvironmentOverride>? Environments { get; set; } = default!;
+        public System.Collections.Generic.IDictionary<string, object>? Environments { get; set; } = default!;
 
         /// <summary>
         /// Whether this config is admin-managed (`true`) or auto-discovered by an SDK and not yet claimed (`false`). Configs created through the console or `POST /api/v1/configs` are always managed. Configs registered via `POST /api/v1/configs/bulk` land unmanaged. Setting this field to `true` on a PUT promotes a discovered config to managed, which consumes a slot of the `config.managed_configurations` entitlement.
@@ -1257,30 +1257,6 @@ namespace Smplkit.Internal.Generated.Config
     }
 
     /// <summary>
-    /// Per-environment override of a single item value.
-    /// </summary>
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class ConfigItemOverride
-    {
-
-        /// <summary>
-        /// Override value for this environment. Must conform to the type declared for the item in the inheritance chain.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("value")]
-        public object Value { get; set; } = default!;
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    /// <summary>
     /// JSON:API collection response for configs.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -1364,30 +1340,6 @@ namespace Smplkit.Internal.Generated.Config
 
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public ConfigResource Data { get; set; } = new ConfigResource();
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    /// <summary>
-    /// Per-environment override set for a config.
-    /// </summary>
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class EnvironmentOverride
-    {
-
-        /// <summary>
-        /// Map of item keys to override values that apply when this environment is resolved. Each key must already be declared (with a type) on this config or one of its ancestors.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("values")]
-        public System.Collections.Generic.IDictionary<string, ConfigItemOverride>? Values { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
