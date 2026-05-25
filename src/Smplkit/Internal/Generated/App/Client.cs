@@ -14044,13 +14044,13 @@ namespace Smplkit.Internal.Generated.App
         public string Product { get; set; } = default!;
 
         /// <summary>
-        /// Current plan for this product, or `FREE` if it is being added.
+        /// Current plan for this product, or `free` if it is being added.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("from_plan")]
         public string From_plan { get; set; } = default!;
 
         /// <summary>
-        /// Plan the product will be on after the change. `FREE` indicates the enrollment will be dropped.
+        /// Plan the product will be on after the change. `free` indicates the enrollment will be dropped.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("to_plan")]
         public string To_plan { get; set; } = default!;
@@ -14109,7 +14109,7 @@ namespace Smplkit.Internal.Generated.App
         public string Product { get; set; } = default!;
 
         /// <summary>
-        /// Target plan for this product. Must be a paid plan such as `STANDARD` or `PRO`; the free plan is implicit when a product is not listed.
+        /// Target plan for this product. Must be a paid plan such as `standard` or `pro`; the free plan is implicit when a product is not listed.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("plan")]
         public string Plan { get; set; } = default!;
@@ -14136,7 +14136,7 @@ namespace Smplkit.Internal.Generated.App
         public string Product { get; set; } = default!;
 
         /// <summary>
-        /// Current plan for this product (e.g. `STANDARD`, `PRO`).
+        /// Current plan for this product (e.g. `standard`, `pro`).
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("plan")]
         public string Plan { get; set; } = default!;
@@ -14148,7 +14148,7 @@ namespace Smplkit.Internal.Generated.App
         public int Price_monthly_cents { get; set; } = default!;
 
         /// <summary>
-        /// When a plan change is scheduled for the end of the current billing period, this is the plan that will take effect. Otherwise `null`. The value `FREE` indicates the enrollment will be dropped.
+        /// When a plan change is scheduled for the end of the current billing period, this is the plan that will take effect. Otherwise `null`. The value `free` indicates the enrollment will be dropped.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("pending_plan_change")]
         public string? Pending_plan_change { get; set; } = default!;
