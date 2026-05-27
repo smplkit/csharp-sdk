@@ -83,13 +83,15 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>download honors every supplied filter and ignores `page[size]` and
         /// <br/>`page[after]`.
         /// </remarks>
+        /// <param name="filterseverity">Exact match on the event's `severity` field. One of `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.</param>
+        /// <param name="filtercategory">Exact match on the event's `category` field.</param>
         /// <param name="filtersearch">Case-insensitive substring match against `resource_id` or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.</param>
         /// <param name="filterdo_not_forward">When set, restrict to events whose `do_not_forward` flag matches the given boolean. Forwarder previews typically pass `false` to match live-pipeline semantics (events flagged `do_not_forward=true` are skipped by the forwarder pipeline).</param>
         /// <param name="format">When set, stream a download of the full filtered result set in the chosen format instead of returning a paginated JSON:API response. `page[size]` and `page[after]` are ignored in this mode; every event matching the supplied filters is emitted. `CSV` writes one row per event with the event payload (`data`) serialized as a single JSON-encoded cell. `JSONL` writes one JSON object per line with the event payload nested as a JSON object. Omit this parameter to receive the paginated JSON:API response.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`, `-occurred_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, string? filteractor_id = null, string? filterevent_type = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, bool? filterdo_not_forward = null, int? pagesize = null, string? pageafter = null, Format? format = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, string? filteractor_id = null, string? filterevent_type = null, string? filterresource_type = null, string? filterresource_id = null, string? filterseverity = null, string? filtercategory = null, string? filtersearch = null, bool? filterdo_not_forward = null, int? pagesize = null, string? pageafter = null, Format? format = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -338,6 +340,25 @@ namespace Smplkit.Internal.Generated.Audit
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<EventTypeListResponse> List_event_typesAsync(string? filterresource_type = null, Anonymous4? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// List Categories
+        /// </summary>
+        /// <remarks>
+        /// List the distinct `category` values recorded for this account.
+        /// <br/>
+        /// <br/>The resource `id` is the category value itself. Default sort is
+        /// <br/>`key` ascending; pass `sort=-key` for descending. Useful for
+        /// <br/>populating filter dropdowns in a UI.
+        /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<CategoryListResponse> List_categoriesAsync(Anonymous5? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NSwag", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -527,13 +548,15 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>download honors every supplied filter and ignores `page[size]` and
         /// <br/>`page[after]`.
         /// </remarks>
+        /// <param name="filterseverity">Exact match on the event's `severity` field. One of `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.</param>
+        /// <param name="filtercategory">Exact match on the event's `category` field.</param>
         /// <param name="filtersearch">Case-insensitive substring match against `resource_id` or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.</param>
         /// <param name="filterdo_not_forward">When set, restrict to events whose `do_not_forward` flag matches the given boolean. Forwarder previews typically pass `false` to match live-pipeline semantics (events flagged `do_not_forward=true` are skipped by the forwarder pipeline).</param>
         /// <param name="format">When set, stream a download of the full filtered result set in the chosen format instead of returning a paginated JSON:API response. `page[size]` and `page[after]` are ignored in this mode; every event matching the supplied filters is emitted. `CSV` writes one row per event with the event payload (`data`) serialized as a single JSON-encoded cell. `JSONL` writes one JSON object per line with the event payload nested as a JSON object. Omit this parameter to receive the paginated JSON:API response.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`, `-occurred_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, string? filteractor_id = null, string? filterevent_type = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, bool? filterdo_not_forward = null, int? pagesize = null, string? pageafter = null, Format? format = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, string? filteractor_id = null, string? filterevent_type = null, string? filterresource_type = null, string? filterresource_id = null, string? filterseverity = null, string? filtercategory = null, string? filtersearch = null, bool? filterdo_not_forward = null, int? pagesize = null, string? pageafter = null, Format? format = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -572,6 +595,14 @@ namespace Smplkit.Internal.Generated.Audit
                     if (filterresource_id != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[resource_id]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterresource_id, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filterseverity != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[severity]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterseverity, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filtercategory != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[category]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtercategory, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     if (filtersearch != null)
                     {
@@ -2128,6 +2159,109 @@ namespace Smplkit.Internal.Generated.Audit
             }
         }
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// List Categories
+        /// </summary>
+        /// <remarks>
+        /// List the distinct `category` values recorded for this account.
+        /// <br/>
+        /// <br/>The resource `id` is the category value itself. Default sort is
+        /// <br/>`key` ascending; pass `sort=-key` for descending. Useful for
+        /// <br/>populating filter dropdowns in a UI.
+        /// </remarks>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<CategoryListResponse> List_categoriesAsync(Anonymous5? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        {
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    request_.Method = new System.Net.Http.HttpMethod("GET");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
+                    // Operation Path: "api/v1/categories"
+                    urlBuilder_.Append("api/v1/categories");
+                    urlBuilder_.Append('?');
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagenumber != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[number]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagenumber, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagesize != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (metatotal != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("meta[total]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(metatotal, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    urlBuilder_.Length--;
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<CategoryListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
         protected struct ObjectResponseResult<T>
         {
             public ObjectResponseResult(T responseObject, string responseText)
@@ -2257,6 +2391,81 @@ namespace Smplkit.Internal.Generated.Audit
         }
     }
 
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class CategoryAttributes
+    {
+
+        /// <summary>
+        /// The category value. Same as the JSON:API ``id``.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("category")]
+        public string Category { get; set; } = default!;
+
+        /// <summary>
+        /// First sighting of this category for the account.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("created_at")]
+        public System.DateTimeOffset Created_at { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class CategoryListResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public System.Collections.Generic.List<CategoryResource> Data { get; set; } = new System.Collections.Generic.List<CategoryResource>();
+
+        [System.Text.Json.Serialization.JsonPropertyName("meta")]
+        public ListMeta Meta { get; set; } = new ListMeta();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class CategoryResource
+    {
+
+        /// <summary>
+        /// The category value.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string Id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        public string Type { get; set; } = "category";
+
+        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
+        public CategoryAttributes Attributes { get; set; } = new CategoryAttributes();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
     /// <summary>
     /// An audit event — a record that something happened, attributed to
     /// <br/>an actor and a resource.
@@ -2292,6 +2501,19 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("description")]
         public string? Description { get; set; } = default!;
+
+        /// <summary>
+        /// One of `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`. Omit to record the event at `INFO`. Always present on read.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("severity")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<Severity>))]
+        public Severity? Severity { get; set; } = default!;
+
+        /// <summary>
+        /// Free-form bucket label, e.g. `auth`, `billing`, `config-change`. Stored exactly as supplied. Drives the `filter[category]` filter and the `GET /api/v1/categories` discovery endpoint.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("category")]
+        public string? Category { get; set; } = default!;
 
         /// <summary>
         /// When the event actually happened. Defaults to the server receipt time (`created_at`).
@@ -2591,6 +2813,18 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("filter[resource_id]")]
         public string? Filterresource_id { get; set; } = default!;
+
+        /// <summary>
+        /// Exact match on the event's `severity` field. One of `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("filter[severity]")]
+        public string? Filterseverity { get; set; } = default!;
+
+        /// <summary>
+        /// Exact match on the event's `category` field.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("filter[category]")]
+        public string? Filtercategory { get; set; } = default!;
 
         /// <summary>
         /// Exact match on the event's `actor_type` field.
@@ -3782,6 +4016,33 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     /// <summary>
+    /// One of `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Severity
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"TRACE")]
+        TRACE = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"DEBUG")]
+        DEBUG = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"INFO")]
+        INFO = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"WARN")]
+        WARN = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"ERROR")]
+        ERROR = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"FATAL")]
+        FATAL = 5,
+
+    }
+
+    /// <summary>
     /// Inputs to the test-forwarder action.
     /// <br/>
     /// <br/>Mirrors a forwarder's HTTP destination configuration with one
@@ -4069,6 +4330,21 @@ namespace Smplkit.Internal.Generated.Audit
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public enum Anonymous4
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"key")]
+        Key = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-key")]
+        Minuskey = 1,
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous5
     {
 
         [System.Runtime.Serialization.EnumMember(Value = @"key")]
