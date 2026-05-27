@@ -77,13 +77,19 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>paginated.
         /// <br/>
         /// <br/>`page[size]` defaults to 1000 and must not exceed 1000.
+        /// <br/>
+        /// <br/>Pass `format=CSV` or `format=JSONL` to stream a download of the full
+        /// <br/>filtered result set instead of a paginated JSON:API response. The
+        /// <br/>download honors every supplied filter and ignores `page[size]` and
+        /// <br/>`page[after]`.
         /// </remarks>
         /// <param name="filtersearch">Case-insensitive substring match against `resource_id` or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.</param>
         /// <param name="filterdo_not_forward">When set, restrict to events whose `do_not_forward` flag matches the given boolean. Forwarder previews typically pass `false` to match live-pipeline semantics (events flagged `do_not_forward=true` are skipped by the forwarder pipeline).</param>
+        /// <param name="format">When set, stream a download of the full filtered result set in the chosen format instead of returning a paginated JSON:API response. `page[size]` and `page[after]` are ignored in this mode; every event matching the supplied filters is emitted. `CSV` writes one row per event with the event payload (`data`) serialized as a single JSON-encoded cell. `JSONL` writes one JSON object per line with the event payload nested as a JSON object. Omit this parameter to receive the paginated JSON:API response.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`, `-occurred_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, string? filteractor_id = null, string? filterevent_type = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, bool? filterdo_not_forward = null, int? pagesize = null, string? pageafter = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, string? filteractor_id = null, string? filterevent_type = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, bool? filterdo_not_forward = null, int? pagesize = null, string? pageafter = null, Format? format = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -515,13 +521,19 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>paginated.
         /// <br/>
         /// <br/>`page[size]` defaults to 1000 and must not exceed 1000.
+        /// <br/>
+        /// <br/>Pass `format=CSV` or `format=JSONL` to stream a download of the full
+        /// <br/>filtered result set instead of a paginated JSON:API response. The
+        /// <br/>download honors every supplied filter and ignores `page[size]` and
+        /// <br/>`page[after]`.
         /// </remarks>
         /// <param name="filtersearch">Case-insensitive substring match against `resource_id` or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.</param>
         /// <param name="filterdo_not_forward">When set, restrict to events whose `do_not_forward` flag matches the given boolean. Forwarder previews typically pass `false` to match live-pipeline semantics (events flagged `do_not_forward=true` are skipped by the forwarder pipeline).</param>
+        /// <param name="format">When set, stream a download of the full filtered result set in the chosen format instead of returning a paginated JSON:API response. `page[size]` and `page[after]` are ignored in this mode; every event matching the supplied filters is emitted. `CSV` writes one row per event with the event payload (`data`) serialized as a single JSON-encoded cell. `JSONL` writes one JSON object per line with the event payload nested as a JSON object. Omit this parameter to receive the paginated JSON:API response.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`, `-occurred_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, string? filteractor_id = null, string? filterevent_type = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, bool? filterdo_not_forward = null, int? pagesize = null, string? pageafter = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, string? filteractor_id = null, string? filterevent_type = null, string? filterresource_type = null, string? filterresource_id = null, string? filtersearch = null, bool? filterdo_not_forward = null, int? pagesize = null, string? pageafter = null, Format? format = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -576,6 +588,10 @@ namespace Smplkit.Internal.Generated.Audit
                     if (pageafter != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("page[after]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pageafter, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (format != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("format")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(format, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     if (sort != null)
                     {
@@ -758,8 +774,8 @@ namespace Smplkit.Internal.Generated.Audit
 
                     var urlBuilder_ = new System.Text.StringBuilder();
                     if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
-                    // Operation Path: "api/v1/search/events"
-                    urlBuilder_.Append("api/v1/search/events");
+                    // Operation Path: "api/v1/events/search"
+                    urlBuilder_.Append("api/v1/events/search");
 
                     PrepareRequest(client_, request_, urlBuilder_);
 
@@ -2528,7 +2544,7 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     /// <summary>
-    /// Request body for ``POST /api/v1/search/events``.
+    /// Request body for ``POST /api/v1/events/search``.
     /// <br/>
     /// <br/>Mirrors every column filter accepted by ``GET /api/v1/events`` with
     /// <br/>identical semantics, and adds a top-level ``filter`` field carrying
@@ -3958,6 +3974,21 @@ namespace Smplkit.Internal.Generated.Audit
             get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
             set { _additionalProperties = value; }
         }
+
+    }
+
+    /// <summary>
+    /// When set, stream a download of the full filtered result set in the chosen format instead of returning a paginated JSON:API response. `page[size]` and `page[after]` are ignored in this mode; every event matching the supplied filters is emitted. `CSV` writes one row per event with the event payload (`data`) serialized as a single JSON-encoded cell. `JSONL` writes one JSON object per line with the event payload nested as a JSON object. Omit this parameter to receive the paginated JSON:API response.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Format
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"CSV")]
+        CSV = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"JSONL")]
+        JSONL = 1,
 
     }
 
