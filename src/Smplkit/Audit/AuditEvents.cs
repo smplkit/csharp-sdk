@@ -103,6 +103,10 @@ public sealed class AuditEvents
             input.DoNotForward,
             input.PageSize,
             input.PageAfter,
+            // format: null — wrapper always uses the paginated JSON:API
+            // response; the CSV/JSONL streaming export is not exposed.
+            null,
+            // sort: null — server default (-occurred_at) is fine here.
             null,
             cancellationToken
         )).ConfigureAwait(false);
