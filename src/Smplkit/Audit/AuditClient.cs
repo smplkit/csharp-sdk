@@ -24,11 +24,15 @@ public sealed class AuditClient : IAsyncDisposable
     /// <summary>Distinct event_type slugs sub-client.</summary>
     public AuditEventTypes EventTypes { get; }
 
+    /// <summary>Distinct category values sub-client.</summary>
+    public AuditCategories Categories { get; }
+
     internal AuditClient(GenAudit.AuditClient generated)
     {
         Events = new AuditEvents(generated);
         ResourceTypes = new AuditResourceTypes(generated);
         EventTypes = new AuditEventTypes(generated);
+        Categories = new AuditCategories(generated);
     }
 
     /// <inheritdoc />

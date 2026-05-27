@@ -9,6 +9,8 @@ namespace Smplkit.Audit;
 /// <param name="EventType"><c>{resource_type}.{verb}</c> per ADR-047 §2.4.</param>
 /// <param name="ResourceType">The resource type the event acts on.</param>
 /// <param name="ResourceId">Identifier of the affected resource.</param>
+/// <param name="Severity">Severity. One of <c>TRACE</c>, <c>DEBUG</c>, <c>INFO</c>, <c>WARN</c>, <c>ERROR</c>, <c>FATAL</c>. Always present on read.</param>
+/// <param name="Category">Optional free-form bucket label. Null when not supplied.</param>
 /// <param name="OccurredAt">When the event happened in the originating system.</param>
 /// <param name="CreatedAt">When the audit service recorded the event.</param>
 /// <param name="ActorType">Free-form label for the kind of actor that caused the
@@ -29,6 +31,8 @@ public sealed record AuditEvent(
     string EventType,
     string ResourceType,
     string ResourceId,
+    string Severity,
+    string? Category,
     DateTimeOffset OccurredAt,
     DateTimeOffset CreatedAt,
     string? ActorType,
@@ -54,6 +58,10 @@ public sealed class CreateEventInput
     public required string ResourceType { get; set; }
     /// <summary>Identifier of the affected resource.</summary>
     public required string ResourceId { get; set; }
+    /// <summary>Severity. One of <c>TRACE</c>, <c>DEBUG</c>, <c>INFO</c>, <c>WARN</c>, <c>ERROR</c>, <c>FATAL</c>. Null records the event at <c>INFO</c>.</summary>
+    public string? Severity { get; set; }
+    /// <summary>Optional free-form bucket label. Null round-trips as null on read.</summary>
+    public string? Category { get; set; }
     /// <summary>Optional. Defaults to server-side <c>now()</c> if null.</summary>
     public DateTimeOffset? OccurredAt { get; set; }
     /// <summary>
@@ -97,6 +105,10 @@ public sealed class ListEventsInput
     public string? ActorType { get; set; }
     /// <summary>Filter by exact-match actor id — the literal string stored on the event.</summary>
     public string? ActorId { get; set; }
+    /// <summary>Filter by exact-match severity. One of <c>TRACE</c>, <c>DEBUG</c>, <c>INFO</c>, <c>WARN</c>, <c>ERROR</c>, <c>FATAL</c>.</summary>
+    public string? Severity { get; set; }
+    /// <summary>Filter by exact-match category.</summary>
+    public string? Category { get; set; }
     /// <summary>Range syntax per ADR-014, e.g. <c>[2026-01-01T00:00:00Z,*)</c>.</summary>
     public string? OccurredAtRange { get; set; }
     /// <summary>Case-insensitive substring match against <c>resource_id</c>.</summary>
@@ -167,6 +179,27 @@ public sealed class ListEventTypesInput
 /// <param name="EventTypes">The page's event types.</param>
 /// <param name="Pagination">Pagination meta (page, size, and optionally total/total_pages).</param>
 public sealed record EventTypeListPage(IReadOnlyList<AuditEventType> EventTypes, Pagination Pagination);
+
+/// <summary>A distinct category value seen in the account's audit log.</summary>
+/// <param name="Id">The category value (same as the JSON:API id).</param>
+/// <param name="CreatedAt">First sighting of this category for the account.</param>
+public sealed record AuditCategory(string Id, DateTimeOffset CreatedAt);
+
+/// <summary>Pagination input for <see cref="AuditCategories.ListAsync"/>.</summary>
+public sealed class ListCategoriesInput
+{
+    /// <summary>1-based page number to fetch.</summary>
+    public int? PageNumber { get; set; }
+    /// <summary>Page size.</summary>
+    public int? PageSize { get; set; }
+    /// <summary>When true, request total counts in the response meta.</summary>
+    public bool? MetaTotal { get; set; }
+}
+
+/// <summary>One page of <see cref="AuditCategory"/> values plus the pagination meta block.</summary>
+/// <param name="Categories">The page's categories.</param>
+/// <param name="Pagination">Pagination meta (page, size, and optionally total/total_pages).</param>
+public sealed record ListCategoriesPage(IReadOnlyList<AuditCategory> Categories, Pagination Pagination);
 
 // ---------------------------------------------------------------------------
 // Forwarders (SIEM streaming) — domain models shared with the management plane

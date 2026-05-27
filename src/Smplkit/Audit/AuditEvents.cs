@@ -39,6 +39,14 @@ public sealed class AuditEvents
             Resource_type = input.ResourceType,
             Resource_id = input.ResourceId,
         };
+        if (input.Severity is not null)
+        {
+            attrs.Severity = (GenAudit.Severity)Enum.Parse(typeof(GenAudit.Severity), input.Severity, ignoreCase: true);
+        }
+        if (input.Category is not null)
+        {
+            attrs.Category = input.Category;
+        }
         if (input.OccurredAt.HasValue)
         {
             attrs.Occurred_at = input.OccurredAt.Value;
@@ -99,6 +107,8 @@ public sealed class AuditEvents
             input.EventType,
             input.ResourceType,
             input.ResourceId,
+            input.Severity,
+            input.Category,
             input.Search,
             input.DoNotForward,
             input.PageSize,
@@ -140,6 +150,8 @@ public sealed class AuditEvents
             a.Event_type ?? string.Empty,
             a.Resource_type ?? string.Empty,
             a.Resource_id ?? string.Empty,
+            (a.Severity ?? GenAudit.Severity.INFO).ToString(),
+            a.Category,
             a.Occurred_at ?? default,
             a.Created_at ?? default,
             a.Actor_type,
