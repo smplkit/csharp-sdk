@@ -242,4 +242,75 @@ public class AuditResourceTypesEventTypesTests
         Assert.Null(p.Total);
         Assert.Null(p.TotalPages);
     }
+
+    // ------------------------------------------------------------------
+    // Categories
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task Categories_List_ReturnsPage()
+    {
+        var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi("""
+                {
+                  "data": [
+                    {"id":"auth","type":"category","attributes":{"category":"auth","created_at":"2026-01-01T00:00:00Z"}},
+                    {"id":"billing","type":"category","attributes":{"category":"billing","created_at":"2026-01-02T00:00:00Z"}}
+                  ],
+                  "meta":{"pagination":{"page":1,"size":50}}
+                }
+                """),
+        }));
+        await using var client = new AuditClient(gen);
+        var page = await client.Categories.ListAsync();
+
+        Assert.Equal(2, page.Categories.Count);
+        Assert.Equal("auth", page.Categories[0].Id);
+        Assert.Equal(DateTimeOffset.Parse("2026-01-01T00:00:00Z"), page.Categories[0].CreatedAt);
+        Assert.Equal("billing", page.Categories[1].Id);
+        Assert.Equal(1, page.Pagination.Page);
+        Assert.Equal(50, page.Pagination.Size);
+    }
+
+    [Fact]
+    public async Task Categories_List_PassesPaginationAndReturnsTotals()
+    {
+        string? capturedUrl = null;
+        var (gen, _) = MakeGen(req =>
+        {
+            capturedUrl = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi(
+                    "{\"data\":[{\"id\":\"auth\",\"type\":\"category\","
+                    + "\"attributes\":{\"category\":\"auth\","
+                    + "\"created_at\":\"2026-01-01T00:00:00Z\"}}],"
+                    + "\"meta\":{\"pagination\":{\"page\":2,\"size\":1,\"total\":3,\"total_pages\":3}}}"),
+            });
+        });
+        await using var client = new AuditClient(gen);
+        var page = await client.Categories.ListAsync(new ListCategoriesInput
+        {
+            PageNumber = 2,
+            PageSize = 1,
+            MetaTotal = true,
+        });
+        Assert.Single(page.Categories);
+        Assert.Equal(2, page.Pagination.Page);
+        Assert.Equal(3, page.Pagination.Total);
+        Assert.Contains("page%5Bnumber%5D=2", capturedUrl!);
+    }
+
+    [Fact]
+    public async Task Categories_List_DefaultInputAndEmptyData()
+    {
+        var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi("{\"data\":[],\"meta\":{\"pagination\":{\"page\":1,\"size\":50}}}"),
+        }));
+        await using var client = new AuditClient(gen);
+        var page = await client.Categories.ListAsync(null);
+        Assert.Empty(page.Categories);
+    }
 }

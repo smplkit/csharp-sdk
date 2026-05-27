@@ -165,6 +165,76 @@ public class AuditCoverageTests
     }
 
     [Fact]
+    public async Task ListAsync_PassesSeverityAndCategoryFilters()
+    {
+        string? capturedUrl = null;
+        var (gen, _) = MakeGen(req =>
+        {
+            capturedUrl = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"data\":[],\"meta\":{\"page_size\":1}}", Encoding.UTF8, "application/vnd.api+json"),
+            });
+        });
+        await using var client = new AuditClient(gen);
+        await client.Events.ListAsync(new ListEventsInput
+        {
+            Severity = "ERROR",
+            Category = "auth",
+        });
+        Assert.NotNull(capturedUrl);
+        Assert.Contains("filter%5Bseverity%5D=ERROR", capturedUrl!);
+        Assert.Contains("filter%5Bcategory%5D=auth", capturedUrl!);
+    }
+
+    [Fact]
+    public async Task Record_PassesSeverityAndCategory()
+    {
+        string? capturedBody = null;
+        var (gen, _) = MakeGen(async req =>
+        {
+            if (req.Content != null)
+                capturedBody = await req.Content.ReadAsStringAsync().ConfigureAwait(false);
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = new StringContent(SuccessJson, Encoding.UTF8, "application/vnd.api+json"),
+            };
+        });
+        await using var client = new AuditClient(gen);
+        client.Events.Record(new CreateEventInput
+        {
+            EventType = "user.login_failed",
+            ResourceType = "user",
+            ResourceId = "u-1",
+            Severity = "WARN",
+            Category = "auth",
+        });
+        await client.Events.FlushAsync(TimeSpan.FromSeconds(2));
+        var deadline = DateTime.UtcNow.AddSeconds(2);
+        while (capturedBody is null && DateTime.UtcNow < deadline)
+            await Task.Delay(20);
+        Assert.NotNull(capturedBody);
+        Assert.Contains("\"severity\":\"WARN\"", capturedBody!);
+        Assert.Contains("\"category\":\"auth\"", capturedBody!);
+    }
+
+    [Fact]
+    public async Task EventResource_SeverityAndCategoryFromResponse()
+    {
+        const string body = """
+            {"data":{"id":"11111111-2222-3333-4444-555555555555","type":"event","attributes":{"event_type":"x","resource_type":"x","resource_id":"1","severity":"ERROR","category":"auth","occurred_at":"2026-05-06T12:00:00Z","created_at":"2026-05-06T12:00:01Z","actor_type":"USER","actor_id":null,"actor_label":"","data":{},"idempotency_key":"k"}}}
+            """;
+        var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(body, Encoding.UTF8, "application/vnd.api+json"),
+        }));
+        await using var client = new AuditClient(gen);
+        var ev = await client.Events.GetAsync(Guid.Parse("11111111-2222-3333-4444-555555555555"));
+        Assert.Equal("ERROR", ev.Severity);
+        Assert.Equal("auth", ev.Category);
+    }
+
+    [Fact]
     public async Task EventResource_JsonElement_FalseValueInsideData()
     {
         const string body = """
