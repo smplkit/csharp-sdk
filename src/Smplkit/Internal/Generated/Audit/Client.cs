@@ -360,7 +360,8 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>
         /// <br/>The resource `id` is the slug itself. Default sort is `key`
         /// <br/>ascending; pass `sort=-key` for descending. Useful for populating
-        /// <br/>filter dropdowns in a UI.
+        /// <br/>filter dropdowns in a UI. Results are scoped to the resource types
+        /// <br/>visible under the account's current plan.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
@@ -2194,7 +2195,8 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>
         /// <br/>The resource `id` is the slug itself. Default sort is `key`
         /// <br/>ascending; pass `sort=-key` for descending. Useful for populating
-        /// <br/>filter dropdowns in a UI.
+        /// <br/>filter dropdowns in a UI. Results are scoped to the resource types
+        /// <br/>visible under the account's current plan.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
