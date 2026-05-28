@@ -77,9 +77,40 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
 
+  test-min-floor:
+    # Verify the SDK still compiles and tests pass at the lowest
+    # declared customer-facing dependency floor — currently
+    # Microsoft.Extensions.Logging.Abstractions 8.0.0 (the .NET 8
+    # LTS baseline). Without this, the floor in Smplkit.csproj
+    # becomes aspirational rather than enforced: we'd only ever
+    # build against the latest, and silently use a 9.x/10.x-only
+    # API at some point, breaking .NET 8 customers.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Pin customer-facing deps to declared floors
+        run: |
+          dotnet add src/Smplkit/Smplkit.csproj package Microsoft.Extensions.Logging.Abstractions --version 8.0.0
+          dotnet add tests/Smplkit.Tests/Smplkit.Tests.csproj package Microsoft.Extensions.Logging.Abstractions --version 8.0.0
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore
+
+      - name: Test
+        run: dotnet test --no-build
+
   ci-gate:
     if: always()
-    needs: [lint, test]
+    needs: [lint, test, test-min-floor]
     runs-on: ubuntu-latest
     steps:
       - uses: smplkit/.github-public/actions/ci-gate@main
