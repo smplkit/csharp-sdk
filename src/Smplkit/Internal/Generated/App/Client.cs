@@ -17083,7 +17083,7 @@ namespace Smplkit.Internal.Generated.App
         public SubscriptionChangeProjectionEffect Effect { get; set; } = default!;
 
         /// <summary>
-        /// When `effect` is `IMMEDIATE`, the estimated prorated charge for the remainder of the current billing period in cents. Always `0` when `effect` is `NEXT_PERIOD`.
+        /// Amount in cents that confirming this change would charge at confirmation time for this product. Reflects the discounted, prorated charge for the remainder of the current billing period. May be `0` even when `effect` is `IMMEDIATE` — when the product is being added to an already-active subscription the prorated amount is carried onto the next invoice rather than charged immediately. Always `0` when `effect` is `NEXT_PERIOD`.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("prorated_charge_today_cents")]
         public int Prorated_charge_today_cents { get; set; } = 0;
@@ -17235,7 +17235,7 @@ namespace Smplkit.Internal.Generated.App
         public System.Collections.Generic.List<SubscriptionChangeProjection> Changes { get; set; } = new System.Collections.Generic.List<SubscriptionChangeProjection>();
 
         /// <summary>
-        /// Total amount that would be charged at confirmation time, in cents. The sum of `prorated_charge_today_cents` across `IMMEDIATE` changes.
+        /// Total amount in cents that would be charged at confirmation time — the sum of `prorated_charge_today_cents` across all changes. `0` when there is no immediate charge (for example when changes apply to an already-active subscription and the prorated amounts are carried onto the next invoice instead).
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("total_charge_today_cents")]
         public int Total_charge_today_cents { get; set; } = default!;
