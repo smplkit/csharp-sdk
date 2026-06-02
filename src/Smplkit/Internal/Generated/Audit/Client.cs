@@ -271,10 +271,10 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// List delivery log entries for a forwarder.
         /// <br/>
-        /// <br/>Default sort is `-created_at` (newest first). Filter by `status` (one of
-        /// <br/>`SUCCEEDED`, `FAILED`, `FILTERED_OUT`, `SKIPPED_DO_NOT_FORWARD` —
-        /// <br/>case-insensitive), by `event_id`, or by a `created_at` range using
-        /// <br/>interval notation (e.g. `[2026-01-01T00:00:00Z,*)`).
+        /// <br/>Default sort is `-created_at` (newest first). Filter by `status`
+        /// <br/>(`SUCCEEDED` or `FAILED`, case-insensitive), by `event_id`, or by a
+        /// <br/>`created_at` range using interval notation
+        /// <br/>(e.g. `[2026-01-01T00:00:00Z,*)`).
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`.</param>
         /// <returns>Successful Response</returns>
@@ -1651,10 +1651,10 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// List delivery log entries for a forwarder.
         /// <br/>
-        /// <br/>Default sort is `-created_at` (newest first). Filter by `status` (one of
-        /// <br/>`SUCCEEDED`, `FAILED`, `FILTERED_OUT`, `SKIPPED_DO_NOT_FORWARD` —
-        /// <br/>case-insensitive), by `event_id`, or by a `created_at` range using
-        /// <br/>interval notation (e.g. `[2026-01-01T00:00:00Z,*)`).
+        /// <br/>Default sort is `-created_at` (newest first). Filter by `status`
+        /// <br/>(`SUCCEEDED` or `FAILED`, case-insensitive), by `event_id`, or by a
+        /// <br/>`created_at` range using interval notation
+        /// <br/>(e.g. `[2026-01-01T00:00:00Z,*)`).
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`.</param>
         /// <returns>Successful Response</returns>
@@ -2785,7 +2785,7 @@ namespace Smplkit.Internal.Generated.Audit
         public object Data { get; set; } = default!;
 
         /// <summary>
-        /// When `true`, the event is recorded but not delivered to any forwarder. A delivery log entry with status `SKIPPED_DO_NOT_FORWARD` is written for each enabled forwarder so the skip is visible in the delivery log.
+        /// When `true`, the event is recorded but not delivered to any forwarder, and no delivery log entries are created for it.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("do_not_forward")]
         public bool Do_not_forward { get; set; } = false;
@@ -3612,7 +3612,7 @@ namespace Smplkit.Internal.Generated.Audit
         public int Attempt_number { get; set; } = default!;
 
         /// <summary>
-        /// Delivery outcome. `SUCCEEDED` and `FAILED` are the live-delivery outcomes; `FILTERED_OUT` is recorded when the forwarder's filter rejected the event; `SKIPPED_DO_NOT_FORWARD` is recorded when the event was emitted with `do_not_forward=true`.
+        /// Delivery outcome. `SUCCEEDED` when the destination accepted the event, `FAILED` when the delivery attempt did not succeed. Events that a forwarder's filter rejected are not recorded as deliveries.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("status")]
         [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ForwarderDeliveryStatus>))]
@@ -4790,12 +4790,6 @@ namespace Smplkit.Internal.Generated.Audit
 
         [System.Runtime.Serialization.EnumMember(Value = @"FAILED")]
         FAILED = 1,
-
-        [System.Runtime.Serialization.EnumMember(Value = @"FILTERED_OUT")]
-        FILTERED_OUT = 2,
-
-        [System.Runtime.Serialization.EnumMember(Value = @"SKIPPED_DO_NOT_FORWARD")]
-        SKIPPED_DO_NOT_FORWARD = 3,
 
     }
 
