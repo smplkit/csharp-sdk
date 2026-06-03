@@ -154,11 +154,12 @@ namespace Smplkit.Internal.Generated.App
         /// Delete Current Account
         /// </summary>
         /// <remarks>
-        /// Permanently delete the current account and all associated data.
+        /// Delete the current account and all associated data. By default the account is soft-deleted and may be restored by contacting support. Set `purge=true` to permanently and irreversibly erase the account and all of its data across every service, with no possibility of recovery.
         /// </remarks>
+        /// <param name="purge">When true, permanently and irreversibly erase the account and all of its data with no possibility of recovery. When false (the default), the account is soft-deleted and may be restored.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task Delete_accountAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task Delete_accountAsync(bool? purge = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -2594,11 +2595,12 @@ namespace Smplkit.Internal.Generated.App
         /// Delete Current Account
         /// </summary>
         /// <remarks>
-        /// Permanently delete the current account and all associated data.
+        /// Delete the current account and all associated data. By default the account is soft-deleted and may be restored by contacting support. Set `purge=true` to permanently and irreversibly erase the account and all of its data across every service, with no possibility of recovery.
         /// </remarks>
+        /// <param name="purge">When true, permanently and irreversibly erase the account and all of its data with no possibility of recovery. When false (the default), the account is soft-deleted and may be restored.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task Delete_accountAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task Delete_accountAsync(bool? purge = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -2612,6 +2614,12 @@ namespace Smplkit.Internal.Generated.App
                     if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
                     // Operation Path: "api/v1/accounts/current"
                     urlBuilder_.Append("api/v1/accounts/current");
+                    urlBuilder_.Append('?');
+                    if (purge != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("purge")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(purge, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    urlBuilder_.Length--;
 
                     PrepareRequest(client_, request_, urlBuilder_);
 
