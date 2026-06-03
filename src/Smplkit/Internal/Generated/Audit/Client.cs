@@ -272,14 +272,14 @@ namespace Smplkit.Internal.Generated.Audit
         /// List delivery log entries for a forwarder.
         /// <br/>
         /// <br/>Default sort is `-created_at` (newest first). Filter by `status`
-        /// <br/>(`SUCCEEDED` or `FAILED`, case-insensitive), by `event_id`, or by a
+        /// <br/>(`SUCCEEDED` or `FAILED`, case-insensitive), by `event`, or by a
         /// <br/>`created_at` range using interval notation
         /// <br/>(e.g. `[2026-01-01T00:00:00Z,*)`).
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ForwarderDeliveryListResponse> List_forwarder_deliveriesAsync(string forwarder_id, string? filterstatus = null, string? filtercreated_at = null, string? filterevent_id = null, int? pagesize = null, string? pageafter = null, Anonymous2? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ForwarderDeliveryListResponse> List_forwarder_deliveriesAsync(string forwarder_id, string? filterstatus = null, string? filtercreated_at = null, string? filterevent = null, int? pagesize = null, string? pageafter = null, Anonymous2? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -1652,14 +1652,14 @@ namespace Smplkit.Internal.Generated.Audit
         /// List delivery log entries for a forwarder.
         /// <br/>
         /// <br/>Default sort is `-created_at` (newest first). Filter by `status`
-        /// <br/>(`SUCCEEDED` or `FAILED`, case-insensitive), by `event_id`, or by a
+        /// <br/>(`SUCCEEDED` or `FAILED`, case-insensitive), by `event`, or by a
         /// <br/>`created_at` range using interval notation
         /// <br/>(e.g. `[2026-01-01T00:00:00Z,*)`).
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ForwarderDeliveryListResponse> List_forwarder_deliveriesAsync(string forwarder_id, string? filterstatus = null, string? filtercreated_at = null, string? filterevent_id = null, int? pagesize = null, string? pageafter = null, Anonymous2? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ForwarderDeliveryListResponse> List_forwarder_deliveriesAsync(string forwarder_id, string? filterstatus = null, string? filtercreated_at = null, string? filterevent = null, int? pagesize = null, string? pageafter = null, Anonymous2? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (forwarder_id == null)
                 throw new System.ArgumentNullException("forwarder_id");
@@ -1688,9 +1688,9 @@ namespace Smplkit.Internal.Generated.Audit
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[created_at]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtercreated_at, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
-                    if (filterevent_id != null)
+                    if (filterevent != null)
                     {
-                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[event_id]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterevent_id, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[event]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterevent, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     if (pagesize != null)
                     {
@@ -3596,14 +3596,14 @@ namespace Smplkit.Internal.Generated.Audit
         /// <summary>
         /// Forwarder the delivery belongs to.
         /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("forwarder_id")]
-        public System.Guid Forwarder_id { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("forwarder")]
+        public System.Guid Forwarder { get; set; } = default!;
 
         /// <summary>
         /// Event that was being delivered.
         /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("event_id")]
-        public System.Guid Event_id { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("event")]
+        public System.Guid Event { get; set; } = default!;
 
         /// <summary>
         /// 1 for the initial delivery, incremented for each retry.
