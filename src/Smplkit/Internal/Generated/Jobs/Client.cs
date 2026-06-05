@@ -37,7 +37,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <remarks>
         /// Create a job for this account.
         /// <br/>
-        /// <br/>The caller supplies the job's id (a slug) as `data.id`. Slugs are unique
+        /// <br/>The caller supplies the job's id as `data.id`. Ids are unique
         /// <br/>within an account and immutable. An enabled job begins scheduling
         /// <br/>immediately.
         /// </remarks>
@@ -64,7 +64,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// Get Job
         /// </summary>
         /// <remarks>
-        /// Retrieve a single job by its id (slug).
+        /// Retrieve a single job by its id.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -89,7 +89,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// Delete Job
         /// </summary>
         /// <remarks>
-        /// Delete a job. Its run history is retained; the slug may be reused later.
+        /// Delete a job. Its run history is retained; the id may be reused later.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -117,7 +117,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <remarks>
         /// List runs for this account, newest first (cursor paginated).
         /// <br/>
-        /// <br/>Use `filter[job]={slug}` for a single job's run history.
+        /// <br/>Use `filter[job]={id}` for a single job's run history.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -233,7 +233,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <remarks>
         /// Create a job for this account.
         /// <br/>
-        /// <br/>The caller supplies the job's id (a slug) as `data.id`. Slugs are unique
+        /// <br/>The caller supplies the job's id as `data.id`. Ids are unique
         /// <br/>within an account and immutable. An enabled job begins scheduling
         /// <br/>immediately.
         /// </remarks>
@@ -417,7 +417,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// Get Job
         /// </summary>
         /// <remarks>
-        /// Retrieve a single job by its id (slug).
+        /// Retrieve a single job by its id.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -589,7 +589,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// Delete Job
         /// </summary>
         /// <remarks>
-        /// Delete a job. Its run history is retained; the slug may be reused later.
+        /// Delete a job. Its run history is retained; the id may be reused later.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -753,7 +753,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <remarks>
         /// List runs for this account, newest first (cursor paginated).
         /// <br/>
-        /// <br/>Use `filter[job]={slug}` for a single job's run history.
+        /// <br/>Use `filter[job]={id}` for a single job's run history.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1594,7 +1594,7 @@ namespace Smplkit.Internal.Generated.Jobs
     }
 
     /// <summary>
-    /// JSON:API resource envelope for a job. The caller supplies `id` (the slug) on create.
+    /// JSON:API resource envelope for a job. The caller supplies `id` on create.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class JobResource
@@ -1717,7 +1717,7 @@ namespace Smplkit.Internal.Generated.Jobs
     {
 
         /// <summary>
-        /// The slug of the job this run belongs to.
+        /// The id of the job this run belongs to.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("job")]
         public string Job { get; set; } = default!;
