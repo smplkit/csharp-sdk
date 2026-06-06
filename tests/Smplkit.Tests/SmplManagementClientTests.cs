@@ -60,6 +60,8 @@ public class SmplManagementClientTests
         Assert.NotNull(mgmt.LogGroups);
         Assert.NotNull(mgmt.Audit);
         Assert.NotNull(mgmt.Audit.Forwarders);
+        Assert.NotNull(mgmt.Jobs);
+        Assert.NotNull(mgmt.Jobs.Runs);
     }
 
     [Fact]

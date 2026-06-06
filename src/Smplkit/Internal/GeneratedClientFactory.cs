@@ -3,6 +3,7 @@ using GenApp = Smplkit.Internal.Generated.App;
 using GenAudit = Smplkit.Internal.Generated.Audit;
 using GenConfig = Smplkit.Internal.Generated.Config;
 using GenFlags = Smplkit.Internal.Generated.Flags;
+using GenJobs = Smplkit.Internal.Generated.Jobs;
 using GenLogging = Smplkit.Internal.Generated.Logging;
 
 namespace Smplkit.Internal;
@@ -30,6 +31,9 @@ internal sealed class GeneratedClientFactory
 
     /// <summary>Gets the generated Audit API client.</summary>
     internal GenAudit.AuditClient Audit { get; }
+
+    /// <summary>Gets the generated Jobs API client.</summary>
+    internal GenJobs.JobsClient Jobs { get; }
 
     /// <summary>
     /// Configures the shared <see cref="HttpClient"/> and creates generated client instances.
@@ -64,5 +68,6 @@ internal sealed class GeneratedClientFactory
         App = new GenApp.AppClient($"{scheme}://app.{domain}", httpClient) { ReadResponseAsString = true };
         Logging = new GenLogging.LoggingClient($"{scheme}://logging.{domain}", httpClient) { ReadResponseAsString = true };
         Audit = new GenAudit.AuditClient($"{scheme}://audit.{domain}", httpClient) { ReadResponseAsString = true };
+        Jobs = new GenJobs.JobsClient($"{scheme}://jobs.{domain}", httpClient) { ReadResponseAsString = true };
     }
 }

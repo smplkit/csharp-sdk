@@ -56,6 +56,9 @@ public sealed class SmplManagementClient : IDisposable
     /// <summary>Gets the audit management namespace — SIEM forwarder CRUD.</summary>
     public AuditManagementClient Audit { get; }
 
+    /// <summary>Gets the jobs management namespace — scheduled-job CRUD, run-now, run history, and usage.</summary>
+    public JobsManagementClient Jobs { get; }
+
     /// <summary>
     /// Initializes a new <see cref="SmplManagementClient"/> with automatic config resolution.
     /// </summary>
@@ -108,6 +111,7 @@ public sealed class SmplManagementClient : IDisposable
         Loggers = new LoggersClient(clients);
         LogGroups = new LogGroupsClient(clients);
         Audit = new AuditManagementClient(clients.Audit);
+        Jobs = new JobsManagementClient(clients.Jobs);
     }
 
     /// <summary>
@@ -135,6 +139,7 @@ public sealed class SmplManagementClient : IDisposable
         Loggers = new LoggersClient(clients);
         LogGroups = new LogGroupsClient(clients);
         Audit = new AuditManagementClient(clients.Audit);
+        Jobs = new JobsManagementClient(clients.Jobs);
     }
 
     /// <summary>Releases resources used by this client.</summary>
