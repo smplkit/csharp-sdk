@@ -4162,21 +4162,20 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     /// <summary>
-    /// HTTP request configuration used to deliver an event to the destination.
+    /// HTTP request configuration for delivering a payload to a destination.
     /// <br/>
-    /// <br/>Used when the parent forwarder's ``forwarder_type`` is one of the
-    /// <br/>HTTP-family destinations (``HTTP``, ``DATADOG``, ``SPLUNK_HEC``,
-    /// <br/>``SUMO_LOGIC``, ``NEW_RELIC``, ``HONEYCOMB``, ``ELASTIC``). When other
-    /// <br/>transports land (``FTP``, ``SQS``, …) their own configuration schemas
-    /// <br/>will join this one as members of a discriminated union under the
-    /// <br/>``configuration`` field of ``Forwarder``.
+    /// <br/>The shared base shape for any product that posts to a customer-supplied
+    /// <br/>HTTP destination. Smpl Audit forwarders use it directly; Smpl Jobs
+    /// <br/>extends it (adding ``body`` and ``timeout``). When other transports land
+    /// <br/>(``FTP``, ``SQS``, …) their own configuration schemas will join this one
+    /// <br/>as members of a discriminated union under a ``configuration`` field.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class HttpConfiguration
     {
 
         /// <summary>
-        /// HTTP method used when delivering an event.
+        /// HTTP method used when delivering the request.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("method")]
         [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<HttpConfigurationMethod>))]
@@ -4189,13 +4188,13 @@ namespace Smplkit.Internal.Generated.Audit
         public string Url { get; set; } = default!;
 
         /// <summary>
-        /// HTTP headers attached to each delivery request.
+        /// HTTP headers attached to each request.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("headers")]
         public System.Collections.Generic.List<HttpHeader> Headers { get; set; } = default!;
 
         /// <summary>
-        /// HTTP response status that indicates a successful delivery. Either a specific status code (e.g. `200`, `204`) or a status class (`1xx`, `2xx`, `3xx`, `4xx`, `5xx`).
+        /// HTTP response status that indicates success. Either a specific status code (e.g. `200`, `204`) or a status class (`1xx`, `2xx`, `3xx`, `4xx`, `5xx`).
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("success_status")]
         public string Success_status { get; set; } = "2xx";
@@ -4215,7 +4214,7 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     /// <summary>
-    /// A single HTTP header attached to a forwarder delivery request.
+    /// A single HTTP header attached to an outbound request.
     /// <br/>
     /// <br/>Header values are encrypted at the application layer before
     /// <br/>persistence regardless of header name; the wire representation here
