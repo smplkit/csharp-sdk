@@ -159,7 +159,8 @@ public sealed class AuditEvents
             a.Actor_label,
             ConvertJsonObject(a.Data) ?? new Dictionary<string, object?>(),
             a.Idempotency_key ?? string.Empty,
-            a.Do_not_forward
+            a.Do_not_forward,
+            a.Environment
         );
     }
 

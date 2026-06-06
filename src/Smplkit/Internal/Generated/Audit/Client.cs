@@ -37,9 +37,15 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// Record an audit event for this account.
         /// <br/>
+        /// <br/>The event is stamped with the environment it occurred in: a
+        /// <br/>single-environment credential implies it; a multi-environment or
+        /// <br/>unrestricted credential must send the `X-Smplkit-Environment` header.
+        /// <br/>The resolved environment must exist and be managed for the account.
+        /// <br/>
         /// <br/>Returns `201 Created` on first write, `200 OK` if the request was a
         /// <br/>duplicate (matched by `Idempotency-Key` or a key derived from the
-        /// <br/>event's content).
+        /// <br/>event's content). The same content recorded in two environments
+        /// <br/>produces two distinct events.
         /// <br/>
         /// <br/>`resource_type` values beginning with `smpl.` are reserved for events
         /// <br/>that smplkit emits about its own resources and cannot be used here.
@@ -99,6 +105,13 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         /// <remarks>
         /// Retrieve a single audit event by id.
+        /// <br/>
+        /// <br/>Authorized against the caller's permitted environment set: the event
+        /// <br/>is returned only if its environment is one the caller may access,
+        /// <br/>otherwise `404` (the same response as a non-existent id, so existence
+        /// <br/>never leaks across environments). The `X-Smplkit-Environment` header is
+        /// <br/>ignored here — a single-object lookup names the object by id, it does
+        /// <br/>not resolve an ambient environment.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -110,6 +123,9 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         /// <remarks>
         /// Search audit events with column filters and an optional JSON Logic expression.
+        /// <br/>
+        /// <br/>Scoped to the resolved environment (a single-environment credential
+        /// <br/>implies it; otherwise send the `X-Smplkit-Environment` header).
         /// <br/>
         /// <br/>Without a JSON Logic `filter`: behaves like `GET /api/v1/events`
         /// <br/>with the same column filters.
@@ -203,6 +219,11 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>The caller supplies the forwarder's key as `data.id`. Keys are
         /// <br/>unique within an account and immutable for the lifetime of the
         /// <br/>forwarder.
+        /// <br/>
+        /// <br/>Enablement is per-environment: a forwarder is enabled in an
+        /// <br/>environment only via `environments[&lt;env&gt;].enabled`; the base `enabled`
+        /// <br/>is always false. Every environment referenced in `environments` must
+        /// <br/>exist and be managed for the account.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -215,7 +236,9 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// List forwarders for this account.
         /// <br/>
-        /// <br/>Default sort is `-created_at` (newest first).
+        /// <br/>Default sort is `-created_at` (newest first). Each forwarder's
+        /// <br/>`environments` override map is scoped to the caller's environment
+        /// <br/>groups.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `updated_at`, `-updated_at`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
@@ -223,7 +246,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ForwarderListResponse> List_forwardersAsync(string? filterforwarder_type = null, bool? filterenabled = null, Anonymous? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ForwarderListResponse> List_forwardersAsync(string? filterforwarder_type = null, Anonymous? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -234,6 +257,8 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>
         /// <br/>Header values are returned in plaintext so the resource can be
         /// <br/>round-tripped with `GET`, mutate, `PUT` without re-entering secrets.
+        /// <br/>The `environments` override map is scoped to the caller's environment
+        /// <br/>groups.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -245,6 +270,11 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         /// <remarks>
         /// Replace an existing forwarder. Every writable field is overwritten.
+        /// <br/>
+        /// <br/>The `environments` override map is a full replace for the environments
+        /// <br/>you can manage; overrides for environments outside your access (which
+        /// <br/>were hidden from your read) are preserved. Every environment referenced
+        /// <br/>in `environments` must exist and be managed.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -271,9 +301,10 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// List delivery log entries for a forwarder.
         /// <br/>
-        /// <br/>Default sort is `-created_at` (newest first). Filter by `status`
-        /// <br/>(`SUCCEEDED` or `FAILED`, case-insensitive), by `event`, or by a
-        /// <br/>`created_at` range using interval notation
+        /// <br/>Scoped to the resolved environment — only that environment's deliveries
+        /// <br/>for the forwarder are shown. Default sort is `-created_at` (newest
+        /// <br/>first). Filter by `status` (`SUCCEEDED` or `FAILED`, case-insensitive),
+        /// <br/>by `event`, or by a `created_at` range using interval notation
         /// <br/>(e.g. `[2026-01-01T00:00:00Z,*)`).
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`.</param>
@@ -288,7 +319,10 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// Retry a single failed delivery.
         /// <br/>
-        /// <br/>Returns the new delivery log entry. The prior entry is left in place.
+        /// <br/>The delivery is named by id, so it is authorized against the caller's
+        /// <br/>permitted environment set: a delivery in an environment the caller
+        /// <br/>can't access returns `404` (existence never leaks). Returns the new
+        /// <br/>delivery log entry. The prior entry is left in place.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -299,10 +333,13 @@ namespace Smplkit.Internal.Generated.Audit
         /// Retry Failed Forwarder Deliveries
         /// </summary>
         /// <remarks>
-        /// Retry every failed delivery for this forwarder.
+        /// Retry every failed delivery for this forwarder in the resolved environment.
         /// <br/>
-        /// <br/>Each failed delivery is re-attempted using the forwarder's current
-        /// <br/>configuration and the original event. Returns the counts.
+        /// <br/>Scoped to the resolved environment (a single-environment credential
+        /// <br/>implies it; otherwise send the `X-Smplkit-Environment` header): only
+        /// <br/>that environment's failed deliveries are re-attempted, each using the
+        /// <br/>forwarder's effective configuration for that environment and the
+        /// <br/>original event. Returns the counts.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -360,8 +397,9 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>
         /// <br/>The resource `id` is the slug itself. Default sort is `key`
         /// <br/>ascending; pass `sort=-key` for descending. Useful for populating
-        /// <br/>filter dropdowns in a UI. Results are scoped to the resource types
-        /// <br/>visible under the account's current plan.
+        /// <br/>filter dropdowns in a UI. Results are scoped to the resolved
+        /// <br/>environment and to the resource types visible under the account's
+        /// <br/>current plan.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
@@ -379,9 +417,9 @@ namespace Smplkit.Internal.Generated.Audit
         /// List the distinct `event_type` slugs recorded for this account.
         /// <br/>
         /// <br/>Default sort is `key` ascending; pass `sort=-key` for descending.
-        /// <br/>Without `filter[resource_type]`, returns one row per distinct
-        /// <br/>event_type. With `filter[resource_type]`, returns the event_types
-        /// <br/>recorded for that specific resource type.
+        /// <br/>Scoped to the resolved environment. Without `filter[resource_type]`,
+        /// <br/>returns one row per distinct event_type. With `filter[resource_type]`,
+        /// <br/>returns the event_types recorded for that specific resource type.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
@@ -399,8 +437,8 @@ namespace Smplkit.Internal.Generated.Audit
         /// List the distinct `category` values recorded for this account.
         /// <br/>
         /// <br/>The resource `id` is the category value itself. Default sort is
-        /// <br/>`key` ascending; pass `sort=-key` for descending. Useful for
-        /// <br/>populating filter dropdowns in a UI.
+        /// <br/>`key` ascending; pass `sort=-key` for descending. Scoped to the
+        /// <br/>resolved environment. Useful for populating filter dropdowns in a UI.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
@@ -467,9 +505,15 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// Record an audit event for this account.
         /// <br/>
+        /// <br/>The event is stamped with the environment it occurred in: a
+        /// <br/>single-environment credential implies it; a multi-environment or
+        /// <br/>unrestricted credential must send the `X-Smplkit-Environment` header.
+        /// <br/>The resolved environment must exist and be managed for the account.
+        /// <br/>
         /// <br/>Returns `201 Created` on first write, `200 OK` if the request was a
         /// <br/>duplicate (matched by `Idempotency-Key` or a key derived from the
-        /// <br/>event's content).
+        /// <br/>event's content). The same content recorded in two environments
+        /// <br/>produces two distinct events.
         /// <br/>
         /// <br/>`resource_type` values beginning with `smpl.` are reserved for events
         /// <br/>that smplkit emits about its own resources and cannot be used here.
@@ -739,6 +783,13 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         /// <remarks>
         /// Retrieve a single audit event by id.
+        /// <br/>
+        /// <br/>Authorized against the caller's permitted environment set: the event
+        /// <br/>is returned only if its environment is one the caller may access,
+        /// <br/>otherwise `404` (the same response as a non-existent id, so existence
+        /// <br/>never leaks across environments). The `X-Smplkit-Environment` header is
+        /// <br/>ignored here — a single-object lookup names the object by id, it does
+        /// <br/>not resolve an ambient environment.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -820,6 +871,9 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         /// <remarks>
         /// Search audit events with column filters and an optional JSON Logic expression.
+        /// <br/>
+        /// <br/>Scoped to the resolved environment (a single-environment credential
+        /// <br/>implies it; otherwise send the `X-Smplkit-Environment` header).
         /// <br/>
         /// <br/>Without a JSON Logic `filter`: behaves like `GET /api/v1/events`
         /// <br/>with the same column filters.
@@ -1207,6 +1261,11 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>The caller supplies the forwarder's key as `data.id`. Keys are
         /// <br/>unique within an account and immutable for the lifetime of the
         /// <br/>forwarder.
+        /// <br/>
+        /// <br/>Enablement is per-environment: a forwarder is enabled in an
+        /// <br/>environment only via `environments[&lt;env&gt;].enabled`; the base `enabled`
+        /// <br/>is always false. Every environment referenced in `environments` must
+        /// <br/>exist and be managed for the account.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1292,7 +1351,9 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// List forwarders for this account.
         /// <br/>
-        /// <br/>Default sort is `-created_at` (newest first).
+        /// <br/>Default sort is `-created_at` (newest first). Each forwarder's
+        /// <br/>`environments` override map is scoped to the caller's environment
+        /// <br/>groups.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `updated_at`, `-updated_at`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
@@ -1300,7 +1361,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ForwarderListResponse> List_forwardersAsync(string? filterforwarder_type = null, bool? filterenabled = null, Anonymous? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ForwarderListResponse> List_forwardersAsync(string? filterforwarder_type = null, Anonymous? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -1319,10 +1380,6 @@ namespace Smplkit.Internal.Generated.Audit
                     if (filterforwarder_type != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[forwarder_type]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterforwarder_type, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
-                    }
-                    if (filterenabled != null)
-                    {
-                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[enabled]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterenabled, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     if (sort != null)
                     {
@@ -1403,6 +1460,8 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>
         /// <br/>Header values are returned in plaintext so the resource can be
         /// <br/>round-tripped with `GET`, mutate, `PUT` without re-entering secrets.
+        /// <br/>The `environments` override map is scoped to the caller's environment
+        /// <br/>groups.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1484,6 +1543,11 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         /// <remarks>
         /// Replace an existing forwarder. Every writable field is overwritten.
+        /// <br/>
+        /// <br/>The `environments` override map is a full replace for the environments
+        /// <br/>you can manage; overrides for environments outside your access (which
+        /// <br/>were hidden from your read) are preserved. Every environment referenced
+        /// <br/>in `environments` must exist and be managed.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1651,9 +1715,10 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// List delivery log entries for a forwarder.
         /// <br/>
-        /// <br/>Default sort is `-created_at` (newest first). Filter by `status`
-        /// <br/>(`SUCCEEDED` or `FAILED`, case-insensitive), by `event`, or by a
-        /// <br/>`created_at` range using interval notation
+        /// <br/>Scoped to the resolved environment — only that environment's deliveries
+        /// <br/>for the forwarder are shown. Default sort is `-created_at` (newest
+        /// <br/>first). Filter by `status` (`SUCCEEDED` or `FAILED`, case-insensitive),
+        /// <br/>by `event`, or by a `created_at` range using interval notation
         /// <br/>(e.g. `[2026-01-01T00:00:00Z,*)`).
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`.</param>
@@ -1765,7 +1830,10 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// Retry a single failed delivery.
         /// <br/>
-        /// <br/>Returns the new delivery log entry. The prior entry is left in place.
+        /// <br/>The delivery is named by id, so it is authorized against the caller's
+        /// <br/>permitted environment set: a delivery in an environment the caller
+        /// <br/>can't access returns `404` (existence never leaks). Returns the new
+        /// <br/>delivery log entry. The prior entry is left in place.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1853,10 +1921,13 @@ namespace Smplkit.Internal.Generated.Audit
         /// Retry Failed Forwarder Deliveries
         /// </summary>
         /// <remarks>
-        /// Retry every failed delivery for this forwarder.
+        /// Retry every failed delivery for this forwarder in the resolved environment.
         /// <br/>
-        /// <br/>Each failed delivery is re-attempted using the forwarder's current
-        /// <br/>configuration and the original event. Returns the counts.
+        /// <br/>Scoped to the resolved environment (a single-environment credential
+        /// <br/>implies it; otherwise send the `X-Smplkit-Environment` header): only
+        /// <br/>that environment's failed deliveries are re-attempted, each using the
+        /// <br/>forwarder's effective configuration for that environment and the
+        /// <br/>original event. Returns the counts.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -2195,8 +2266,9 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>
         /// <br/>The resource `id` is the slug itself. Default sort is `key`
         /// <br/>ascending; pass `sort=-key` for descending. Useful for populating
-        /// <br/>filter dropdowns in a UI. Results are scoped to the resource types
-        /// <br/>visible under the account's current plan.
+        /// <br/>filter dropdowns in a UI. Results are scoped to the resolved
+        /// <br/>environment and to the resource types visible under the account's
+        /// <br/>current plan.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
@@ -2298,9 +2370,9 @@ namespace Smplkit.Internal.Generated.Audit
         /// List the distinct `event_type` slugs recorded for this account.
         /// <br/>
         /// <br/>Default sort is `key` ascending; pass `sort=-key` for descending.
-        /// <br/>Without `filter[resource_type]`, returns one row per distinct
-        /// <br/>event_type. With `filter[resource_type]`, returns the event_types
-        /// <br/>recorded for that specific resource type.
+        /// <br/>Scoped to the resolved environment. Without `filter[resource_type]`,
+        /// <br/>returns one row per distinct event_type. With `filter[resource_type]`,
+        /// <br/>returns the event_types recorded for that specific resource type.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
@@ -2406,8 +2478,8 @@ namespace Smplkit.Internal.Generated.Audit
         /// List the distinct `category` values recorded for this account.
         /// <br/>
         /// <br/>The resource `id` is the category value itself. Default sort is
-        /// <br/>`key` ascending; pass `sort=-key` for descending. Useful for
-        /// <br/>populating filter dropdowns in a UI.
+        /// <br/>`key` ascending; pass `sort=-key` for descending. Scoped to the
+        /// <br/>resolved environment. Useful for populating filter dropdowns in a UI.
         /// </remarks>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
@@ -2789,6 +2861,12 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("do_not_forward")]
         public bool Do_not_forward { get; set; } = false;
+
+        /// <summary>
+        /// The environment the event occurred in. Always present on read. Resolved when the event is recorded — from a single-environment credential, or the `X-Smplkit-Environment` header for multi-environment credentials — and never set on the request body. The same content recorded in two environments produces two distinct events.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("environment")]
+        public string? Environment { get; set; } = default!;
 
         /// <summary>
         /// When the event was received and recorded.
@@ -3468,10 +3546,10 @@ namespace Smplkit.Internal.Generated.Audit
         public ForwarderType Forwarder_type { get; set; } = default!;
 
         /// <summary>
-        /// Whether the forwarder is currently delivering events. Set to `false` to pause deliveries without deleting the forwarder.
+        /// Always false. Enablement is per-environment: a forwarder delivers in an environment only when `environments[&lt;env&gt;].enabled` is true. The base value is pinned false and cannot be set.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("enabled")]
-        public bool Enabled { get; set; } = true;
+        public bool Enabled { get; set; } = false;
 
         /// <summary>
         /// JSON Logic expression evaluated against each event. The event is delivered only if the expression returns truthy. Omit to deliver every event.
@@ -3492,10 +3570,16 @@ namespace Smplkit.Internal.Generated.Audit
         public object? Transform { get; set; } = default!;
 
         /// <summary>
-        /// Transport-specific delivery configuration. Shape is discriminated by ``forwarder_type``; today all destination types use ``HttpConfiguration``. Branded vendor types (everything except `http`) constrain the configuration against a per-vendor template — see `GET /api/v1/forwarder_types` for the URL pattern, fixed headers, and customer-supplied placeholders for each type.
+        /// Base delivery configuration template. Shape is discriminated by ``forwarder_type``; today all destination types use ``HttpConfiguration``. Branded vendor types (everything except `http`) constrain the configuration against a per-vendor template — see `GET /api/v1/forwarder_types` for the URL pattern, fixed headers, and customer-supplied placeholders for each type. A per-environment override in `environments` replaces this template for that environment.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("configuration")]
         public HttpConfiguration Configuration { get; set; } = new HttpConfiguration();
+
+        /// <summary>
+        /// Per-environment overrides keyed by environment key (e.g. `production`, `staging`). Each entry sets `enabled` (whether the forwarder delivers in that environment) and an optional `configuration` override (omit to inherit the base `configuration`). A forwarder with no entry for an environment is disabled there. Every referenced environment must exist and be managed for the account.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("environments")]
+        public System.Collections.Generic.IDictionary<string, ForwarderEnvironment> Environments { get; set; } = default!;
 
         /// <summary>
         /// When the forwarder was created.
@@ -3592,6 +3676,12 @@ namespace Smplkit.Internal.Generated.Audit
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ForwarderDelivery
     {
+
+        /// <summary>
+        /// Environment the delivered event occurred in. Deliveries are scoped to one environment.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("environment")]
+        public string Environment { get; set; } = default!;
 
         /// <summary>
         /// Forwarder the delivery belongs to.
@@ -3773,6 +3863,36 @@ namespace Smplkit.Internal.Generated.Audit
 
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public ForwarderDeliveryResource Data { get; set; } = new ForwarderDeliveryResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Per-environment override for a forwarder's enablement and configuration.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ForwarderEnvironment
+    {
+
+        /// <summary>
+        /// Whether the forwarder delivers events in this environment. A forwarder is enabled in an environment only via this field — the base `enabled` is always false.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("enabled")]
+        public bool Enabled { get; set; } = false;
+
+        /// <summary>
+        /// Per-environment delivery configuration override. Omit to inherit the forwarder's base `configuration`. When present, it fully replaces the base configuration for this environment and is validated against the same per-vendor template.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("configuration")]
+        public HttpConfiguration? Configuration { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
