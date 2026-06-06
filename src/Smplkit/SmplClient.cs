@@ -104,6 +104,9 @@ public sealed class SmplClient : IDisposable
             Timeout = options.Timeout,
             BaseDomain = resolved.BaseDomain,
             Scheme = resolved.Scheme,
+            // Runtime audit ops are environment-scoped (ADR-055): the factory
+            // stamps X-Smplkit-Environment from this on the runtime audit client.
+            Environment = resolved.Environment,
             ExtraHeaders = options.ExtraHeaders,
         };
         _clients = new GeneratedClientFactory(_httpClient, resolvedOptions);
@@ -122,7 +125,7 @@ public sealed class SmplClient : IDisposable
         Config = new ConfigClient(_clients, EnsureSharedWebSocket, this, _metrics);
         Flags = new FlagsClient(_clients, _apiKey, EnsureSharedWebSocket, _contextBuffer, this, _metrics);
         Logging = new LoggingClient(_clients, _apiKey, EnsureSharedWebSocket, this, _metrics);
-        Audit = new AuditClient(_clients.Audit);
+        Audit = new AuditClient(_clients.AuditRuntime);
 
         // Wire up ambient-context bridge for flag evaluation.
         Flags.SetContextProvider(GetAmbientContext);

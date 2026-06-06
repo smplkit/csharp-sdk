@@ -33,7 +33,14 @@ public sealed class ManagementForwardersClient
     /// <param name="configuration">Destination HTTP request configuration.
     /// Headers carry credentials and are encrypted at rest server-side; reads
     /// return them redacted.</param>
-    /// <param name="enabled">Whether the forwarder is active. Defaults to <c>true</c>.</param>
+    /// <param name="environments">Per-environment overrides keyed by environment
+    /// key (e.g. <c>"production"</c>). A forwarder delivers in an environment
+    /// only when that environment's entry has <c>Enabled = true</c>. Each entry
+    /// may carry an optional <see cref="HttpConfiguration"/> override; omit it to
+    /// inherit the base <paramref name="configuration"/>. Omit the whole argument
+    /// to create a forwarder that delivers nowhere until enabled per
+    /// environment. Every referenced environment must exist and be managed for
+    /// the account.</param>
     /// <param name="description">Optional free-text description.</param>
     /// <param name="filter">Optional JSON Logic filter; events that don't match
     /// are recorded as <c>filtered_out</c> deliveries.</param>
@@ -51,7 +58,7 @@ public sealed class ManagementForwardersClient
         string name,
         ForwarderType forwarderType,
         HttpConfiguration configuration,
-        bool enabled = true,
+        IDictionary<string, ForwarderEnvironment>? environments = null,
         string? description = null,
         IDictionary<string, object?>? filter = null,
         object? transform = null,
@@ -63,7 +70,7 @@ public sealed class ManagementForwardersClient
             name: name,
             forwarderType: forwarderType,
             configuration: configuration,
-            enabled: enabled,
+            environments: environments,
             description: description,
             filter: filter,
             transform: transform,
@@ -78,7 +85,7 @@ public sealed class ManagementForwardersClient
         input ??= new ListForwardersInput();
         var filterType = input.ForwarderType?.ToWireValue();
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.List_forwardersAsync(filterType, input.Enabled, null, input.PageNumber, input.PageSize, input.MetaTotal, ct)
+            () => _gen.List_forwardersAsync(filterType, null, input.PageNumber, input.PageSize, input.MetaTotal, ct)
         ).ConfigureAwait(false);
         var rows = (resp.Data ?? new List<GenAudit.ForwarderResource>()).Select(FromResource).ToList();
         return new ListForwardersPage(rows, AuditResourceTypes.ExtractPagination(resp.Meta));
@@ -137,13 +144,24 @@ public sealed class ManagementForwardersClient
     /// </summary>
     private static GenAudit.Forwarder BuildForwarderAttributes(Forwarder src)
     {
+        // The base `enabled` is server-pinned false (ADR-055); we never send it.
+        // Enablement travels entirely through the per-environment overrides.
         var attrs = new GenAudit.Forwarder
         {
             Name = src.Name,
             Forwarder_type = ToGenForwarderType(src.ForwarderType),
-            Enabled = src.Enabled,
             Configuration = ToGenHttpConfiguration(src.Configuration),
         };
+        if (src.Environments.Count > 0)
+        {
+            attrs.Environments = src.Environments.ToDictionary(
+                kv => kv.Key,
+                kv => new GenAudit.ForwarderEnvironment
+                {
+                    Enabled = kv.Value.Enabled,
+                    Configuration = kv.Value.Configuration is { } cfg ? ToGenHttpConfiguration(cfg) : null,
+                });
+        }
         if (src.Description is not null) attrs.Description = src.Description;
         if (src.Filter != null)
         {
@@ -217,7 +235,10 @@ public sealed class ManagementForwardersClient
             name: a.Name ?? string.Empty,
             forwarderType: FromGenForwarderType(a.Forwarder_type),
             configuration: HttpFromGen(a.Configuration),
+            // The base `enabled` is server-pinned false; round-trip whatever the
+            // server returned (always false) without assuming a default of true.
             enabled: a.Enabled,
+            environments: EnvironmentsFromGen(a.Environments),
             description: a.Description,
             filter: ConvertJson(a.Filter),
             transform: ConvertTransform(a.Transform),
@@ -260,6 +281,22 @@ public sealed class ManagementForwardersClient
             GenAudit.ForwarderType.Sumo_logic => ForwarderType.SumoLogic,
             _ => throw new ArgumentOutOfRangeException(nameof(src), src, null),
         };
+
+    private static IDictionary<string, ForwarderEnvironment> EnvironmentsFromGen(
+        IDictionary<string, GenAudit.ForwarderEnvironment>? src)
+    {
+        var result = new Dictionary<string, ForwarderEnvironment>();
+        if (src == null) return result;
+        foreach (var (key, env) in src)
+        {
+            result[key] = new ForwarderEnvironment
+            {
+                Enabled = env.Enabled,
+                Configuration = env.Configuration is { } cfg ? HttpFromGen(cfg) : null,
+            };
+        }
+        return result;
+    }
 
     private static HttpConfiguration HttpFromGen(GenAudit.HttpConfiguration? src)
     {

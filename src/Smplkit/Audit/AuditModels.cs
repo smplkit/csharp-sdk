@@ -26,6 +26,12 @@ namespace Smplkit.Audit;
 /// unconstrained.</param>
 /// <param name="IdempotencyKey">Caller-supplied or server-derived idempotency key.</param>
 /// <param name="DoNotForward">When true, the event was recorded but not forwarded to any SIEM forwarder.</param>
+/// <param name="Environment">The environment the event was recorded in. Read-only
+/// and present on every read — the audit service resolves it when the event is
+/// recorded (from a single-environment credential, or from the runtime SDK's
+/// configured environment, which the SDK sends on every recording call). Never
+/// set on the recording request; <c>null</c> only for an event constructed
+/// locally before a server round-trip.</param>
 public sealed record AuditEvent(
     Guid Id,
     string EventType,
@@ -40,7 +46,8 @@ public sealed record AuditEvent(
     string? ActorLabel,
     IDictionary<string, object?> Data,
     string IdempotencyKey,
-    bool DoNotForward
+    bool DoNotForward,
+    string? Environment = null
 );
 
 /// <summary>
@@ -279,6 +286,29 @@ public static class TransformTypeExtensions
 public sealed record HttpHeader(string Name, string Value);
 
 /// <summary>
+/// Per-environment enablement and optional configuration override for a forwarder.
+///
+/// <para>A forwarder delivers events in a given environment only when that
+/// environment has an entry in <see cref="Forwarder.Environments"/> with
+/// <see cref="Enabled"/> set to <c>true</c>. An environment with no entry (or
+/// <see cref="Enabled"/> = <c>false</c>) receives no deliveries.</para>
+/// </summary>
+public sealed class ForwarderEnvironment
+{
+    /// <summary>Whether the forwarder delivers events in this environment.
+    /// Defaults to <c>false</c>.</summary>
+    public bool Enabled { get; set; }
+
+    /// <summary>Optional per-environment destination configuration that fully
+    /// replaces the forwarder's base <see cref="Forwarder.Configuration"/> for
+    /// this environment. <c>null</c> (the default) inherits the base
+    /// configuration. As with the base configuration, header values are
+    /// plaintext on writes and returned redacted on reads — re-supply real
+    /// values before <see cref="Forwarder.SaveAsync"/>.</summary>
+    public HttpConfiguration? Configuration { get; set; }
+}
+
+/// <summary>
 /// Forwarder destination HTTP request shape.
 ///
 /// <para><c>SuccessStatus</c> is either an exact status code
@@ -333,11 +363,24 @@ public sealed class Forwarder
     public string Name { get; set; }
     /// <summary>Destination type — see <see cref="Smplkit.Audit.ForwarderType"/>.</summary>
     public ForwarderType ForwarderType { get; set; }
-    /// <summary>Destination request configuration.</summary>
+    /// <summary>Destination request configuration. A per-environment override in
+    /// <see cref="Environments"/> replaces this base configuration for that
+    /// environment.</summary>
     public HttpConfiguration Configuration { get; set; }
-    /// <summary>When <c>false</c>, the audit service skips delivery for this
-    /// forwarder but still records <c>filtered_out</c> deliveries.</summary>
-    public bool Enabled { get; set; }
+    /// <summary>Read-only. Always <c>false</c> — the base enablement is pinned
+    /// off server-side. Whether a forwarder actually delivers is decided per
+    /// environment via <see cref="Environments"/>; this field round-trips the
+    /// server value but setting it has no effect.</summary>
+    public bool Enabled { get; internal set; }
+    /// <summary>Per-environment overrides keyed by environment key (e.g.
+    /// <c>"production"</c>, <c>"staging"</c>). A forwarder delivers in an
+    /// environment only when <c>Environments[env].Enabled</c> is <c>true</c>.
+    /// Each entry may carry an optional <see cref="HttpConfiguration"/> override;
+    /// omit it to inherit the base <see cref="Configuration"/>. Every referenced
+    /// environment must exist and be managed for the account. On update, this is
+    /// a full replace for the environments you can manage; overrides for
+    /// environments outside your access are preserved server-side.</summary>
+    public IDictionary<string, ForwarderEnvironment> Environments { get; set; }
     /// <summary>Optional free-text description.</summary>
     public string? Description { get; set; }
     /// <summary>Optional JSON Logic expression evaluated per event. When set,
@@ -370,7 +413,8 @@ public sealed class Forwarder
         string name,
         ForwarderType forwarderType,
         HttpConfiguration configuration,
-        bool enabled = true,
+        bool enabled = false,
+        IDictionary<string, ForwarderEnvironment>? environments = null,
         string? description = null,
         IDictionary<string, object?>? filter = null,
         object? transform = null,
@@ -390,6 +434,7 @@ public sealed class Forwarder
         ForwarderType = forwarderType;
         Configuration = configuration;
         Enabled = enabled;
+        Environments = environments ?? new Dictionary<string, ForwarderEnvironment>();
         Description = description;
         Filter = filter;
         Transform = transform;
@@ -432,6 +477,7 @@ public sealed class Forwarder
         ForwarderType = other.ForwarderType;
         Configuration = other.Configuration;
         Enabled = other.Enabled;
+        Environments = other.Environments;
         Description = other.Description;
         Filter = other.Filter;
         Transform = other.Transform;
@@ -443,7 +489,14 @@ public sealed class Forwarder
     }
 
     /// <inheritdoc/>
-    public override string ToString() => $"Forwarder(Id={Id}, Name={Name}, Enabled={Enabled})";
+    public override string ToString()
+    {
+        var enabledIn = string.Join(", ", Environments
+            .Where(kv => kv.Value.Enabled)
+            .Select(kv => kv.Key)
+            .OrderBy(k => k, StringComparer.Ordinal));
+        return $"Forwarder(Id={Id}, Name={Name}, EnabledIn=[{enabledIn}])";
+    }
 
     /// <summary>
     /// Enforces the transform/transformType pairing rules:
@@ -478,8 +531,6 @@ public sealed class ListForwardersInput
 {
     /// <summary>Filter by exact-match forwarder type.</summary>
     public ForwarderType? ForwarderType { get; set; }
-    /// <summary>Filter by enabled flag.</summary>
-    public bool? Enabled { get; set; }
     /// <summary>1-based page number to fetch.</summary>
     public int? PageNumber { get; set; }
     /// <summary>Page size.</summary>

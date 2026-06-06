@@ -40,7 +40,9 @@ const string SiemTransform = """
 using var manage = new SmplManagementClient();
 var forwarderName = $"showcase-{Guid.NewGuid().ToString("N")[..6]}";
 
-// create a new forwarder
+// create a new forwarder.
+// Enablement is per-environment: the forwarder delivers in an environment only
+// where `environments[<env>].Enabled` is true. Here we enable it in production.
 var forwarder = manage.Audit.Forwarders.New(
     key: forwarderName,
     name: forwarderName,
@@ -50,6 +52,10 @@ var forwarder = manage.Audit.Forwarders.New(
         Method = HttpMethod.Post,
         Url = "https://httpbin.org/post",
         Headers = new List<HttpHeader> { new("X-Showcase", "ok") },
+    },
+    environments: new Dictionary<string, ForwarderEnvironment>
+    {
+        ["production"] = new ForwarderEnvironment { Enabled = true },
     },
     filter: invoiceFilter,
     transform: SiemTransform,
@@ -62,17 +68,18 @@ var listed = await manage.Audit.Forwarders.ListAsync();
 Debug.Assert(listed.Forwarders.Any(f => f.Id == forwarder.Id));
 Console.WriteLine($"Account has {listed.Forwarders.Count} forwarder(s)");
 
-// get a forwarder
+// get a forwarder — enablement lives in the per-environment map.
 var fetched = await manage.Audit.Forwarders.GetAsync(forwarder.Id!);
 Debug.Assert(fetched.Id == forwarder.Id);
-Debug.Assert(fetched.Enabled == true);
-Console.WriteLine($"Fetched forwarder: {fetched.Name}");
+Debug.Assert(fetched.Environments["production"].Enabled == true);
+Console.WriteLine($"Fetched forwarder: {fetched.Name} (enabled in: production)");
 
-// update a forwarder
-fetched.Enabled = false;
+// update a forwarder — pause delivery in production by flipping the
+// environment's Enabled flag (the base Enabled is read-only and always false).
+fetched.Environments["production"].Enabled = false;
 await fetched.SaveAsync();
-Debug.Assert(fetched.Enabled == false);
-Console.WriteLine($"Disabled forwarder: {fetched.Name} (enabled={fetched.Enabled})");
+Debug.Assert(fetched.Environments["production"].Enabled == false);
+Console.WriteLine($"Paused forwarder in production: {fetched.Name}");
 
 // delete a forwarder
 await fetched.DeleteAsync();

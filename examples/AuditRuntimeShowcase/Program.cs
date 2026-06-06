@@ -58,10 +58,13 @@ System.Diagnostics.Debug.Assert(page.Events.Count == 1, $"Expected 1 event, got 
 
 // fetch an event by ID
 var first = await client.Audit.Events.GetAsync(page.Events[0].Id);
-Console.WriteLine($"Round-tripped: {first.EventType} at {first.OccurredAt}");
+Console.WriteLine($"Round-tripped: {first.EventType} at {first.OccurredAt} (environment={first.Environment})");
 System.Diagnostics.Debug.Assert(first.EventType == "invoice.created");
 System.Diagnostics.Debug.Assert(first.ResourceType == "invoice");
 System.Diagnostics.Debug.Assert(first.ResourceId == someResourceId);
+// The event is stamped with the environment it was recorded in. The SDK sends
+// the configured runtime environment ("production") on every recording call.
+System.Diagnostics.Debug.Assert(first.Environment == "production");
 
 // list distinct resource types (at least "invoice" should be present now)
 var rtPage = await client.Audit.ResourceTypes.ListAsync();

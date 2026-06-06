@@ -126,7 +126,6 @@ public class AuditForwardersTests
         // GET first to obtain a saved (CreatedAt-set) instance.
         var fwd = await fwds.GetAsync(FwdId);
         fwd.Name = "Renamed";
-        fwd.Enabled = false;
         await fwd.SaveAsync();
         Assert.Equal("PUT", capturedMethod);
         Assert.Equal("Renamed", fwd.Name);
@@ -203,7 +202,6 @@ public class AuditForwardersTests
         var first = await fwds.ListAsync(new ListForwardersInput
         {
             ForwarderType = ForwarderType.Datadog,
-            Enabled = true,
             PageSize = 1,
             MetaTotal = true,
         });
@@ -264,13 +262,28 @@ public class AuditForwardersTests
     // ----------------------------------------------------------------------
 
     [Fact]
-    public void Forwarder_ToString_IncludesIdNameEnabled()
+    public void Forwarder_ToString_IncludesIdNameAndEnabledEnvironments()
+    {
+        var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var fwd = fwds.New("k", "n", ForwarderType.Http, new HttpConfiguration { Url = "u" },
+            environments: new Dictionary<string, ForwarderEnvironment>
+            {
+                ["staging"] = new ForwarderEnvironment { Enabled = true },
+                ["production"] = new ForwarderEnvironment { Enabled = true },
+                ["dev"] = new ForwarderEnvironment { Enabled = false },
+            });
+        var s = fwd.ToString();
+        Assert.Contains("Name=n", s);
+        // Only enabled environments appear, ordinal-sorted; disabled "dev" is excluded.
+        Assert.Contains("EnabledIn=[production, staging]", s);
+    }
+
+    [Fact]
+    public void Forwarder_ToString_NoEnabledEnvironments_ShowsEmptyList()
     {
         var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
         var fwd = fwds.New("k", "n", ForwarderType.Http, new HttpConfiguration { Url = "u" });
-        var s = fwd.ToString();
-        Assert.Contains("Name=n", s);
-        Assert.Contains("Enabled=True", s);
+        Assert.Contains("EnabledIn=[]", fwd.ToString());
     }
 
     // ----------------------------------------------------------------------
@@ -689,6 +702,152 @@ public class AuditForwardersTests
         Assert.Equal(false, fwd.Filter["off"]);
     }
 
+    // ----------------------------------------------------------------------
+    // Per-environment enablement + configuration overrides (ADR-055)
+    // ----------------------------------------------------------------------
+
+    [Fact]
+    public async Task SaveAsync_SendsEnvironmentsMap_OnWire()
+    {
+        string? capturedBody = null;
+        var fwds = MakeForwarders(async req =>
+        {
+            capturedBody = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = JsonApi("{\"data\":" + ForwarderResource() + "}"),
+            };
+        });
+        var fwd = fwds.New(
+            key: FwdId,
+            name: "Datadog production",
+            forwarderType: ForwarderType.Datadog,
+            configuration: new HttpConfiguration { Url = "https://siem.example.com/in" },
+            environments: new Dictionary<string, ForwarderEnvironment>
+            {
+                ["production"] = new ForwarderEnvironment
+                {
+                    Enabled = true,
+                    Configuration = new HttpConfiguration
+                    {
+                        Url = "https://prod.example.com/in",
+                        Headers = new List<HttpHeader> { new("DD-API-KEY", "prod-secret") },
+                    },
+                },
+                ["staging"] = new ForwarderEnvironment { Enabled = false },
+            });
+        await fwd.SaveAsync();
+        Assert.Contains("\"environments\":", capturedBody);
+        Assert.Contains("\"production\":", capturedBody!);
+        Assert.Contains("\"enabled\":true", capturedBody!);
+        // Per-environment configuration override reaches the wire with real headers.
+        Assert.Contains("https://prod.example.com/in", capturedBody!);
+        Assert.Contains("prod-secret", capturedBody!);
+        Assert.Contains("\"staging\":", capturedBody!);
+    }
+
+    [Fact]
+    public async Task SaveAsync_NoEnvironments_OmitsEnvironmentsKey()
+    {
+        string? capturedBody = null;
+        var fwds = MakeForwarders(async req =>
+        {
+            capturedBody = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = JsonApi("{\"data\":" + ForwarderResource() + "}"),
+            };
+        });
+        var fwd = fwds.New("k", "n", ForwarderType.Http, new HttpConfiguration { Url = "u" });
+        await fwd.SaveAsync();
+        Assert.DoesNotContain("\"environments\":", capturedBody);
+    }
+
+    [Fact]
+    public async Task GetAsync_ReadsEnvironmentsMap_FromWire()
+    {
+        var resource =
+            "{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\",\"attributes\":{"
+            + "\"name\":\"Datadog\",\"forwarder_type\":\"DATADOG\",\"enabled\":false,"
+            + "\"configuration\":{\"method\":\"POST\",\"url\":\"https://base.example.com/in\","
+            + "\"headers\":[],\"success_status\":\"2xx\"},"
+            + "\"environments\":{"
+            + "\"production\":{\"enabled\":true,\"configuration\":{\"method\":\"POST\","
+            + "\"url\":\"https://prod.example.com/in\",\"headers\":[{\"name\":\"DD-API-KEY\","
+            + "\"value\":\"<redacted>\"}],\"success_status\":\"2xx\"}},"
+            + "\"staging\":{\"enabled\":false}},"
+            + "\"created_at\":\"2026-05-07T12:00:00Z\","
+            + "\"updated_at\":\"2026-05-07T12:00:00Z\",\"version\":1}}";
+        var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi("{\"data\":" + resource + "}"),
+        }));
+        var fwd = await fwds.GetAsync(FwdId);
+        Assert.Equal(2, fwd.Environments.Count);
+        Assert.True(fwd.Environments["production"].Enabled);
+        Assert.NotNull(fwd.Environments["production"].Configuration);
+        Assert.Equal("https://prod.example.com/in", fwd.Environments["production"].Configuration!.Url);
+        Assert.False(fwd.Environments["staging"].Enabled);
+        // No per-environment override → Configuration inherits (null).
+        Assert.Null(fwd.Environments["staging"].Configuration);
+    }
+
+    [Fact]
+    public async Task GetAsync_NoEnvironmentsAttribute_YieldsEmptyMap()
+    {
+        var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi("{\"data\":" + ForwarderResource() + "}"),
+        }));
+        var fwd = await fwds.GetAsync(FwdId);
+        Assert.NotNull(fwd.Environments);
+        Assert.Empty(fwd.Environments);
+    }
+
+    [Fact]
+    public async Task Enabled_IsReadOnly_AlwaysPinnedFalse_AndNotMutatedOnWire()
+    {
+        // The base `enabled` is server-pinned false; the wrapper exposes it as
+        // a read-only round-trip value. A forwarder enabled per-environment
+        // still reports the base Enabled as whatever the server returned.
+        var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi("{\"data\":{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\","
+                + "\"attributes\":{\"name\":\"x\",\"forwarder_type\":\"http\",\"enabled\":false,"
+                + "\"environments\":{\"production\":{\"enabled\":true}}}}}"),
+        }));
+        var fwd = await fwds.GetAsync(FwdId);
+        Assert.False(fwd.Enabled);
+        Assert.True(fwd.Environments["production"].Enabled);
+    }
+
+    [Fact]
+    public async Task SaveAsync_RoundTripsEnabledEnvironmentsAfterApply()
+    {
+        // After save, Apply copies the server-returned environments onto the
+        // instance. The stub echoes a production-enabled environments map.
+        var fwds = MakeForwarders(req =>
+        {
+            var resource =
+                "{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\",\"attributes\":{"
+                + "\"name\":\"n\",\"forwarder_type\":\"http\",\"enabled\":false,"
+                + "\"configuration\":{\"method\":\"POST\",\"url\":\"u\",\"headers\":[],\"success_status\":\"2xx\"},"
+                + "\"environments\":{\"production\":{\"enabled\":true}},"
+                + "\"created_at\":\"2026-05-07T12:00:00Z\",\"version\":1}}";
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = JsonApi("{\"data\":" + resource + "}"),
+            });
+        });
+        var fwd = fwds.New("k", "n", ForwarderType.Http, new HttpConfiguration { Url = "u" },
+            environments: new Dictionary<string, ForwarderEnvironment>
+            {
+                ["production"] = new ForwarderEnvironment { Enabled = true },
+            });
+        await fwd.SaveAsync();
+        Assert.True(fwd.Environments["production"].Enabled);
+    }
+
     /// <summary>Helper to construct a <see cref="Forwarder"/> with no bound client,
     /// for testing the guard clauses on SaveAsync / DeleteAsync.</summary>
     private sealed class ForwarderTestHelper
@@ -704,7 +863,8 @@ public class AuditForwardersTests
                     "n",   // name
                     ForwarderType.Http,
                     new HttpConfiguration { Url = "u" },
-                    true,  // enabled
+                    false, // enabled (server-pinned)
+                    null,  // environments
                     null,  // description
                     null,  // filter
                     null,  // transform

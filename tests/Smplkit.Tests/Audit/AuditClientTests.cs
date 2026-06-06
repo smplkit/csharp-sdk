@@ -214,6 +214,142 @@ public class AuditClientTests
     }
 
     [Fact]
+    public async Task GetAsync_ReadsEnvironmentField()
+    {
+        var eventId = Guid.Parse("11111111-2222-3333-4444-555555555555");
+        var (gen, _, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                "{\"data\":{\"id\":\"11111111-2222-3333-4444-555555555555\",\"type\":\"event\",\"attributes\":{\"event_type\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"data\":{},\"idempotency_key\":\"\",\"environment\":\"production\"}}}",
+                Encoding.UTF8, "application/vnd.api+json"),
+        }));
+        await using var client = new AuditClient(gen);
+
+        var ev = await client.Events.GetAsync(eventId);
+        Assert.Equal("production", ev.Environment);
+    }
+
+    [Fact]
+    public async Task GetAsync_EnvironmentNull_WhenWireOmitsIt()
+    {
+        var eventId = Guid.Parse("11111111-2222-3333-4444-555555555555");
+        var (gen, _, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(SuccessJson.Replace(
+                "00000000-0000-0000-0000-000000000001",
+                "11111111-2222-3333-4444-555555555555"),
+                Encoding.UTF8, "application/vnd.api+json"),
+        }));
+        await using var client = new AuditClient(gen);
+
+        var ev = await client.Events.GetAsync(eventId);
+        Assert.Null(ev.Environment);
+    }
+
+    [Fact]
+    public async Task RuntimeEnvironment_StampsHeaderOnRecord()
+    {
+        string? capturedEnv = null;
+        var (gen, _, _) = MakeGen(req =>
+        {
+            if (req.Headers.TryGetValues("X-Smplkit-Environment", out var v))
+                capturedEnv = v.FirstOrDefault();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = new StringContent(SuccessJson, Encoding.UTF8, "application/vnd.api+json"),
+            });
+        });
+        gen.RuntimeEnvironment = "production";
+        await using var client = new AuditClient(gen);
+
+        client.Events.Record(new CreateEventInput
+        {
+            EventType = "user.created",
+            ResourceType = "user",
+            ResourceId = "u-1",
+        });
+        await client.Events.FlushAsync(TimeSpan.FromSeconds(2));
+        var deadline = DateTime.UtcNow.AddSeconds(2);
+        while (capturedEnv is null && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(20);
+        }
+        Assert.Equal("production", capturedEnv);
+    }
+
+    [Fact]
+    public async Task RuntimeEnvironment_StampsHeaderOnListAndGet()
+    {
+        var seen = new List<string?>();
+        var (gen, _, _) = MakeGen(req =>
+        {
+            seen.Add(req.Headers.TryGetValues("X-Smplkit-Environment", out var v) ? v.FirstOrDefault() : null);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    "{\"data\":[],\"meta\":{\"page_size\":1}}",
+                    Encoding.UTF8, "application/vnd.api+json"),
+            });
+        });
+        gen.RuntimeEnvironment = "staging";
+        await using var client = new AuditClient(gen);
+
+        await client.Events.ListAsync();
+        Assert.Contains("staging", seen);
+    }
+
+    [Fact]
+    public async Task RuntimeEnvironment_Null_DoesNotStampHeader()
+    {
+        bool hadHeader = true;
+        var (gen, _, _) = MakeGen(req =>
+        {
+            hadHeader = req.Headers.Contains("X-Smplkit-Environment");
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    "{\"data\":[],\"meta\":{\"page_size\":1}}",
+                    Encoding.UTF8, "application/vnd.api+json"),
+            });
+        });
+        // RuntimeEnvironment left null (management-plane behavior).
+        await using var client = new AuditClient(gen);
+
+        await client.Events.ListAsync();
+        Assert.False(hadHeader);
+    }
+
+    [Fact]
+    public async Task RuntimeEnvironment_DoesNotOverrideCallerSuppliedHeader()
+    {
+        // Explicit X-Smplkit-Environment on the shared HttpClient default
+        // headers wins over the client-level stamp.
+        string? capturedEnv = null;
+        var mock = new MockHttpMessageHandler(req =>
+        {
+            if (req.Headers.TryGetValues("X-Smplkit-Environment", out var v))
+                capturedEnv = v.FirstOrDefault();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    "{\"data\":[],\"meta\":{\"page_size\":1}}",
+                    Encoding.UTF8, "application/vnd.api+json"),
+            });
+        });
+        var http = new HttpClient(mock);
+        http.DefaultRequestHeaders.TryAddWithoutValidation("X-Smplkit-Environment", "explicit-env");
+        var gen = new GenAudit.AuditClient("https://audit.example.com", http)
+        {
+            ReadResponseAsString = true,
+            RuntimeEnvironment = "configured-env",
+        };
+        await using var client = new AuditClient(gen);
+
+        await client.Events.ListAsync();
+        Assert.Equal("explicit-env", capturedEnv);
+    }
+
+    [Fact]
     public async Task Record_DoNotForward_IncludesFlagInPayload()
     {
         string? capturedBody = null;
