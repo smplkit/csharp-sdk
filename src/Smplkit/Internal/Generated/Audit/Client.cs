@@ -89,6 +89,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>download honors every supplied filter and ignores `page[size]` and
         /// <br/>`page[after]`.
         /// </remarks>
+        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results are scoped to your single accessible environment; send the `X-Smplkit-Environment` header instead if you can access more than one. The reserved value `smplkit` selects platform change events that smplkit records about your own resources (flags, configuration, and so on); these are not tied to a deployment environment and are readable regardless of which environments you manage.</param>
         /// <param name="filterseverity">Exact match on the event's `severity` field. One of `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.</param>
         /// <param name="filtercategory">Exact match on the event's `category` field.</param>
         /// <param name="filtersearch">Case-insensitive substring match against `resource_id` or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.</param>
@@ -97,7 +98,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`, `-occurred_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, string? filteractor_id = null, string? filterevent_type = null, string? filterresource_type = null, string? filterresource_id = null, string? filterseverity = null, string? filtercategory = null, string? filtersearch = null, bool? filterdo_not_forward = null, int? pagesize = null, string? pageafter = null, Format? format = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filterenvironment = null, string? filteroccurred_at = null, string? filteractor_type = null, string? filteractor_id = null, string? filterevent_type = null, string? filterresource_type = null, string? filterresource_id = null, string? filterseverity = null, string? filtercategory = null, string? filtersearch = null, bool? filterdo_not_forward = null, int? pagesize = null, string? pageafter = null, Format? format = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -124,8 +125,10 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// Search audit events with column filters and an optional JSON Logic expression.
         /// <br/>
-        /// <br/>Scoped to the resolved environment (a single-environment credential
-        /// <br/>implies it; otherwise send the `X-Smplkit-Environment` header).
+        /// <br/>Scoped by `filter[environment]` (a comma-separated set). When omitted, a
+        /// <br/>single-environment credential is implied; otherwise send the
+        /// <br/>`X-Smplkit-Environment` header. The reserved `smplkit` value selects
+        /// <br/>platform change events smplkit records about your own resources.
         /// <br/>
         /// <br/>Without a JSON Logic `filter`: behaves like `GET /api/v1/events`
         /// <br/>with the same column filters.
@@ -397,17 +400,18 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>
         /// <br/>The resource `id` is the slug itself. Default sort is `key`
         /// <br/>ascending; pass `sort=-key` for descending. Useful for populating
-        /// <br/>filter dropdowns in a UI. Results are scoped to the resolved
-        /// <br/>environment and to the resource types visible under the account's
-        /// <br/>current plan.
+        /// <br/>filter dropdowns in a UI. Results are scoped to the selected
+        /// <br/>environments (see `filter[environment]`); platform resource types
+        /// <br/>appear under the reserved `smplkit` value.
         /// </remarks>
+        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results are scoped to your single accessible environment; send the `X-Smplkit-Environment` header instead if you can access more than one. The reserved value `smplkit` selects platform change events that smplkit records about your own resources (flags, configuration, and so on); these are not tied to a deployment environment and are readable regardless of which environments you manage.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ResourceTypeListResponse> List_resource_typesAsync(Anonymous3? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ResourceTypeListResponse> List_resource_typesAsync(string? filterenvironment = null, Anonymous3? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -417,17 +421,19 @@ namespace Smplkit.Internal.Generated.Audit
         /// List the distinct `event_type` slugs recorded for this account.
         /// <br/>
         /// <br/>Default sort is `key` ascending; pass `sort=-key` for descending.
-        /// <br/>Scoped to the resolved environment. Without `filter[resource_type]`,
-        /// <br/>returns one row per distinct event_type. With `filter[resource_type]`,
-        /// <br/>returns the event_types recorded for that specific resource type.
+        /// <br/>Scoped to the selected environments (see `filter[environment]`).
+        /// <br/>Without `filter[resource_type]`, returns one row per distinct
+        /// <br/>event_type. With `filter[resource_type]`, returns the event_types
+        /// <br/>recorded for that specific resource type.
         /// </remarks>
+        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results are scoped to your single accessible environment; send the `X-Smplkit-Environment` header instead if you can access more than one. The reserved value `smplkit` selects platform change events that smplkit records about your own resources (flags, configuration, and so on); these are not tied to a deployment environment and are readable regardless of which environments you manage.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<EventTypeListResponse> List_event_typesAsync(string? filterresource_type = null, Anonymous4? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<EventTypeListResponse> List_event_typesAsync(string? filterenvironment = null, string? filterresource_type = null, Anonymous4? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -438,15 +444,17 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>
         /// <br/>The resource `id` is the category value itself. Default sort is
         /// <br/>`key` ascending; pass `sort=-key` for descending. Scoped to the
-        /// <br/>resolved environment. Useful for populating filter dropdowns in a UI.
+        /// <br/>selected environments (see `filter[environment]`). Useful for
+        /// <br/>populating filter dropdowns in a UI.
         /// </remarks>
+        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results are scoped to your single accessible environment; send the `X-Smplkit-Environment` header instead if you can access more than one. The reserved value `smplkit` selects platform change events that smplkit records about your own resources (flags, configuration, and so on); these are not tied to a deployment environment and are readable regardless of which environments you manage.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<CategoryListResponse> List_categoriesAsync(Anonymous5? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<CategoryListResponse> List_categoriesAsync(string? filterenvironment = null, Anonymous5? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
     }
 
@@ -643,6 +651,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>download honors every supplied filter and ignores `page[size]` and
         /// <br/>`page[after]`.
         /// </remarks>
+        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results are scoped to your single accessible environment; send the `X-Smplkit-Environment` header instead if you can access more than one. The reserved value `smplkit` selects platform change events that smplkit records about your own resources (flags, configuration, and so on); these are not tied to a deployment environment and are readable regardless of which environments you manage.</param>
         /// <param name="filterseverity">Exact match on the event's `severity` field. One of `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.</param>
         /// <param name="filtercategory">Exact match on the event's `category` field.</param>
         /// <param name="filtersearch">Case-insensitive substring match against `resource_id` or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.</param>
@@ -651,7 +660,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-occurred_at`. Allowed values: `created_at`, `-created_at`, `occurred_at`, `-occurred_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filteroccurred_at = null, string? filteractor_type = null, string? filteractor_id = null, string? filterevent_type = null, string? filterresource_type = null, string? filterresource_id = null, string? filterseverity = null, string? filtercategory = null, string? filtersearch = null, bool? filterdo_not_forward = null, int? pagesize = null, string? pageafter = null, Format? format = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<EventListResponse> List_eventsAsync(string? filterenvironment = null, string? filteroccurred_at = null, string? filteractor_type = null, string? filteractor_id = null, string? filterevent_type = null, string? filterresource_type = null, string? filterresource_id = null, string? filterseverity = null, string? filtercategory = null, string? filtersearch = null, bool? filterdo_not_forward = null, int? pagesize = null, string? pageafter = null, Format? format = null, Sort? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -667,6 +676,10 @@ namespace Smplkit.Internal.Generated.Audit
                     // Operation Path: "api/v1/events"
                     urlBuilder_.Append("api/v1/events");
                     urlBuilder_.Append('?');
+                    if (filterenvironment != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[environment]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterenvironment, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
                     if (filteroccurred_at != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[occurred_at]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filteroccurred_at, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
@@ -872,8 +885,10 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// Search audit events with column filters and an optional JSON Logic expression.
         /// <br/>
-        /// <br/>Scoped to the resolved environment (a single-environment credential
-        /// <br/>implies it; otherwise send the `X-Smplkit-Environment` header).
+        /// <br/>Scoped by `filter[environment]` (a comma-separated set). When omitted, a
+        /// <br/>single-environment credential is implied; otherwise send the
+        /// <br/>`X-Smplkit-Environment` header. The reserved `smplkit` value selects
+        /// <br/>platform change events smplkit records about your own resources.
         /// <br/>
         /// <br/>Without a JSON Logic `filter`: behaves like `GET /api/v1/events`
         /// <br/>with the same column filters.
@@ -2266,17 +2281,18 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>
         /// <br/>The resource `id` is the slug itself. Default sort is `key`
         /// <br/>ascending; pass `sort=-key` for descending. Useful for populating
-        /// <br/>filter dropdowns in a UI. Results are scoped to the resolved
-        /// <br/>environment and to the resource types visible under the account's
-        /// <br/>current plan.
+        /// <br/>filter dropdowns in a UI. Results are scoped to the selected
+        /// <br/>environments (see `filter[environment]`); platform resource types
+        /// <br/>appear under the reserved `smplkit` value.
         /// </remarks>
+        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results are scoped to your single accessible environment; send the `X-Smplkit-Environment` header instead if you can access more than one. The reserved value `smplkit` selects platform change events that smplkit records about your own resources (flags, configuration, and so on); these are not tied to a deployment environment and are readable regardless of which environments you manage.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ResourceTypeListResponse> List_resource_typesAsync(Anonymous3? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ResourceTypeListResponse> List_resource_typesAsync(string? filterenvironment = null, Anonymous3? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -2292,6 +2308,10 @@ namespace Smplkit.Internal.Generated.Audit
                     // Operation Path: "api/v1/resource_types"
                     urlBuilder_.Append("api/v1/resource_types");
                     urlBuilder_.Append('?');
+                    if (filterenvironment != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[environment]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterenvironment, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
                     if (sort != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
@@ -2370,17 +2390,19 @@ namespace Smplkit.Internal.Generated.Audit
         /// List the distinct `event_type` slugs recorded for this account.
         /// <br/>
         /// <br/>Default sort is `key` ascending; pass `sort=-key` for descending.
-        /// <br/>Scoped to the resolved environment. Without `filter[resource_type]`,
-        /// <br/>returns one row per distinct event_type. With `filter[resource_type]`,
-        /// <br/>returns the event_types recorded for that specific resource type.
+        /// <br/>Scoped to the selected environments (see `filter[environment]`).
+        /// <br/>Without `filter[resource_type]`, returns one row per distinct
+        /// <br/>event_type. With `filter[resource_type]`, returns the event_types
+        /// <br/>recorded for that specific resource type.
         /// </remarks>
+        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results are scoped to your single accessible environment; send the `X-Smplkit-Environment` header instead if you can access more than one. The reserved value `smplkit` selects platform change events that smplkit records about your own resources (flags, configuration, and so on); these are not tied to a deployment environment and are readable regardless of which environments you manage.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<EventTypeListResponse> List_event_typesAsync(string? filterresource_type = null, Anonymous4? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<EventTypeListResponse> List_event_typesAsync(string? filterenvironment = null, string? filterresource_type = null, Anonymous4? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -2396,6 +2418,10 @@ namespace Smplkit.Internal.Generated.Audit
                     // Operation Path: "api/v1/event_types"
                     urlBuilder_.Append("api/v1/event_types");
                     urlBuilder_.Append('?');
+                    if (filterenvironment != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[environment]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterenvironment, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
                     if (filterresource_type != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[resource_type]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterresource_type, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
@@ -2479,15 +2505,17 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>
         /// <br/>The resource `id` is the category value itself. Default sort is
         /// <br/>`key` ascending; pass `sort=-key` for descending. Scoped to the
-        /// <br/>resolved environment. Useful for populating filter dropdowns in a UI.
+        /// <br/>selected environments (see `filter[environment]`). Useful for
+        /// <br/>populating filter dropdowns in a UI.
         /// </remarks>
+        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results are scoped to your single accessible environment; send the `X-Smplkit-Environment` header instead if you can access more than one. The reserved value `smplkit` selects platform change events that smplkit records about your own resources (flags, configuration, and so on); these are not tied to a deployment environment and are readable regardless of which environments you manage.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<CategoryListResponse> List_categoriesAsync(Anonymous5? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<CategoryListResponse> List_categoriesAsync(string? filterenvironment = null, Anonymous5? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -2503,6 +2531,10 @@ namespace Smplkit.Internal.Generated.Audit
                     // Operation Path: "api/v1/categories"
                     urlBuilder_.Append("api/v1/categories");
                     urlBuilder_.Append('?');
+                    if (filterenvironment != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[environment]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterenvironment, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
                     if (sort != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
@@ -3114,6 +3146,12 @@ namespace Smplkit.Internal.Generated.Audit
         public object? Filter { get; set; } = default!;
 
         /// <summary>
+        /// Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results are scoped to your single accessible environment; send the `X-Smplkit-Environment` header instead if you can access more than one. The reserved value `smplkit` selects platform change events that smplkit records about your own resources (flags, configuration, and so on); these are not tied to a deployment environment and are readable regardless of which environments you manage.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("filter[environment]")]
+        public string? Filterenvironment { get; set; } = default!;
+
+        /// <summary>
         /// Exact match on the event's `event_type` field.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("filter[event_type]")]
@@ -3550,6 +3588,12 @@ namespace Smplkit.Internal.Generated.Audit
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("enabled")]
         public bool Enabled { get; set; } = false;
+
+        /// <summary>
+        /// When true, this forwarder also receives platform change events that smplkit records about your own resources (flag, configuration, and similar changes). Each such event is delivered through every environment this forwarder is enabled in, using that environment's resolved configuration. Defaults to false — platform change events are not forwarded unless you opt in. Independent of the per-environment `enabled` settings, since platform change events are not tied to a deployment environment.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("forward_smplkit_events")]
+        public bool Forward_smplkit_events { get; set; } = false;
 
         /// <summary>
         /// JSON Logic expression evaluated against each event. The event is delivered only if the expression returns truthy. Omit to deliver every event.
