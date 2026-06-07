@@ -23,7 +23,13 @@ public sealed class AuditCategories
     {
         input ??= new ListCategoriesInput();
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.List_categoriesAsync(null, input.PageNumber, input.PageSize, input.MetaTotal, ct)
+            () => _gen.List_categoriesAsync(
+                filterenvironment: Helpers.JoinEnvironments(input.Environments),
+                sort: null,
+                pagenumber: input.PageNumber,
+                pagesize: input.PageSize,
+                metatotal: input.MetaTotal,
+                cancellationToken: ct)
         ).ConfigureAwait(false);
         var rows = (resp.Data ?? new List<GenAudit.CategoryResource>())
             .Select(r => new AuditCategory(r.Id ?? string.Empty, r.Attributes.Created_at))

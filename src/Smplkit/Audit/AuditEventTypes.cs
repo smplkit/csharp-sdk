@@ -25,7 +25,14 @@ public sealed class AuditEventTypes
     {
         input ??= new ListEventTypesInput();
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.List_event_typesAsync(input.FilterResourceType, null, input.PageNumber, input.PageSize, input.MetaTotal, ct)
+            () => _gen.List_event_typesAsync(
+                filterenvironment: Helpers.JoinEnvironments(input.Environments),
+                filterresource_type: input.FilterResourceType,
+                sort: null,
+                pagenumber: input.PageNumber,
+                pagesize: input.PageSize,
+                metatotal: input.MetaTotal,
+                cancellationToken: ct)
         ).ConfigureAwait(false);
         var rows = (resp.Data ?? new List<GenAudit.EventTypeResource>())
             .Select(r => new AuditEventType(r.Id ?? string.Empty, r.Attributes.Created_at))

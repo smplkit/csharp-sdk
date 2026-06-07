@@ -114,4 +114,34 @@ public class HelpersTests
             InternalHelpers.FetchAllPagesAsync<int>(
                 (_, _, c) => Task.FromCanceled<List<int>>(c), cts.Token));
     }
+
+    // ------------------------------------------------------------------
+    // JoinEnvironments
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void JoinEnvironments_Null_ReturnsNull()
+    {
+        Assert.Null(InternalHelpers.JoinEnvironments(null));
+    }
+
+    [Fact]
+    public void JoinEnvironments_Empty_ReturnsNull()
+    {
+        Assert.Null(InternalHelpers.JoinEnvironments(Array.Empty<string>()));
+    }
+
+    [Fact]
+    public void JoinEnvironments_SingleValue_ReturnsValue()
+    {
+        Assert.Equal("production", InternalHelpers.JoinEnvironments(new[] { "production" }));
+    }
+
+    [Fact]
+    public void JoinEnvironments_MultipleValues_JoinsWithComma()
+    {
+        Assert.Equal(
+            "production,staging",
+            InternalHelpers.JoinEnvironments(new[] { "production", "staging" }));
+    }
 }

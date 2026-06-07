@@ -12,6 +12,22 @@ internal static class Helpers
     internal const int RuntimePageSize = 1000;
 
     /// <summary>
+    /// Renders a set of environment keys into the comma-separated value the
+    /// audit read endpoints expect for the <c>filter[environment]</c> query
+    /// parameter. Returns <c>null</c> when the input is <c>null</c> or contains
+    /// no entries, so the caller omits the parameter entirely and the server
+    /// applies its default single-environment scoping.
+    /// </summary>
+    /// <param name="environments">Environment keys, e.g. <c>["production", "staging"]</c>. Null or empty omits the filter.</param>
+    /// <returns>The comma-joined value, or <c>null</c> when no filter should be sent.</returns>
+    internal static string? JoinEnvironments(IEnumerable<string>? environments)
+    {
+        if (environments is null) return null;
+        var joined = string.Join(",", environments);
+        return joined.Length == 0 ? null : joined;
+    }
+
+    /// <summary>
     /// Converts a kebab-case or dot-separated key to a human-readable display name.
     /// <c>"checkout-v2"</c> becomes <c>"Checkout V2"</c>;
     /// <c>"com.acme.payments"</c> becomes <c>"Com Acme Payments"</c>.
