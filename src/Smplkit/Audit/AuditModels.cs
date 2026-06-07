@@ -415,6 +415,15 @@ public sealed class Forwarder
     public IDictionary<string, ForwarderEnvironment> Environments { get; set; }
     /// <summary>Optional free-text description.</summary>
     public string? Description { get; set; }
+    /// <summary>When <c>true</c>, this forwarder also receives smplkit's own
+    /// platform change events (flag, configuration, and similar changes that
+    /// smplkit records about your account). Each such event is delivered through
+    /// every environment this forwarder is enabled in, using that environment's
+    /// resolved configuration. Independent of the per-environment
+    /// <see cref="Environments"/> enablement, since platform change events are
+    /// not tied to a deployment environment. Defaults to <c>false</c> — platform
+    /// change events are not forwarded unless you opt in.</summary>
+    public bool ForwardSmplkitEvents { get; set; }
     /// <summary>Optional JSON Logic expression evaluated per event. When set,
     /// events that don't match are recorded as <c>filtered_out</c> deliveries
     /// instead of being POSTed to the destination.</summary>
@@ -448,6 +457,7 @@ public sealed class Forwarder
         bool enabled = false,
         IDictionary<string, ForwarderEnvironment>? environments = null,
         string? description = null,
+        bool forwardSmplkitEvents = false,
         IDictionary<string, object?>? filter = null,
         object? transform = null,
         TransformType? transformType = null,
@@ -468,6 +478,7 @@ public sealed class Forwarder
         Enabled = enabled;
         Environments = environments ?? new Dictionary<string, ForwarderEnvironment>();
         Description = description;
+        ForwardSmplkitEvents = forwardSmplkitEvents;
         Filter = filter;
         Transform = transform;
         TransformType = transformType;
@@ -511,6 +522,7 @@ public sealed class Forwarder
         Enabled = other.Enabled;
         Environments = other.Environments;
         Description = other.Description;
+        ForwardSmplkitEvents = other.ForwardSmplkitEvents;
         Filter = other.Filter;
         Transform = other.Transform;
         TransformType = other.TransformType;
