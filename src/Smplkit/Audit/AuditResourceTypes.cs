@@ -23,7 +23,13 @@ public sealed class AuditResourceTypes
     {
         input ??= new ListResourceTypesInput();
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.List_resource_typesAsync(null, input.PageNumber, input.PageSize, input.MetaTotal, ct)
+            () => _gen.List_resource_typesAsync(
+                filterenvironment: Helpers.JoinEnvironments(input.Environments),
+                sort: null,
+                pagenumber: input.PageNumber,
+                pagesize: input.PageSize,
+                metatotal: input.MetaTotal,
+                cancellationToken: ct)
         ).ConfigureAwait(false);
         var rows = (resp.Data ?? new List<GenAudit.ResourceTypeResource>())
             .Select(r => new ResourceType(r.Id ?? string.Empty, r.Attributes.Created_at))

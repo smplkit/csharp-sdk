@@ -100,25 +100,29 @@ public sealed class AuditEvents
     public async Task<ListEventsPage> ListAsync(ListEventsInput? input = null, CancellationToken cancellationToken = default)
     {
         input ??= new ListEventsInput();
+        // Named arguments throughout so an additive query param (e.g. a future
+        // leading filter[*]) inserted by the generator can't silently re-bind
+        // these positionally.
         var resp = await ApiExceptionMapper.ExecuteAsync(() => _gen.List_eventsAsync(
-            input.OccurredAtRange,
-            input.ActorType,
-            input.ActorId,
-            input.EventType,
-            input.ResourceType,
-            input.ResourceId,
-            input.Severity,
-            input.Category,
-            input.Search,
-            input.DoNotForward,
-            input.PageSize,
-            input.PageAfter,
+            filterenvironment: Helpers.JoinEnvironments(input.Environments),
+            filteroccurred_at: input.OccurredAtRange,
+            filteractor_type: input.ActorType,
+            filteractor_id: input.ActorId,
+            filterevent_type: input.EventType,
+            filterresource_type: input.ResourceType,
+            filterresource_id: input.ResourceId,
+            filterseverity: input.Severity,
+            filtercategory: input.Category,
+            filtersearch: input.Search,
+            filterdo_not_forward: input.DoNotForward,
+            pagesize: input.PageSize,
+            pageafter: input.PageAfter,
             // format: null — wrapper always uses the paginated JSON:API
             // response; the CSV/JSONL streaming export is not exposed.
-            null,
+            format: null,
             // sort: null — server default (-occurred_at) is fine here.
-            null,
-            cancellationToken
+            sort: null,
+            cancellationToken: cancellationToken
         )).ConfigureAwait(false);
 
         var events = (resp.Data ?? new List<GenAudit.EventResource>()).Select(FromResource).ToList();

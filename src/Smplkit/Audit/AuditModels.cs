@@ -121,6 +121,14 @@ public sealed class ListEventsInput
     /// <summary>Case-insensitive substring match against <c>resource_id</c>.</summary>
     public string? Search { get; set; }
     /// <summary>
+    /// Scope results to one or more environment keys (e.g.
+    /// <c>["production", "staging"]</c>). When <c>null</c> (the default) or
+    /// empty, the filter is omitted and the server scopes to your single
+    /// accessible environment. The reserved value <c>"smplkit"</c> selects
+    /// platform change events that smplkit records about your own resources.
+    /// </summary>
+    public IEnumerable<string>? Environments { get; set; }
+    /// <summary>
     /// Restrict to events whose <c>do_not_forward</c> flag matches the given
     /// boolean. Forwarder previews typically pass <c>false</c> to match
     /// live-pipeline semantics (events flagged <c>do_not_forward=true</c>
@@ -157,6 +165,14 @@ public sealed class ListResourceTypesInput
     public int? PageSize { get; set; }
     /// <summary>When true, request total counts in the response meta.</summary>
     public bool? MetaTotal { get; set; }
+    /// <summary>
+    /// Scope results to one or more environment keys (e.g.
+    /// <c>["production", "staging"]</c>). When <c>null</c> (the default) or
+    /// empty, the filter is omitted and the server scopes to your single
+    /// accessible environment. The reserved value <c>"smplkit"</c> selects
+    /// platform change events that smplkit records about your own resources.
+    /// </summary>
+    public IEnumerable<string>? Environments { get; set; }
 }
 
 /// <summary>One page of <see cref="ResourceType"/>s plus the pagination meta block.</summary>
@@ -180,6 +196,14 @@ public sealed class ListEventTypesInput
     public int? PageSize { get; set; }
     /// <summary>When true, request total counts in the response meta.</summary>
     public bool? MetaTotal { get; set; }
+    /// <summary>
+    /// Scope results to one or more environment keys (e.g.
+    /// <c>["production", "staging"]</c>). When <c>null</c> (the default) or
+    /// empty, the filter is omitted and the server scopes to your single
+    /// accessible environment. The reserved value <c>"smplkit"</c> selects
+    /// platform change events that smplkit records about your own resources.
+    /// </summary>
+    public IEnumerable<string>? Environments { get; set; }
 }
 
 /// <summary>One page of <see cref="AuditEventType"/>s plus the pagination meta block.</summary>
@@ -201,6 +225,14 @@ public sealed class ListCategoriesInput
     public int? PageSize { get; set; }
     /// <summary>When true, request total counts in the response meta.</summary>
     public bool? MetaTotal { get; set; }
+    /// <summary>
+    /// Scope results to one or more environment keys (e.g.
+    /// <c>["production", "staging"]</c>). When <c>null</c> (the default) or
+    /// empty, the filter is omitted and the server scopes to your single
+    /// accessible environment. The reserved value <c>"smplkit"</c> selects
+    /// platform change events that smplkit records about your own resources.
+    /// </summary>
+    public IEnumerable<string>? Environments { get; set; }
 }
 
 /// <summary>One page of <see cref="AuditCategory"/> values plus the pagination meta block.</summary>

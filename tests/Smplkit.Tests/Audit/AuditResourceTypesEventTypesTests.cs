@@ -105,6 +105,27 @@ public class AuditResourceTypesEventTypesTests
     }
 
     [Fact]
+    public async Task ResourceTypes_List_EnvironmentsFilter_SendsQueryParam()
+    {
+        string? capturedUrl = null;
+        var (gen, _) = MakeGen(req =>
+        {
+            capturedUrl = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":[],\"meta\":{\"pagination\":{\"page\":1,\"size\":50}}}"),
+            });
+        });
+        await using var client = new AuditClient(gen);
+        await client.ResourceTypes.ListAsync(new ListResourceTypesInput
+        {
+            Environments = new[] { "production", "staging" },
+        });
+        Assert.NotNull(capturedUrl);
+        Assert.Contains("filter%5Benvironment%5D=production%2Cstaging", capturedUrl!);
+    }
+
+    [Fact]
     public void ResourceTypeRecord_AccessorsCovered()
     {
         var rt = new ResourceType("invoice", DateTimeOffset.UtcNow);
@@ -195,6 +216,30 @@ public class AuditResourceTypesEventTypesTests
         Assert.Contains("invoice", capturedUrl!);
         Assert.Empty(page.EventTypes);
         Assert.Equal(50, page.Pagination.Size);
+    }
+
+    [Fact]
+    public async Task EventTypes_List_EnvironmentsFilter_SendsQueryParam()
+    {
+        string? capturedUrl = null;
+        var (gen, _) = MakeGen(req =>
+        {
+            capturedUrl = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":[],\"meta\":{\"pagination\":{\"page\":1,\"size\":50}}}"),
+            });
+        });
+        await using var client = new AuditClient(gen);
+        await client.EventTypes.ListAsync(new ListEventTypesInput
+        {
+            FilterResourceType = "invoice",
+            Environments = new[] { "production" },
+        });
+        Assert.NotNull(capturedUrl);
+        Assert.Contains("filter%5Benvironment%5D=production", capturedUrl!);
+        // The pre-existing resource_type filter must still ride alongside it.
+        Assert.Contains("invoice", capturedUrl!);
     }
 
     [Fact]
@@ -312,5 +357,26 @@ public class AuditResourceTypesEventTypesTests
         await using var client = new AuditClient(gen);
         var page = await client.Categories.ListAsync(null);
         Assert.Empty(page.Categories);
+    }
+
+    [Fact]
+    public async Task Categories_List_EnvironmentsFilter_SendsQueryParam()
+    {
+        string? capturedUrl = null;
+        var (gen, _) = MakeGen(req =>
+        {
+            capturedUrl = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":[],\"meta\":{\"pagination\":{\"page\":1,\"size\":50}}}"),
+            });
+        });
+        await using var client = new AuditClient(gen);
+        await client.Categories.ListAsync(new ListCategoriesInput
+        {
+            Environments = new[] { "smplkit" },
+        });
+        Assert.NotNull(capturedUrl);
+        Assert.Contains("filter%5Benvironment%5D=smplkit", capturedUrl!);
     }
 }

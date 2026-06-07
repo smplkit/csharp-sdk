@@ -188,6 +188,56 @@ public class AuditClientTests
     }
 
     [Fact]
+    public async Task ListAsync_EnvironmentsFilter_JoinsAndSendsQueryParam()
+    {
+        string? capturedUrl = null;
+        var (gen, _, _) = MakeGen(req =>
+        {
+            capturedUrl = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    "{\"data\":[],\"meta\":{\"page_size\":1}}",
+                    Encoding.UTF8, "application/vnd.api+json"),
+            });
+        });
+        await using var client = new AuditClient(gen);
+
+        var page = await client.Events.ListAsync(new ListEventsInput
+        {
+            Environments = new[] { "production", "staging" },
+        });
+        Assert.Empty(page.Events);
+        Assert.NotNull(capturedUrl);
+        // filter[environment]=production,staging — bracket + comma are URL-encoded.
+        Assert.Contains("filter%5Benvironment%5D=production%2Cstaging", capturedUrl!);
+    }
+
+    [Fact]
+    public async Task ListAsync_EmptyEnvironments_OmitsQueryParam()
+    {
+        string? capturedUrl = null;
+        var (gen, _, _) = MakeGen(req =>
+        {
+            capturedUrl = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    "{\"data\":[],\"meta\":{\"page_size\":1}}",
+                    Encoding.UTF8, "application/vnd.api+json"),
+            });
+        });
+        await using var client = new AuditClient(gen);
+
+        await client.Events.ListAsync(new ListEventsInput
+        {
+            Environments = Array.Empty<string>(),
+        });
+        Assert.NotNull(capturedUrl);
+        Assert.DoesNotContain("filter%5Benvironment%5D", capturedUrl!);
+    }
+
+    [Fact]
     public async Task GetAsync_404_ThrowsNotFoundException()
     {
         var (gen, _, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)));
