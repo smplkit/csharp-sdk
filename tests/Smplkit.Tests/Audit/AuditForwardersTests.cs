@@ -683,6 +683,143 @@ public class AuditForwardersTests
         Assert.Contains("\"description\":\"demo\"", capturedBody!);
     }
 
+    // ----------------------------------------------------------------------
+    // forward_smplkit_events — opt-in to smplkit platform change events
+    // ----------------------------------------------------------------------
+
+    [Fact]
+    public void New_DefaultsForwardSmplkitEventsToFalse()
+    {
+        // Existing callers that don't set it are unaffected: omitted ⇒ false.
+        var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var fwd = fwds.New("k", "n", ForwarderType.Http, new HttpConfiguration { Url = "u" });
+        Assert.False(fwd.ForwardSmplkitEvents);
+    }
+
+    [Fact]
+    public async Task SaveAsync_Create_SetsForwardSmplkitEvents_OnWire()
+    {
+        // Create path: passing forwardSmplkitEvents: true reaches the wire.
+        string? capturedBody = null;
+        var fwds = MakeForwarders(async req =>
+        {
+            capturedBody = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = JsonApi("{\"data\":" + ForwarderResource() + "}"),
+            };
+        });
+        var fwd = fwds.New(
+            key: FwdId,
+            name: "Datadog production",
+            forwarderType: ForwarderType.Datadog,
+            configuration: new HttpConfiguration { Url = "https://siem.example.com/in" },
+            forwardSmplkitEvents: true);
+        Assert.True(fwd.ForwardSmplkitEvents);
+        await fwd.SaveAsync();
+        Assert.Contains("\"forward_smplkit_events\":true", capturedBody!);
+    }
+
+    [Fact]
+    public async Task SaveAsync_Create_DefaultSendsForwardSmplkitEventsFalse_OnWire()
+    {
+        // Default (unset) create still sends the field explicitly as false.
+        string? capturedBody = null;
+        var fwds = MakeForwarders(async req =>
+        {
+            capturedBody = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = JsonApi("{\"data\":" + ForwarderResource() + "}"),
+            };
+        });
+        var fwd = fwds.New("k", "n", ForwarderType.Http, new HttpConfiguration { Url = "u" });
+        await fwd.SaveAsync();
+        Assert.Contains("\"forward_smplkit_events\":false", capturedBody!);
+    }
+
+    [Fact]
+    public async Task SaveAsync_Update_ChangesForwardSmplkitEvents_OnWire()
+    {
+        // Update path: flip the field on a fetched instance and PUT it back.
+        string? capturedMethod = null;
+        string? capturedBody = null;
+        var fwds = MakeForwarders(async req =>
+        {
+            if (req.Method == System.Net.Http.HttpMethod.Put)
+            {
+                capturedMethod = req.Method.Method;
+                capturedBody = await req.Content!.ReadAsStringAsync();
+            }
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":" + ForwarderResource() + "}"),
+            };
+        });
+        // GET yields a saved (CreatedAt-set) instance with the field defaulting to false.
+        var fwd = await fwds.GetAsync(FwdId);
+        Assert.False(fwd.ForwardSmplkitEvents);
+        fwd.ForwardSmplkitEvents = true;
+        await fwd.SaveAsync();
+        Assert.Equal("PUT", capturedMethod);
+        Assert.Contains("\"forward_smplkit_events\":true", capturedBody!);
+    }
+
+    [Fact]
+    public async Task GetAsync_ReadsForwardSmplkitEvents_FromWire()
+    {
+        // Read path: a forwarder with forward_smplkit_events=true surfaces it.
+        var resource =
+            "{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\",\"attributes\":{"
+            + "\"name\":\"Datadog\",\"forwarder_type\":\"DATADOG\",\"enabled\":true,"
+            + "\"forward_smplkit_events\":true,"
+            + "\"configuration\":{\"method\":\"POST\",\"url\":\"https://siem.example.com/in\","
+            + "\"headers\":[],\"success_status\":\"2xx\"},"
+            + "\"created_at\":\"2026-05-07T12:00:00Z\","
+            + "\"updated_at\":\"2026-05-07T12:00:00Z\",\"version\":1}}";
+        var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi("{\"data\":" + resource + "}"),
+        }));
+        var fwd = await fwds.GetAsync(FwdId);
+        Assert.True(fwd.ForwardSmplkitEvents);
+    }
+
+    [Fact]
+    public async Task GetAsync_DefaultsForwardSmplkitEventsFalseWhenWireOmitsIt()
+    {
+        // Forwarders persisted before the field landed read back as false.
+        var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi("{\"data\":" + ForwarderResource() + "}"),
+        }));
+        var fwd = await fwds.GetAsync(FwdId);
+        Assert.False(fwd.ForwardSmplkitEvents);
+    }
+
+    [Fact]
+    public async Task SaveAsync_RoundTripsForwardSmplkitEventsAfterApply()
+    {
+        // After save, Apply copies the server-returned value onto the instance.
+        var fwds = MakeForwarders(req =>
+        {
+            var resource =
+                "{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\",\"attributes\":{"
+                + "\"name\":\"n\",\"forwarder_type\":\"http\",\"enabled\":false,"
+                + "\"forward_smplkit_events\":true,"
+                + "\"configuration\":{\"method\":\"POST\",\"url\":\"u\",\"headers\":[],\"success_status\":\"2xx\"},"
+                + "\"created_at\":\"2026-05-07T12:00:00Z\",\"version\":1}}";
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = JsonApi("{\"data\":" + resource + "}"),
+            });
+        });
+        var fwd = fwds.New("k", "n", ForwarderType.Http, new HttpConfiguration { Url = "u" },
+            forwardSmplkitEvents: true);
+        await fwd.SaveAsync();
+        Assert.True(fwd.ForwardSmplkitEvents);
+    }
+
     [Fact]
     public async Task ConvertJson_NestedObjectAndArraysExpand()
     {
@@ -866,6 +1003,7 @@ public class AuditForwardersTests
                     false, // enabled (server-pinned)
                     null,  // environments
                     null,  // description
+                    false, // forwardSmplkitEvents
                     null,  // filter
                     null,  // transform
                     null,  // transformType

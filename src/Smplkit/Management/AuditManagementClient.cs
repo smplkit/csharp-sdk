@@ -42,6 +42,10 @@ public sealed class ManagementForwardersClient
     /// environment. Every referenced environment must exist and be managed for
     /// the account.</param>
     /// <param name="description">Optional free-text description.</param>
+    /// <param name="forwardSmplkitEvents">When <c>true</c>, the forwarder also
+    /// receives smplkit's own platform change events (flag, configuration, and
+    /// similar changes that smplkit records about your account), delivered through
+    /// every environment the forwarder is enabled in. Defaults to <c>false</c>.</param>
     /// <param name="filter">Optional JSON Logic filter; events that don't match
     /// are recorded as <c>filtered_out</c> deliveries.</param>
     /// <param name="transform">Optional template applied to the event payload
@@ -60,6 +64,7 @@ public sealed class ManagementForwardersClient
         HttpConfiguration configuration,
         IDictionary<string, ForwarderEnvironment>? environments = null,
         string? description = null,
+        bool forwardSmplkitEvents = false,
         IDictionary<string, object?>? filter = null,
         object? transform = null,
         TransformType? transformType = null)
@@ -72,6 +77,7 @@ public sealed class ManagementForwardersClient
             configuration: configuration,
             environments: environments,
             description: description,
+            forwardSmplkitEvents: forwardSmplkitEvents,
             filter: filter,
             transform: transform,
             transformType: transformType,
@@ -163,6 +169,7 @@ public sealed class ManagementForwardersClient
                 });
         }
         if (src.Description is not null) attrs.Description = src.Description;
+        attrs.Forward_smplkit_events = src.ForwardSmplkitEvents;
         if (src.Filter != null)
         {
             attrs.Filter = new Dictionary<string, object>(
@@ -240,6 +247,7 @@ public sealed class ManagementForwardersClient
             enabled: a.Enabled,
             environments: EnvironmentsFromGen(a.Environments),
             description: a.Description,
+            forwardSmplkitEvents: a.Forward_smplkit_events,
             filter: ConvertJson(a.Filter),
             transform: ConvertTransform(a.Transform),
             transformType: FromGenTransformType(a.Transform_type),
