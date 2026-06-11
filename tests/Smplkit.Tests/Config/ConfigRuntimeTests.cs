@@ -103,7 +103,7 @@ public class ConfigRuntimeTests
             return Task.FromResult(Json("{}"));
         });
 
-        var values = client.Config.Get("user-svc");
+        var values = client.Config.Subscribe("user-svc");
         Assert.Equal("test-host", values["host"]); // env override wins
         Assert.Equal(3L, values["retries"]);       // base value
         Assert.Equal("common-val", values["shared"]); // inherited from parent
@@ -118,7 +118,7 @@ public class ConfigRuntimeTests
                 return Task.FromResult(Json(ConfigListJson));
             return Task.FromResult(Json("{}"));
         });
-        Assert.Throws<NotFoundException>(() => client.Config.Get("does-not-exist"));
+        Assert.Throws<NotFoundException>(() => client.Config.Subscribe("does-not-exist"));
     }
 
     [Fact]
@@ -133,11 +133,11 @@ public class ConfigRuntimeTests
 
         // LiveConfigProxy implements IReadOnlyDictionary — no setter exposed,
         // so customer mutation is impossible at the surface.
-        var proxy = client.Config.Get("user-svc");
+        var proxy = client.Config.Subscribe("user-svc");
         Assert.IsType<Smplkit.Config.LiveConfigProxy>(proxy);
         Assert.Equal("user-svc", proxy.ConfigId);
         // Verify the proxy stays consistent across calls (identity-stable values).
-        Assert.Equal(proxy["host"], client.Config.Get("user-svc")["host"]);
+        Assert.Equal(proxy["host"], client.Config.Subscribe("user-svc")["host"]);
     }
 
     [Fact]
@@ -155,9 +155,9 @@ public class ConfigRuntimeTests
         });
 
         // Multiple Get calls only trigger one list
-        client.Config.Get("user-svc");
-        client.Config.Get("user-svc");
-        client.Config.Get("common");
+        client.Config.Subscribe("user-svc");
+        client.Config.Subscribe("user-svc");
+        client.Config.Subscribe("common");
         Assert.Equal(1, listCalls);
     }
 
@@ -177,7 +177,7 @@ public class ConfigRuntimeTests
             return Task.FromResult(Json("{}"));
         });
 
-        client.Config.Get("user-svc"); // triggers init (1st list)
+        client.Config.Subscribe("user-svc"); // triggers init (1st list)
         await client.Config.RefreshAsync();
         Assert.True(listCalls >= 2);
     }
@@ -365,7 +365,7 @@ public class ConfigRuntimeTests
             return Task.FromResult(Json("{}"));
         });
 
-        client.Config.Get("user-svc"); // initializes via list
+        client.Config.Subscribe("user-svc"); // initializes via list
 
         var handler = typeof(ConfigClient).GetMethod("HandleConfigChanged",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
@@ -375,7 +375,7 @@ public class ConfigRuntimeTests
         });
 
         // Second Get returns the refreshed value
-        var values = client.Config.Get("user-svc");
+        var values = client.Config.Subscribe("user-svc");
         Assert.Equal("new-host", values["host"]);
     }
 
@@ -383,7 +383,7 @@ public class ConfigRuntimeTests
     public void HandleConfigChanged_NoIdInData_NoOp()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json(ConfigListJson)));
-        client.Config.Get("user-svc"); // initialize
+        client.Config.Subscribe("user-svc"); // initialize
 
         var handler = typeof(ConfigClient).GetMethod("HandleConfigChanged",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
@@ -407,7 +407,7 @@ public class ConfigRuntimeTests
         });
 
         // Initialize
-        client.Config.Get("user-svc");
+        client.Config.Subscribe("user-svc");
 
         var handler = typeof(ConfigClient).GetMethod("HandleConfigDeleted",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
@@ -417,7 +417,7 @@ public class ConfigRuntimeTests
         });
 
         // After deletion, the config is gone from cache
-        Assert.Throws<NotFoundException>(() => client.Config.Get("user-svc"));
+        Assert.Throws<NotFoundException>(() => client.Config.Subscribe("user-svc"));
     }
 
     [Fact]
@@ -430,7 +430,7 @@ public class ConfigRuntimeTests
             return Task.FromResult(Json("{}"));
         });
 
-        client.Config.Get("user-svc"); // initialize
+        client.Config.Subscribe("user-svc"); // initialize
 
         var handler = typeof(ConfigClient).GetMethod("HandleConfigsChanged",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
@@ -440,7 +440,7 @@ public class ConfigRuntimeTests
         });
 
         // Cache should still work
-        var values = client.Config.Get("user-svc");
+        var values = client.Config.Subscribe("user-svc");
         Assert.NotNull(values);
     }
 
@@ -459,7 +459,7 @@ public class ConfigRuntimeTests
             return Task.FromResult(Json("{}"));
         });
 
-        client.Config.Get("user-svc"); // succeeds (call 1)
+        client.Config.Subscribe("user-svc"); // succeeds (call 1)
 
         var handler = typeof(ConfigClient).GetMethod("HandleConfigChanged",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;

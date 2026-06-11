@@ -60,14 +60,17 @@ public class FlagsStartRetryTests
             return Task.FromResult(EmptyFlagList());
         });
 
-        var handle = client.Flags.BooleanFlag("product_alpha", false);
-
-        // Buffer has one pending declaration.
+        // Seed the discovery buffer WITHOUT connecting (Register is the
+        // management/discovery path; it never opens the live connection). The
+        // one-client refactor declares handle flags only after EnsureConnected,
+        // so to exercise the connect-time flush failure the buffer must already
+        // hold a declaration before the first live call.
+        client.Flags.Register(new FlagDeclaration("product_alpha", "BOOLEAN", false));
         Assert.Equal(1, client.Flags.PendingFlagRegistrations);
 
-        // First attempt: bulk-register 500s.
+        // First attempt: connect-time bulk-register 500s.
         // Queue must NOT be drained; client must remain not-connected.
-        handle.Get();
+        client.Flags.BooleanFlag("product_alpha", false).Get();
         Assert.False(client.Flags._connected);
         Assert.Equal(1, client.Flags.PendingFlagRegistrations);
         Assert.Equal(1, bulkCallCount);
@@ -77,7 +80,7 @@ public class FlagsStartRetryTests
 
         // Second attempt: bulk-register 200s.
         // Queue drains, client connects.
-        handle.Get();
+        client.Flags.BooleanFlag("product_alpha", false).Get();
         Assert.True(client.Flags._connected);
         Assert.Equal(0, client.Flags.PendingFlagRegistrations);
         Assert.Equal(2, bulkCallCount);
@@ -101,6 +104,7 @@ public class FlagsStartRetryTests
             return Task.FromResult(EmptyFlagList());
         });
 
+        client.Flags.Register(new FlagDeclaration("f1", "BOOLEAN", true));
         var handle = client.Flags.BooleanFlag("f1", true);
 
         // First call fails and schedules a retry.
@@ -127,7 +131,9 @@ public class FlagsStartRetryTests
         var (client, _) = MakeClient(req =>
             Task.FromResult(IsFlagsBulkPost(req) ? ServerError() : EmptyFlagList()));
 
-        client.Flags.BooleanFlag("f1", true);
+        // Seed the buffer without connecting so every connect attempt has a
+        // declaration to flush and therefore fails (the bulk POST 500s).
+        client.Flags.Register(new FlagDeclaration("f1", "BOOLEAN", true));
 
         var seenDelays = new List<double>();
         for (int i = 0; i < 10; i++)
@@ -135,7 +141,7 @@ public class FlagsStartRetryTests
             // Reset the backoff gate so the attempt is allowed.
             client.Flags._nextStartAttemptAt = 0L;
             var before = client.Flags._startRetryDelayS;
-            // Trigger EnsureInitialized — fails each time.
+            // Trigger EnsureConnected — fails each time.
             client.Flags.BooleanFlag("f1", true).Get();
             seenDelays.Add(before);
         }
@@ -156,9 +162,11 @@ public class FlagsStartRetryTests
         var (client, _) = MakeClient(req =>
             Task.FromResult(IsFlagsBulkPost(req) ? ServerError() : EmptyFlagList()));
 
+        // Seed the buffer first so the connect-time flush fails.
+        client.Flags.Register(new FlagDeclaration("checkout_v2", "BOOLEAN", false));
         var flag = client.Flags.BooleanFlag("checkout_v2", false);
 
-        // First evaluation triggers EnsureInitialized which fails; must fall
+        // First evaluation triggers EnsureConnected which fails; must fall
         // back to the declared default rather than throwing.
         Assert.False(flag.Get());
         Assert.False(client.Flags._connected);
@@ -225,6 +233,8 @@ public class FlagsStartRetryTests
             return Task.FromResult(EmptyFlagList());
         });
 
+        // Seed the buffer first so the first connect-time flush fails.
+        client.Flags.Register(new FlagDeclaration("f1", "BOOLEAN", true));
         var handle = client.Flags.BooleanFlag("f1", true);
 
         // First attempt fails — not yet subscribed.

@@ -1,27 +1,25 @@
 using Smplkit.Errors;
 using Smplkit.Internal;
-using Smplkit.Logging;
 using GenLogging = Smplkit.Internal.Generated.Logging;
 
-namespace Smplkit.Management;
+namespace Smplkit.Logging;
 
 /// <summary>
-/// Provides log-group CRUD operations on the management plane. Owns the wire
-/// code (HTTP request bodies, response mapping, generated-client invocation)
-/// so it has no dependency on the runtime
-/// <see cref="Smplkit.Logging.LoggingClient"/>. Accessible via
-/// <see cref="SmplManagementClient.LogGroups"/>.
+/// Surface for <c>client.Logging.LogGroups.*</c>.
 /// </summary>
 public sealed class LogGroupsClient
 {
     private readonly GenLogging.LoggingClient _genClient;
 
-    internal LogGroupsClient(GeneratedClientFactory clients)
+    internal LogGroupsClient(GenLogging.LoggingClient genClient)
     {
-        _genClient = clients.Logging;
+        _genClient = genClient;
     }
 
-    /// <summary>Creates an unsaved log group.</summary>
+    /// <summary>Return a new unsaved <see cref="LogGroup"/>. Call <see cref="LogGroup.SaveAsync"/> to persist.</summary>
+    /// <param name="id">The log group identifier (slug).</param>
+    /// <param name="name">Display name; defaults to a title-cased form of <paramref name="id"/>.</param>
+    /// <param name="group">Optional parent group identifier (slug).</param>
     public LogGroup New(string id, string? name = null, string? group = null)
     {
         return new LogGroup(
@@ -35,7 +33,7 @@ public sealed class LogGroupsClient
             updatedAt: null);
     }
 
-    /// <summary>Lists log groups. Returns one page; defaults to the server's first page.</summary>
+    /// <summary>List log groups for the authenticated account.</summary>
     /// <param name="pageNumber">1-based page number; null lets the server default (1) apply.</param>
     /// <param name="pageSize">Items per page; null lets the server default (1000) apply.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -50,17 +48,17 @@ public sealed class LogGroupsClient
         return response.Data.Select(r => MapLogGroupResource(r)!).Where(g => g is not null).ToList();
     }
 
-    /// <summary>Fetches a log group by id.</summary>
+    /// <summary>Fetch the editable <see cref="LogGroup"/> resource by id.</summary>
     /// <exception cref="NotFoundException">If no matching group exists.</exception>
     public async Task<LogGroup> GetAsync(string id, CancellationToken ct = default)
     {
         var response = await ApiExceptionMapper.ExecuteAsync(
             () => _genClient.Get_log_groupAsync(id: id, cancellationToken: ct)).ConfigureAwait(false);
         return MapLogGroupResource(response.Data)
-            ?? throw new NotFoundException($"LogGroup with id '{id}' not found");
+            ?? throw new NotFoundException($"Log group with id '{id}' not found");
     }
 
-    /// <summary>Deletes a log group by id.</summary>
+    /// <summary>Delete a log group by id.</summary>
     public async Task DeleteAsync(string id, CancellationToken ct = default)
     {
         await ApiExceptionMapper.ExecuteAsync(
@@ -88,6 +86,10 @@ public sealed class LogGroupsClient
                 ?? throw new ValidationException("Failed to update log group");
         }
     }
+
+    // ------------------------------------------------------------------
+    // Wire helpers
+    // ------------------------------------------------------------------
 
     private LogGroup? MapLogGroupResource(GenLogging.LogGroupResource? resource)
     {

@@ -331,10 +331,12 @@ public class AutoLoadTests
 
         client.Logging.RegisterAdapter(adapter.Object);
 
+        // OnChange requires InstallAsync() first in the one-client design — install
+        // opens the live connection, then change listeners may be registered.
+        try { await client.Logging.InstallAsync(); } catch { }
+
         var events = new List<LoggerChangeEvent>();
         client.Logging.OnChange(e => events.Add(e));
-
-        try { await client.Logging.InstallAsync(); } catch { }
 
         // Simulate adapter detecting a new logger
         Assert.NotNull(capturedHook);

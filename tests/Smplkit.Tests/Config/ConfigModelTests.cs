@@ -14,12 +14,12 @@ namespace Smplkit.Tests.Config;
 /// </summary>
 public class ConfigModelTests
 {
-    private static (SmplManagementClient mgmt, MockHttpMessageHandler handler) Make(
+    private static (SmplClient mgmt, MockHttpMessageHandler handler) Make(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> respond)
     {
         var handler = new MockHttpMessageHandler(respond);
         var http = new HttpClient(handler);
-        var mgmt = new SmplManagementClient(new SmplClientOptions { ApiKey = "k" }, http);
+        var mgmt = new SmplClient(TestData.DefaultOptions(), http);
         return (mgmt, handler);
     }
 

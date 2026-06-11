@@ -6,7 +6,7 @@ namespace Smplkit.Logging;
 /// </summary>
 public sealed class Logger
 {
-    private readonly Smplkit.Management.LoggersClient _client;
+    private readonly LoggersClient _client;
 
     /// <summary>Gets the logger identifier (slug). Null for unsaved loggers.</summary>
     public string? Id { get; internal set; }
@@ -36,7 +36,7 @@ public sealed class Logger
     public DateTime? UpdatedAt { get; internal set; }
 
     internal Logger(
-        Smplkit.Management.LoggersClient client,
+        LoggersClient client,
         string? id,
         string name,
         LogLevel? level,
@@ -118,7 +118,7 @@ public sealed class Logger
 /// </summary>
 public sealed class LogGroup
 {
-    private readonly Smplkit.Management.LogGroupsClient _client;
+    private readonly LogGroupsClient _client;
 
     /// <summary>Gets the log group identifier (slug). Null for unsaved groups.</summary>
     public string? Id { get; internal set; }
@@ -142,7 +142,7 @@ public sealed class LogGroup
     public DateTime? UpdatedAt { get; internal set; }
 
     internal LogGroup(
-        Smplkit.Management.LogGroupsClient client,
+        LogGroupsClient client,
         string? id,
         string name,
         LogLevel? level,

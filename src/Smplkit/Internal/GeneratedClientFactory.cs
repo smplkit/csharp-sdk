@@ -29,16 +29,10 @@ internal sealed class GeneratedClientFactory
     /// <summary>Gets the generated Logging API client.</summary>
     internal GenLogging.LoggingClient Logging { get; }
 
-    /// <summary>Gets the generated Audit API client used by the management plane
-    /// (SIEM forwarder CRUD). Account-scoped — does not carry the runtime
-    /// <c>X-Smplkit-Environment</c> header.</summary>
-    internal GenAudit.AuditClient Audit { get; }
-
-    /// <summary>Gets the generated Audit API client used by the runtime plane
-    /// (event record / list / get / search and discovery). Carries the
+    /// <summary>Gets the generated Audit API client. Carries the
     /// <c>X-Smplkit-Environment</c> header resolved from the SDK's configured
-    /// environment (ADR-055) when one is available; otherwise behaves like
-    /// <see cref="Audit"/>.</summary>
+    /// environment (ADR-055) when one is available. Forwarder CRUD and discovery —
+    /// which are environment-agnostic — tolerate the header being present.</summary>
     internal GenAudit.AuditClient AuditRuntime { get; }
 
     /// <summary>Gets the generated Jobs API client.</summary>
@@ -76,13 +70,10 @@ internal sealed class GeneratedClientFactory
         Flags = new GenFlags.FlagsClient($"{scheme}://flags.{domain}", httpClient) { ReadResponseAsString = true };
         App = new GenApp.AppClient($"{scheme}://app.{domain}", httpClient) { ReadResponseAsString = true };
         Logging = new GenLogging.LoggingClient($"{scheme}://logging.{domain}", httpClient) { ReadResponseAsString = true };
+        // Runtime audit ops are environment-scoped (ADR-055): the generated
+        // Audit client stamps X-Smplkit-Environment from the configured
+        // environment on every request.
         var auditBaseUrl = $"{scheme}://audit.{domain}";
-        Audit = new GenAudit.AuditClient(auditBaseUrl, httpClient) { ReadResponseAsString = true };
-        // Runtime audit ops are environment-scoped (ADR-055): a dedicated
-        // generated-client instance stamps X-Smplkit-Environment from the
-        // configured environment on every request. It shares the HttpClient
-        // with the management-plane Audit client; the header is added
-        // per-request, so management's account-scoped CRUD stays env-free.
         AuditRuntime = new GenAudit.AuditClient(auditBaseUrl, httpClient)
         {
             ReadResponseAsString = true,

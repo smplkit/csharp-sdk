@@ -10,11 +10,11 @@ public static class FlagsRuntimeSetup
 {
     private static readonly string[] DemoFlagIds = { "checkout-v2", "banner-color", "max-retries" };
 
-    public static async Task SetupRuntimeShowcaseAsync(SmplManagementClient mgmt)
+    public static async Task SetupRuntimeShowcaseAsync(SmplClient client)
     {
-        await CleanupRuntimeShowcaseAsync(mgmt);
+        await CleanupRuntimeShowcaseAsync(client);
 
-        var checkout = mgmt.Flags.NewBooleanFlag(
+        var checkout = client.Flags.NewBooleanFlag(
             "checkout-v2", defaultValue: false,
             description: "Controls rollout of the new checkout experience.");
         checkout.EnableRules(environment: "production");
@@ -31,7 +31,7 @@ public static class FlagsRuntimeSetup
             .Build());
         await checkout.SaveAsync();
 
-        var banner = mgmt.Flags.NewStringFlag(
+        var banner = client.Flags.NewStringFlag(
             "banner-color", defaultValue: "red",
             name: "Banner Color",
             description: "Controls the banner color shown to users.",
@@ -54,7 +54,7 @@ public static class FlagsRuntimeSetup
             .Build());
         await banner.SaveAsync();
 
-        var retries = mgmt.Flags.NewNumberFlag(
+        var retries = client.Flags.NewNumberFlag(
             "max-retries", defaultValue: 3,
             description: "Maximum number of API retries before failing.");
         retries.EnableRules(environment: "production");
@@ -66,11 +66,11 @@ public static class FlagsRuntimeSetup
         await retries.SaveAsync();
     }
 
-    public static async Task CleanupRuntimeShowcaseAsync(SmplManagementClient mgmt)
+    public static async Task CleanupRuntimeShowcaseAsync(SmplClient client)
     {
         foreach (var flagId in DemoFlagIds)
         {
-            try { await mgmt.Flags.DeleteAsync(flagId); }
+            try { await client.Flags.DeleteAsync(flagId); }
             catch (NotFoundException) { /* not present — that's fine */ }
         }
     }

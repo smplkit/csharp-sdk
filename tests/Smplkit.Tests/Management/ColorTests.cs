@@ -1,4 +1,4 @@
-using Smplkit.Management;
+using Smplkit.Platform;
 using Xunit;
 
 namespace Smplkit.Tests.Management;

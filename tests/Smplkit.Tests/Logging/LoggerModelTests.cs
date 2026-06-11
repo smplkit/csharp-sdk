@@ -14,12 +14,12 @@ namespace Smplkit.Tests.Logging;
 /// </summary>
 public class LoggerModelTests
 {
-    private static (SmplManagementClient mgmt, MockHttpMessageHandler handler) Make(
+    private static (SmplClient mgmt, MockHttpMessageHandler handler) Make(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> respond)
     {
         var handler = new MockHttpMessageHandler(respond);
         var http = new HttpClient(handler);
-        var mgmt = new SmplManagementClient(new SmplClientOptions { ApiKey = "k" }, http);
+        var mgmt = new SmplClient(TestData.DefaultOptions(), http);
         return (mgmt, handler);
     }
 
@@ -73,7 +73,7 @@ public class LoggerModelTests
     public void Logger_SetLevel_BaseLevel()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var logger = mgmt.Loggers.New("showcase");
+        var logger = mgmt.Logging.Loggers.New("showcase");
         logger.SetLevel(LogLevel.Info);
         Assert.Equal(LogLevel.Info, logger.Level);
     }
@@ -82,7 +82,7 @@ public class LoggerModelTests
     public void Logger_SetLevel_PerEnvironment()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var logger = mgmt.Loggers.New("showcase");
+        var logger = mgmt.Logging.Loggers.New("showcase");
         logger.SetLevel(LogLevel.Error, environment: "production");
         Assert.Equal("ERROR", logger.Environments["production"]["level"]);
     }
@@ -91,7 +91,7 @@ public class LoggerModelTests
     public void Logger_ClearLevel_Base()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var logger = mgmt.Loggers.New("showcase");
+        var logger = mgmt.Logging.Loggers.New("showcase");
         logger.SetLevel(LogLevel.Info);
         logger.ClearLevel();
         Assert.Null(logger.Level);
@@ -101,7 +101,7 @@ public class LoggerModelTests
     public void Logger_ClearLevel_PerEnvironment()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var logger = mgmt.Loggers.New("showcase");
+        var logger = mgmt.Logging.Loggers.New("showcase");
         logger.SetLevel(LogLevel.Error, environment: "production");
         logger.ClearLevel(environment: "production");
         Assert.False(logger.Environments.ContainsKey("production"));
@@ -111,7 +111,7 @@ public class LoggerModelTests
     public void Logger_ClearAllEnvironmentLevels()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var logger = mgmt.Loggers.New("showcase");
+        var logger = mgmt.Logging.Loggers.New("showcase");
         logger.SetLevel(LogLevel.Error, environment: "production");
         logger.SetLevel(LogLevel.Debug, environment: "staging");
         logger.ClearAllEnvironmentLevels();
@@ -127,7 +127,7 @@ public class LoggerModelTests
             captured = req;
             return Task.FromResult(Json(LoggerJson));
         });
-        var logger = mgmt.Loggers.New("showcase");
+        var logger = mgmt.Logging.Loggers.New("showcase");
         logger.SetLevel(LogLevel.Info);
         await logger.SaveAsync();
         Assert.Equal(HttpMethod.Put, captured!.Method); // Loggers always use upsert (PUT)
@@ -145,7 +145,7 @@ public class LoggerModelTests
             captured = req;
             return Task.FromResult(Json("{}", HttpStatusCode.NoContent));
         });
-        var logger = await mgmt.Loggers.GetAsync("showcase");
+        var logger = await mgmt.Logging.Loggers.GetAsync("showcase");
         await logger.DeleteAsync();
         Assert.Equal(HttpMethod.Delete, captured!.Method);
     }
@@ -154,7 +154,7 @@ public class LoggerModelTests
     public async Task Logger_DeleteAsync_OnUnsaved_Throws()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var logger = mgmt.Loggers.New("nope");
+        var logger = mgmt.Logging.Loggers.New("nope");
         logger.Id = null;
         await Assert.ThrowsAsync<InvalidOperationException>(() => logger.DeleteAsync());
     }
@@ -163,7 +163,7 @@ public class LoggerModelTests
     public void Logger_ToString_IncludesIdAndLevel()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var logger = mgmt.Loggers.New("showcase");
+        var logger = mgmt.Logging.Loggers.New("showcase");
         logger.SetLevel(LogLevel.Warn);
         var s = logger.ToString();
         Assert.Contains("showcase", s);
@@ -176,7 +176,7 @@ public class LoggerModelTests
     public void LogGroup_SetLevel_BaseLevel()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var group = mgmt.LogGroups.New("billing");
+        var group = mgmt.Logging.LogGroups.New("billing");
         group.SetLevel(LogLevel.Warn);
         Assert.Equal(LogLevel.Warn, group.Level);
     }
@@ -185,7 +185,7 @@ public class LoggerModelTests
     public void LogGroup_SetLevel_PerEnvironment()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var group = mgmt.LogGroups.New("billing");
+        var group = mgmt.Logging.LogGroups.New("billing");
         group.SetLevel(LogLevel.Error, environment: "production");
         Assert.Equal("ERROR", group.Environments["production"]["level"]);
     }
@@ -194,7 +194,7 @@ public class LoggerModelTests
     public void LogGroup_ClearLevel_Base()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var group = mgmt.LogGroups.New("billing");
+        var group = mgmt.Logging.LogGroups.New("billing");
         group.SetLevel(LogLevel.Warn);
         group.ClearLevel();
         Assert.Null(group.Level);
@@ -204,7 +204,7 @@ public class LoggerModelTests
     public void LogGroup_ClearLevel_PerEnvironment()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var group = mgmt.LogGroups.New("billing");
+        var group = mgmt.Logging.LogGroups.New("billing");
         group.SetLevel(LogLevel.Error, environment: "production");
         group.ClearLevel(environment: "production");
         Assert.False(group.Environments.ContainsKey("production"));
@@ -214,7 +214,7 @@ public class LoggerModelTests
     public void LogGroup_ClearAllEnvironmentLevels()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var group = mgmt.LogGroups.New("billing");
+        var group = mgmt.Logging.LogGroups.New("billing");
         group.SetLevel(LogLevel.Error, environment: "production");
         group.ClearAllEnvironmentLevels();
         Assert.Empty(group.Environments);
@@ -229,7 +229,7 @@ public class LoggerModelTests
             captured = req;
             return Task.FromResult(Json(LogGroupJson, HttpStatusCode.Created));
         });
-        var group = mgmt.LogGroups.New("billing");
+        var group = mgmt.Logging.LogGroups.New("billing");
         group.SetLevel(LogLevel.Warn);
         await group.SaveAsync();
         Assert.Equal(HttpMethod.Post, captured!.Method);
@@ -246,7 +246,7 @@ public class LoggerModelTests
             captured = req;
             return Task.FromResult(Json(LogGroupJson));
         });
-        var group = await mgmt.LogGroups.GetAsync("billing");
+        var group = await mgmt.Logging.LogGroups.GetAsync("billing");
         group.SetLevel(LogLevel.Error);
         await group.SaveAsync();
         Assert.Equal(HttpMethod.Put, captured!.Method);
@@ -262,7 +262,7 @@ public class LoggerModelTests
             captured = req;
             return Task.FromResult(Json("{}", HttpStatusCode.NoContent));
         });
-        var group = await mgmt.LogGroups.GetAsync("billing");
+        var group = await mgmt.Logging.LogGroups.GetAsync("billing");
         await group.DeleteAsync();
         Assert.Equal(HttpMethod.Delete, captured!.Method);
     }
@@ -271,7 +271,7 @@ public class LoggerModelTests
     public async Task LogGroup_DeleteAsync_OnUnsaved_Throws()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var group = mgmt.LogGroups.New("nope");
+        var group = mgmt.Logging.LogGroups.New("nope");
         group.Id = null;
         await Assert.ThrowsAsync<InvalidOperationException>(() => group.DeleteAsync());
     }
@@ -282,7 +282,7 @@ public class LoggerModelTests
         // BuildLogGroupCreateRequestBody requires a caller-supplied id; the create
         // envelope's data.id is no longer optional.
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var group = mgmt.LogGroups.New("placeholder");
+        var group = mgmt.Logging.LogGroups.New("placeholder");
         group.Id = null;
         await Assert.ThrowsAsync<ValidationException>(() => group.SaveAsync());
     }
@@ -291,7 +291,7 @@ public class LoggerModelTests
     public void LogGroup_ToString_IncludesIdAndLevel()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var group = mgmt.LogGroups.New("billing");
+        var group = mgmt.Logging.LogGroups.New("billing");
         group.SetLevel(LogLevel.Warn);
         var s = group.ToString();
         Assert.Contains("billing", s);
@@ -303,7 +303,7 @@ public class LoggerModelTests
     public async Task Loggers_ListAsync_NullData_ReturnsEmpty()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("""{"data":null}""")));
-        var loggers = await mgmt.Loggers.ListAsync();
+        var loggers = await mgmt.Logging.Loggers.ListAsync();
         Assert.Empty(loggers);
     }
 
@@ -311,7 +311,7 @@ public class LoggerModelTests
     public async Task LogGroups_ListAsync_NullData_ReturnsEmpty()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("""{"data":null}""")));
-        var groups = await mgmt.LogGroups.ListAsync();
+        var groups = await mgmt.Logging.LogGroups.ListAsync();
         Assert.Empty(groups);
     }
 
@@ -320,6 +320,6 @@ public class LoggerModelTests
     {
         var (mgmt, _) = Make(_ => Task.FromResult(
             Json("""{"errors":[{"detail":"x"}]}""", HttpStatusCode.NotFound)));
-        await Assert.ThrowsAsync<NotFoundException>(() => mgmt.LogGroups.GetAsync("missing"));
+        await Assert.ThrowsAsync<NotFoundException>(() => mgmt.Logging.LogGroups.GetAsync("missing"));
     }
 }

@@ -8,7 +8,10 @@ namespace Smplkit.Flags;
 public class Flag
 {
     private readonly FlagsClient? _evalClient;
-    private readonly Smplkit.Management.FlagsClient? _mgmtClient;
+
+    // The fused FlagsClient owns CRUD (save/delete) as well as evaluation; a flag
+    // built by it routes persistence through that client.
+    private bool HasCrud => _evalClient is not null;
 
     /// <summary>Gets the flag identifier (slug). Null for unsaved flags.</summary>
     public string? Id { get; internal set; }
@@ -39,7 +42,6 @@ public class Flag
 
     internal Flag(
         FlagsClient? evalClient,
-        Smplkit.Management.FlagsClient? mgmtClient,
         string? id,
         string name,
         string type,
@@ -51,7 +53,6 @@ public class Flag
         DateTime? updatedAt)
     {
         _evalClient = evalClient;
-        _mgmtClient = mgmtClient;
         Id = id;
         Name = name;
         Type = type;
@@ -64,18 +65,17 @@ public class Flag
     }
 
     /// <summary>
-    /// Saves this flag to the server. Requires a management client (i.e. the
-    /// flag was constructed via <c>mgmt.Flags.NewXxx</c> or returned from
-    /// <c>mgmt.Flags.GetAsync</c>/<c>ListAsync</c>, OR via a runtime
-    /// <c>client.Flags.XxxFlag(...)</c> handle whose parent has a management
-    /// plane available).
+    /// Persists this flag to the server. Creates a new flag if unsaved, or
+    /// updates the existing one. Requires a flags client (i.e. the flag was
+    /// constructed via <c>client.Flags.NewXxx</c> or returned from
+    /// <c>client.Flags.GetAsync</c>/<c>ListAsync</c>).
     /// </summary>
     public async Task SaveAsync(CancellationToken ct = default)
     {
-        if (_mgmtClient is null)
+        if (!HasCrud)
             throw new InvalidOperationException(
-                "Cannot save a flag without a management client. Use mgmt.Flags.NewXXX(...) or fetch via mgmt.Flags.GetAsync(...).");
-        var saved = await _mgmtClient.SaveFlagInternalAsync(this, ct).ConfigureAwait(false);
+                "Flag was constructed without a client; cannot save. Use client.Flags.NewXxx(...) or fetch via client.Flags.GetAsync(...).");
+        var saved = await _evalClient!.SaveFlagInternalAsync(this, ct).ConfigureAwait(false);
         Id = saved.Id;
         Name = saved.Name;
         Default = saved.Default;
@@ -256,20 +256,20 @@ public class Flag
     }
 
     /// <summary>
-    /// Deletes this flag from the server. Requires a management client.
+    /// Deletes this flag from the server. Requires a flags client.
     /// </summary>
     public Task DeleteAsync(CancellationToken ct = default)
     {
-        if (_mgmtClient is null || Id is null)
-            throw new InvalidOperationException("Cannot delete a flag without a management client and id.");
-        return _mgmtClient.DeleteAsync(Id, ct);
+        if (!HasCrud || Id is null)
+            throw new InvalidOperationException("Flag was constructed without a client or id; cannot delete.");
+        return _evalClient!.DeleteAsync(Id, ct);
     }
 
     /// <summary>
-    /// Evaluate this flag and return its current value. Requires a runtime
+    /// Evaluate this flag and return its current value. Requires a flags
     /// client (i.e. the flag handle was constructed via
-    /// <c>client.Flags.XxxFlag(...)</c>); flags fetched via the management plane
-    /// (<c>mgmt.Flags.GetAsync</c> / <c>ListAsync</c>) cannot be evaluated.
+    /// <c>client.Flags.XxxFlag(...)</c> or returned from
+    /// <c>client.Flags.GetAsync</c> / <c>ListAsync</c>).
     /// </summary>
     /// <param name="context">Optional explicit context override.</param>
     /// <returns>The evaluated value.</returns>
@@ -290,12 +290,12 @@ public class Flag
 public sealed class BooleanFlag : Flag
 {
     internal BooleanFlag(
-        FlagsClient? evalClient, Smplkit.Management.FlagsClient? mgmtClient,
+        FlagsClient? evalClient,
         string? id, string name,
         object? @default, List<Dictionary<string, object?>> values,
         string? description, Dictionary<string, Dictionary<string, object?>> environments,
         DateTime? createdAt, DateTime? updatedAt)
-        : base(evalClient, mgmtClient, id, name, "BOOLEAN", @default, values, description, environments, createdAt, updatedAt)
+        : base(evalClient, id, name, "BOOLEAN", @default, values, description, environments, createdAt, updatedAt)
     {
     }
 
@@ -314,12 +314,12 @@ public sealed class BooleanFlag : Flag
 public sealed class StringFlag : Flag
 {
     internal StringFlag(
-        FlagsClient? evalClient, Smplkit.Management.FlagsClient? mgmtClient,
+        FlagsClient? evalClient,
         string? id, string name,
         object? @default, List<Dictionary<string, object?>>? values,
         string? description, Dictionary<string, Dictionary<string, object?>> environments,
         DateTime? createdAt, DateTime? updatedAt)
-        : base(evalClient, mgmtClient, id, name, "STRING", @default, values, description, environments, createdAt, updatedAt)
+        : base(evalClient, id, name, "STRING", @default, values, description, environments, createdAt, updatedAt)
     {
     }
 
@@ -338,12 +338,12 @@ public sealed class StringFlag : Flag
 public sealed class NumberFlag : Flag
 {
     internal NumberFlag(
-        FlagsClient? evalClient, Smplkit.Management.FlagsClient? mgmtClient,
+        FlagsClient? evalClient,
         string? id, string name,
         object? @default, List<Dictionary<string, object?>>? values,
         string? description, Dictionary<string, Dictionary<string, object?>> environments,
         DateTime? createdAt, DateTime? updatedAt)
-        : base(evalClient, mgmtClient, id, name, "NUMERIC", @default, values, description, environments, createdAt, updatedAt)
+        : base(evalClient, id, name, "NUMERIC", @default, values, description, environments, createdAt, updatedAt)
     {
     }
 
@@ -366,12 +366,12 @@ public sealed class NumberFlag : Flag
 public sealed class JsonFlag : Flag
 {
     internal JsonFlag(
-        FlagsClient? evalClient, Smplkit.Management.FlagsClient? mgmtClient,
+        FlagsClient? evalClient,
         string? id, string name,
         object? @default, List<Dictionary<string, object?>>? values,
         string? description, Dictionary<string, Dictionary<string, object?>> environments,
         DateTime? createdAt, DateTime? updatedAt)
-        : base(evalClient, mgmtClient, id, name, "JSON", @default, values, description, environments, createdAt, updatedAt)
+        : base(evalClient, id, name, "JSON", @default, values, description, environments, createdAt, updatedAt)
     {
     }
 

@@ -4,7 +4,6 @@ using System.Text;
 using Smplkit;
 using Smplkit.Config;
 using Smplkit.Errors;
-using Smplkit.Management;
 using Smplkit.Tests.Helpers;
 using Xunit;
 
@@ -204,7 +203,7 @@ public class ConfigDiscoveryTests
             return Task.FromResult(Json(EmptyListJson));
         });
 
-        await client.Manage.Config.FlushAsync();
+        await client.Config.FlushAsync();
         Assert.False(bulkCalled);
     }
 
@@ -222,13 +221,13 @@ public class ConfigDiscoveryTests
             return Json(EmptyListJson);
         });
 
-        client.Manage.Config.RegisterConfig(
+        client.Config.RegisterConfig(
             "billing", service: "svc", environment: "prod",
             parent: "common", name: "Billing", description: "Plan limits");
-        Assert.Equal(1, client.Manage.Config.PendingCount);
+        Assert.Equal(1, client.Config.PendingCount);
 
-        await client.Manage.Config.FlushAsync();
-        Assert.Equal(0, client.Manage.Config.PendingCount);
+        await client.Config.FlushAsync();
+        Assert.Equal(0, client.Config.PendingCount);
         Assert.NotNull(lastBody);
         Assert.Contains("\"billing\"", lastBody);
         Assert.Contains("\"common\"", lastBody);
@@ -250,14 +249,14 @@ public class ConfigDiscoveryTests
             return Json(EmptyListJson);
         });
 
-        client.Manage.Config.RegisterConfig("billing", "svc", "prod");
-        client.Manage.Config.RegisterConfigItem("billing", "max_seats", "NUMBER", 5, "seats");
-        client.Manage.Config.RegisterConfigItem("billing", "tier", "STRING", "free", null);
-        client.Manage.Config.RegisterConfigItem("billing", "enabled", "BOOLEAN", false, null);
-        client.Manage.Config.RegisterConfigItem("billing", "payload", "JSON", null, null);
-        client.Manage.Config.RegisterConfigItem("billing", "weird", "WEIRD", "?", null);
+        client.Config.RegisterConfig("billing", "svc", "prod");
+        client.Config.RegisterConfigItem("billing", "max_seats", "NUMBER", 5, "seats");
+        client.Config.RegisterConfigItem("billing", "tier", "STRING", "free", null);
+        client.Config.RegisterConfigItem("billing", "enabled", "BOOLEAN", false, null);
+        client.Config.RegisterConfigItem("billing", "payload", "JSON", null, null);
+        client.Config.RegisterConfigItem("billing", "weird", "WEIRD", "?", null);
 
-        await client.Manage.Config.FlushAsync();
+        await client.Config.FlushAsync();
         Assert.NotNull(lastBody);
         Assert.Contains("STRING", lastBody);
         Assert.Contains("NUMBER", lastBody);
@@ -267,7 +266,7 @@ public class ConfigDiscoveryTests
     }
 
     [Fact]
-    public async Task ConfigsClient_FlushAsync_ServerError_Swallowed()
+    public async Task ConfigsClient_FlushAsync_ServerError_Propagates()
     {
         var (client, _) = MakeClient(req =>
         {
@@ -275,9 +274,12 @@ public class ConfigDiscoveryTests
             return Task.FromResult(Json(EmptyListJson));
         });
 
-        client.Manage.Config.RegisterConfig("billing", "svc", "prod");
-        await client.Manage.Config.FlushAsync();
-        Assert.Equal(0, client.Manage.Config.PendingCount);
+        client.Config.RegisterConfig("billing", "svc", "prod");
+        // FlushAsync propagates failures to the caller; the discovery-flush call
+        // sites (threshold flush, EnsureConnected) swallow them so they never
+        // reach customer code. Drained entries are not requeued.
+        await Assert.ThrowsAsync<Smplkit.Errors.SmplkitException>(() => client.Config.FlushAsync());
+        Assert.Equal(0, client.Config.PendingCount);
     }
 
     [Fact]
@@ -291,7 +293,7 @@ public class ConfigDiscoveryTests
         });
 
         for (int i = 0; i < 51; i++)
-            client.Manage.Config.RegisterConfig($"cfg-{i}", "svc", "prod");
+            client.Config.RegisterConfig($"cfg-{i}", "svc", "prod");
 
         for (int i = 0; i < 20 && bulkCount == 0; i++)
             await Task.Delay(25);
@@ -309,9 +311,9 @@ public class ConfigDiscoveryTests
         });
 
         for (int i = 0; i < 50; i++)
-            client.Manage.Config.RegisterConfig($"cfg-{i}", "svc", "prod");
-        client.Manage.Config.RegisterConfig("cfg-extra", "svc", "prod");
-        client.Manage.Config.RegisterConfigItem("cfg-extra", "k", "STRING", "v", null);
+            client.Config.RegisterConfig($"cfg-{i}", "svc", "prod");
+        client.Config.RegisterConfig("cfg-extra", "svc", "prod");
+        client.Config.RegisterConfigItem("cfg-extra", "k", "STRING", "v", null);
 
         for (int i = 0; i < 20 && bulkCount == 0; i++)
             await Task.Delay(25);
@@ -370,7 +372,7 @@ public class ConfigDiscoveryTests
     }
 
     [Fact]
-    public void Bind_Poco_RegistersSnakeCasedKeys()
+    public async Task Bind_Poco_RegistersSnakeCasedKeys()
     {
         string? lastBody = null;
         var (client, _) = MakeClient(async req =>
@@ -384,6 +386,8 @@ public class ConfigDiscoveryTests
         });
 
         client.Config.Bind("billing", new Billing());
+        // Bind buffers the discovery declaration; drain it so the bulk POST fires.
+        await client.Config.FlushAsync();
         Assert.NotNull(lastBody);
         Assert.Contains("\"max_seats\"", lastBody);
         Assert.Contains("\"tier\"", lastBody);
@@ -392,7 +396,7 @@ public class ConfigDiscoveryTests
     }
 
     [Fact]
-    public void Bind_Poco_RegistersInferredTypes()
+    public async Task Bind_Poco_RegistersInferredTypes()
     {
         string? lastBody = null;
         var (client, _) = MakeClient(async req =>
@@ -406,6 +410,7 @@ public class ConfigDiscoveryTests
         });
 
         client.Config.Bind("billing", new Billing());
+        await client.Config.FlushAsync();
         Assert.NotNull(lastBody);
         Assert.Contains("NUMBER", lastBody);
         Assert.Contains("STRING", lastBody);
@@ -413,7 +418,7 @@ public class ConfigDiscoveryTests
     }
 
     [Fact]
-    public void Bind_Poco_FlattensNestedProperties()
+    public async Task Bind_Poco_FlattensNestedProperties()
     {
         string? lastBody = null;
         var (client, _) = MakeClient(async req =>
@@ -427,6 +432,7 @@ public class ConfigDiscoveryTests
         });
 
         client.Config.Bind("billing", new Nested());
+        await client.Config.FlushAsync();
         Assert.NotNull(lastBody);
         Assert.Contains("plan.max_seats", lastBody);
         Assert.Contains("plan.trial_days", lastBody);
@@ -614,7 +620,7 @@ public class ConfigDiscoveryTests
     }
 
     [Fact]
-    public void Bind_Dict_RegistersAllKeys()
+    public async Task Bind_Dict_RegistersAllKeys()
     {
         string? lastBody = null;
         var (client, _) = MakeClient(async req =>
@@ -633,6 +639,7 @@ public class ConfigDiscoveryTests
             ["host"] = "db.example",
             ["enabled"] = true,
         });
+        await client.Config.FlushAsync();
         Assert.NotNull(lastBody);
         Assert.Contains("\"pool_size\"", lastBody);
         Assert.Contains("\"host\"", lastBody);
@@ -643,7 +650,7 @@ public class ConfigDiscoveryTests
     }
 
     [Fact]
-    public void Bind_Dict_FlattensNestedDicts()
+    public async Task Bind_Dict_FlattensNestedDicts()
     {
         string? lastBody = null;
         var (client, _) = MakeClient(async req =>
@@ -666,6 +673,7 @@ public class ConfigDiscoveryTests
             ["pool_size"] = 10,
         });
 
+        await client.Config.FlushAsync();
         Assert.NotNull(lastBody);
         Assert.Contains("primary.host", lastBody);
         Assert.Contains("primary.port", lastBody);
@@ -775,7 +783,7 @@ public class ConfigDiscoveryTests
 
         var common = client.Config.Bind("common", new Dictionary<string, object?> { ["k"] = "v" });
         client.Config.Bind("billing", new Billing(), parent: common);
-        await client.Manage.Config.FlushAsync();
+        await client.Config.FlushAsync();
 
         Assert.NotNull(lastBody);
         Assert.Contains("\"parent\":\"common\"", lastBody);
@@ -803,7 +811,7 @@ public class ConfigDiscoveryTests
     // ==================================================================
 
     [Fact]
-    public void Bind_PreFetchFlush_RunsBeforeInitialList()
+    public void PreFetchFlush_RunsBeforeInitialList()
     {
         var calls = new List<string>();
         var (client, _) = MakeClient(req =>
@@ -813,7 +821,18 @@ public class ConfigDiscoveryTests
             return Task.FromResult(Json("{}"));
         });
 
-        client.Config.Bind("billing", new Billing());
+        // Buffer a discovery declaration BEFORE the first live use so the
+        // connect-time flush has something to send. EnsureConnected drains the
+        // buffer before the initial config list, so "bulk" must precede "list".
+        var register = typeof(ConfigClient).GetMethod("RegisterConfig",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        register.Invoke(client.Config, new object?[] { "billing", "svc", "test", null, null, null });
+
+        // Any live call triggers EnsureConnected (flush-then-list). The list is
+        // empty so Subscribe ultimately raises NotFound — but only after connect
+        // has run, which is all this test observes.
+        Assert.Throws<NotFoundException>(() => client.Config.Subscribe("billing"));
+
         Assert.True(calls.Count >= 2);
         Assert.Equal("bulk", calls[0]);
         Assert.Equal("list", calls[1]);
@@ -879,7 +898,7 @@ public class ConfigDiscoveryTests
     }
 
     [Fact]
-    public void GetValueOr_MissingConfig_ReturnsDefault_AndRegisters()
+    public async Task GetValueOr_MissingConfig_ReturnsDefault_AndRegisters()
     {
         string? lastBody = null;
         var (client, _) = MakeClient(async req =>
@@ -894,6 +913,7 @@ public class ConfigDiscoveryTests
 
         var value = client.Config.GetValueOr("brand-new", "ttl_ms", 500);
         Assert.Equal(500, value);
+        await client.Config.FlushAsync();
         Assert.NotNull(lastBody);
         Assert.Contains("\"brand-new\"", lastBody);
         Assert.Contains("\"ttl_ms\"", lastBody);
@@ -901,7 +921,7 @@ public class ConfigDiscoveryTests
     }
 
     [Fact]
-    public void GetValueOr_MissingKey_ReturnsDefault_AndRegisters()
+    public async Task GetValueOr_MissingKey_ReturnsDefault_AndRegisters()
     {
         string? lastBody = null;
         var (client, _) = MakeClient(async req =>
@@ -917,12 +937,13 @@ public class ConfigDiscoveryTests
 
         var value = client.Config.GetValueOr("billing", "new_field", "fallback");
         Assert.Equal("fallback", value);
+        await client.Config.FlushAsync();
         Assert.NotNull(lastBody);
         Assert.Contains("new_field", lastBody);
     }
 
     [Fact]
-    public void GetValueOr_RegisteredAsBoolean_WhenDefaultIsBool()
+    public async Task GetValueOr_RegisteredAsBoolean_WhenDefaultIsBool()
     {
         string? lastBody = null;
         var (client, _) = MakeClient(async req =>
@@ -935,6 +956,7 @@ public class ConfigDiscoveryTests
             return Json(EmptyListJson);
         });
         _ = client.Config.GetValueOr("svc", "flag", true);
+        await client.Config.FlushAsync();
         Assert.NotNull(lastBody);
         Assert.Contains("BOOLEAN", lastBody);
     }
@@ -963,7 +985,7 @@ public class ConfigDiscoveryTests
             if (IsConfigsList(req)) return Task.FromResult(Json(ConfigListJson));
             return Task.FromResult(Json(EmptyListJson));
         });
-        _ = client.Config.Get("billing"); // force init
+        _ = client.Config.Subscribe("billing"); // force init
         var cacheField = typeof(ConfigClient).GetField("_configCache",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
         var cache = (Dictionary<string, Dictionary<string, object?>>)cacheField.GetValue(client.Config)!;
@@ -982,7 +1004,7 @@ public class ConfigDiscoveryTests
             if (IsConfigsList(req)) return Task.FromResult(Json(ConfigListJson));
             return Task.FromResult(Json(EmptyListJson));
         });
-        _ = client.Config.Get("billing");
+        _ = client.Config.Subscribe("billing");
         var cacheField = typeof(ConfigClient).GetField("_configCache",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
         var cache = (Dictionary<string, Dictionary<string, object?>>)cacheField.GetValue(client.Config)!;
@@ -1004,7 +1026,7 @@ public class ConfigDiscoveryTests
             if (IsConfigsList(req)) return Task.FromResult(Json(ConfigListJson));
             return Task.FromResult(Json(EmptyListJson));
         });
-        _ = client.Config.Get("billing");
+        _ = client.Config.Subscribe("billing");
         var cacheField = typeof(ConfigClient).GetField("_configCache",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
         var cache = (Dictionary<string, Dictionary<string, object?>>)cacheField.GetValue(client.Config)!;
@@ -1021,7 +1043,7 @@ public class ConfigDiscoveryTests
             if (IsConfigsList(req)) return Task.FromResult(Json(ConfigListJson));
             return Task.FromResult(Json(EmptyListJson));
         });
-        _ = client.Config.Get("billing");
+        _ = client.Config.Subscribe("billing");
         var cacheField = typeof(ConfigClient).GetField("_configCache",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
         var cache = (Dictionary<string, Dictionary<string, object?>>)cacheField.GetValue(client.Config)!;
@@ -1058,7 +1080,7 @@ public class ConfigDiscoveryTests
     }
 
     [Fact]
-    public void Bind_Poco_ThrowingGetter_GracefullySkipped()
+    public async Task Bind_Poco_ThrowingGetter_GracefullySkipped()
     {
         // Covers IterPocoItems's getter-throws catch: a property whose
         // getter throws is silently skipped during registration.
@@ -1075,6 +1097,7 @@ public class ConfigDiscoveryTests
 
         var inst = client.Config.Bind("svc", new ThrowingGetterPoco());
         Assert.NotNull(inst);
+        await client.Config.FlushAsync();
         Assert.NotNull(lastBody);
         // "plain" registered; "boom" skipped (would have raised).
         Assert.Contains("\"plain\"", lastBody);
@@ -1172,7 +1195,7 @@ public class ConfigDiscoveryTests
             if (IsConfigsList(req)) return Task.FromResult(Json(ConfigListJson));
             return Task.FromResult(Json(EmptyListJson));
         });
-        _ = client.Config.Get("billing");
+        _ = client.Config.Subscribe("billing");
         var cacheField = typeof(ConfigClient).GetField("_configCache",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
         var cache = (Dictionary<string, Dictionary<string, object?>>)cacheField.GetValue(client.Config)!;
@@ -1189,7 +1212,7 @@ public class ConfigDiscoveryTests
             if (IsConfigsList(req)) return Task.FromResult(Json(ConfigListJson));
             return Task.FromResult(Json(EmptyListJson));
         });
-        _ = client.Config.Get("billing");
+        _ = client.Config.Subscribe("billing");
         var cacheField = typeof(ConfigClient).GetField("_configCache",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
         var cache = (Dictionary<string, Dictionary<string, object?>>)cacheField.GetValue(client.Config)!;
@@ -1206,7 +1229,7 @@ public class ConfigDiscoveryTests
             if (IsConfigsList(req)) return Task.FromResult(Json(ConfigListJson));
             return Task.FromResult(Json(EmptyListJson));
         });
-        _ = client.Config.Get("billing");
+        _ = client.Config.Subscribe("billing");
         var cacheField = typeof(ConfigClient).GetField("_configCache",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
         var cache = (Dictionary<string, Dictionary<string, object?>>)cacheField.GetValue(client.Config)!;
@@ -1225,7 +1248,7 @@ public class ConfigDiscoveryTests
             if (IsConfigsList(req)) return Task.FromResult(Json(ConfigListJson));
             return Task.FromResult(Json(EmptyListJson));
         });
-        _ = client.Config.Get("billing");
+        _ = client.Config.Subscribe("billing");
         var cacheField = typeof(ConfigClient).GetField("_configCache",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
         var cache = (Dictionary<string, Dictionary<string, object?>>)cacheField.GetValue(client.Config)!;

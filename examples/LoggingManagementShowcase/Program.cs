@@ -11,24 +11,24 @@ using Smplkit;
 using Smplkit.Examples.Setup;
 
 // create the client
-using var mgmt = new SmplManagementClient();
-await LoggingManagementSetup.SetupManagementShowcaseAsync(mgmt);
+using var client = new SmplClient(new SmplClientOptions { Service = "showcase-service" });
+await LoggingManagementSetup.SetupManagementShowcaseAsync(client);
 
 // create a parent logger with a default level
-var root = mgmt.Loggers.New("showcase");
+var root = client.Logging.Loggers.New("showcase");
 root.SetLevel(LogLevel.Info);
 await root.SaveAsync();
 Console.WriteLine($"Created: {root.Id} (level={root.Level})");
 System.Diagnostics.Debug.Assert(root.Level == LogLevel.Info);
 
 // child logger with no level (inherits from parent)
-var db = mgmt.Loggers.New("showcase.db");
+var db = client.Logging.Loggers.New("showcase.db");
 await db.SaveAsync();
 Console.WriteLine($"Created: {db.Id} (inherits)");
 System.Diagnostics.Debug.Assert(db.Level is null);
 
 // child logger with explicit level (overrides parent)
-var payments = mgmt.Loggers.New("showcase.payments");
+var payments = client.Logging.Loggers.New("showcase.payments");
 payments.SetLevel(LogLevel.Warn);
 await payments.SaveAsync();
 Console.WriteLine($"Created: {payments.Id} (level={payments.Level})");
@@ -47,8 +47,8 @@ Console.WriteLine($"Cleared production override: {root.Environments.Count} envir
 System.Diagnostics.Debug.Assert(!root.Environments.ContainsKey("production"));
 
 // fetch a logger by id
-var fetched = await mgmt.Loggers.GetAsync("showcase");
+var fetched = await client.Logging.Loggers.GetAsync("showcase");
 System.Diagnostics.Debug.Assert(fetched.Level == LogLevel.Info);
 
-await LoggingManagementSetup.CleanupManagementShowcaseAsync(mgmt);
+await LoggingManagementSetup.CleanupManagementShowcaseAsync(client);
 Console.WriteLine("Done!");

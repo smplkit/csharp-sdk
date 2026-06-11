@@ -1,3 +1,33 @@
+// The Smpl Flags client — one unified FlagsClient.
+//
+// Smpl Flags has two surfaces on a single client, mirroring how the config,
+// audit, and jobs clients expose their full surface from one class:
+//
+// * Management surface — pure CRUD, no live connection:
+//   NewBooleanFlag / NewStringFlag / NewNumberFlag / NewJsonFlag
+//   constructors, GetAsync / ListAsync / DeleteAsync CRUD, and the
+//   flag-declaration discovery buffer (Register / FlushAsync /
+//   FlushSync / PendingCount). The client owns the discovery buffer
+//   directly.
+// * Live surface — lazily connects to your running service on first use:
+//   the typed handle declarations (BooleanFlag / StringFlag / NumberFlag
+//   / JsonFlag) whose .Get() evaluates against the cached definitions,
+//   plus RefreshAsync / Stats / OnChange. The first live call
+//   transparently flushes discovery, fetches all flag definitions into
+//   the local cache, and opens the live-updates WebSocket — no explicit
+//   install step.
+//
+// The client supports two construction shapes:
+//
+// * Wired into Smplkit.SmplClient — borrows the parent's flags transport for
+//   both runtime fetch and CRUD, the parent's shared WebSocket for the live
+//   channel, and client.Platform.Contexts (the shared context buffer) for
+//   evaluation-context registration. This is the common path.
+// * Standalone — new FlagsClient(apiKey: ..., environment: ..., ...) builds
+//   and owns its own flags transport and a contexts buffer (against its own
+//   app transport), and on first live use opens and owns its own WebSocket.
+//   Dispose() tears down only the owned transports and owned WebSocket.
+
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
@@ -6,35 +36,59 @@ using JsonLogic.Net;
 using Newtonsoft.Json.Linq;
 using Smplkit.Errors;
 using Smplkit.Internal;
+using DebugLog = Smplkit.Internal.Debug;
 using GenApp = Smplkit.Internal.Generated.App;
 using GenFlags = Smplkit.Internal.Generated.Flags;
 
 namespace Smplkit.Flags;
 
 /// <summary>
-/// Client for the smplkit Flags service. Provides operations for creating,
-/// reading, updating, and deleting flags, as well as evaluating flags via
-/// typed flag handles.
+/// The Smpl Flags client.
 /// </summary>
-public sealed class FlagsClient
+/// <remarks>
+/// <para>One client exposes the full surface, reachable as <c>client.Flags</c>
+/// (<see cref="Smplkit.SmplClient"/>) or constructed directly:</para>
+/// <code>
+/// using var flags = new FlagsClient(environment: "production");
+/// var newFlag = flags.NewBooleanFlag("beta", defaultValue: false);
+/// await newFlag.SaveAsync();
+/// var beta = flags.BooleanFlag("beta", defaultValue: false);
+/// if (beta.Get())
+/// {
+///     // ...
+/// }
+/// </code>
+/// <para>The management surface (<c>NewXxx</c> / <c>GetAsync</c> / <c>ListAsync</c> /
+/// <c>DeleteAsync</c> and discovery) is pure CRUD. The live surface
+/// (<c>BooleanFlag</c> / <c>StringFlag</c> / <c>NumberFlag</c> / <c>JsonFlag</c> /
+/// <c>RefreshAsync</c> / <c>Stats</c> / <c>OnChange</c>) connects lazily on first
+/// use — the first call flushes discovery, fetches all flag definitions into the
+/// local cache, and opens the live-updates WebSocket. No explicit install step is
+/// required.</para>
+/// </remarks>
+public sealed class FlagsClient : IDisposable
 {
     private const int CacheMaxSize = 10_000;
-    private const int ContextRegistrationLruSize = 10_000;
-    private const int ContextBatchFlushSize = 100;
 
     private readonly GenFlags.FlagsClient _genFlagsClient;
     private readonly GenApp.AppClient _genAppClient;
     private readonly string _apiKey;
     private readonly Func<SharedWebSocket> _ensureWs;
     private readonly SmplClient? _parent;
+    private readonly MetricsReporter? _metrics;
+
+    // Standalone-owned transports (null when wired into a parent client).
+    private readonly HttpClient? _ownedHttpClient;
+    private readonly string? _appBaseUrl;
 
     // Runtime state
     private string? _environment;
+    private readonly string? _service;
     private readonly ConcurrentDictionary<string, Dictionary<string, object?>> _flagStore = new();
     internal volatile bool _connected;
     private readonly object _initLock = new();
 
-    // Backoff retry state for start/EnsureInitialized
+    // Backoff retry state for start/EnsureConnected
     internal const double MaxStartRetryDelayS = 60.0;
     internal double _startRetryDelayS = 1.0;
     internal long _nextStartAttemptAt = 0L;
@@ -46,12 +100,14 @@ public sealed class FlagsClient
     private readonly List<Action<FlagChangeEvent>> _globalListeners = new();
     private readonly ConcurrentDictionary<string, List<Action<FlagChangeEvent>>> _scopedListeners = new();
 
-    // Shared WebSocket
+    // Context-flush sizing (matches the discovery threshold).
+    private const int ContextBatchFlushSize = 100;
+
+    // Shared WebSocket — the parent's when wired, our own when standalone.
     private SharedWebSocket? _wsManager;
+    private bool _ownsWs;
 
-    private readonly MetricsReporter? _metrics;
-
-    // Flag auto-registration
+    // Flag auto-registration (the discovery buffer, owned directly).
     private readonly FlagRegistrationBuffer _flagBuffer = new();
     private Timer? _flagFlushTimer;
 
@@ -63,6 +119,12 @@ public sealed class FlagsClient
     internal Task? _lastFlagBufferFlushTask;
     internal Task? _lastContextBufferFlushTask;
 
+    /// <summary>
+    /// Wired constructor used by <see cref="Smplkit.SmplClient"/>: borrows the parent's
+    /// flags transport for both runtime fetch and CRUD, the parent's shared WebSocket for
+    /// the live channel, and the shared context registration buffer
+    /// (<c>client.Platform.Contexts</c>) as the evaluation-context registration seam.
+    /// </summary>
     internal FlagsClient(GeneratedClientFactory clients, string apiKey, Func<SharedWebSocket> ensureWs, ContextRegistrationBuffer contextBuffer, SmplClient? parent = null, MetricsReporter? metrics = null)
     {
         _genFlagsClient = clients.Flags;
@@ -72,108 +134,284 @@ public sealed class FlagsClient
         _contextBuffer = contextBuffer;
         _parent = parent;
         _metrics = metrics;
+        _ownedHttpClient = null;
+        _appBaseUrl = null;
+        _environment = parent?.Environment;
+        _service = parent?.Service;
+    }
+
+    /// <summary>
+    /// Initializes a standalone <see cref="FlagsClient"/> that builds and owns its own
+    /// flags transport and a contexts buffer (against its own app transport), and on first
+    /// live use opens and owns its own WebSocket.
+    /// </summary>
+    /// <param name="apiKey">API key. When omitted, resolved from <c>SMPLKIT_API_KEY</c> or <c>~/.smplkit</c>.</param>
+    /// <param name="environment">Deployment environment used to resolve runtime flag
+    /// values and to scope discovery declarations. Optional.</param>
+    /// <param name="service">Service identifier auto-injected as evaluation context and
+    /// attached to discovery declarations. Optional.</param>
+    /// <param name="profile">Named <c>~/.smplkit</c> profile section.</param>
+    /// <param name="baseDomain">Base domain for API requests (default <c>smplkit.com</c>).</param>
+    /// <param name="scheme">URL scheme (default <c>https</c>).</param>
+    /// <param name="debug">Enable SDK debug logging.</param>
+    /// <param name="telemetry">Enable usage telemetry. Defaults to enabled.</param>
+    /// <param name="extraHeaders">Extra headers attached to every request.</param>
+    public FlagsClient(
+        string? apiKey = null,
+        string? environment = null,
+        string? service = null,
+        string? profile = null,
+        string? baseDomain = null,
+        string? scheme = null,
+        bool? debug = null,
+        bool? telemetry = null,
+        IReadOnlyDictionary<string, string>? extraHeaders = null)
+    {
+        // Reuse the management config resolver (flags CRUD is account-global) and
+        // the shared per-service URL helper, so a standalone flags client resolves
+        // credentials/base-domain from ~/.smplkit / env vars / constructor args
+        // exactly like the top-level clients do. Runtime evaluation is scoped by the
+        // supplied environment/service.
+        var resolved = ConfigResolver.ResolveForManagement(new SmplClientOptions
+        {
+            ApiKey = apiKey,
+            Profile = profile,
+            BaseDomain = baseDomain,
+            Scheme = scheme,
+            Debug = debug,
+        });
+        if (resolved.Debug)
+            DebugLog.Enabled = true;
+
+        var resolvedKey = apiKey ?? resolved.ApiKey;
+        _apiKey = resolvedKey;
+        _appBaseUrl = ConfigResolver.ServiceUrl(resolved.Scheme, "app", resolved.BaseDomain);
+        _environment = environment;
+        _service = service;
+
+        _ownedHttpClient = new HttpClient();
+        var factory = new GeneratedClientFactory(_ownedHttpClient, new SmplClientOptions
+        {
+            ApiKey = resolvedKey,
+            BaseDomain = resolved.BaseDomain,
+            Scheme = resolved.Scheme,
+            Environment = environment,
+            ExtraHeaders = extraHeaders is null ? null : new Dictionary<string, string>(extraHeaders),
+        });
+        _genFlagsClient = factory.Flags;
+        _genAppClient = factory.App;
+
+        _metrics = telemetry == false
+            ? null
+            : new MetricsReporter(_ownedHttpClient, environment ?? string.Empty, service ?? string.Empty, appBaseUrl: _appBaseUrl);
+
+        // Standalone: build our own contexts buffer (the evaluation-context seam) and
+        // open our own WebSocket on first live use.
+        _contextBuffer = new ContextRegistrationBuffer(lruSize: 10_000, flushSize: 100);
+        _parent = null;
+        _ensureWs = EnsureOwnedWebSocket;
     }
 
     // ------------------------------------------------------------------
-    // Runtime: typed flag handles
+    // Management surface: builders (no live connection)
     // ------------------------------------------------------------------
 
-    /// <summary>
-    /// Declares a boolean flag handle with the specified default value.
-    /// </summary>
-    /// <param name="id">The flag identifier.</param>
-    /// <param name="defaultValue">The default value used when no server-side value is available.</param>
-    /// <returns>A typed flag handle.</returns>
-    public BooleanFlag BooleanFlag(string id, bool defaultValue)
+    /// <summary>Return a new unsaved boolean <see cref="BooleanFlag"/>. Call <see cref="Flag.SaveAsync"/> to persist.</summary>
+    public BooleanFlag NewBooleanFlag(string id, bool defaultValue, string? name = null, string? description = null)
     {
-        var handle = new BooleanFlag(
-            evalClient: this, mgmtClient: _parent?.Manage.Flags,
-            id: id, name: id,
+        return new BooleanFlag(
+            evalClient: this,
+            id: id,
+            name: name ?? Helpers.KeyToDisplayName(id),
             @default: defaultValue,
-            values: new List<Dictionary<string, object?>>(),
-            description: null,
+            values: new List<Dictionary<string, object?>>
+            {
+                new() { ["name"] = "True", ["value"] = true },
+                new() { ["name"] = "False", ["value"] = false },
+            },
+            description: description,
             environments: new Dictionary<string, Dictionary<string, object?>>(),
-            createdAt: null, updatedAt: null);
-        _handles[id] = handle;
-        _flagBuffer.Add(id, "BOOLEAN", defaultValue, _parent?.Service, _parent?.Environment);
+            createdAt: null,
+            updatedAt: null);
+    }
+
+    /// <summary>Return a new unsaved string <see cref="StringFlag"/>. Call <see cref="Flag.SaveAsync"/> to persist.</summary>
+    public StringFlag NewStringFlag(string id, string defaultValue, string? name = null, string? description = null, IEnumerable<FlagValue>? values = null)
+    {
+        return new StringFlag(
+            evalClient: this,
+            id: id,
+            name: name ?? Helpers.KeyToDisplayName(id),
+            @default: defaultValue,
+            values: FlagValuesToInternal(values),
+            description: description,
+            environments: new Dictionary<string, Dictionary<string, object?>>(),
+            createdAt: null,
+            updatedAt: null);
+    }
+
+    /// <summary>Return a new unsaved numeric <see cref="NumberFlag"/>. Call <see cref="Flag.SaveAsync"/> to persist.</summary>
+    public NumberFlag NewNumberFlag(string id, double defaultValue, string? name = null, string? description = null, IEnumerable<FlagValue>? values = null)
+    {
+        return new NumberFlag(
+            evalClient: this,
+            id: id,
+            name: name ?? Helpers.KeyToDisplayName(id),
+            @default: defaultValue,
+            values: FlagValuesToInternal(values),
+            description: description,
+            environments: new Dictionary<string, Dictionary<string, object?>>(),
+            createdAt: null,
+            updatedAt: null);
+    }
+
+    /// <summary>Return a new unsaved JSON <see cref="JsonFlag"/>. Call <see cref="Flag.SaveAsync"/> to persist.</summary>
+    public JsonFlag NewJsonFlag(string id, Dictionary<string, object?> defaultValue, string? name = null, string? description = null, IEnumerable<FlagValue>? values = null)
+    {
+        return new JsonFlag(
+            evalClient: this,
+            id: id,
+            name: name ?? Helpers.KeyToDisplayName(id),
+            @default: defaultValue,
+            values: FlagValuesToInternal(values),
+            description: description,
+            environments: new Dictionary<string, Dictionary<string, object?>>(),
+            createdAt: null,
+            updatedAt: null);
+    }
+
+    // ------------------------------------------------------------------
+    // Management surface: CRUD (no live connection)
+    // ------------------------------------------------------------------
+
+    /// <summary>Fetch the editable <see cref="Flag"/> resource by id.</summary>
+    /// <exception cref="NotFoundException">If no matching flag exists.</exception>
+    public async Task<Flag> GetAsync(string id, CancellationToken ct = default)
+    {
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genFlagsClient.Get_flagAsync(id: id, cancellationToken: ct)).ConfigureAwait(false);
+        return MapFlagResource(response.Data)
+            ?? throw new NotFoundException($"Flag with id '{id}' not found");
+    }
+
+    /// <summary>List flags for the authenticated account.</summary>
+    /// <param name="pageNumber">1-based page number; null lets the server default (1) apply.</param>
+    /// <param name="pageSize">Items per page; null lets the server default (1000) apply.</param>
+    /// <param name="ct">Cancellation token.</param>
+    public async Task<List<Flag>> ListAsync(
+        int? pageNumber = null,
+        int? pageSize = null,
+        CancellationToken ct = default)
+    {
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genFlagsClient.List_flagsAsync(
+                pagenumber: pageNumber,
+                pagesize: pageSize,
+                cancellationToken: ct)).ConfigureAwait(false);
+        if (response.Data is null) return new List<Flag>();
+        return response.Data.Select(r => MapFlagResource(r)!).Where(f => f is not null).ToList();
+    }
+
+    /// <summary>Delete a flag by id.</summary>
+    public async Task DeleteAsync(string id, CancellationToken ct = default)
+    {
+        await ApiExceptionMapper.ExecuteAsync(
+            () => _genFlagsClient.Delete_flagAsync(id, ct)).ConfigureAwait(false);
+    }
+
+    /// <summary>Internal: save a flag (create or update). Called by <see cref="Flag.SaveAsync"/>.</summary>
+    internal async Task<Flag> SaveFlagInternalAsync(Flag flag, CancellationToken ct = default)
+    {
+        if (flag.CreatedAt is null)
+        {
+            // Create — POST /flags. Send the full environments map so a
+            // caller that built the flag with EnableRules + AddRule before
+            // first save doesn't silently lose them.
+            var body = BuildCreateFlagBody(flag.Id, flag.Name, flag.Type, flag.Default, flag.Description, flag.Values, flag.Environments);
+            var response = await ApiExceptionMapper.ExecuteAsync(
+                () => _genFlagsClient.Create_flagAsync(body, ct)).ConfigureAwait(false);
+            return MapFlagResource(response.Data)
+                ?? throw new ValidationException("Failed to create flag");
+        }
+        else
+        {
+            // Update — PUT /flags/{id}
+            var flagId = flag.Id ?? throw new ValidationException("Cannot update a flag without an id");
+            var body = BuildUpdateFlagBody(flagId, flag.Name, flag.Type, flag.Default, flag.Values, flag.Description, flag.Environments);
+            var response = await ApiExceptionMapper.ExecuteAsync(
+                () => _genFlagsClient.Update_flagAsync(flagId, body, ct)).ConfigureAwait(false);
+            return MapFlagResource(response.Data)
+                ?? throw new ValidationException("Failed to update flag");
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Management surface: discovery buffer (owned directly)
+    // ------------------------------------------------------------------
+
+    /// <summary>Buffer flag declarations for bulk-discovery upload; optionally flush now.</summary>
+    public void Register(FlagDeclaration declaration, bool flush = false)
+        => Register(new[] { declaration }, flush);
+
+    /// <summary>Buffer flag declarations for bulk-discovery upload; optionally flush now.</summary>
+    public void Register(IEnumerable<FlagDeclaration> items, bool flush = false)
+    {
+        foreach (var d in items)
+            _flagBuffer.Add(d.Id, d.Type, d.Default, d.Service, d.Environment);
+        if (flush)
+        {
+            _lastFlagBufferFlushTask = FlushAsync();
+            return;
+        }
         if (_flagBuffer.PendingCount >= 50)
             _lastFlagBufferFlushTask = SafeFlushFlagsAsync();
-        return handle;
     }
 
     /// <summary>
-    /// Declares a string flag handle with the specified default value.
+    /// POST pending declarations to the flags bulk endpoint.
     /// </summary>
-    /// <param name="id">The flag identifier.</param>
-    /// <param name="defaultValue">The default value used when no server-side value is available.</param>
-    /// <returns>A typed flag handle.</returns>
-    public StringFlag StringFlag(string id, string defaultValue)
+    /// <remarks>
+    /// Items remain in the buffer until the request succeeds, so a flush
+    /// against an unhealthy <c>flags</c> service is automatically retried by
+    /// the next <see cref="FlushAsync"/> call (periodic background flush,
+    /// connect retry, or final flush on close). Uses peek+commit so items are
+    /// removed only after a successful response.
+    /// </remarks>
+    /// <param name="ct">Cancellation token.</param>
+    public async Task FlushAsync(CancellationToken ct = default)
     {
-        var handle = new StringFlag(
-            evalClient: this, mgmtClient: _parent?.Manage.Flags,
-            id: id, name: id,
-            @default: defaultValue,
-            values: new List<Dictionary<string, object?>>(),
-            description: null,
-            environments: new Dictionary<string, Dictionary<string, object?>>(),
-            createdAt: null, updatedAt: null);
-        _handles[id] = handle;
-        _flagBuffer.Add(id, "STRING", defaultValue, _parent?.Service, _parent?.Environment);
-        if (_flagBuffer.PendingCount >= 50)
-            _lastFlagBufferFlushTask = SafeFlushFlagsAsync();
-        return handle;
+        var batch = _flagBuffer.Peek();
+        if (batch.Count == 0) return;
+        var items = batch.Select(e => new GenFlags.FlagBulkItem
+        {
+            Id = e.Id,
+            Type = Enum.Parse<GenFlags.FlagBulkItemType>(e.Type),
+            Default = e.DefaultValue ?? new object(),
+            Service = e.Service,
+            Environment = e.Environment,
+        }).ToList();
+        var request = new GenFlags.FlagBulkRequest { Flags = items };
+        await ApiExceptionMapper.ExecuteAsync(
+            () => _genFlagsClient.Bulk_register_flagsAsync(request, ct)).ConfigureAwait(false);
+        _flagBuffer.Commit(batch.Select(e => e.Id));
     }
 
-    /// <summary>
-    /// Declares a number flag handle with the specified default value.
-    /// </summary>
-    /// <param name="id">The flag identifier.</param>
-    /// <param name="defaultValue">The default value used when no server-side value is available.</param>
-    /// <returns>A typed flag handle.</returns>
-    public NumberFlag NumberFlag(string id, double defaultValue)
-    {
-        var handle = new NumberFlag(
-            evalClient: this, mgmtClient: _parent?.Manage.Flags,
-            id: id, name: id,
-            @default: defaultValue,
-            values: new List<Dictionary<string, object?>>(),
-            description: null,
-            environments: new Dictionary<string, Dictionary<string, object?>>(),
-            createdAt: null, updatedAt: null);
-        _handles[id] = handle;
-        _flagBuffer.Add(id, "NUMERIC", defaultValue, _parent?.Service, _parent?.Environment);
-        if (_flagBuffer.PendingCount >= 50)
-            _lastFlagBufferFlushTask = SafeFlushFlagsAsync();
-        return handle;
-    }
+    /// <summary>Synchronous flush — alias of <see cref="FlushAsync"/> for the periodic-flush path.</summary>
+    public void FlushSync() => FlushAsync().GetAwaiter().GetResult();
 
-    /// <summary>
-    /// Declares a JSON flag handle with the specified default value.
-    /// </summary>
-    /// <param name="id">The flag identifier.</param>
-    /// <param name="defaultValue">The default value used when no server-side value is available.</param>
-    /// <returns>A typed flag handle.</returns>
-    public JsonFlag JsonFlag(string id, Dictionary<string, object?> defaultValue)
-    {
-        var handle = new JsonFlag(
-            evalClient: this, mgmtClient: _parent?.Manage.Flags,
-            id: id, name: id,
-            @default: defaultValue,
-            values: new List<Dictionary<string, object?>>(),
-            description: null,
-            environments: new Dictionary<string, Dictionary<string, object?>>(),
-            createdAt: null, updatedAt: null);
-        _handles[id] = handle;
-        _flagBuffer.Add(id, "JSON", defaultValue, _parent?.Service, _parent?.Environment);
-        if (_flagBuffer.PendingCount >= 50)
-            _lastFlagBufferFlushTask = SafeFlushFlagsAsync();
-        return handle;
-    }
+    /// <summary>Number of pending flag declarations awaiting flush.</summary>
+    public int PendingCount => _flagBuffer.PendingCount;
 
     /// <summary>
     /// Number of flag declarations currently queued for registration. Exposed for tests.
     /// </summary>
     internal int PendingFlagRegistrations => _flagBuffer.PendingCount;
+
+    /// <summary>Queue a declared flag with the owned discovery buffer.</summary>
+    private void ObserveDeclaration(string flagId, string flagType, object? defaultValue)
+    {
+        Register(new FlagDeclaration(flagId, flagType, defaultValue, _service, _environment));
+    }
 
     // ------------------------------------------------------------------
     // Runtime: context provider
@@ -190,18 +428,25 @@ public sealed class FlagsClient
     }
 
     // ------------------------------------------------------------------
-    // Runtime: lazy initialization
+    // Live surface: lazy connect
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Ensures flag data is loaded before first use.
-    /// Idempotent — safe to call on every evaluation. If the flags service is
+    /// Open the live connection to the running Smpl Flags service.
+    /// </summary>
+    /// <remarks>
+    /// <para>Flushes any buffered discovery declarations, fetches all flag
+    /// definitions into the local cache, opens the shared WebSocket, and
+    /// subscribes to <c>flag_changed</c> / <c>flag_deleted</c> / <c>flags_changed</c>
+    /// events.</para>
+    /// <para>Idempotent and internal — every live method calls it on first use, so
+    /// the live surface auto-connects with no explicit step. If the flags service is
     /// unhealthy the first time (e.g. a pod starts before the schema is loaded),
     /// pending declarations are kept in the buffer, <c>_connected</c> stays
     /// <c>false</c>, and the next call retries after an exponential back-off
-    /// (1 s → 60 s cap). Evaluations during the window fall back to handle defaults.
-    /// </summary>
-    internal void EnsureInitialized()
+    /// (1 s → 60 s cap). Evaluations during the window fall back to handle defaults.</para>
+    /// </remarks>
+    internal void EnsureConnected()
     {
         if (_connected) return;
         if (Environment.TickCount64 < Interlocked.Read(ref _nextStartAttemptAt)) return;
@@ -210,21 +455,21 @@ public sealed class FlagsClient
             if (_connected) return;
             if (Environment.TickCount64 < _nextStartAttemptAt) return;
 
-            _environment = _parent?.Environment;
+            _environment = _parent is not null ? _parent.Environment : _environment;
 
             // Fire-and-forget environment + service context registration (best-effort, once).
-            if (_parent?.Service is { Length: > 0 } svc)
+            if (_service is { Length: > 0 } svc)
             {
-                var env = _parent?.Environment;
+                var env = _environment;
                 _initRegistrationTask = RegisterInitialContextsAsync(svc, env);
             }
 
-            Debug.Log("websocket", "flags runtime initializing");
+            DebugLog.Log("websocket", "flags runtime initializing");
             try
             {
                 // Flush declarations BEFORE fetching definitions; items stay queued
                 // until the POST succeeds so a 500 doesn't lose them.
-                FlushFlagsAsync().GetAwaiter().GetResult();
+                FlushAsync().GetAwaiter().GetResult();
                 FetchAllFlagsAsync().GetAwaiter().GetResult();
             }
             catch (Exception ex)
@@ -243,13 +488,13 @@ public sealed class FlagsClient
             _wsManager = _ensureWs();
             if (!_wsSubscribed)
             {
-                Debug.Log("registration", "registering flag_changed, flag_deleted, and flags_changed handlers");
+                DebugLog.Log("registration", "registering flag_changed, flag_deleted, and flags_changed handlers");
                 _wsManager.On("flag_changed", HandleFlagChanged);
                 _wsManager.On("flag_deleted", HandleFlagDeleted);
                 _wsManager.On("flags_changed", HandleFlagsChanged);
                 _wsSubscribed = true;
             }
-            Debug.Log("websocket", "flags runtime connected");
+            DebugLog.Log("websocket", "flags runtime connected");
         }
     }
 
@@ -260,19 +505,117 @@ public sealed class FlagsClient
         _startRetryDelayS = Math.Min(delayS * 2.0, MaxStartRetryDelayS);
         System.Diagnostics.Trace.TraceWarning(
             "[smplkit] Flags start failed (will retry in {0:F1}s): {1}", delayS, ex.Message);
-        Debug.Log("registration", $"Flags start failed: {ex}");
+        DebugLog.Log("registration", $"Flags start failed: {ex}");
+    }
+
+    /// <summary>
+    /// Return the shared WebSocket — the parent's when wired, else our own (lazily started).
+    /// </summary>
+    private SharedWebSocket EnsureOwnedWebSocket()
+    {
+        if (_wsManager is not null) return _wsManager;
+        _wsManager = new SharedWebSocket(_apiKey, metrics: _metrics, appBaseUrl: _appBaseUrl ?? "https://app.smplkit.com");
+        _wsManager.Start();
+        _ownsWs = true;
+        return _wsManager;
     }
 
     // ------------------------------------------------------------------
-    // Runtime: refresh
+    // Live surface: typed flag handles
+    // ------------------------------------------------------------------
+
+    /// <summary>Declare a boolean flag handle for live evaluation. Connects lazily on first use.</summary>
+    /// <param name="id">The flag identifier.</param>
+    /// <param name="defaultValue">The default value used when no server-side value is available.</param>
+    /// <returns>A typed flag handle.</returns>
+    public BooleanFlag BooleanFlag(string id, bool defaultValue)
+    {
+        EnsureConnected();
+        var handle = new BooleanFlag(
+            evalClient: this,
+            id: id, name: id,
+            @default: defaultValue,
+            values: new List<Dictionary<string, object?>>(),
+            description: null,
+            environments: new Dictionary<string, Dictionary<string, object?>>(),
+            createdAt: null, updatedAt: null);
+        _handles[id] = handle;
+        ObserveDeclaration(id, "BOOLEAN", defaultValue);
+        return handle;
+    }
+
+    /// <summary>Declare a string flag handle for live evaluation. Connects lazily on first use.</summary>
+    /// <param name="id">The flag identifier.</param>
+    /// <param name="defaultValue">The default value used when no server-side value is available.</param>
+    /// <returns>A typed flag handle.</returns>
+    public StringFlag StringFlag(string id, string defaultValue)
+    {
+        EnsureConnected();
+        var handle = new StringFlag(
+            evalClient: this,
+            id: id, name: id,
+            @default: defaultValue,
+            values: new List<Dictionary<string, object?>>(),
+            description: null,
+            environments: new Dictionary<string, Dictionary<string, object?>>(),
+            createdAt: null, updatedAt: null);
+        _handles[id] = handle;
+        ObserveDeclaration(id, "STRING", defaultValue);
+        return handle;
+    }
+
+    /// <summary>Declare a numeric flag handle for live evaluation. Connects lazily on first use.</summary>
+    /// <param name="id">The flag identifier.</param>
+    /// <param name="defaultValue">The default value used when no server-side value is available.</param>
+    /// <returns>A typed flag handle.</returns>
+    public NumberFlag NumberFlag(string id, double defaultValue)
+    {
+        EnsureConnected();
+        var handle = new NumberFlag(
+            evalClient: this,
+            id: id, name: id,
+            @default: defaultValue,
+            values: new List<Dictionary<string, object?>>(),
+            description: null,
+            environments: new Dictionary<string, Dictionary<string, object?>>(),
+            createdAt: null, updatedAt: null);
+        _handles[id] = handle;
+        ObserveDeclaration(id, "NUMERIC", defaultValue);
+        return handle;
+    }
+
+    /// <summary>Declare a JSON flag handle for live evaluation. Connects lazily on first use.</summary>
+    /// <param name="id">The flag identifier.</param>
+    /// <param name="defaultValue">The default value used when no server-side value is available.</param>
+    /// <returns>A typed flag handle.</returns>
+    public JsonFlag JsonFlag(string id, Dictionary<string, object?> defaultValue)
+    {
+        EnsureConnected();
+        var handle = new JsonFlag(
+            evalClient: this,
+            id: id, name: id,
+            @default: defaultValue,
+            values: new List<Dictionary<string, object?>>(),
+            description: null,
+            environments: new Dictionary<string, Dictionary<string, object?>>(),
+            createdAt: null, updatedAt: null);
+        _handles[id] = handle;
+        ObserveDeclaration(id, "JSON", defaultValue);
+        return handle;
+    }
+
+    // ------------------------------------------------------------------
+    // Live surface: refresh / stats / change listeners
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Refreshes all flag definitions from the server and notifies change listeners.
+    /// Re-fetch all flag definitions and clear cache.
     /// </summary>
+    /// <remarks>Connects lazily on first use — no explicit install step.</remarks>
     /// <param name="ct">Cancellation token.</param>
     public async Task RefreshAsync(CancellationToken ct = default)
     {
+        EnsureConnected();
         await FetchAllFlagsAsync(ct).ConfigureAwait(false);
         _cache.Clear();
         FireChangeListenersAll("manual");
@@ -283,31 +626,36 @@ public sealed class FlagsClient
     /// </summary>
     public string ConnectionStatus => _wsManager?.ConnectionStatus ?? "disconnected";
 
-    /// <summary>
-    /// Gets evaluation statistics.
-    /// </summary>
-    public FlagStats Stats => new(_cache.CacheHits, _cache.CacheMisses);
-
-    // ------------------------------------------------------------------
-    // Runtime: change listeners
-    // ------------------------------------------------------------------
+    /// <summary>Return evaluation statistics. Connects lazily on first use.</summary>
+    public FlagStats Stats
+    {
+        get
+        {
+            EnsureConnected();
+            return new FlagStats(_cache.CacheHits, _cache.CacheMisses);
+        }
+    }
 
     /// <summary>
     /// Register a global change listener that fires when any flag changes.
     /// </summary>
+    /// <remarks>Connects lazily on first use — no explicit install step.</remarks>
     /// <param name="callback">Called with a <see cref="FlagChangeEvent"/> on each change.</param>
     public void OnChange(Action<FlagChangeEvent> callback)
     {
+        EnsureConnected();
         _globalListeners.Add(callback);
     }
 
     /// <summary>
     /// Register a change listener scoped to a specific flag id.
     /// </summary>
+    /// <remarks>Connects lazily on first use — no explicit install step.</remarks>
     /// <param name="flagId">The flag identifier to listen for.</param>
     /// <param name="callback">Called with a <see cref="FlagChangeEvent"/> when this flag changes.</param>
     public void OnChange(string flagId, Action<FlagChangeEvent> callback)
     {
+        EnsureConnected();
         var list = _scopedListeners.GetOrAdd(flagId, _ => new List<Action<FlagChangeEvent>>());
         lock (list)
         {
@@ -318,7 +666,7 @@ public sealed class FlagsClient
     /// <summary>
     /// Best-effort initial context registration: registers the configured
     /// environment and service with the contexts service. Failures are logged
-    /// and swallowed; this is fired-and-forgotten from <see cref="EnsureInitialized"/>.
+    /// and swallowed; this is fired-and-forgotten from <see cref="EnsureConnected"/>.
     /// </summary>
     private async Task RegisterInitialContextsAsync(string svc, string? env)
     {
@@ -350,7 +698,7 @@ public sealed class FlagsClient
         {
             System.Diagnostics.Trace.TraceWarning(
                 "[smplkit] Context registration failed: {0}", ex.Message);
-            Debug.Log("registration", $"Context registration failed: {ex}");
+            DebugLog.Log("registration", $"Context registration failed: {ex}");
         }
     }
 
@@ -360,7 +708,7 @@ public sealed class FlagsClient
 
     /// <summary>
     /// Sends any pending context registrations to the server.
-    /// Public context registration is via <c>client.Management.Contexts.RegisterAsync()</c>.
+    /// Public context registration is via <c>client.Platform.Contexts.RegisterAsync()</c>.
     /// </summary>
     /// <param name="ct">Cancellation token.</param>
     internal async Task FlushContextsAsync(CancellationToken ct = default)
@@ -388,7 +736,7 @@ public sealed class FlagsClient
         {
             System.Diagnostics.Trace.TraceWarning(
                 "[smplkit] Context flush failed: {0}", ex.Message);
-            Debug.Log("registration", $"Context flush failed: {ex}");
+            DebugLog.Log("registration", $"Context flush failed: {ex}");
         }
     }
 
@@ -402,32 +750,7 @@ public sealed class FlagsClient
     }
 
     /// <summary>
-    /// Sends any pending flag registrations to the server.
-    /// Uses peek+commit so items remain queued when the POST fails; they are
-    /// removed only after a successful response. Throws on any HTTP or network
-    /// error so callers can decide how to handle the failure.
-    /// </summary>
-    /// <param name="ct">Cancellation token.</param>
-    internal async Task FlushFlagsAsync(CancellationToken ct = default)
-    {
-        var batch = _flagBuffer.Peek();
-        if (batch.Count == 0) return;
-        var items = batch.Select(e => new GenFlags.FlagBulkItem
-        {
-            Id = e.Id,
-            Type = Enum.Parse<GenFlags.FlagBulkItemType>(e.Type),
-            Default = e.DefaultValue ?? new object(),
-            Service = e.Service,
-            Environment = e.Environment,
-        }).ToList();
-        var request = new GenFlags.FlagBulkRequest { Flags = items };
-        await ApiExceptionMapper.ExecuteAsync(
-            () => _genFlagsClient.Bulk_register_flagsAsync(request, ct)).ConfigureAwait(false);
-        _flagBuffer.Commit(batch.Select(e => e.Id));
-    }
-
-    /// <summary>
-    /// Safe wrapper around <see cref="FlushFlagsAsync"/>: swallows errors and
+    /// Safe wrapper around <see cref="FlushAsync"/>: swallows errors and
     /// logs a warning. Items stay queued for the next attempt. Used by the
     /// periodic timer and the threshold-triggered flush paths.
     /// </summary>
@@ -435,31 +758,14 @@ public sealed class FlagsClient
     {
         try
         {
-            await FlushFlagsAsync(ct).ConfigureAwait(false);
+            await FlushAsync(ct).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             System.Diagnostics.Trace.TraceWarning(
                 "[smplkit] Flag registration flush failed: {0}", ex.Message);
-            Debug.Log("registration", $"Flag registration flush failed: {ex}");
+            DebugLog.Log("registration", $"Flag registration flush failed: {ex}");
         }
-    }
-
-    /// <summary>
-    /// Stops the periodic flag flush timer and unregisters WebSocket event handlers.
-    /// </summary>
-    internal void Close()
-    {
-        _flagFlushTimer?.Dispose();
-        _flagFlushTimer = null;
-        if (_wsManager is not null)
-        {
-            _wsManager.Off("flag_changed", HandleFlagChanged);
-            _wsManager.Off("flag_deleted", HandleFlagDeleted);
-            _wsManager.Off("flags_changed", HandleFlagsChanged);
-            _wsManager = null;
-        }
-        _wsSubscribed = false;
     }
 
     // ------------------------------------------------------------------
@@ -468,11 +774,16 @@ public sealed class FlagsClient
 
     internal object? EvaluateHandle(string id, object? defaultValue, IReadOnlyList<Context>? context)
     {
-        EnsureInitialized();
+        EnsureConnected();
 
         Dictionary<string, object?> evalDict;
         if (context is not null)
         {
+            // Explicit context: register here. (Implicit set-context registers
+            // at the entry point, so the provider branch below doesn't need to.)
+            _contextBuffer.Observe(context);
+            if (_contextBuffer.PendingCount >= ContextBatchFlushSize)
+                _lastContextBufferFlushTask = FlushContextsAsync();
             evalDict = ContextsToEvalDict(context);
         }
         else if (_contextProvider is not null)
@@ -488,8 +799,8 @@ public sealed class FlagsClient
             evalDict = new Dictionary<string, object?>();
         }
 
-        // Auto-inject service context from parent SmplClient
-        if (_parent?.Service is { Length: > 0 } svc && !evalDict.ContainsKey("service"))
+        // Auto-inject service context if set and not already provided
+        if (_service is { Length: > 0 } svc && !evalDict.ContainsKey("service"))
             evalDict["service"] = new Dictionary<string, object?> { ["key"] = svc };
 
         var ctxHash = HashContext(evalDict);
@@ -529,7 +840,7 @@ public sealed class FlagsClient
     private void HandleFlagChanged(Dictionary<string, object?> data)
     {
         var flagId = data.TryGetValue("id", out var k) ? k as string : null;
-        Debug.Log("websocket", $"flag_changed event received, id={flagId ?? "<unknown>"}");
+        DebugLog.Log("websocket", $"flag_changed event received, id={flagId ?? "<unknown>"}");
         if (flagId is null) return;
 
         try
@@ -552,14 +863,14 @@ public sealed class FlagsClient
         {
             System.Diagnostics.Trace.TraceWarning(
                 "[smplkit] Flag refresh failed: {0}", ex.Message);
-            Debug.Log("websocket", $"Flag refresh failed: {ex}");
+            DebugLog.Log("websocket", $"Flag refresh failed: {ex}");
         }
     }
 
     private void HandleFlagDeleted(Dictionary<string, object?> data)
     {
         var flagId = data.TryGetValue("id", out var k) ? k as string : null;
-        Debug.Log("websocket", $"flag_deleted event received, id={flagId ?? "<unknown>"}");
+        DebugLog.Log("websocket", $"flag_deleted event received, id={flagId ?? "<unknown>"}");
         if (flagId is null) return;
 
         _flagStore.TryRemove(flagId, out _);
@@ -569,7 +880,7 @@ public sealed class FlagsClient
 
     private void HandleFlagsChanged(Dictionary<string, object?> data)
     {
-        Debug.Log("websocket", "flags_changed event received — full list refetch");
+        DebugLog.Log("websocket", "flags_changed event received — full list refetch");
         try
         {
             // Snapshot pre-state
@@ -611,7 +922,7 @@ public sealed class FlagsClient
         {
             System.Diagnostics.Trace.TraceWarning(
                 "[smplkit] Flags bulk refresh failed: {0}", ex.Message);
-            Debug.Log("websocket", $"Flags bulk refresh failed: {ex}");
+            DebugLog.Log("websocket", $"Flags bulk refresh failed: {ex}");
         }
     }
 
@@ -635,7 +946,7 @@ public sealed class FlagsClient
     /// Walks the generated flags-list endpoint page by page until the server
     /// returns fewer rows than requested. The runtime needs every flag for
     /// evaluation, so paging silently here is correct; customers who want
-    /// pagination control go through <c>Manage.Flags.ListAsync</c>.
+    /// pagination control go through <see cref="ListAsync"/>.
     /// </summary>
     private async Task<List<GenFlags.FlagResource>> FetchAllFlagResourcesAsync(CancellationToken ct)
     {
@@ -709,6 +1020,50 @@ public sealed class FlagsClient
     {
         foreach (var id in _flagStore.Keys)
             FireChangeListeners(id, source);
+    }
+
+    // ------------------------------------------------------------------
+    // Lifecycle
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Release resources — only those this client owns.
+    /// </summary>
+    /// <remarks>
+    /// Stops the periodic flag flush timer and unregisters WebSocket event handlers.
+    /// Tears down the owned WebSocket (standalone) and the owned flags + app HTTP
+    /// transports (standalone construction). A wired client borrows the parent's
+    /// transport, WebSocket, and context buffer and closes none of them.
+    /// </remarks>
+    public void Dispose()
+    {
+        Close();
+        if (_ownsWs && _wsManager is not null)
+        {
+            _wsManager.StopAsync().GetAwaiter().GetResult();
+            _wsManager = null;
+            _ownsWs = false;
+        }
+        _metrics?.Dispose();
+        _ownedHttpClient?.Dispose();
+    }
+
+    /// <summary>
+    /// Stops the periodic flag flush timer and unregisters WebSocket event handlers.
+    /// </summary>
+    internal void Close()
+    {
+        _flagFlushTimer?.Dispose();
+        _flagFlushTimer = null;
+        if (_wsManager is not null)
+        {
+            _wsManager.Off("flag_changed", HandleFlagChanged);
+            _wsManager.Off("flag_deleted", HandleFlagDeleted);
+            _wsManager.Off("flags_changed", HandleFlagsChanged);
+            if (!_ownsWs)
+                _wsManager = null;
+        }
+        _wsSubscribed = false;
     }
 
     // ------------------------------------------------------------------
@@ -879,8 +1234,6 @@ public sealed class FlagsClient
 
     // ------------------------------------------------------------------
     // Helpers: runtime flag-store parsing (used by HandleFlag* + FetchAllFlagsAsync).
-    // CRUD wire helpers (MapFlagResource, BuildCreate/UpdateFlagBody) live in
-    // Smplkit.Management.FlagsClient — runtime owns only what eval needs.
     // ------------------------------------------------------------------
 
     private static Dictionary<string, object?>? ParseFlagDef(GenFlags.FlagResource? resource)
@@ -908,6 +1261,49 @@ public sealed class FlagsClient
             ["description"] = attrs.Description,
             ["environments"] = environments,
         };
+    }
+
+    // ------------------------------------------------------------------
+    // Wire helpers — CRUD response mapping + request-body building, owned by
+    // the fused client (runtime + management on one path).
+    // ------------------------------------------------------------------
+
+    private Flag? MapFlagResource(GenFlags.FlagResource? resource)
+    {
+        if (resource?.Attributes is null) return null;
+        var attrs = resource.Attributes;
+
+        List<Dictionary<string, object?>>? values = null;
+        if (attrs.Values is not null)
+        {
+            values = new List<Dictionary<string, object?>>();
+            foreach (var v in attrs.Values)
+                values.Add(new Dictionary<string, object?>
+                {
+                    ["name"] = v.Name,
+                    ["value"] = NormalizeValue(v.Value),
+                });
+        }
+
+        var environments = ExtractEnvironments(attrs.Environments);
+
+        DateTime? createdAt = null;
+        if (attrs.Created_at is DateTimeOffset createdDto) createdAt = createdDto.DateTime;
+
+        DateTime? updatedAt = null;
+        if (attrs.Updated_at is DateTimeOffset updatedDto) updatedAt = updatedDto.DateTime;
+
+        return new Flag(
+            evalClient: this,
+            id: resource.Id ?? string.Empty,
+            name: attrs.Name ?? string.Empty,
+            type: attrs.Type.ToString(),
+            @default: NormalizeValue(attrs.Default),
+            values: values,
+            description: attrs.Description,
+            environments: environments,
+            createdAt: createdAt,
+            updatedAt: updatedAt);
     }
 
     private static Dictionary<string, Dictionary<string, object?>> ExtractEnvironments(
@@ -942,6 +1338,106 @@ public sealed class FlagsClient
         return result;
     }
 
+    private static List<Dictionary<string, object?>>? FlagValuesToInternal(IEnumerable<FlagValue>? values)
+    {
+        if (values is null) return null;
+        return values.Select(v => new Dictionary<string, object?>
+        {
+            ["name"] = v.Name,
+            ["value"] = v.Value,
+        }).ToList();
+    }
+
+    private static GenFlags.FlagCreateRequest BuildCreateFlagBody(
+        string? id, string name, string type, object? @default,
+        string? description, List<Dictionary<string, object?>>? values,
+        Dictionary<string, Dictionary<string, object?>> environments)
+    {
+        var flagValues = values?.Select(v => new GenFlags.FlagValue
+        {
+            Name = v.TryGetValue("name", out var n) ? n?.ToString() ?? "" : "",
+            Value = v.TryGetValue("value", out var val) ? val! : new object(),
+        }).ToList();
+
+        return new GenFlags.FlagCreateRequest
+        {
+            Data = new GenFlags.FlagCreateResource
+            {
+                Type = "flag",
+                Id = id ?? throw new ValidationException("Cannot create a flag without an id"),
+                Attributes = new GenFlags.Flag
+                {
+                    Name = name,
+                    Type = Enum.Parse<GenFlags.FlagType>(type),
+                    Default = @default ?? new object(),
+                    Description = description ?? "",
+                    Values = flagValues!,
+                    Environments = BuildEnvironmentsWire(environments),
+                },
+            }
+        };
+    }
+
+    private static GenFlags.FlagRequest BuildUpdateFlagBody(
+        string? id, string name, string type, object? @default,
+        List<Dictionary<string, object?>>? values, string? description,
+        Dictionary<string, Dictionary<string, object?>> environments)
+    {
+        var flagValues = values?.Select(v => new GenFlags.FlagValue
+        {
+            Name = v.TryGetValue("name", out var n) ? n?.ToString() ?? "" : "",
+            Value = v.TryGetValue("value", out var val) ? val! : new object(),
+        }).ToList();
+
+        return new GenFlags.FlagRequest
+        {
+            Data = new GenFlags.FlagResource
+            {
+                Type = "flag",
+                Id = id,
+                Attributes = new GenFlags.Flag
+                {
+                    Name = name,
+                    Type = Enum.Parse<GenFlags.FlagType>(type),
+                    Default = @default ?? new object(),
+                    Description = description ?? "",
+                    Values = flagValues!,
+                    Environments = BuildEnvironmentsWire(environments),
+                },
+            }
+        };
+    }
+
+    private static Dictionary<string, GenFlags.FlagEnvironment> BuildEnvironmentsWire(
+        Dictionary<string, Dictionary<string, object?>> environments)
+    {
+        var flagEnvs = new Dictionary<string, GenFlags.FlagEnvironment>();
+        foreach (var (envName, envData) in environments)
+        {
+            var flagEnv = new GenFlags.FlagEnvironment
+            {
+                Enabled = envData.TryGetValue("enabled", out var e) && e is bool eb && eb,
+                Default = envData.TryGetValue("default", out var d) ? d : null,
+            };
+            if (envData.TryGetValue("rules", out var rulesObj) && rulesObj is List<object?> rulesList)
+            {
+                flagEnv.Rules = rulesList
+                    .OfType<Dictionary<string, object?>>()
+                    .Select(r => new GenFlags.FlagRule
+                    {
+                        Description = r.TryGetValue("description", out var desc) ? desc?.ToString() : null,
+                        Logic = r.TryGetValue("logic", out var logic) ? logic ?? new object() : new object(),
+                        Value = r.TryGetValue("value", out var v) ? v! : new object(),
+                    }).ToList();
+            }
+            else
+            {
+                flagEnv.Rules = new List<GenFlags.FlagRule>();
+            }
+            flagEnvs[envName] = flagEnv;
+        }
+        return flagEnvs;
+    }
 }
 
 // ------------------------------------------------------------------
@@ -1006,68 +1502,6 @@ internal sealed class ResolutionCache
             _list.Clear();
             _map.Clear();
         }
-    }
-}
-
-// ------------------------------------------------------------------
-// Context registration buffer
-// ------------------------------------------------------------------
-
-internal sealed class ContextRegistrationBuffer
-{
-    private readonly int _lruSize;
-    private readonly int _flushSize;
-    private readonly LinkedList<(string Type, string Key)> _seenOrder = new();
-    private readonly Dictionary<(string Type, string Key), LinkedListNode<(string Type, string Key)>> _seenMap = new();
-    private readonly List<Dictionary<string, object?>> _pending = new();
-    private readonly object _lock = new();
-
-    internal ContextRegistrationBuffer(int lruSize, int flushSize)
-    {
-        _lruSize = lruSize;
-        _flushSize = flushSize;
-    }
-
-    internal void Observe(IEnumerable<Context> contexts)
-    {
-        lock (_lock)
-        {
-            foreach (var ctx in contexts)
-            {
-                var cacheKey = (ctx.Type, ctx.Key);
-                if (!_seenMap.ContainsKey(cacheKey))
-                {
-                    if (_seenMap.Count >= _lruSize)
-                    {
-                        var oldest = _seenOrder.First!;
-                        _seenMap.Remove(oldest.Value);
-                        _seenOrder.RemoveFirst();
-                    }
-                    var node = _seenOrder.AddLast(cacheKey);
-                    _seenMap[cacheKey] = node;
-                    _pending.Add(new Dictionary<string, object?>
-                    {
-                        ["id"] = $"{ctx.Type}:{ctx.Key}",
-                        ["attributes"] = new Dictionary<string, object?>(ctx.Attributes),
-                    });
-                }
-            }
-        }
-    }
-
-    internal List<Dictionary<string, object?>> Drain()
-    {
-        lock (_lock)
-        {
-            var batch = new List<Dictionary<string, object?>>(_pending);
-            _pending.Clear();
-            return batch;
-        }
-    }
-
-    internal int PendingCount
-    {
-        get { lock (_lock) return _pending.Count; }
     }
 }
 

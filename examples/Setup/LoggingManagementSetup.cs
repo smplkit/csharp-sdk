@@ -9,16 +9,16 @@ public static class LoggingManagementSetup
 {
     private static readonly string[] DemoLoggerIds = { "showcase", "showcase.db", "showcase.payments" };
 
-    public static async Task SetupManagementShowcaseAsync(SmplManagementClient mgmt)
+    public static async Task SetupManagementShowcaseAsync(SmplClient client)
     {
-        await CleanupManagementShowcaseAsync(mgmt);
+        await CleanupManagementShowcaseAsync(client);
     }
 
-    public static async Task CleanupManagementShowcaseAsync(SmplManagementClient mgmt)
+    public static async Task CleanupManagementShowcaseAsync(SmplClient client)
     {
         foreach (var loggerId in DemoLoggerIds)
         {
-            try { await mgmt.Loggers.DeleteAsync(loggerId); }
+            try { await client.Logging.Loggers.DeleteAsync(loggerId); }
             catch (NotFoundException) { /* not present — that's fine */ }
         }
     }

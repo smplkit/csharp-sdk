@@ -15,14 +15,12 @@ namespace Smplkit.Tests.Management;
 /// </summary>
 public class PaginationTests
 {
-    private static (SmplManagementClient mgmt, MockHttpMessageHandler handler) Make(
+    private static (SmplClient mgmt, MockHttpMessageHandler handler) Make(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> respond)
     {
         var handler = new MockHttpMessageHandler(respond);
         var httpClient = new HttpClient(handler);
-        var mgmt = new SmplManagementClient(
-            new SmplClientOptions { ApiKey = "sk_test_key" },
-            httpClient);
+        var mgmt = new SmplClient(TestData.DefaultOptions(), httpClient);
         return (mgmt, handler);
     }
 
@@ -80,7 +78,7 @@ public class PaginationTests
     {
         HttpRequestMessage? captured = null;
         var (mgmt, _) = Make(req => { captured = req; return Task.FromResult(EmptyData()); });
-        await mgmt.Loggers.ListAsync(pageNumber: 4, pageSize: 10);
+        await mgmt.Logging.Loggers.ListAsync(pageNumber: 4, pageSize: 10);
         AssertHasPaging(captured, 4, 10);
     }
 
@@ -89,7 +87,7 @@ public class PaginationTests
     {
         HttpRequestMessage? captured = null;
         var (mgmt, _) = Make(req => { captured = req; return Task.FromResult(EmptyData()); });
-        await mgmt.LogGroups.ListAsync(pageNumber: 5, pageSize: 7);
+        await mgmt.Logging.LogGroups.ListAsync(pageNumber: 5, pageSize: 7);
         AssertHasPaging(captured, 5, 7);
     }
 
@@ -98,7 +96,7 @@ public class PaginationTests
     {
         HttpRequestMessage? captured = null;
         var (mgmt, _) = Make(req => { captured = req; return Task.FromResult(EmptyData()); });
-        await mgmt.Environments.ListAsync(pageNumber: 6, pageSize: 5);
+        await mgmt.Platform.Environments.ListAsync(pageNumber: 6, pageSize: 5);
         AssertHasPaging(captured, 6, 5);
     }
 
@@ -107,7 +105,7 @@ public class PaginationTests
     {
         HttpRequestMessage? captured = null;
         var (mgmt, _) = Make(req => { captured = req; return Task.FromResult(EmptyData()); });
-        await mgmt.ContextTypes.ListAsync(pageNumber: 7, pageSize: 3);
+        await mgmt.Platform.ContextTypes.ListAsync(pageNumber: 7, pageSize: 3);
         AssertHasPaging(captured, 7, 3);
     }
 
@@ -116,7 +114,7 @@ public class PaginationTests
     {
         HttpRequestMessage? captured = null;
         var (mgmt, _) = Make(req => { captured = req; return Task.FromResult(EmptyData()); });
-        await mgmt.Contexts.ListAsync(type: "user", pageNumber: 2, pageSize: 11);
+        await mgmt.Platform.Contexts.ListAsync(type: "user", pageNumber: 2, pageSize: 11);
         AssertHasPaging(captured, 2, 11);
         Assert.Contains("filter%5Bcontext_type%5D=user", captured!.RequestUri!.ToString());
     }

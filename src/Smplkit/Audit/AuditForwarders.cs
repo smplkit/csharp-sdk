@@ -1,67 +1,89 @@
-using Smplkit.Audit;
+// SIEM forwarder CRUD for the Smpl Audit client.
+//
+// Forwarders are part of the single unified audit surface — there is no
+// runtime/management split for audit (see Smplkit.Audit.AuditClient). This
+// file holds the forwarder CRUD sub-client that the unified AuditClient
+// exposes as .Forwarders:
+//
+// * ForwardersClient — Forwarders.New/GetAsync/ListAsync/SaveAsync/DeleteAsync,
+//   returning Forwarder active records whose SaveAsync() / DeleteAsync() perform
+//   their network round-trips with await.
+//
+// The forwarder models (Forwarder, ForwarderEnvironment, HttpConfiguration, …)
+// live in Smplkit.Audit.AuditModels.
+
 using Smplkit.Internal;
 using GenAudit = Smplkit.Internal.Generated.Audit;
 
-namespace Smplkit.Management;
+namespace Smplkit.Audit;
 
 /// <summary>
-/// SIEM forwarder management surface for the management plane.
-/// Accessed via <see cref="AuditManagementClient.Forwarders"/>.
+/// SIEM forwarder CRUD surface — accessed via <see cref="AuditClient.Forwarders"/>.
+///
+/// <para>Genuinely async — every method performs its network round-trip with
+/// <c>await</c> and returns <see cref="Forwarder"/> active records whose
+/// <see cref="Forwarder.SaveAsync"/> / <see cref="Forwarder.DeleteAsync"/> are
+/// also asynchronous.</para>
 ///
 /// <para>The customer-facing API is active-record: use <see cref="New"/> to
 /// build an unsaved <see cref="Forwarder"/>, mutate fields directly, then
 /// call <see cref="Forwarder.SaveAsync"/> to persist. Reads come from
 /// <see cref="GetAsync"/> / <see cref="ListAsync"/>; the returned instances
-/// are bound to this client so <c>save()</c>/<c>delete()</c> work.</para>
+/// are bound to this client so <c>SaveAsync()</c>/<c>DeleteAsync()</c> work.</para>
 /// </summary>
-public sealed class ManagementForwardersClient
+public sealed class ForwardersClient
 {
     private readonly GenAudit.AuditClient _gen;
 
-    internal ManagementForwardersClient(GenAudit.AuditClient gen) => _gen = gen;
+    internal ForwardersClient(GenAudit.AuditClient gen) => _gen = gen;
 
     /// <summary>
-    /// Returns an unsaved <see cref="Forwarder"/> bound to this client. Call
-    /// <see cref="Forwarder.SaveAsync"/> to persist.
+    /// Return an unsaved <see cref="Forwarder"/>. Call <see cref="Forwarder.SaveAsync"/> to persist.
     /// </summary>
-    /// <param name="key">Caller-supplied forwarder key — required at create
-    /// time (the audit service does not auto-generate it). Use a stable,
-    /// human-readable identifier (e.g. <c>"splunk-prod"</c>); the key is what
-    /// appears in every URL and audit-log line for this forwarder.</param>
-    /// <param name="name">Display name. Free-form.</param>
-    /// <param name="forwarderType">Destination type — see <see cref="ForwarderType"/>.</param>
-    /// <param name="configuration">Destination HTTP request configuration.
-    /// Headers carry credentials and are encrypted at rest server-side; reads
-    /// return them redacted.</param>
+    /// <param name="id">Caller-supplied unique identifier (the forwarder's key).
+    /// Unique within the account; immutable for the lifetime of the forwarder.
+    /// The audit service returns 409 if another live forwarder already uses
+    /// this id.</param>
+    /// <param name="forwarderType">A <see cref="Smplkit.Audit.ForwarderType"/> enum member
+    /// (e.g. <c>ForwarderType.Http</c>, <c>ForwarderType.Datadog</c>).</param>
+    /// <param name="configuration">Destination HTTP request configuration — an
+    /// <see cref="HttpConfiguration"/> instance. Headers carry credentials and
+    /// are encrypted at rest server-side; reads return them redacted.</param>
+    /// <param name="name">Display name. Free-form. Defaults to <paramref name="id"/>
+    /// when not supplied.</param>
     /// <param name="environments">Per-environment overrides keyed by environment
-    /// key (e.g. <c>"production"</c>). A forwarder delivers in an environment
-    /// only when that environment's entry has <c>Enabled = true</c>. Each entry
-    /// may carry an optional <see cref="HttpConfiguration"/> override; omit it to
-    /// inherit the base <paramref name="configuration"/>. Omit the whole argument
-    /// to create a forwarder that delivers nowhere until enabled per
-    /// environment. Every referenced environment must exist and be managed for
-    /// the account.</param>
+    /// key (e.g. <c>"production"</c>). A forwarder delivers in an environment only
+    /// when that environment's entry has <c>Enabled = true</c>. Omit to create a
+    /// forwarder that delivers nowhere until enabled per environment.</param>
     /// <param name="description">Optional free-text description.</param>
-    /// <param name="forwardSmplkitEvents">When <c>true</c>, the forwarder also
-    /// receives smplkit's own platform change events (flag, configuration, and
-    /// similar changes that smplkit records about your account), delivered through
-    /// every environment the forwarder is enabled in. Defaults to <c>false</c>.</param>
+    /// <param name="forwardSmplkitEvents">When <c>true</c>, this forwarder also
+    /// receives platform change events that smplkit records about your own
+    /// resources (flag, configuration, and similar changes), delivered through
+    /// every environment this forwarder is enabled in. Independent of the
+    /// per-environment <paramref name="environments"/> settings. Defaults to
+    /// <c>false</c> — platform change events are not forwarded unless you opt
+    /// in.</param>
     /// <param name="filter">Optional JSON Logic filter; events that don't match
     /// are recorded as <c>filtered_out</c> deliveries.</param>
     /// <param name="transform">Optional template applied to the event payload
-    /// before POST. Shape depends on <paramref name="transformType"/>; the wire
-    /// field is untyped so any compatible value is accepted. <c>null</c> sends
-    /// the event JSON as-is.</param>
-    /// <param name="transformType">Engine used to evaluate
-    /// <paramref name="transform"/>. Required whenever
-    /// <paramref name="transform"/> is non-null; passing <paramref name="transform"/>
-    /// without <paramref name="transformType"/> throws
-    /// <see cref="ArgumentException"/>.</param>
+    /// before POST. Shape depends on <paramref name="transformType"/> — for
+    /// <see cref="TransformType.Jsonata"/>, a string containing a JSONata
+    /// expression. Any value of any type is accepted. <c>null</c> sends the
+    /// event as-is.</param>
+    /// <param name="transformType">A <see cref="Smplkit.Audit.TransformType"/> enum member
+    /// naming the engine that evaluates <paramref name="transform"/>. Must be
+    /// provided together with <paramref name="transform"/> — neither field is
+    /// meaningful in isolation.</param>
+    /// <exception cref="ArgumentException">If exactly one of
+    /// <paramref name="transform"/> / <paramref name="transformType"/> is
+    /// provided, or if <paramref name="transformType"/> is
+    /// <see cref="TransformType.Jsonata"/> and <paramref name="transform"/> is
+    /// not a string.</exception>
     public Forwarder New(
-        string key,
-        string name,
+        string id,
         ForwarderType forwarderType,
         HttpConfiguration configuration,
+        string? name = null,
         IDictionary<string, ForwarderEnvironment>? environments = null,
         string? description = null,
         bool forwardSmplkitEvents = false,
@@ -72,7 +94,8 @@ public sealed class ManagementForwardersClient
         Forwarder.ValidateTransformPairing(transform, transformType);
         return new Forwarder(
             this,
-            name: name,
+            id: id,
+            name: name ?? id,
             forwarderType: forwarderType,
             configuration: configuration,
             environments: environments,
@@ -80,11 +103,15 @@ public sealed class ManagementForwardersClient
             forwardSmplkitEvents: forwardSmplkitEvents,
             filter: filter,
             transform: transform,
-            transformType: transformType,
-            id: key);
+            transformType: transformType);
     }
 
-    /// <summary>List forwarders for the authenticated account.</summary>
+    /// <summary>List forwarders for the authenticated account.
+    ///
+    /// <para>Offset paginated per ADR-014: pass <c>PageNumber</c> (1-based) and
+    /// <c>PageSize</c> (default 1000, max 1000). Pass <c>MetaTotal = true</c> to
+    /// populate <c>Total</c> and <c>TotalPages</c> in the returned
+    /// <c>Pagination</c> (costs an extra COUNT query server-side).</para></summary>
     public async Task<ListForwardersPage> ListAsync(
         ListForwardersInput? input = null, CancellationToken ct = default)
     {
@@ -97,8 +124,8 @@ public sealed class ManagementForwardersClient
         return new ListForwardersPage(rows, AuditResourceTypes.ExtractPagination(resp.Meta));
     }
 
-    /// <summary>Retrieve a single forwarder by id. The returned instance is bound to
-    /// this client so <see cref="Forwarder.SaveAsync"/> / <see cref="Forwarder.DeleteAsync"/> work.</summary>
+    /// <summary>Fetch a single forwarder by id; returned instance is bound to this
+    /// client so <see cref="Forwarder.SaveAsync"/> and <see cref="Forwarder.DeleteAsync"/> work.</summary>
     public async Task<Forwarder> GetAsync(string forwarderId, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
@@ -106,7 +133,7 @@ public sealed class ManagementForwardersClient
         return FromResource(resp.Data);
     }
 
-    /// <summary>Soft-delete a forwarder by id. Prefer <see cref="Forwarder.DeleteAsync"/>
+    /// <summary>Soft-delete a forwarder. Prefer <see cref="Forwarder.DeleteAsync"/>
     /// when you already have a <see cref="Forwarder"/> instance.</summary>
     public Task DeleteAsync(string forwarderId, CancellationToken ct = default)
         => ApiExceptionMapper.ExecuteAsync(() => _gen.Delete_forwarderAsync(forwarderId, ct));
@@ -115,18 +142,25 @@ public sealed class ManagementForwardersClient
     // Internal: drive Forwarder.SaveAsync
     // ------------------------------------------------------------------
 
-    /// <summary>POST a new forwarder. Called by <see cref="Forwarder.SaveAsync"/>; not for direct use.</summary>
+    /// <summary>POST a new forwarder. Called by <see cref="Forwarder.SaveAsync"/> on unsaved
+    /// instances; not intended for direct use.</summary>
     internal async Task<Forwarder> SaveCreateAsync(Forwarder forwarder, CancellationToken ct)
     {
         if (string.IsNullOrEmpty(forwarder.Id))
-            throw new InvalidOperationException("Cannot create a Forwarder with no key");
+            throw new InvalidOperationException("Forwarder.Id is required on create (caller-supplied key)");
         var body = WrapForwarderForCreate(forwarder);
         var resp = await ApiExceptionMapper.ExecuteAsync(
             () => _gen.Create_forwarderAsync(body, ct)).ConfigureAwait(false);
         return FromResource(resp.Data);
     }
 
-    /// <summary>Full-replace PUT. Called by <see cref="Forwarder.SaveAsync"/>; not for direct use.</summary>
+    /// <summary>Full-replace PUT for an existing forwarder. Called by
+    /// <see cref="Forwarder.SaveAsync"/> on instances with <c>CreatedAt</c>; not
+    /// intended for direct use.
+    ///
+    /// <para>Header values must be re-supplied as plaintext; the GET path redacts
+    /// them, so a PUT body containing <c>"&lt;redacted&gt;"</c> would persist that
+    /// literal. Track real header values client-side and round-trip them.</para></summary>
     internal async Task<Forwarder> SaveUpdateAsync(Forwarder forwarder, CancellationToken ct)
     {
         if (string.IsNullOrEmpty(forwarder.Id))
@@ -169,6 +203,8 @@ public sealed class ManagementForwardersClient
                 });
         }
         if (src.Description is not null) attrs.Description = src.Description;
+        // Additive opt-in; only put it on the wire when enabled so the default
+        // (false) stays implicit and existing callers' bodies are unchanged.
         attrs.Forward_smplkit_events = src.ForwardSmplkitEvents;
         if (src.Filter != null)
         {
@@ -363,22 +399,4 @@ public sealed class ManagementForwardersClient
         System.Text.Json.JsonValueKind.Array => el.EnumerateArray().Select(JsonElementToObject).ToList(),
         _ => null,
     };
-}
-
-/// <summary>
-/// Audit management surface — accessed via <c>SmplManagementClient.Audit</c>.
-///
-/// <para>Currently exposes SIEM forwarder CRUD via <see cref="Forwarders"/>.
-/// Runtime read surfaces (events, resource types, event types) live on
-/// <c>SmplClient.Audit</c>.</para>
-/// </summary>
-public sealed class AuditManagementClient
-{
-    /// <summary>SIEM forwarder management surface.</summary>
-    public ManagementForwardersClient Forwarders { get; }
-
-    internal AuditManagementClient(GenAudit.AuditClient generated)
-    {
-        Forwarders = new ManagementForwardersClient(generated);
-    }
 }

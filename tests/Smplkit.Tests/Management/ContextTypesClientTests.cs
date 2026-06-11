@@ -2,7 +2,7 @@ using System.Net;
 using System.Text;
 using Smplkit;
 using Smplkit.Errors;
-using Smplkit.Management;
+using Smplkit.Platform;
 using Smplkit.Tests.Helpers;
 using Xunit;
 
@@ -10,12 +10,12 @@ namespace Smplkit.Tests.Management;
 
 public class ContextTypesClientTests
 {
-    private static (SmplManagementClient mgmt, MockHttpMessageHandler handler) Make(
+    private static (SmplClient mgmt, MockHttpMessageHandler handler) Make(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> respond)
     {
         var handler = new MockHttpMessageHandler(respond);
         var http = new HttpClient(handler);
-        var mgmt = new SmplManagementClient(new SmplClientOptions { ApiKey = "k" }, http);
+        var mgmt = new SmplClient(TestData.DefaultOptions(), http);
         return (mgmt, handler);
     }
 
@@ -61,7 +61,7 @@ public class ContextTypesClientTests
     public void New_DefaultsNameToId()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var ct = mgmt.ContextTypes.New("user");
+        var ct = mgmt.Platform.ContextTypes.New("user");
         Assert.Equal("user", ct.Id);
         Assert.Equal("user", ct.Name);
     }
@@ -70,7 +70,7 @@ public class ContextTypesClientTests
     public void New_ExplicitName()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var ct = mgmt.ContextTypes.New("user", name: "End User");
+        var ct = mgmt.Platform.ContextTypes.New("user", name: "End User");
         Assert.Equal("End User", ct.Name);
     }
 
@@ -78,7 +78,7 @@ public class ContextTypesClientTests
     public void New_WithAttributes()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var ct = mgmt.ContextTypes.New("user", attributes: new()
+        var ct = mgmt.Platform.ContextTypes.New("user", attributes: new()
         {
             ["plan"] = new() { ["label"] = "Plan" },
         });
@@ -89,7 +89,7 @@ public class ContextTypesClientTests
     public async Task GetAsync_ParsesAttributes()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json(SingleTypeJson)));
-        var ct = await mgmt.ContextTypes.GetAsync("user");
+        var ct = await mgmt.Platform.ContextTypes.GetAsync("user");
         Assert.Equal("user", ct.Id);
         Assert.Equal("User", ct.Name);
         Assert.Equal(2, ct.Attributes.Count);
@@ -100,7 +100,7 @@ public class ContextTypesClientTests
     public async Task ListAsync_HandlesNonObjectAttributes()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json(TypeListJson)));
-        var list = await mgmt.ContextTypes.ListAsync();
+        var list = await mgmt.Platform.ContextTypes.ListAsync();
         Assert.Equal(2, list.Count);
         // The "not-an-object" attributes value should be parsed to empty dict
         Assert.Empty(list[1].Attributes);
@@ -115,7 +115,7 @@ public class ContextTypesClientTests
             captured = req;
             return Task.FromResult(Json("{}", HttpStatusCode.NoContent));
         });
-        await mgmt.ContextTypes.DeleteAsync("user");
+        await mgmt.Platform.ContextTypes.DeleteAsync("user");
         Assert.Equal(HttpMethod.Delete, captured!.Method);
     }
 
@@ -123,7 +123,7 @@ public class ContextTypesClientTests
     public void ContextType_AddRemoveUpdateAttribute()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var ct = mgmt.ContextTypes.New("user");
+        var ct = mgmt.Platform.ContextTypes.New("user");
 
         ct.AddAttribute("plan", new Dictionary<string, object?> { ["label"] = "Plan" });
         Assert.Single(ct.Attributes);
@@ -153,7 +153,7 @@ public class ContextTypesClientTests
             captured = req;
             return Task.FromResult(Json(SingleTypeJson, HttpStatusCode.Created));
         });
-        var ct = mgmt.ContextTypes.New("user");
+        var ct = mgmt.Platform.ContextTypes.New("user");
         ct.AddAttribute("plan");
         await ct.SaveAsync();
         Assert.Equal(HttpMethod.Post, captured!.Method);
@@ -169,7 +169,7 @@ public class ContextTypesClientTests
             captured = req;
             return Task.FromResult(Json(SingleTypeJson));
         });
-        var ct = await mgmt.ContextTypes.GetAsync("user");
+        var ct = await mgmt.Platform.ContextTypes.GetAsync("user");
         ct.Name = "Renamed";
         await ct.SaveAsync();
         Assert.Equal(HttpMethod.Put, captured!.Method);
@@ -185,7 +185,7 @@ public class ContextTypesClientTests
             captured = req;
             return Task.FromResult(Json("{}", HttpStatusCode.NoContent));
         });
-        var ct = await mgmt.ContextTypes.GetAsync("user");
+        var ct = await mgmt.Platform.ContextTypes.GetAsync("user");
         await ct.DeleteAsync();
         Assert.Equal(HttpMethod.Delete, captured!.Method);
     }
@@ -194,7 +194,7 @@ public class ContextTypesClientTests
     public async Task DeleteAsync_OnUnsaved_Throws()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var ct = mgmt.ContextTypes.New("user");
+        var ct = mgmt.Platform.ContextTypes.New("user");
         ct.Id = null;
         await Assert.ThrowsAsync<InvalidOperationException>(() => ct.DeleteAsync());
     }
@@ -203,7 +203,7 @@ public class ContextTypesClientTests
     public void ContextType_ToString_IncludesIdAndName()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var ct = mgmt.ContextTypes.New("user", name: "User");
+        var ct = mgmt.Platform.ContextTypes.New("user", name: "User");
         var s = ct.ToString();
         Assert.Contains("user", s);
         Assert.Contains("User", s);

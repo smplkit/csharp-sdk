@@ -2,7 +2,7 @@ using System.Net;
 using System.Text;
 using Smplkit;
 using Smplkit.Errors;
-using Smplkit.Management;
+using Smplkit.Platform;
 using Smplkit.Tests.Helpers;
 using Xunit;
 
@@ -10,12 +10,12 @@ namespace Smplkit.Tests.Management;
 
 public class ServicesClientTests
 {
-    private static (SmplManagementClient mgmt, MockHttpMessageHandler handler) Make(
+    private static (SmplClient mgmt, MockHttpMessageHandler handler) Make(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> respond)
     {
         var handler = new MockHttpMessageHandler(respond);
         var http = new HttpClient(handler);
-        var mgmt = new SmplManagementClient(new SmplClientOptions { ApiKey = "k" }, http);
+        var mgmt = new SmplClient(TestData.DefaultOptions(), http);
         return (mgmt, handler);
     }
 
@@ -63,7 +63,7 @@ public class ServicesClientTests
     public void New_CreatesUnsavedService()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var svc = mgmt.Services.New("user_service", "User Service");
+        var svc = mgmt.Platform.Services.New("user_service", "User Service");
         Assert.Equal("user_service", svc.Id);
         Assert.Equal("User Service", svc.Name);
         Assert.Null(svc.CreatedAt);
@@ -73,7 +73,7 @@ public class ServicesClientTests
     public async Task ListAsync_ParsesAll()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json(SvcListJson)));
-        var svcs = await mgmt.Services.ListAsync();
+        var svcs = await mgmt.Platform.Services.ListAsync();
         Assert.Equal(2, svcs.Count);
         Assert.Equal("user_service", svcs[0].Id);
         Assert.Equal("User Service", svcs[0].Name);
@@ -90,7 +90,7 @@ public class ServicesClientTests
             captured = req;
             return Task.FromResult(Json("""{"data":[]}"""));
         });
-        await mgmt.Services.ListAsync(pageNumber: 2, pageSize: 50);
+        await mgmt.Platform.Services.ListAsync(pageNumber: 2, pageSize: 50);
         var url = captured!.RequestUri!.ToString();
         Assert.Contains("page%5Bnumber%5D=2", url);
         Assert.Contains("page%5Bsize%5D=50", url);
@@ -100,7 +100,7 @@ public class ServicesClientTests
     public async Task GetAsync_ParsesResponse()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json(SingleSvcJson)));
-        var svc = await mgmt.Services.GetAsync("user_service");
+        var svc = await mgmt.Platform.Services.GetAsync("user_service");
         Assert.Equal("user_service", svc.Id);
         Assert.Equal("User Service", svc.Name);
         Assert.NotNull(svc.CreatedAt);
@@ -113,7 +113,7 @@ public class ServicesClientTests
         var (mgmt, _) = Make(_ => Task.FromResult(Json(
             """{"errors":[{"detail":"not found"}]}""",
             HttpStatusCode.NotFound)));
-        await Assert.ThrowsAsync<NotFoundException>(() => mgmt.Services.GetAsync("missing"));
+        await Assert.ThrowsAsync<NotFoundException>(() => mgmt.Platform.Services.GetAsync("missing"));
     }
 
     [Fact]
@@ -125,7 +125,7 @@ public class ServicesClientTests
             captured = req;
             return Task.FromResult(Json("{}", HttpStatusCode.NoContent));
         });
-        await mgmt.Services.DeleteAsync("user_service");
+        await mgmt.Platform.Services.DeleteAsync("user_service");
         Assert.Equal(HttpMethod.Delete, captured!.Method);
         Assert.Contains("user_service", captured.RequestUri!.ToString());
     }
@@ -139,7 +139,7 @@ public class ServicesClientTests
             captured = req;
             return Task.FromResult(Json(SingleSvcJson, HttpStatusCode.Created));
         });
-        var svc = mgmt.Services.New("user_service", "User Service");
+        var svc = mgmt.Platform.Services.New("user_service", "User Service");
         await svc.SaveAsync();
         Assert.Equal(HttpMethod.Post, captured!.Method);
         Assert.NotNull(svc.CreatedAt);
@@ -151,7 +151,7 @@ public class ServicesClientTests
         var (mgmt, _) = Make(_ => Task.FromResult(Json(
             """{"errors":[{"status":"409","title":"Conflict","detail":"service exists"}]}""",
             HttpStatusCode.Conflict)));
-        var svc = mgmt.Services.New("user_service", "User Service");
+        var svc = mgmt.Platform.Services.New("user_service", "User Service");
         await Assert.ThrowsAsync<ConflictException>(() => svc.SaveAsync());
     }
 
@@ -166,7 +166,7 @@ public class ServicesClientTests
             captured = req;
             return Task.FromResult(Json(SingleSvcJson));
         });
-        var svc = await mgmt.Services.GetAsync("user_service");
+        var svc = await mgmt.Platform.Services.GetAsync("user_service");
         svc.Name = "User Service v2";
         await svc.SaveAsync();
         Assert.Equal(HttpMethod.Put, captured!.Method);
@@ -176,7 +176,7 @@ public class ServicesClientTests
     public async Task DeleteAsync_OnUnsavedService_Throws()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var svc = mgmt.Services.New("nope", "Nope");
+        var svc = mgmt.Platform.Services.New("nope", "Nope");
         svc.Id = null;
         await Assert.ThrowsAsync<InvalidOperationException>(() => svc.DeleteAsync());
     }
@@ -185,7 +185,7 @@ public class ServicesClientTests
     public async Task SaveAsync_OnUnsavedWithoutId_Throws()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var svc = mgmt.Services.New("placeholder", "Placeholder");
+        var svc = mgmt.Platform.Services.New("placeholder", "Placeholder");
         svc.Id = null;
         await Assert.ThrowsAsync<ValidationException>(() => svc.SaveAsync());
     }
@@ -200,7 +200,7 @@ public class ServicesClientTests
             captured = req;
             return Task.FromResult(Json("{}", HttpStatusCode.NoContent));
         });
-        var svc = await mgmt.Services.GetAsync("user_service");
+        var svc = await mgmt.Platform.Services.GetAsync("user_service");
         await svc.DeleteAsync();
         Assert.Equal(HttpMethod.Delete, captured!.Method);
     }
@@ -209,7 +209,7 @@ public class ServicesClientTests
     public void Service_ToString_IncludesIdAndName()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var svc = mgmt.Services.New("user_service", "User Service");
+        var svc = mgmt.Platform.Services.New("user_service", "User Service");
         var s = svc.ToString();
         Assert.Contains("user_service", s);
         Assert.Contains("User Service", s);

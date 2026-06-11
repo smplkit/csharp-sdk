@@ -16,13 +16,13 @@ using Smplkit.Jobs;
 using HttpMethod = Smplkit.Jobs.HttpMethod;
 
 // create the client
-using var manage = new SmplManagementClient();
+using var client = new SmplClient(new SmplClientOptions { Service = "showcase-service" });
 var jobId = $"showcase-mgmt-{Guid.NewGuid().ToString("N")[..8]}";
 
 try
 {
     // create a job
-    var job = manage.Jobs.New(
+    var job = client.Jobs.New(
         jobId,
         name: "Nightly cache warm",
         description: "Warms the product cache every night at 02:00 UTC.",
@@ -41,12 +41,12 @@ try
     Console.WriteLine($"Created job {job.Id} (v{job.Version})");
 
     // get a job
-    var fetched = await manage.Jobs.GetAsync(jobId);
+    var fetched = await client.Jobs.GetAsync(jobId);
     Debug.Assert(fetched.Configuration.Url == "https://api.example.com/cache/warm");
     Console.WriteLine($"Fetched job {jobId}");
 
     // list jobs
-    var jobs = await manage.Jobs.ListAsync(enabled: false);
+    var jobs = await client.Jobs.ListAsync(enabled: false);
     Debug.Assert(jobs.Any(j => j.Id == jobId));
     Console.WriteLine($"Found job {jobId} and in the listing");
 
@@ -59,27 +59,27 @@ try
     Console.WriteLine($"Updated job to v{job.Version}: schedule={job.Schedule}");
 
     // trigger an immediate run (a MANUAL run)
-    var run = await manage.Jobs.RunAsync(jobId);
+    var run = await client.Jobs.RunAsync(jobId);
     Debug.Assert(run.Trigger == "MANUAL" && run.Job == jobId);
     Console.WriteLine($"Triggered run {run.Id} (trigger={run.Trigger}, status={run.Status})");
 
     // read run history for this job, and fetch a single run
-    var runs = await manage.Jobs.Runs.ListAsync(job: jobId);
+    var runs = await client.Jobs.Runs.ListAsync(job: jobId);
     Debug.Assert(runs.Any(r => r.Id == run.Id));
-    var got = await manage.Jobs.Runs.GetAsync(run.Id);
+    var got = await client.Jobs.Runs.GetAsync(run.Id);
     Debug.Assert(got.Id == run.Id);
     Console.WriteLine($"Listed {runs.Count} run(s); fetched run {got.Id} (status={got.Status})");
 
     // re-run from a prior run, then cancel it while it's still pending
-    var rerun = await manage.Jobs.Runs.RerunAsync(run.Id);
+    var rerun = await client.Jobs.Runs.RerunAsync(run.Id);
     Debug.Assert(rerun.Trigger == "RERUN" && rerun.RerunOf == run.Id);
-    var canceled = await manage.Jobs.Runs.CancelAsync(rerun.Id);
+    var canceled = await client.Jobs.Runs.CancelAsync(rerun.Id);
     Debug.Assert(canceled.Status == "CANCELED");
     Console.WriteLine($"Re-ran ({rerun.Id}) then canceled it -> {canceled.Status}");
 
     // delete a job
     await job.DeleteAsync();
-    Debug.Assert(!(await manage.Jobs.ListAsync()).Any(j => j.Id == jobId));
+    Debug.Assert(!(await client.Jobs.ListAsync()).Any(j => j.Id == jobId));
     Console.WriteLine($"Deleted job {jobId} — management showcase complete.");
 }
 finally
@@ -87,7 +87,7 @@ finally
     // tear-down: never leave the showcase job behind, even on failure
     try
     {
-        await manage.Jobs.DeleteAsync(jobId);
+        await client.Jobs.DeleteAsync(jobId);
     }
     catch (NotFoundException)
     {

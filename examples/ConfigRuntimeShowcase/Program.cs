@@ -22,7 +22,7 @@ using var client = new SmplClient(new SmplClientOptions
 });
 try
 {
-    await ConfigRuntimeSetup.CleanupRuntimeShowcaseAsync(client.Manage);
+    await ConfigRuntimeSetup.CleanupRuntimeShowcaseAsync(client);
 
     // bind POCOs
     var common = client.Config.Bind("showcase-common", new Common());
@@ -46,8 +46,10 @@ try
             $"    [CHANGE] {evt.ConfigId}.{evt.ItemKey}: {evt.OldValue} -> {evt.NewValue}");
     });
 
+    await client.WaitUntilReadyAsync();
+
     // simulate someone making a change in the smplkit console
-    await ConfigRuntimeSetup.SimulateAdminOverrideAsync(client.Manage);
+    await ConfigRuntimeSetup.SimulateAdminOverrideAsync(client);
     await Task.Delay(400);
 
     // observe changes are automatically reflected in bound objects
@@ -72,10 +74,9 @@ try
     Debug.Assert((string)primary["host"]! == "db.acme.example");
     Debug.Assert((int)db["pool_size"]! == 10);
 
-    // or get a config by ID (raises NotFoundException if not found; pass
-    // a default if you want a fallback)
-    var commonView = client.Config.Get("showcase-common");
-    Console.WriteLine("showcase-common (via Get):");
+    // or read live values via Subscribe(id)
+    var commonView = client.Config.Subscribe("showcase-common");
+    Console.WriteLine("showcase-common (via Subscribe):");
     foreach (var (k, v) in commonView)
         Console.WriteLine($"    {k} = {v}");
     Debug.Assert((string)commonView["app.name"]! == "Acme SaaS");
@@ -92,7 +93,7 @@ try
 }
 finally
 {
-    await ConfigRuntimeSetup.CleanupRuntimeShowcaseAsync(client.Manage);
+    await ConfigRuntimeSetup.CleanupRuntimeShowcaseAsync(client);
 }
 
 // Example POCO configuration classes to showcase how "code-first"

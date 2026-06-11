@@ -9,12 +9,12 @@ namespace Smplkit.Tests.Management;
 
 public class ContextsClientTests
 {
-    private static (SmplManagementClient mgmt, MockHttpMessageHandler handler) Make(
+    private static (SmplClient mgmt, MockHttpMessageHandler handler) Make(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> respond)
     {
         var handler = new MockHttpMessageHandler(respond);
         var http = new HttpClient(handler);
-        var mgmt = new SmplManagementClient(new SmplClientOptions { ApiKey = "k" }, http);
+        var mgmt = new SmplClient(TestData.DefaultOptions(), http);
         return (mgmt, handler);
     }
 
@@ -59,9 +59,9 @@ public class ContextsClientTests
         var calls = 0;
         var (mgmt, _) = Make(_ => { calls++; return Task.FromResult(Json("{}")); });
         var ctx = new Context("user", "u-1", new() { ["plan"] = "enterprise" });
-        await mgmt.Contexts.RegisterAsync(ctx);
+        await mgmt.Platform.Contexts.RegisterAsync(ctx);
         Assert.Equal(0, calls);
-        Assert.Equal(1, mgmt.Contexts.PendingCount);
+        Assert.Equal(1, mgmt.Platform.Contexts.PendingCount);
     }
 
     [Fact]
@@ -69,13 +69,13 @@ public class ContextsClientTests
     {
         var calls = 0;
         var (mgmt, _) = Make(_ => { calls++; return Task.FromResult(Json("{}")); });
-        await mgmt.Contexts.RegisterAsync(new[]
+        await mgmt.Platform.Contexts.RegisterAsync(new[]
         {
             new Context("user", "u-1"),
             new Context("user", "u-2"),
         });
         Assert.Equal(0, calls);
-        Assert.Equal(2, mgmt.Contexts.PendingCount);
+        Assert.Equal(2, mgmt.Platform.Contexts.PendingCount);
     }
 
     [Fact]
@@ -87,7 +87,7 @@ public class ContextsClientTests
             captured = req;
             return Task.FromResult(Json("{}"));
         });
-        await mgmt.Contexts.RegisterAsync(new Context("user", "u-1"), flush: true);
+        await mgmt.Platform.Contexts.RegisterAsync(new Context("user", "u-1"), flush: true);
         Assert.NotNull(captured);
         Assert.Equal(HttpMethod.Post, captured!.Method);
     }
@@ -97,7 +97,7 @@ public class ContextsClientTests
     {
         var calls = 0;
         var (mgmt, _) = Make(_ => { calls++; return Task.FromResult(Json("{}")); });
-        await mgmt.Contexts.FlushAsync();
+        await mgmt.Platform.Contexts.FlushAsync();
         Assert.Equal(0, calls);
     }
 
@@ -110,10 +110,10 @@ public class ContextsClientTests
             captured = req;
             return Task.FromResult(Json("{}"));
         });
-        await mgmt.Contexts.RegisterAsync(new Context("user", "u-1"));
-        Assert.Equal(1, mgmt.Contexts.PendingCount);
-        await mgmt.Contexts.FlushAsync();
-        Assert.Equal(0, mgmt.Contexts.PendingCount);
+        await mgmt.Platform.Contexts.RegisterAsync(new Context("user", "u-1"));
+        Assert.Equal(1, mgmt.Platform.Contexts.PendingCount);
+        await mgmt.Platform.Contexts.FlushAsync();
+        Assert.Equal(0, mgmt.Platform.Contexts.PendingCount);
         Assert.NotNull(captured);
     }
 
@@ -121,7 +121,7 @@ public class ContextsClientTests
     public async Task ListAsync_ParsesContexts()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json(ContextListJson)));
-        var contexts = await mgmt.Contexts.ListAsync("user");
+        var contexts = await mgmt.Platform.Contexts.ListAsync("user");
         Assert.Equal(2, contexts.Count);
         Assert.Equal("user:u-1", contexts[0].Id);
         Assert.Equal("Alice", contexts[0].Name);
@@ -134,7 +134,7 @@ public class ContextsClientTests
     public async Task GetAsync_Composite()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json(SingleContextJson)));
-        var ctx = await mgmt.Contexts.GetAsync("user:u-1");
+        var ctx = await mgmt.Platform.Contexts.GetAsync("user:u-1");
         Assert.Equal("user", ctx.Type);
         Assert.Equal("u-1", ctx.Key);
         Assert.Equal("Alice", ctx.Name);
@@ -145,7 +145,7 @@ public class ContextsClientTests
     public async Task GetAsync_TypeKey()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json(SingleContextJson)));
-        var ctx = await mgmt.Contexts.GetAsync("user", "u-1");
+        var ctx = await mgmt.Platform.Contexts.GetAsync("user", "u-1");
         Assert.Equal("user", ctx.Type);
         Assert.Equal("u-1", ctx.Key);
     }
@@ -159,7 +159,7 @@ public class ContextsClientTests
             captured = req;
             return Task.FromResult(Json("{}", HttpStatusCode.NoContent));
         });
-        await mgmt.Contexts.DeleteAsync("user:u-1");
+        await mgmt.Platform.Contexts.DeleteAsync("user:u-1");
         Assert.Equal(HttpMethod.Delete, captured!.Method);
     }
 
@@ -172,7 +172,7 @@ public class ContextsClientTests
             captured = req;
             return Task.FromResult(Json("{}", HttpStatusCode.NoContent));
         });
-        await mgmt.Contexts.DeleteAsync("user", "u-2");
+        await mgmt.Platform.Contexts.DeleteAsync("user", "u-2");
         Assert.Equal(HttpMethod.Delete, captured!.Method);
     }
 
@@ -186,7 +186,7 @@ public class ContextsClientTests
             return Task.FromResult(Json(SingleContextJson));
         });
 
-        var ctx = await mgmt.Contexts.GetAsync("user:u-1");
+        var ctx = await mgmt.Platform.Contexts.GetAsync("user:u-1");
         ctx.Attributes["plan"] = "starter";
         await ctx.SaveAsync();
 
@@ -203,7 +203,7 @@ public class ContextsClientTests
             if (req.Method == HttpMethod.Delete) lastDelete = req;
             return Task.FromResult(Json(SingleContextJson));
         });
-        var ctx = await mgmt.Contexts.GetAsync("user:u-1");
+        var ctx = await mgmt.Platform.Contexts.GetAsync("user:u-1");
         await ctx.DeleteAsync();
         Assert.NotNull(lastDelete);
     }

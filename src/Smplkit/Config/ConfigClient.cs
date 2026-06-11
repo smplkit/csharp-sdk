@@ -1,3 +1,29 @@
+// The Smpl Config client — one unified ConfigClient.
+//
+// Smpl Config has two surfaces on a single client, mirroring how the audit
+// and jobs clients expose their full surface from one class:
+//
+// * Management surface — pure CRUD, no live connection: New / Get
+//   / List / Delete and the discovery buffer (RegisterConfig /
+//   RegisterConfigItem / Flush / PendingCount). The client owns
+//   the discovery buffer directly.
+// * Live surface — lazily connects to your running service on first use:
+//   Subscribe (a live dict-like LiveConfigProxy), GetValue
+//   (an ad-hoc resolved read), Bind (a live POCO/dict binding),
+//   OnChange, and Refresh. The first live call transparently flushes
+//   discovery, fetches and resolves every config into the local cache,
+//   and opens the live-updates WebSocket — no explicit install step.
+//
+// The client supports two construction shapes:
+//
+// * Wired into SmplClient — borrows the parent's config
+//   transport for both runtime fetch and CRUD and the parent's shared
+//   WebSocket for the live channel. This is the common path.
+// * Standalone — ConfigClient(apiKey: ..., baseDomain: ..., ...) builds
+//   and owns its own config transport, and on first live use opens and owns
+//   its own WebSocket. Dispose() tears down only the owned
+//   transport and owned WebSocket.
+
 using System.Reflection;
 using System.Text.Json;
 using Smplkit.Errors;
@@ -8,28 +34,62 @@ using DebugLog = Smplkit.Internal.Debug;
 namespace Smplkit.Config;
 
 /// <summary>
-/// Runtime client for the smplkit Config service. Exposes the declarative
-/// <see cref="Bind{T}(string, T, object?)"/> path (the recommended API),
-/// the lookup-only <see cref="Get(string)"/> /
-/// <see cref="GetValue(string, string)"/> /
-/// <see cref="GetValueOr{T}(string, string, T)"/> escape hatches, and
-/// change listeners. CRUD lives on <see cref="SmplManagementClient"/>
-/// (<c>client.Manage.Config.*</c>).
+/// The Smpl Config client.
 /// </summary>
-public sealed class ConfigClient
+/// <remarks>
+/// <para>One client exposes the full surface, reachable as <c>client.Config</c>
+/// (<see cref="Smplkit.SmplClient"/>) or constructed directly:</para>
+/// <code>
+/// using var config = new ConfigClient(environment: "production");
+/// var billing = config.New("billing", name: "Billing");
+/// billing.SetNumber("max_seats", 50);
+/// await billing.SaveAsync();
+/// var proxy = config.Subscribe("billing");
+/// Console.WriteLine(proxy["max_seats"]);
+/// </code>
+/// <para>The management surface (<see cref="New(string, string?, string?, object?)"/> /
+/// <see cref="GetAsync(string, CancellationToken)"/> / <see cref="ListAsync(int?, int?, CancellationToken)"/> /
+/// <see cref="DeleteAsync(string, CancellationToken)"/> and discovery) is pure CRUD. The live surface
+/// (<see cref="Subscribe(string)"/> / <see cref="GetValue(string, string)"/> /
+/// <see cref="Bind{T}(string, T, object?)"/> / <c>OnChange</c> / <see cref="RefreshAsync(CancellationToken)"/>)
+/// connects lazily on first use — the first call flushes discovery, fetches and resolves all configs into
+/// the local cache, and opens the live-updates WebSocket. No explicit
+/// install step is required.</para>
+/// </remarks>
+public sealed class ConfigClient : IDisposable
 {
     private readonly GenConfig.ConfigClient _genClient;
     private readonly SmplClient? _parent;
     private readonly Func<SharedWebSocket>? _ensureWs;
     private readonly MetricsReporter? _metrics;
-    private volatile bool _runtimeConnected;
+    private readonly MetricsReporter? _ownedMetrics;
+    private readonly HttpClient? _ownedHttpClient;
+
+    // Environment + service: borrowed from the parent when wired, else resolved
+    // standalone. Environment scopes runtime resolution and discovery; service
+    // scopes discovery declarations.
+    private readonly string? _environment;
+    private readonly string? _service;
+
+    // Standalone-only: the app base URL the owned WebSocket connects to, and the
+    // api key it authenticates with.
+    private readonly string? _appBaseUrl;
+    private readonly string? _standaloneApiKey;
+
+    // Discovery buffer is owned by this client (no management delegation).
+    private readonly ConfigRegistrationBuffer _buffer = new();
+    private const int RegistrationFlushSize = 50;
+
+    // Live-surface state.
+    private volatile bool _connected;
     private readonly object _initLock = new();
     private Dictionary<string, Dictionary<string, object?>> _configCache = new();
     private readonly List<(Action<ConfigChangeEvent> Callback, string? ConfigId, string? ItemKey)> _listeners = new();
     private readonly object _listenerLock = new();
     private SharedWebSocket? _wsManager;
+    private bool _ownsWs;
 
-    // LiveConfigProxy instances for Get(id) callers; one per config id.
+    // LiveConfigProxy instances for Subscribe(id) callers; one per config id.
     private readonly Dictionary<string, LiveConfigProxy> _proxies = new();
     private readonly object _proxyLock = new();
 
@@ -38,8 +98,80 @@ public sealed class ConfigClient
     private readonly Dictionary<string, object> _bindings = new();
     private readonly object _bindingsLock = new();
 
+    // Parent config id each binding was bound under (null for roots) —
+    // drives in-memory cache seeding through the bound parent chain.
+    private readonly Dictionary<string, string?> _boundParents = new();
+
     /// <summary>
-    /// Initializes a new instance of <see cref="ConfigClient"/>.
+    /// Initializes a new standalone <see cref="ConfigClient"/>.
+    /// </summary>
+    /// <param name="apiKey">API key. When omitted, resolved from <c>SMPLKIT_API_KEY</c> or <c>~/.smplkit</c>.</param>
+    /// <param name="environment">Deployment environment used to resolve runtime config
+    /// values and to scope discovery declarations. Optional.</param>
+    /// <param name="service">Service identifier used to scope discovery declarations. Optional.</param>
+    /// <param name="profile">Named <c>~/.smplkit</c> profile section.</param>
+    /// <param name="baseDomain">Base domain for API requests (default <c>smplkit.com</c>).</param>
+    /// <param name="scheme">URL scheme (default <c>https</c>).</param>
+    /// <param name="debug">Enable SDK debug logging.</param>
+    /// <param name="telemetry">Enable SDK telemetry reporting. Defaults to enabled.</param>
+    /// <param name="extraHeaders">Extra headers attached to every request.</param>
+    public ConfigClient(
+        string? apiKey = null,
+        string? environment = null,
+        string? service = null,
+        string? profile = null,
+        string? baseDomain = null,
+        string? scheme = null,
+        bool? debug = null,
+        bool? telemetry = null,
+        IReadOnlyDictionary<string, string>? extraHeaders = null)
+    {
+        // Reuse the management config resolver, filling in whatever is missing
+        // (~/.smplkit / env vars / defaults). Environment is not required for
+        // management resolution — a standalone config client without an
+        // environment simply resolves base values.
+        var resolved = ConfigResolver.ResolveForManagement(new SmplClientOptions
+        {
+            ApiKey = apiKey,
+            Environment = environment,
+            Service = service,
+            Profile = profile,
+            BaseDomain = baseDomain,
+            Scheme = scheme,
+            Debug = debug,
+            DisableTelemetry = telemetry is null ? null : !telemetry.Value,
+        });
+        if (resolved.Debug)
+            DebugLog.Enabled = true;
+
+        _environment = string.IsNullOrEmpty(environment) ? NullIfEmpty(resolved.Environment) : environment;
+        _service = string.IsNullOrEmpty(service) ? NullIfEmpty(resolved.Service) : service;
+
+        _ownedHttpClient = new HttpClient();
+        var clients = new GeneratedClientFactory(_ownedHttpClient, new SmplClientOptions
+        {
+            ApiKey = resolved.ApiKey,
+            BaseDomain = resolved.BaseDomain,
+            Scheme = resolved.Scheme,
+            Environment = _environment,
+            ExtraHeaders = extraHeaders is null ? null : new Dictionary<string, string>(extraHeaders),
+        });
+        _genClient = clients.Config;
+
+        // A standalone client opens its own WebSocket against the app event
+        // gateway on first live use, and its own metrics reporter.
+        _appBaseUrl = ConfigResolver.ServiceUrl(resolved.Scheme, "app", resolved.BaseDomain);
+        _standaloneApiKey = resolved.ApiKey;
+        _parent = null;
+        _ensureWs = null;
+        _ownedMetrics = resolved.DisableTelemetry
+            ? null
+            : new MetricsReporter(_ownedHttpClient, _environment ?? string.Empty, _service ?? string.Empty, appBaseUrl: _appBaseUrl);
+        _metrics = _ownedMetrics;
+    }
+
+    /// <summary>
+    /// Initializes a new <see cref="ConfigClient"/> wired into a parent <see cref="SmplClient"/>.
     /// </summary>
     /// <param name="clients">The generated client factory.</param>
     /// <param name="ensureWs">Factory for the shared WebSocket.</param>
@@ -51,18 +183,210 @@ public sealed class ConfigClient
         _ensureWs = ensureWs;
         _parent = parent;
         _metrics = metrics;
+        _ownedMetrics = null;
+        _ownedHttpClient = null;
+        _environment = parent?.Environment;
+        _service = parent?.Service;
+        _appBaseUrl = null;
+        _standaloneApiKey = null;
     }
 
+    private static string? NullIfEmpty(string? s) => string.IsNullOrEmpty(s) ? null : s;
+
     // ------------------------------------------------------------------
-    // Public API: Bind
+    // Management surface: CRUD (no live connection)
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Bind a POCO instance or dictionary to a config id; return the same
-    /// object back, live. Declarative, code-first API.
+    /// Return a new unsaved <see cref="Config"/>. Call <see cref="Config.SaveAsync"/> to persist.
     /// </summary>
     /// <remarks>
-    /// <para>Two flavors:</para>
+    /// <paramref name="parent"/> accepts either a config id (string) or an existing
+    /// <see cref="Config"/> instance — passing the instance lets you skip naming
+    /// the id explicitly when you already have the parent in scope.
+    /// </remarks>
+    /// <param name="id">The config identifier (slug).</param>
+    /// <param name="name">Display name. Auto-generated from id if null.</param>
+    /// <param name="description">Optional description.</param>
+    /// <param name="parent">Optional parent: a config id string or a <see cref="Config"/> instance.</param>
+    public Config New(string id, string? name = null, string? description = null, object? parent = null)
+    {
+        return new Config(
+            this,
+            id: id,
+            name: name ?? Helpers.KeyToDisplayName(id),
+            description: description,
+            parent: ResolveParentId(parent),
+            items: new Dictionary<string, object?>(),
+            environments: new Dictionary<string, Dictionary<string, object?>>(),
+            createdAt: null,
+            updatedAt: null);
+    }
+
+    /// <summary>
+    /// Fetch the editable <see cref="Config"/> resource by id.
+    /// </summary>
+    /// <remarks>
+    /// Raises <see cref="NotFoundException"/> if no config with that id exists.
+    /// </remarks>
+    public async Task<Config> GetAsync(string id, CancellationToken ct = default)
+    {
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genClient.Get_configAsync(id: id, cancellationToken: ct)).ConfigureAwait(false);
+
+        return MapResource(response.Data)
+            ?? throw new NotFoundException($"Config with id '{id}' not found");
+    }
+
+    /// <summary>List configs for the authenticated account.</summary>
+    /// <param name="pageNumber">1-based page number; null lets the server default (1) apply.</param>
+    /// <param name="pageSize">Items per page; null lets the server default (1000) apply.</param>
+    /// <param name="ct">Cancellation token.</param>
+    public async Task<List<Config>> ListAsync(
+        int? pageNumber = null,
+        int? pageSize = null,
+        CancellationToken ct = default)
+    {
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genClient.List_configsAsync(
+                pagenumber: pageNumber,
+                pagesize: pageSize,
+                cancellationToken: ct)).ConfigureAwait(false);
+
+        if (response.Data is null)
+            return new List<Config>();
+
+        var results = new List<Config>(response.Data.Count);
+        foreach (var resource in response.Data)
+        {
+            var config = MapResource(resource);
+            if (config is not null)
+                results.Add(config);
+        }
+        return results;
+    }
+
+    /// <summary>Delete a config by id.</summary>
+    public async Task DeleteAsync(string id, CancellationToken ct = default)
+    {
+        await ApiExceptionMapper.ExecuteAsync(
+            () => _genClient.Delete_configAsync(id, ct)).ConfigureAwait(false);
+    }
+
+    /// <summary>Internal: POST a new config. Called by <see cref="Config.SaveAsync"/>.</summary>
+    internal async Task<Config> CreateConfigInternalAsync(Config config, CancellationToken ct = default)
+    {
+        var createBody = BuildCreateRequestBody(config);
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genClient.Create_configAsync(createBody, ct)).ConfigureAwait(false);
+        return MapResource(response.Data)
+            ?? throw new ValidationException("Failed to create config");
+    }
+
+    /// <summary>Internal: full-replace PUT. Called by <see cref="Config.SaveAsync"/>.</summary>
+    internal async Task<Config> UpdateConfigFromModelInternalAsync(Config config, CancellationToken ct = default)
+    {
+        var configId = config.Id ?? throw new ValidationException("Cannot update a config without an id");
+        var updateBody = BuildRequestBody(config);
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genClient.Update_configAsync(configId, updateBody, ct)).ConfigureAwait(false);
+        return MapResource(response.Data)
+            ?? throw new ValidationException("Failed to update config");
+    }
+
+    // ------------------------------------------------------------------
+    // Management surface: discovery buffer (owned directly)
+    // ------------------------------------------------------------------
+
+    /// <summary>Queue a configuration declaration for bulk-discovery upload.</summary>
+    internal void RegisterConfig(string configId, string? service, string? environment,
+        string? parent = null, string? name = null, string? description = null)
+    {
+        _buffer.Declare(configId, service, environment, parent, name, description);
+        if (_buffer.PendingCount >= RegistrationFlushSize)
+        {
+            _ = Task.Run(async () => { try { await FlushAsync().ConfigureAwait(false); } catch { } });
+        }
+    }
+
+    /// <summary>Queue a config item declaration. <see cref="RegisterConfig"/> must run first.</summary>
+    internal void RegisterConfigItem(string configId, string itemKey, string itemType,
+        object? defaultValue, string? description = null)
+    {
+        _buffer.AddItem(configId, itemKey, itemType, defaultValue, description);
+        if (_buffer.PendingCount >= RegistrationFlushSize)
+        {
+            _ = Task.Run(async () => { try { await FlushAsync().ConfigureAwait(false); } catch { } });
+        }
+    }
+
+    /// <summary>Number of pending config declarations awaiting flush.</summary>
+    public int PendingCount => _buffer.PendingCount;
+
+    /// <summary>
+    /// POST pending declarations to <c>/api/v1/configs/bulk</c>.
+    /// </summary>
+    /// <remarks>
+    /// Per ADR-024 §2.9, bulk registration always lands rows as
+    /// <c>managed=false</c> and is plan-limit-exempt — failures here never
+    /// propagate to customer code. Drained entries are not requeued;
+    /// the SDK will re-observe on the next process start.
+    /// </remarks>
+    public async Task FlushAsync(CancellationToken ct = default)
+    {
+        var batch = _buffer.Drain();
+        if (batch.Count == 0) return;
+
+        var items = new List<GenConfig.ConfigBulkItem>(batch.Count);
+        foreach (var entry in batch)
+        {
+            var item = new GenConfig.ConfigBulkItem { Id = entry.Id };
+            if (entry.Service is not null) item.Service = entry.Service;
+            if (entry.Environment is not null) item.Environment = entry.Environment;
+            if (entry.Parent is not null) item.Parent = entry.Parent;
+            if (entry.Name is not null) item.Name = entry.Name;
+            if (entry.Description is not null) item.Description = entry.Description;
+            if (entry.Items.Count > 0)
+            {
+                var dict = new Dictionary<string, GenConfig.ConfigItemDefinition>(entry.Items.Count);
+                foreach (var (key, def) in entry.Items)
+                {
+                    var gd = new GenConfig.ConfigItemDefinition
+                    {
+                        Value = def.DefaultValue!,
+                        Type = def.ItemType switch
+                        {
+                            "STRING" => GenConfig.ConfigItemDefinitionType.STRING,
+                            "NUMBER" => GenConfig.ConfigItemDefinitionType.NUMBER,
+                            "BOOLEAN" => GenConfig.ConfigItemDefinitionType.BOOLEAN,
+                            "JSON" => GenConfig.ConfigItemDefinitionType.JSON,
+                            _ => null,
+                        },
+                    };
+                    if (def.Description is not null) gd.Description = def.Description;
+                    dict[key] = gd;
+                }
+                item.Items = dict;
+            }
+            items.Add(item);
+        }
+        var body = new GenConfig.ConfigBulkRequest { Configs = items };
+        // Failures propagate to the caller; the discovery-flush call sites
+        // (threshold flush, EnsureConnected, periodic flush) swallow them so
+        // they never reach customer code (ADR-024 §2.9).
+        await ApiExceptionMapper.ExecuteAsync(
+            () => _genClient.Bulk_register_configsAsync(body, ct)).ConfigureAwait(false);
+    }
+
+    // ------------------------------------------------------------------
+    // Live surface: bind, subscribe
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Bind a POCO instance or dictionary to a config id; return it live.
+    /// </summary>
+    /// <remarks>
+    /// <para>Declarative, code-first API. Two flavors:</para>
     /// <list type="bullet">
     /// <item><description><b>POCO instance:</b> the class is the schema;
     /// the instance carries the in-code defaults. Public read/write
@@ -75,32 +399,39 @@ public sealed class ConfigClient
     /// <item><description><b>Dictionary:</b> every key in the dict is a leaf
     /// to register, with its value as the in-code default. Nested
     /// <c>IDictionary&lt;string, object?&gt;</c> values flatten to
-    /// dot-notation. Keys you want to inherit from a parent are simply
-    /// omitted from the dict.</description></item>
+    /// dot-notation. There is no class-default concept — keys the
+    /// caller wants to inherit are simply omitted from the dict.</description></item>
     /// </list>
-    /// <para>On first call the schema and values are registered with the
-    /// server; the bound object's values are then synced from the cache (so
-    /// existing server-side overrides apply). On every WebSocket-delivered
-    /// change thereafter the bound object is mutated in place — readers
-    /// always see the current resolved value with no proxy indirection.</para>
+    /// <para>On first boot the schema and values are registered with the
+    /// server. The local cache is then seeded so reads work immediately:
+    /// if the config already exists server-side (fetched on connect) its
+    /// values are authoritative and synced onto the bound object; if it is
+    /// brand-new, the cache entry is seeded in-memory from the bound
+    /// object's values resolved through its bound parent chain (no network
+    /// round-trip). On every WebSocket-delivered change thereafter the
+    /// bound object is mutated in place. Readers always
+    /// see the current resolved value with no proxy indirection.</para>
     /// <para>Idempotent. Repeated calls with the same <paramref name="id"/>
     /// return the originally-bound object; the new <paramref name="target"/>
     /// argument is ignored.</para>
+    /// <para>Connects lazily on first use — no explicit install step.</para>
     /// </remarks>
     /// <typeparam name="T">The POCO type, or <c>IDictionary&lt;string, object?&gt;</c>.</typeparam>
-    /// <param name="id">The config identifier (slug).</param>
+    /// <param name="id">The config id to register under.</param>
     /// <param name="target">A populated POCO instance or
-    /// <c>IDictionary&lt;string, object?&gt;</c>. Supplies the schema and
-    /// the in-code defaults.</param>
-    /// <param name="parent">Optional parent: any object previously returned
-    /// from a <see cref="Bind{T}(string, T, object?)"/> call. Activates
-    /// parent-chain inheritance at the server.</param>
-    /// <returns>The same <paramref name="target"/> instance, registered and live.</returns>
+    /// <c>IDictionary&lt;string, object?&gt;</c>. Both supply the schema
+    /// and the in-code defaults.</param>
+    /// <param name="parent">Optional parent — any object previously returned from a
+    /// <see cref="Bind{T}(string, T, object?)"/> call (POCO or dict). Activates
+    /// parent-chain inheritance for fields the caller omitted.</param>
+    /// <returns>The same <paramref name="target"/> object, registered and live.</returns>
     /// <exception cref="ArgumentNullException">If <paramref name="target"/> is null.</exception>
-    /// <exception cref="ArgumentException">If <paramref name="parent"/> was not previously bound via <see cref="Bind{T}(string, T, object?)"/>.</exception>
+    /// <exception cref="ArgumentException">If <paramref name="parent"/> is provided but was not previously
+    /// bound via <see cref="Bind{T}(string, T, object?)"/>.</exception>
     public T Bind<T>(string id, T target, object? parent = null) where T : class
     {
         ArgumentNullException.ThrowIfNull(target);
+        EnsureConnected();
 
         // Parent lookup is read-only and can race safely against other
         // Binds — it walks _bindings under the lock and returns.
@@ -124,92 +455,90 @@ public sealed class ConfigClient
             if (_bindings.TryGetValue(id, out var existing))
                 return (T)existing;
 
-            string? configName = null;
-            var isDict = target is IDictionary<string, object?>;
-            if (!isDict)
-            {
-                // No runtime-accessible XML doc comments → no description for POCO bind.
-                configName = target.GetType().Name;
-            }
+            RegisterBindingDeclaration(id, target, parentId);
 
-            ObserveConfigDeclaration(id, parentId, configName, description: null);
-
-            var items = isDict
-                ? IterDictItems((IDictionary<string, object?>)target)
-                : IterPocoItems(target);
-            foreach (var (key, type, value) in items)
-                ObserveItemDeclaration(id, key, type, value, null);
-
-            // Register the binding BEFORE EnsureInitialized so any WebSocket
-            // dispatch firing during the initial fetch finds it.
+            // Register the binding BEFORE syncing so WebSocket dispatch finds it.
             _bindings[id] = target;
+            _boundParents[id] = parentId;
             resolved = target;
         }
 
-        EnsureInitialized();
-        SyncTargetFromCache(resolved, id);
+        SeedOrSyncBinding(id, resolved);
         return resolved;
     }
 
-    // ------------------------------------------------------------------
-    // Public API: Get / GetValue / GetValueOr
-    // ------------------------------------------------------------------
-
     /// <summary>
-    /// Returns a <see cref="LiveConfigProxy"/> — a live, dict-like view of
-    /// the resolved config values for <paramref name="id"/>. Always reflects
-    /// the latest server-pushed state.
+    /// Return a live, dict-like <see cref="LiveConfigProxy"/> for a config id.
     /// </summary>
-    /// <param name="id">The config identifier.</param>
-    /// <returns>A live, read-only proxy.</returns>
-    /// <exception cref="NotFoundException">If no config with the given id exists.</exception>
-    public LiveConfigProxy Get(string id)
+    /// <remarks>
+    /// The proxy always reflects the latest resolved values; reads happen
+    /// through it (<c>proxy["key"]</c>, <c>proxy.GetOrDefault("key", default)</c>).
+    /// Subscribing registers the config declaration for code-first
+    /// observability so the reference appears in the smplkit console.
+    /// <para>Connects lazily on first use — no explicit install step. Raises
+    /// <see cref="NotFoundException"/> if the config is unknown.</para>
+    /// </remarks>
+    public LiveConfigProxy Subscribe(string id)
     {
-        EnsureInitialized();
-
+        EnsureConnected();
+        ObserveConfigDeclaration(id, parent: null, name: null, description: null);
         if (!_configCache.ContainsKey(id))
-            throw new NotFoundException($"Config with id '{id}' not found in cache.");
-
+            throw new NotFoundException($"Config with id '{id}' not found");
         _metrics?.Record("config.resolutions", unit: "resolutions",
             dimensions: new Dictionary<string, string> { ["config"] = id });
-
         return CachedProxy(id);
     }
 
     /// <summary>
-    /// Returns the resolved value of <paramref name="key"/> within
-    /// <paramref name="id"/>. Raises if either is missing. No registration.
+    /// Read a single resolved config value (inheritance-aware).
     /// </summary>
+    /// <remarks>
+    /// The value comes from the locally-cached resolved chain, so parent
+    /// configs are already folded in.
+    /// <para>Returns the resolved value. Raises
+    /// <see cref="NotFoundException"/> if the config is unknown and
+    /// <see cref="KeyNotFoundException"/> if the key is absent. For the
+    /// default-providing form that never raises (and registers the key for
+    /// discovery), use <see cref="GetValueOr{T}(string, string, T)"/>.</para>
+    /// <para>For a live dict-like view use <see cref="Subscribe(string)"/>; for typed access via
+    /// a POCO schema use <see cref="Bind{T}(string, T, object?)"/>. Connects lazily on first use — no
+    /// explicit install step.</para>
+    /// </remarks>
     /// <exception cref="NotFoundException">If the config is missing.</exception>
     /// <exception cref="KeyNotFoundException">If the key is missing within the config.</exception>
     public object? GetValue(string id, string key)
     {
-        EnsureInitialized();
-
+        EnsureConnected();
         if (!_configCache.TryGetValue(id, out var values))
-            throw new NotFoundException($"Config with id '{id}' not found in cache.");
+            throw new NotFoundException($"Config with id '{id}' not found");
         if (!values.TryGetValue(key, out var value))
-            throw new KeyNotFoundException($"Config item '{key}' not found in config '{id}'.");
+            throw new KeyNotFoundException($"Config item '{key}' not found in config '{id}'");
         return value;
     }
 
     /// <summary>
-    /// Returns the resolved value of <paramref name="key"/> within
-    /// <paramref name="id"/>, falling back to <paramref name="defaultValue"/>
-    /// if either is missing. Never raises. <b>Registers</b> the config and
-    /// key (with <paramref name="defaultValue"/> as the in-code default) for
-    /// code-first observability — the reference shows up in the smplkit
-    /// console even if no schema was declared via <see cref="Bind{T}(string, T, object?)"/>.
+    /// Read a single resolved config value (inheritance-aware), falling back to
+    /// <paramref name="defaultValue"/> if the config or key is missing. Never
+    /// raises. <b>Registers</b> the config (if new) and the key (inferred
+    /// type, <paramref name="defaultValue"/> as default) for code-first observability, so the
+    /// reference appears in the smplkit console.
     /// </summary>
+    /// <remarks>
+    /// The value comes from the locally-cached resolved chain, so parent
+    /// configs are already folded in.
+    /// <para>For a live dict-like view use <see cref="Subscribe(string)"/>; for typed access via
+    /// a POCO schema use <see cref="Bind{T}(string, T, object?)"/>. Connects lazily on first use — no
+    /// explicit install step.</para>
+    /// </remarks>
     public T GetValueOr<T>(string id, string key, T defaultValue)
     {
+        EnsureConnected();
+
         // Register the config + key so the reference shows up in the
-        // console even when no schema was declared via Bind(). The buffer
-        // is idempotent at the (configId, itemKey) level.
+        // console even if it's never been declared via Bind(). The
+        // buffer is idempotent at the (configId, itemKey) level.
         ObserveConfigDeclaration(id, parent: null, name: null, description: null);
         ObserveItemDeclaration(id, key, InferItemType(defaultValue), defaultValue, null);
-
-        EnsureInitialized();
 
         if (!_configCache.TryGetValue(id, out var values)) return defaultValue;
         if (!values.TryGetValue(key, out var raw)) return defaultValue;
@@ -222,6 +551,33 @@ public sealed class ConfigClient
     // ------------------------------------------------------------------
     // Internal: binding helpers
     // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Validate the parent, register the config + item declarations.
+    /// </summary>
+    private void RegisterBindingDeclaration(string id, object config, string? parentId)
+    {
+        var isDict = config is IDictionary<string, object?>;
+        string? configName;
+        if (isDict)
+        {
+            // Dict bind: no class to introspect for name/description.
+            configName = null;
+        }
+        else
+        {
+            // No runtime-accessible XML doc comments → no description for POCO bind.
+            configName = config.GetType().Name;
+        }
+
+        ObserveConfigDeclaration(id, parentId, configName, description: null);
+
+        var items = isDict
+            ? IterDictItems((IDictionary<string, object?>)config)
+            : IterPocoItems(config);
+        foreach (var (key, type, value) in items)
+            ObserveItemDeclaration(id, key, type, value, null);
+    }
 
     /// <summary>Return the config_id this object was bound under, or null.</summary>
     private string? ConfigIdFor(object target)
@@ -244,6 +600,71 @@ public sealed class ConfigClient
             ApplyChangeToTarget(target, dottedKey, value);
     }
 
+    /// <summary>
+    /// Seed the resolved cache for a freshly-bound config, or sync from it.
+    /// </summary>
+    /// <remarks>
+    /// If <paramref name="configId"/> is already in the resolved cache it existed
+    /// server-side (fetched on connect), so server values are authoritative
+    /// — sync them onto the bound object (today's behavior). Otherwise the
+    /// config is brand-new: seed the cache entry in-memory by resolving this
+    /// object's values through its bound parent chain, so <see cref="Subscribe(string)"/> /
+    /// <see cref="GetValue(string, string)"/> work immediately with no flush
+    /// or refresh. Pure in-memory — no network.
+    /// </remarks>
+    private void SeedOrSyncBinding(string configId, object target)
+    {
+        if (_configCache.ContainsKey(configId))
+        {
+            SyncTargetFromCache(target, configId);
+            return;
+        }
+        _configCache[configId] = ResolveBoundChain(configId);
+    }
+
+    /// <summary>
+    /// Resolve a bound config's values through its bound parent chain.
+    /// </summary>
+    /// <remarks>
+    /// Walks the bound-parent links from the child up through already-bound
+    /// ancestors, flattening each bound object's in-code values, then runs
+    /// the same deep-merge <see cref="Resolver.Resolve"/> used everywhere else (child wins
+    /// over parent). Ancestors that aren't bound objects stop the walk.
+    /// </remarks>
+    private Dictionary<string, object?> ResolveBoundChain(string configId)
+    {
+        var chain = new List<ConfigChainEntry>();
+        string? current = configId;
+        var seen = new HashSet<string>();
+        while (current is not null && _bindings.ContainsKey(current) && !seen.Contains(current))
+        {
+            seen.Add(current);
+            var items = BoundItemsToFlat(_bindings[current]);
+            chain.Add(new ConfigChainEntry { Id = current, Values = Resolver.NormalizeDict(items) });
+            current = _boundParents.GetValueOrDefault(current);
+        }
+        return Resolver.Resolve(chain, _environment ?? string.Empty);
+    }
+
+    /// <summary>
+    /// Flatten a bound POCO instance or dict to <c>{dotted_key: value}</c>.
+    /// </summary>
+    /// <remarks>
+    /// Mirrors the discovery-declaration walk (<see cref="IterPocoItems"/> /
+    /// <see cref="IterDictItems"/>). Used to seed the local resolved cache from
+    /// in-memory bindings without any network round-trip.
+    /// </remarks>
+    private static Dictionary<string, object?> BoundItemsToFlat(object config)
+    {
+        var items = config is IDictionary<string, object?> dict
+            ? IterDictItems(dict)
+            : IterPocoItems(config);
+        var result = new Dictionary<string, object?>();
+        foreach (var (key, _type, value) in items)
+            result[key] = value;
+        return result;
+    }
+
     private LiveConfigProxy CachedProxy(string id)
     {
         lock (_proxyLock)
@@ -257,26 +678,16 @@ public sealed class ConfigClient
         }
     }
 
-    /// <summary>Internal: queue a config declaration with the management buffer.</summary>
-    internal void ObserveConfigDeclaration(string configId, string? parent, string? name, string? description)
+    /// <summary>Queue a config declaration with the owned discovery buffer.</summary>
+    private void ObserveConfigDeclaration(string configId, string? parent, string? name, string? description)
     {
-        var mgmt = _parent?.Manage;
-        if (mgmt is null) return;
-        mgmt.Config.RegisterConfig(
-            configId,
-            _parent!.Service,
-            _parent.Environment,
-            parent,
-            name,
-            description);
+        RegisterConfig(configId, _service, _environment, parent, name, description);
     }
 
-    /// <summary>Internal: queue a config item declaration with the management buffer.</summary>
-    internal void ObserveItemDeclaration(string configId, string itemKey, string itemType, object? defaultValue, string? description)
+    /// <summary>Queue a config item declaration with the owned discovery buffer.</summary>
+    private void ObserveItemDeclaration(string configId, string itemKey, string itemType, object? defaultValue, string? description)
     {
-        var mgmt = _parent?.Manage;
-        if (mgmt is null) return;
-        mgmt.Config.RegisterConfigItem(configId, itemKey, itemType, defaultValue, description);
+        RegisterConfigItem(configId, itemKey, itemType, defaultValue, description);
     }
 
     /// <summary>Internal: used by <see cref="LiveConfigProxy"/> to read cached values.</summary>
@@ -285,91 +696,171 @@ public sealed class ConfigClient
             ? new Dictionary<string, object?>(values)
             : null;
 
-    /// <summary>Internal: used by <see cref="LiveConfigProxy"/> to test cache without forcing init.</summary>
-    internal bool HasResolved(string id) => _runtimeConnected && _configCache.ContainsKey(id);
+    /// <summary>Internal: used by <see cref="LiveConfigProxy"/> to test cache without forcing connect.</summary>
+    internal bool HasResolved(string id) => _connected && _configCache.ContainsKey(id);
 
     // ------------------------------------------------------------------
-    // Runtime: lazy initialization
+    // Live surface: lazy connect + transport / WebSocket helpers
+    // ------------------------------------------------------------------
+
+    /// <summary>Return the shared WebSocket — the parent's when wired, else our own.</summary>
+    private SharedWebSocket EnsureWs()
+    {
+        if (_ensureWs is not null)
+            return _ensureWs();
+        if (_wsManager is null)
+        {
+            _wsManager = new SharedWebSocket(
+                _standaloneApiKey ?? string.Empty,
+                metrics: _metrics,
+                appBaseUrl: _appBaseUrl ?? "https://app.smplkit.com");
+            _wsManager.Start();
+            _ownsWs = true;
+        }
+        return _wsManager;
+    }
+
+    /// <summary>
+    /// Open the live connection to the running Smpl Config service.
+    /// </summary>
+    /// <remarks>
+    /// Flushes any buffered discovery declarations, fetches and resolves
+    /// every config for the configured environment into the local cache,
+    /// opens the shared WebSocket, and subscribes to <c>config_changed</c> /
+    /// <c>config_deleted</c> / <c>configs_changed</c> events.
+    /// <para>Idempotent and internal — every live method calls it on first use, so
+    /// the live surface auto-connects with no explicit step.</para>
+    /// </remarks>
+    internal void EnsureConnected()
+    {
+        if (_connected) return;
+        lock (_initLock)
+        {
+            if (_connected) return;
+
+            // Flush any buffered discovery declarations BEFORE the initial fetch,
+            // so newly-discovered configs appear in the cache on first read.
+            // FlushAsync swallows network/server failures internally.
+            try { FlushAsync().GetAwaiter().GetResult(); }
+            catch (Exception ex) { DebugLog.Log("registration", $"Config discovery flush before connect failed: {ex.Message}"); }
+
+            // Fetch + resolve + cache + fire change listeners (against empty old_cache,
+            // so any registered listeners see "initial" events).
+            DoRefresh("initial");
+            _connected = true;
+
+            DebugLog.Log("registration", "registering config_changed, config_deleted, and configs_changed handlers");
+            _wsManager = EnsureWs();
+            _wsManager.On("config_changed", HandleConfigChanged);
+            _wsManager.On("config_deleted", HandleConfigDeleted);
+            _wsManager.On("configs_changed", HandleConfigsChanged);
+            _wsManager.WaitForInitialConnectAsync().GetAwaiter().GetResult();
+            DebugLog.Log("websocket", "config runtime connected");
+        }
+    }
+
+    /// <summary>
+    /// Async pre-warm of the live connection. Mirrors <see cref="EnsureConnected"/>;
+    /// the integrator's <see cref="Smplkit.SmplClient.WaitUntilReadyAsync"/> calls
+    /// this so the live surface is hot before the first read.
+    /// </summary>
+    internal Task EnsureConnectedAsync(CancellationToken ct = default)
+        => Task.Run(EnsureConnected, ct);
+
+    private async Task<List<Config>> FetchAllConfigsAsync(CancellationToken ct)
+    {
+        return await Helpers.FetchAllPagesAsync(
+            (page, size, c) => ListAsync(page, size, c), ct).ConfigureAwait(false);
+    }
+
+    private async Task<Config?> FetchConfigAsync(string configId, CancellationToken ct)
+    {
+        var response = await ApiExceptionMapper.ExecuteAsync(
+            () => _genClient.Get_configAsync(id: configId, cancellationToken: ct)).ConfigureAwait(false);
+        return MapResource(response.Data);
+    }
+
+    // ------------------------------------------------------------------
+    // Live surface: refresh / change listeners
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Ensures config data is loaded before first use. Idempotent — safe to
-    /// call multiple times. Called automatically on first
-    /// <see cref="Get(string)"/> / <see cref="Bind{T}(string, T, object?)"/>.
+    /// Re-fetch all configs and update resolved values.
     /// </summary>
-    internal void EnsureInitialized()
+    /// <remarks>
+    /// Fires change listeners for any values that differ from the previous
+    /// state. Connects lazily on first use — no explicit install step.
+    /// </remarks>
+    /// <param name="ct">Cancellation token.</param>
+    /// <exception cref="ConnectionException">If the fetch fails.</exception>
+    public async Task RefreshAsync(CancellationToken ct = default)
     {
-        if (_runtimeConnected) return;
-        lock (_initLock)
+        EnsureConnected();
+
+        var allConfigs = await FetchAllConfigsAsync(ct).ConfigureAwait(false);
+        var environment = _environment ?? string.Empty;
+
+        var newCache = BuildResolvedCache(allConfigs, environment);
+        MergePendingSeeds(newCache);
+        var oldCache = _configCache;
+        _configCache = newCache;
+        DiffAndFire(oldCache, newCache, "manual");
+    }
+
+    /// <summary>
+    /// Re-apply in-memory seeds for bound configs not yet present server-side.
+    /// </summary>
+    /// <remarks>
+    /// A freshly-bound config lives only as a seed until it is flushed and
+    /// fetched; without this, any cache rebuild (a manual refresh, or a
+    /// WebSocket event for another config) would drop it. Server-present
+    /// configs are already in <paramref name="newCache"/> and are authoritative — only
+    /// bound ids missing from it are re-seeded.
+    /// </remarks>
+    private void MergePendingSeeds(Dictionary<string, Dictionary<string, object?>> newCache)
+    {
+        lock (_bindingsLock)
         {
-            if (_runtimeConnected) return;
-
-            var environment = _parent?.Environment
-                ?? throw new SmplkitException("No environment set.");
-
-            // Per ADR-037 §2.14: flush any buffered discovery declarations
-            // BEFORE the initial fetch so newly-discovered configs appear
-            // in the cache. FlushAsync swallows network/server failures
-            // internally; no outer defensive wrapper needed.
-            _parent?.Manage?.Config.FlushAsync().GetAwaiter().GetResult();
-
-            var allConfigs = FetchAllConfigsAsync(default).GetAwaiter().GetResult();
-            RebuildCache(allConfigs, environment);
-            _runtimeConnected = true;
-
-            if (_ensureWs is not null)
+            foreach (var boundId in _bindings.Keys)
             {
-                DebugLog.Log("registration", "registering config_changed, config_deleted, and configs_changed handlers");
-                _wsManager = _ensureWs();
-                _wsManager.On("config_changed", HandleConfigChanged);
-                _wsManager.On("config_deleted", HandleConfigDeleted);
-                _wsManager.On("configs_changed", HandleConfigsChanged);
-                _wsManager.WaitForInitialConnectAsync().GetAwaiter().GetResult();
-                DebugLog.Log("websocket", "config runtime connected");
+                if (!newCache.ContainsKey(boundId))
+                    newCache[boundId] = ResolveBoundChain(boundId);
             }
         }
     }
 
-    // ------------------------------------------------------------------
-    // Runtime: refresh
-    // ------------------------------------------------------------------
-
-    /// <summary>
-    /// Refreshes all config values from the server and notifies change listeners
-    /// for any values that differ from the previous state.
-    /// </summary>
-    /// <param name="ct">Cancellation token.</param>
-    public async Task RefreshAsync(CancellationToken ct = default)
+    private void DoRefresh(string source)
     {
-        var environment = _parent?.Environment
-            ?? throw new SmplkitException("No environment set.");
-
-        var allConfigs = await FetchAllConfigsAsync(ct).ConfigureAwait(false);
-
+        var allConfigs = FetchAllConfigsAsync(default).GetAwaiter().GetResult();
+        var environment = _environment ?? string.Empty;
+        var newCache = BuildResolvedCache(allConfigs, environment);
+        MergePendingSeeds(newCache);
         var oldCache = _configCache;
-        RebuildCache(allConfigs, environment);
-        DiffAndFire(oldCache, _configCache, "manual");
+        _configCache = newCache;
+        DiffAndFire(oldCache, newCache, source);
     }
 
-    // ------------------------------------------------------------------
-    // Runtime: change listeners
-    // ------------------------------------------------------------------
-
     /// <summary>Register a global change listener that fires on any config change.</summary>
+    /// <remarks>Connects lazily on first use — no explicit install step.</remarks>
     public void OnChange(Action<ConfigChangeEvent> callback)
     {
+        EnsureConnected();
         lock (_listenerLock) { _listeners.Add((callback, null, null)); }
     }
 
     /// <summary>Register a change listener scoped to a specific config id.</summary>
+    /// <remarks>Connects lazily on first use — no explicit install step.</remarks>
     public void OnChange(string configId, Action<ConfigChangeEvent> callback)
     {
+        EnsureConnected();
         lock (_listenerLock) { _listeners.Add((callback, configId, null)); }
     }
 
     /// <summary>Register a change listener scoped to a specific config id and item key.</summary>
+    /// <remarks>Connects lazily on first use — no explicit install step.</remarks>
     public void OnChange(string configId, string itemKey, Action<ConfigChangeEvent> callback)
     {
+        EnsureConnected();
         lock (_listenerLock) { _listeners.Add((callback, configId, itemKey)); }
     }
 
@@ -377,7 +868,17 @@ public sealed class ConfigClient
     // Internal: cache management
     // ------------------------------------------------------------------
 
-    private void RebuildCache(List<Config> allConfigs, string environment)
+    /// <summary>
+    /// Re-resolve every config in <paramref name="allConfigs"/> against the parent
+    /// hierarchy and return the resolved-values cache.
+    /// </summary>
+    /// <remarks>
+    /// Inheritance means a single config change can shift descendants' resolved
+    /// values too — so whenever the raw config set changes (config added, updated,
+    /// or deleted), every config gets re-resolved against the new snapshot.
+    /// </remarks>
+    private static Dictionary<string, Dictionary<string, object?>> BuildResolvedCache(
+        List<Config> allConfigs, string environment)
     {
         var configById = new Dictionary<string, Config>();
         foreach (var cfg in allConfigs)
@@ -402,7 +903,7 @@ public sealed class ConfigClient
             cache[cfg.Id!] = resolved;
         }
 
-        _configCache = cache;
+        return cache;
     }
 
     // ------------------------------------------------------------------
@@ -413,21 +914,25 @@ public sealed class ConfigClient
     {
         var configId = data.TryGetValue("id", out var k) ? k as string : null;
         DebugLog.Log("websocket", $"config_changed event received, id={configId ?? "<unknown>"}");
-        if (!_runtimeConnected || configId is null) return;
+        if (!_connected || configId is null)
+        {
+            HandleConfigsChanged(data);
+            return;
+        }
 
-        var environment = _parent?.Environment;
-        if (environment is null) return;
+        var environment = _environment ?? string.Empty;
 
         try
         {
-            if (_parent?.Manage.Config is not { } mgmtConfig) return;
-            var config = mgmtConfig.GetAsync(configId).GetAwaiter().GetResult();
+            var config = FetchConfigAsync(configId, default).GetAwaiter().GetResult();
+            if (config is null) return;
 
             var oldCache = new Dictionary<string, Dictionary<string, object?>>(_configCache);
 
             var chain = new List<ConfigChainEntry> { Resolver.ToChainEntry(config) };
             var newCache = new Dictionary<string, Dictionary<string, object?>>(_configCache);
             newCache[configId] = Resolver.Resolve(chain, environment);
+            MergePendingSeeds(newCache);
             _configCache = newCache;
 
             DiffAndFire(oldCache, _configCache, "websocket");
@@ -443,11 +948,16 @@ public sealed class ConfigClient
     {
         var configId = data.TryGetValue("id", out var k) ? k as string : null;
         DebugLog.Log("websocket", $"config_deleted event received, id={configId ?? "<unknown>"}");
-        if (!_runtimeConnected || configId is null) return;
+        if (!_connected || configId is null)
+        {
+            HandleConfigsChanged(data);
+            return;
+        }
 
         var oldCache = new Dictionary<string, Dictionary<string, object?>>(_configCache);
         var newCache = new Dictionary<string, Dictionary<string, object?>>(_configCache);
-        newCache.Remove(configId);
+        if (!newCache.Remove(configId)) return;
+        MergePendingSeeds(newCache);
         _configCache = newCache;
 
         DiffAndFire(oldCache, _configCache, "websocket");
@@ -456,17 +966,11 @@ public sealed class ConfigClient
     private void HandleConfigsChanged(Dictionary<string, object?> data)
     {
         DebugLog.Log("websocket", "configs_changed event received — full list refetch");
-        if (!_runtimeConnected) return;
-
-        var environment = _parent?.Environment;
-        if (environment is null) return;
+        if (!_connected) return;
 
         try
         {
-            var allConfigs = FetchAllConfigsAsync(default).GetAwaiter().GetResult();
-            var oldCache = _configCache;
-            RebuildCache(allConfigs, environment);
-            DiffAndFire(oldCache, _configCache, "websocket");
+            DoRefresh("websocket");
         }
         catch (Exception ex)
         {
@@ -475,17 +979,11 @@ public sealed class ConfigClient
         }
     }
 
-    private async Task<List<Config>> FetchAllConfigsAsync(CancellationToken ct)
-    {
-        if (_parent?.Manage.Config is not { } mgmtConfig) return new List<Config>();
-        return await Helpers.FetchAllPagesAsync(
-            (page, size, c) => mgmtConfig.ListAsync(page, size, c), ct).ConfigureAwait(false);
-    }
-
     // ------------------------------------------------------------------
     // Internal: diff and fire listeners
     // ------------------------------------------------------------------
 
+    /// <summary>Diff two caches, apply changes to bound instances, fire listeners.</summary>
     internal void DiffAndFire(
         Dictionary<string, Dictionary<string, object?>> oldCache,
         Dictionary<string, Dictionary<string, object?>> newCache,
@@ -536,6 +1034,181 @@ public sealed class ConfigClient
                 }
             }
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Lifecycle
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Release resources — only those this client owns.
+    /// </summary>
+    /// <remarks>
+    /// Tears down the owned WebSocket (opened by a standalone client on
+    /// first live use) and the owned HTTP transport (standalone
+    /// construction). A wired client borrows the parent's transport and
+    /// WebSocket and closes neither.
+    /// </remarks>
+    public void Dispose()
+    {
+        if (_ownsWs && _wsManager is not null)
+        {
+            _wsManager.StopAsync().GetAwaiter().GetResult();
+            _wsManager = null;
+            _ownsWs = false;
+        }
+        _ownedMetrics?.Dispose();
+        _ownedHttpClient?.Dispose();
+    }
+
+    // ==================================================================
+    // Wire helpers — request body construction + response mapping.
+    // ==================================================================
+
+    private string? ResolveParentId(object? parent) => parent switch
+    {
+        null => null,
+        string s => s,
+        Config c => c.Id ?? throw new ArgumentException(
+            "parent config must be saved (have an id) before being used as a parent", nameof(parent)),
+        _ => throw new ArgumentException(
+            $"parent must be a string id or a Config instance; got {parent.GetType().Name}", nameof(parent)),
+    };
+
+    private static GenConfig.ConfigRequest BuildRequestBody(Config config) =>
+        new()
+        {
+            Data = new GenConfig.ConfigResource
+            {
+                Type = "config",
+                Id = config.Id,
+                Attributes = BuildConfigAttributes(config),
+            },
+        };
+
+    private static GenConfig.ConfigCreateRequest BuildCreateRequestBody(Config config) =>
+        new()
+        {
+            Data = new GenConfig.ConfigCreateResource
+            {
+                Type = "config",
+                Id = config.Id ?? throw new ValidationException("Cannot create a config without an id"),
+                Attributes = BuildConfigAttributes(config),
+            },
+        };
+
+    private static GenConfig.Config BuildConfigAttributes(Config config) =>
+        new()
+        {
+            Name = config.Name,
+            Description = config.Description,
+            Parent = config.Parent,
+            Items = WrapItemsForRequest(config.Items),
+            Environments = WrapEnvsForRequest(config.Environments),
+        };
+
+    private static IDictionary<string, GenConfig.ConfigItemDefinition>? WrapItemsForRequest(
+        Dictionary<string, object?>? items)
+    {
+        if (items is null || items.Count == 0) return null;
+
+        var result = new Dictionary<string, GenConfig.ConfigItemDefinition>(items.Count);
+        foreach (var (key, value) in items)
+        {
+            result[key] = new GenConfig.ConfigItemDefinition
+            {
+                Value = value!,
+                Type = InferType(value),
+            };
+        }
+        return result;
+    }
+
+    // Per ADR-024 §2.4 the wire shape is now flat — `{env: {key: rawValue}}` —
+    // so we emit each env's overrides as a plain dict of key → raw value with
+    // no wrapper envelope.
+    private static IDictionary<string, object>? WrapEnvsForRequest(
+        Dictionary<string, Dictionary<string, object?>>? environments)
+    {
+        if (environments is null || environments.Count == 0) return null;
+
+        var result = new Dictionary<string, object>(environments.Count);
+        foreach (var (envName, envData) in environments)
+        {
+            var values = new Dictionary<string, object?>(envData.Count);
+            foreach (var (key, value) in envData)
+            {
+                values[key] = value;
+            }
+            result[envName] = values;
+        }
+        return result;
+    }
+
+    private static GenConfig.ConfigItemDefinitionType? InferType(object? value) => value switch
+    {
+        string => GenConfig.ConfigItemDefinitionType.STRING,
+        bool => GenConfig.ConfigItemDefinitionType.BOOLEAN,
+        int or long or float or double or decimal => GenConfig.ConfigItemDefinitionType.NUMBER,
+        _ => null,
+    };
+
+    private Config? MapResource(GenConfig.ConfigResource? resource)
+    {
+        if (resource?.Attributes is null)
+            return null;
+
+        var attrs = resource.Attributes;
+        var items = ExtractRawItems(attrs.Items);
+        var environments = ExtractRawEnvironments(attrs.Environments);
+
+        return new Config(
+            client: this,
+            id: resource.Id ?? string.Empty,
+            name: attrs.Name ?? string.Empty,
+            description: attrs.Description,
+            parent: attrs.Parent,
+            items: items,
+            environments: environments,
+            createdAt: attrs.Created_at?.DateTime,
+            updatedAt: attrs.Updated_at?.DateTime
+        );
+    }
+
+    private static Dictionary<string, object?> ExtractRawItems(
+        IDictionary<string, GenConfig.ConfigItemDefinition>? items)
+    {
+        if (items is null)
+            return new Dictionary<string, object?>();
+
+        var result = new Dictionary<string, object?>(items.Count);
+        foreach (var (key, definition) in items)
+        {
+            result[key] = Resolver.Normalize(definition.Value);
+        }
+        return result;
+    }
+
+    // Per ADR-024 §2.4 the wire shape is flat — `{env: {key: rawValue}}`. The
+    // generated client surfaces each env as `object` (after JSON deserialization
+    // it's typically a `JsonElement` for an object, or a `Dictionary<string,
+    // object?>` if constructed in-memory). Normalize unwraps both into a flat
+    // dict of key → raw value, dropping anything that isn't an object shape.
+    private static Dictionary<string, Dictionary<string, object?>> ExtractRawEnvironments(
+        IDictionary<string, object>? environments)
+    {
+        if (environments is null)
+            return new Dictionary<string, Dictionary<string, object?>>();
+
+        var result = new Dictionary<string, Dictionary<string, object?>>(environments.Count);
+        foreach (var (envName, envValue) in environments)
+        {
+            var normalized = Resolver.Normalize(envValue);
+            result[envName] = normalized is Dictionary<string, object?> d
+                ? d
+                : new Dictionary<string, object?>();
+        }
+        return result;
     }
 
     // ==================================================================

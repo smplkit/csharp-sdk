@@ -1,23 +1,28 @@
+using Smplkit.Account;
 using Smplkit.Audit;
 using Smplkit.Config;
-using Smplkit.Errors;
 using Smplkit.Flags;
 using Smplkit.Internal;
+using Smplkit.Jobs;
 using Smplkit.Logging;
+using Smplkit.Platform;
 using DebugLog = Smplkit.Internal.Debug;
 
 namespace Smplkit;
 
 /// <summary>
-/// Top-level client for the smplkit runtime plane: flag evaluation, config reads,
-/// log emission. Construction may register the service, start metrics, open a
-/// WebSocket, and install the logging discovery hooks.
+/// Entry point for the smplkit SDK.
 /// </summary>
 /// <remarks>
-/// <para>For pure CRUD work (setup scripts, CI tooling, admin tasks) prefer
-/// <see cref="SmplManagementClient"/>, which has zero side effects on construction.</para>
-/// <para>If you need both planes in one process, use <see cref="Manage"/> to
-/// access the management client wired against the same HTTP transport.</para>
+/// <para>Usage:</para>
+/// <code>
+/// using var client = new SmplClient(new SmplClientOptions { Environment = "production", Service = "my-svc" });
+/// var checkoutV2 = client.Flags.BooleanFlag("checkout-v2", defaultValue: false);
+/// if (checkoutV2.Get()) { ... }
+/// </code>
+/// <para>All parameters are optional. When omitted, the SDK resolves them from
+/// environment variables (<c>SMPLKIT_*</c>) or the <c>~/.smplkit</c> configuration
+/// file. See ADR-021 for the full resolution algorithm.</para>
 /// </remarks>
 public sealed class SmplClient : IDisposable
 {
@@ -38,28 +43,31 @@ public sealed class SmplClient : IDisposable
     /// <summary>Gets the resolved service identifier.</summary>
     public string Service { get; }
 
-    /// <summary>Runtime config reads + listeners.</summary>
+    /// <summary>Platform's cross-cutting CRUD: environments, services, contexts, context types.</summary>
+    public PlatformClient Platform { get; }
+
+    /// <summary>Account-level settings.</summary>
+    public AccountClient Account { get; }
+
+    /// <summary>Config's full surface: reads, listeners, and CRUD.</summary>
     public ConfigClient Config { get; }
 
-    /// <summary>Flag evaluation + listeners.</summary>
+    /// <summary>Flags' full surface: evaluation, listeners, and CRUD.</summary>
     public FlagsClient Flags { get; }
 
-    /// <summary>Runtime logging integration.</summary>
+    /// <summary>Logging's full surface: install, level control, loggers, and log groups.</summary>
     public LoggingClient Logging { get; }
 
     /// <summary>
-    /// Audit-product surface (ADR-047). Use <c>client.Audit.Events.Record(...)</c>
-    /// to record an event; the call is fire-and-forget and returns immediately
-    /// while a background task issues the POST and retries transient failures.
+    /// Audit's full surface: events, discovery, categories, and forwarders. Use
+    /// <c>client.Audit.Events.Record(...)</c> to record an event; the call is
+    /// fire-and-forget and returns immediately while a background task issues the
+    /// POST and retries transient failures.
     /// </summary>
     public AuditClient Audit { get; }
 
-    /// <summary>
-    /// Management client wired against the same HTTP transport as this runtime
-    /// client. Use this for setup scripts, CI tasks, and admin tooling without
-    /// constructing a separate <see cref="SmplManagementClient"/>.
-    /// </summary>
-    public SmplManagementClient Manage { get; }
+    /// <summary>Jobs' full surface: job CRUD, runs, run history, and usage.</summary>
+    public JobsClient Jobs { get; }
 
     /// <summary>
     /// Initializes a new <see cref="SmplClient"/> with automatic config resolution.
@@ -115,17 +123,39 @@ public sealed class SmplClient : IDisposable
             ? null
             : new MetricsReporter(_httpClient, resolved.Environment, resolved.Service, appBaseUrl: _appBaseUrl);
 
+        var auditUrl = ConfigResolver.ServiceUrl(resolved.Scheme, "audit", resolved.BaseDomain);
+        var extraHeaders = options.ExtraHeaders is null
+            ? null
+            : new Dictionary<string, string>(options.ExtraHeaders);
+
         _contextBuffer = new ContextRegistrationBuffer(lruSize: 10_000, flushSize: 100);
 
-        // Construct the management plane first so the runtime sub-clients can
-        // reference _parent.Manage.* for their CRUD fetches. Management is a
-        // peer of the runtime — it does not wrap or own any runtime sub-client.
-        Manage = new SmplManagementClient(_httpClient, _clients, _appBaseUrl, _contextBuffer);
-
+        // Platform's cross-cutting CRUD on one client; wired into this parent so
+        // it borrows the shared app transport and owns the context-registration
+        // buffer. Built BEFORE flags so the contexts seam below is available.
+        Platform = new PlatformClient(_clients.App, _contextBuffer);
+        // Account-level settings on one client; built from the app url + api key
+        // (the settings sub-client uses HttpClient directly).
+        Account = new AccountClient(apiKey: resolved.ApiKey, baseUrl: _appBaseUrl, extraHeaders: extraHeaders);
+        // Config's full surface on one client; wired into this parent so it
+        // borrows the shared config transport and WebSocket.
         Config = new ConfigClient(_clients, EnsureSharedWebSocket, this, _metrics);
+        // Flags' full surface on one client; wired into this parent so it borrows
+        // the shared flags transport and WebSocket. The context buffer is the
+        // injection seam for evaluation-context registration, wired to
+        // client.Platform.Contexts.
         Flags = new FlagsClient(_clients, _apiKey, EnsureSharedWebSocket, _contextBuffer, this, _metrics);
+        // Logging's full surface on one client; wired into this parent so it
+        // borrows the shared logging transport and WebSocket. The two management
+        // sub-clients live at client.Logging.Loggers / client.Logging.LogGroups.
         Logging = new LoggingClient(_clients, _apiKey, EnsureSharedWebSocket, this, _metrics);
-        Audit = new AuditClient(_clients.AuditRuntime);
+        // Audit's full surface; this runtime instance carries the configured
+        // environment as X-Smplkit-Environment and owns its own transport (closed
+        // in Dispose()).
+        Audit = new AuditClient(resolved.ApiKey, auditUrl, resolved.Environment, extraHeaders);
+        // Jobs has no runtime/management split — reuse the shared jobs transport
+        // (single connection pool) so client.Jobs is one-stop.
+        Jobs = new JobsClient(_clients.Jobs);
 
         // Wire up ambient-context bridge for flag evaluation.
         Flags.SetContextProvider(GetAmbientContext);
@@ -137,14 +167,15 @@ public sealed class SmplClient : IDisposable
     }
 
     /// <summary>
-    /// Sets the active eval context for the calling async-flow / thread.
-    /// The returned <see cref="IDisposable"/> reverts the context when disposed
-    /// (e.g. <c>using (client.SetContext(ctx)) { ... }</c>).
+    /// Stash <paramref name="contexts"/> as the current request's evaluation context.
     /// </summary>
     /// <remarks>
-    /// In a real app, set the context once per request from middleware — not
-    /// scattered through your handlers. The method also queues the contexts
-    /// for background registration via the management plane.
+    /// Typical use is from middleware — set the context once at request entry and
+    /// every <c>flag.Get()</c> (and other context-sensitive evaluations) inside that
+    /// request automatically picks it up. The returned <see cref="IDisposable"/>
+    /// reverts the context when disposed (e.g. <c>using (client.SetContext(ctx)) { ... }</c>).
+    /// Each unique <c>(type, key)</c> is also queued for bulk registration on the
+    /// platform API (deduplicated via an LRU; flushed in the background).
     /// </remarks>
     public IDisposable SetContext(IEnumerable<Context> contexts)
     {
@@ -156,7 +187,8 @@ public sealed class SmplClient : IDisposable
         // Queue contexts for background registration (best-effort).
         // The discarded Task automatically captures any failure — the
         // registration is best-effort and never propagates back to the caller.
-        _ = Manage.Contexts.RegisterAsync(list);
+        if (list.Count > 0)
+            _ = Platform.Contexts.RegisterAsync(list);
 
         return new ContextScope(this, previous);
     }
@@ -165,9 +197,20 @@ public sealed class SmplClient : IDisposable
     public IDisposable SetContext(Context context) => SetContext(new[] { context });
 
     /// <summary>
-    /// Eagerly initializes flags + configs + the WebSocket. Logging is opt-in
-    /// via <see cref="LoggingClient.InstallAsync"/>.
+    /// Optionally pre-warm the SDK and block until the live socket is up.
     /// </summary>
+    /// <remarks>
+    /// Eagerly connects config and flags — flushing discovery, pre-fetching all
+    /// flags and configs into the local cache, opening the live-updates WebSocket —
+    /// and waits for the handshake to complete. After this returns, <c>flag.Get()</c> /
+    /// <c>client.Config.Subscribe()</c> hit cache (no first-request connect tax) and any
+    /// <c>OnChange</c> listeners receive every server event from this point forward.
+    /// Optional: config and flags connect lazily on first live use, so this is purely
+    /// a pre-warm / WebSocket-ready barrier. Logging integration is <i>not</i> connected
+    /// here — call <see cref="LoggingClient.InstallAsync"/> separately if you want it (it
+    /// installs adapters and hooks into your application's logger, which should be opt-in).
+    /// </remarks>
+    /// <exception cref="Smplkit.Errors.TimeoutException">If the WebSocket fails to connect within <paramref name="timeout"/>.</exception>
     public async Task WaitUntilReadyAsync(TimeSpan? timeout = null, CancellationToken ct = default)
     {
         var deadline = timeout ?? TimeSpan.FromSeconds(10);
@@ -177,8 +220,8 @@ public sealed class SmplClient : IDisposable
         try
         {
             // Touch flags + configs to force initialization.
-            Flags.EnsureInitialized();
-            Config.EnsureInitialized();
+            Flags.EnsureConnected();
+            Config.EnsureConnected();
 
             // Wait for WebSocket connection.
             var ws = EnsureSharedWebSocket();
@@ -213,7 +256,7 @@ public sealed class SmplClient : IDisposable
         }
     }
 
-    /// <summary>Releases resources used by this client.</summary>
+    /// <summary>Releases all resources held by this client.</summary>
     public void Dispose()
     {
         DebugLog.Log("lifecycle", "SmplClient.Dispose() called");

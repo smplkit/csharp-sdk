@@ -1,5 +1,6 @@
 using System.Text.Json;
-using Smplkit.Management;
+using Smplkit.Account;
+using Smplkit.Platform;
 using Xunit;
 
 namespace Smplkit.Tests.Management;
@@ -244,14 +245,6 @@ public class AccountSettingsModelTests
     }
 
     [Fact]
-    public void ApplyData_UpdatesInternally()
-    {
-        var settings = MakeSettings();
-        settings.ApplyData(new Dictionary<string, object?> { ["environment_order"] = new List<object?> { "production" } });
-        Assert.Equal(new[] { "production" }, settings.EnvironmentOrder);
-    }
-
-    [Fact]
     public void ToString_ContainsKeyCount()
     {
         var settings = MakeSettings(new Dictionary<string, object?> { ["a"] = 1, ["b"] = 2 });
@@ -278,16 +271,16 @@ public class AccountSettingsModelTests
 }
 
 // ---------------------------------------------------------------------------
-// Smplkit.Management.Environment model
+// Smplkit.Platform.Environment model
 // ---------------------------------------------------------------------------
 
 public class EnvironmentModelTests
 {
-    private static Smplkit.Management.Environment MakeEnv(string? id = "production", string name = "Production",
+    private static Smplkit.Platform.Environment MakeEnv(string? id = "production", string name = "Production",
         EnvironmentClassification classification = EnvironmentClassification.Standard)
     {
-        return (Smplkit.Management.Environment)Activator.CreateInstance(
-            typeof(Smplkit.Management.Environment),
+        return (Smplkit.Platform.Environment)Activator.CreateInstance(
+            typeof(Smplkit.Platform.Environment),
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance,
             null,
             new object?[] { null, id, name, null, classification, null, null },

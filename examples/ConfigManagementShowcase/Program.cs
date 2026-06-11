@@ -15,11 +15,11 @@ using Smplkit.Examples.Setup;
 using Smplkit.Flags;
 
 // create the client
-using var mgmt = new SmplManagementClient();
-await ConfigManagementSetup.SetupManagementShowcaseAsync(mgmt);
+using var client = new SmplClient(new SmplClientOptions { Service = "showcase-service" });
+await ConfigManagementSetup.SetupManagementShowcaseAsync(client);
 
 // create a "parent" configuration that all other configs inherit from
-var shared = mgmt.Config.New(
+var shared = client.Config.New(
     "showcase-common",
     name: "Showcase Common",
     description: "Showcase-only shared configuration.");
@@ -34,7 +34,7 @@ await shared.SaveAsync();
 Console.WriteLine($"Created config: {shared.Id}");
 
 // create a config (inherits from showcase-common)
-var userService = mgmt.Config.New(
+var userService = client.Config.New(
     "showcase-user-service",
     name: "Showcase User Service",
     description: "Configuration for the user microservice.",
@@ -59,7 +59,7 @@ await userService.SaveAsync();
 Console.WriteLine($"Updated config: {userService.Id}");
 
 // list configs
-var configs = await mgmt.Config.ListAsync();
+var configs = await client.Config.ListAsync();
 foreach (var cfg in configs)
 {
     var parentInfo = cfg.Parent is not null ? $" (parent: {cfg.Parent})" : " (root)";
@@ -67,7 +67,7 @@ foreach (var cfg in configs)
 }
 
 // get a config
-var fetched = await mgmt.Config.GetAsync("showcase-user-service");
+var fetched = await client.Config.GetAsync("showcase-user-service");
 Console.WriteLine($"Fetched: id={fetched.Id}, name={fetched.Name}");
 Console.WriteLine($"  description={fetched.Description}");
 Console.WriteLine($"  parent={fetched.Parent ?? "(none)"}");
@@ -79,5 +79,5 @@ await shared.DeleteAsync();
 Console.WriteLine("Deleted configs");
 
 // cleanup
-await ConfigManagementSetup.CleanupManagementShowcaseAsync(mgmt);
+await ConfigManagementSetup.CleanupManagementShowcaseAsync(client);
 Console.WriteLine("Done!");

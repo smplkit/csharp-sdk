@@ -29,7 +29,7 @@ public class AuditCoverageTests
     public void Create_RejectsNullInput()
     {
         var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)));
-        var client = new AuditClient(gen);
+        var client = new TestAuditClient(gen);
         Assert.Throws<ArgumentNullException>(() => client.Events.Record(null!));
     }
 
@@ -37,7 +37,7 @@ public class AuditCoverageTests
     public void Create_RejectsAllMissingRequiredFields()
     {
         var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)));
-        var client = new AuditClient(gen);
+        var client = new TestAuditClient(gen);
         // Missing ResourceType
         Assert.Throws<ArgumentException>(() => client.Events.Record(new CreateEventInput
         {
@@ -69,7 +69,7 @@ public class AuditCoverageTests
                 Content = new StringContent(SuccessJson, Encoding.UTF8, "application/vnd.api+json"),
             };
         });
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         client.Events.Record(new CreateEventInput
         {
             EventType = "invoice.created",
@@ -113,7 +113,7 @@ public class AuditCoverageTests
                 Content = new StringContent(SuccessJson, Encoding.UTF8, "application/vnd.api+json"),
             };
         });
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         client.Events.Record(new CreateEventInput
         {
             EventType = "invoice.updated",
@@ -144,7 +144,7 @@ public class AuditCoverageTests
                 Content = new StringContent("{\"data\":[],\"meta\":{\"page_size\":1}}", Encoding.UTF8, "application/vnd.api+json"),
             });
         });
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         await client.Events.ListAsync(new ListEventsInput
         {
             EventType = "user.created",
@@ -176,7 +176,7 @@ public class AuditCoverageTests
                 Content = new StringContent("{\"data\":[],\"meta\":{\"page_size\":1}}", Encoding.UTF8, "application/vnd.api+json"),
             });
         });
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         await client.Events.ListAsync(new ListEventsInput
         {
             Severity = "ERROR",
@@ -200,7 +200,7 @@ public class AuditCoverageTests
                 Content = new StringContent(SuccessJson, Encoding.UTF8, "application/vnd.api+json"),
             };
         });
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         client.Events.Record(new CreateEventInput
         {
             EventType = "user.login_failed",
@@ -228,7 +228,7 @@ public class AuditCoverageTests
         {
             Content = new StringContent(body, Encoding.UTF8, "application/vnd.api+json"),
         }));
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         var ev = await client.Events.GetAsync(Guid.Parse("11111111-2222-3333-4444-555555555555"));
         Assert.Equal("ERROR", ev.Severity);
         Assert.Equal("auth", ev.Category);
@@ -244,7 +244,7 @@ public class AuditCoverageTests
         {
             Content = new StringContent(body, Encoding.UTF8, "application/vnd.api+json"),
         }));
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         var ev = await client.Events.GetAsync(Guid.Parse("11111111-2222-3333-4444-555555555555"));
         var snap = (IDictionary<string, object?>)ev.Data["snapshot"]!;
         Assert.Equal(false, snap["flag"]);
@@ -277,7 +277,7 @@ public class AuditCoverageTests
         {
             Content = new StringContent(body, Encoding.UTF8, "application/vnd.api+json"),
         }));
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         var ev = await client.Events.GetAsync(Guid.Parse("11111111-2222-3333-4444-555555555555"));
         var snap = (IDictionary<string, object?>)ev.Data["snapshot"]!;
         Assert.Equal("Alice", snap["name"]);
@@ -307,7 +307,7 @@ public class AuditCoverageTests
                 Content = new StringContent(SuccessJson, Encoding.UTF8, "application/vnd.api+json"),
             };
         });
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         var origStderr = Console.Error;
         Console.SetError(TextWriter.Null);
         try
@@ -342,7 +342,7 @@ public class AuditCoverageTests
             Interlocked.Increment(ref attempts);
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadRequest));
         });
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         var origStderr = Console.Error;
         Console.SetError(TextWriter.Null);
         try
@@ -380,7 +380,7 @@ public class AuditCoverageTests
             Interlocked.Increment(ref attempts);
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
         });
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         var origStderr = Console.Error;
         Console.SetError(TextWriter.Null);
         try
@@ -416,7 +416,7 @@ public class AuditCoverageTests
     public async Task DisposeAsync_IsIdempotent()
     {
         var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)));
-        var client = new AuditClient(gen);
+        var client = new TestAuditClient(gen);
         await client.DisposeAsync();
         // Second dispose should not throw.
         await client.DisposeAsync();
@@ -435,7 +435,7 @@ public class AuditCoverageTests
             Interlocked.Increment(ref attempts);
             throw new HttpRequestException("simulated network failure");
         });
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         var origStderr = Console.Error;
         Console.SetError(TextWriter.Null);
         try
@@ -476,7 +476,7 @@ public class AuditCoverageTests
         {
             Content = new StringContent(body, Encoding.UTF8, "application/vnd.api+json"),
         }));
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         var ev = await client.Events.GetAsync(Guid.Parse("11111111-2222-3333-4444-555555555555"));
         Assert.Empty(ev.Data);
     }
@@ -499,7 +499,7 @@ public class AuditCoverageTests
                 Content = new StringContent(SuccessJson, Encoding.UTF8, "application/vnd.api+json"),
             };
         });
-        var client = new AuditClient(gen);
+        var client = new TestAuditClient(gen);
         var origStderr = Console.Error;
         Console.SetError(TextWriter.Null);
         try
@@ -544,7 +544,7 @@ public class AuditCoverageTests
             }));
         var http = new HttpClient(mock);
         var gen = new GenAudit.AuditClient("https://audit.example.com", http) { ReadResponseAsString = true };
-        var client = new AuditClient(gen);
+        var client = new TestAuditClient(gen);
         var origStderr = Console.Error;
         Console.SetError(TextWriter.Null);
         try

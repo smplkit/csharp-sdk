@@ -12,18 +12,16 @@ namespace Smplkit.Tests.Management;
 /// <summary>
 /// Tests for the management sub-clients (Config, Flags, Loggers, LogGroups,
 /// Environments, ContextTypes, Contexts, AccountSettings) accessed through
-/// <see cref="SmplManagementClient"/>.
+/// the top-level <see cref="SmplClient"/>.
 /// </summary>
 public class ManagementSubClientsTests
 {
-    private static (SmplManagementClient mgmt, MockHttpMessageHandler handler) Make(
+    private static (SmplClient mgmt, MockHttpMessageHandler handler) Make(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> respond)
     {
         var handler = new MockHttpMessageHandler(respond);
         var httpClient = new HttpClient(handler);
-        var mgmt = new SmplManagementClient(
-            new SmplClientOptions { ApiKey = "sk_test_key" },
-            httpClient);
+        var mgmt = new SmplClient(TestData.DefaultOptions(), httpClient);
         return (mgmt, handler);
     }
 
@@ -188,14 +186,14 @@ public class ManagementSubClientsTests
     }
 
     // ------------------------------------------------------------------
-    // Loggers sub-client (mgmt.Loggers)
+    // Loggers sub-client (mgmt.Logging.Loggers)
     // ------------------------------------------------------------------
 
     [Fact]
     public void LoggersClient_New_DefaultManagedTrue()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var logger = mgmt.Loggers.New("showcase");
+        var logger = mgmt.Logging.Loggers.New("showcase");
         Assert.True(logger.Managed);
         Assert.Equal("showcase", logger.Id);
         Assert.Equal("showcase", logger.Name); // id doubles as name
@@ -205,7 +203,7 @@ public class ManagementSubClientsTests
     public void LoggersClient_New_ExplicitManagedFalse()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var logger = mgmt.Loggers.New("showcase", managed: false);
+        var logger = mgmt.Logging.Loggers.New("showcase", managed: false);
         Assert.False(logger.Managed);
     }
 
@@ -213,7 +211,7 @@ public class ManagementSubClientsTests
     public async Task LoggersClient_ListAsync_EmptyList()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("""{"data":[]}""")));
-        var loggers = await mgmt.Loggers.ListAsync();
+        var loggers = await mgmt.Logging.Loggers.ListAsync();
         Assert.Empty(loggers);
     }
 
@@ -221,7 +219,7 @@ public class ManagementSubClientsTests
     public async Task LoggersClient_GetAsync_NotFound_Throws()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("""{"errors":[{"detail":"x"}]}""", HttpStatusCode.NotFound)));
-        await Assert.ThrowsAsync<NotFoundException>(() => mgmt.Loggers.GetAsync("missing"));
+        await Assert.ThrowsAsync<NotFoundException>(() => mgmt.Logging.Loggers.GetAsync("missing"));
     }
 
     [Fact]
@@ -233,7 +231,7 @@ public class ManagementSubClientsTests
             captured = req;
             return Task.FromResult(Json("{}", HttpStatusCode.NoContent));
         });
-        await mgmt.Loggers.DeleteAsync("showcase");
+        await mgmt.Logging.Loggers.DeleteAsync("showcase");
         Assert.Equal(HttpMethod.Delete, captured!.Method);
     }
 
@@ -246,7 +244,7 @@ public class ManagementSubClientsTests
             captured = req;
             return Task.FromResult(Json("{}"));
         });
-        await mgmt.Loggers.RegisterAsync(new[]
+        await mgmt.Logging.Loggers.RegisterAsync(new[]
         {
             new LoggerSource("a", level: LogLevel.Info),
             new LoggerSource("b", resolvedLevel: LogLevel.Warn),
@@ -265,12 +263,12 @@ public class ManagementSubClientsTests
             return Task.FromResult(Json("{}"));
         });
 
-        await mgmt.Loggers.RegisterAsync(
+        await mgmt.Logging.Loggers.RegisterAsync(
             new[] { new LoggerSource("a", level: LogLevel.Info) },
             flush: false);
 
         Assert.Equal(0, requests);
-        Assert.Equal(1, mgmt.Loggers.PendingCount);
+        Assert.Equal(1, mgmt.Logging.Loggers.PendingCount);
     }
 
     [Fact]
@@ -283,16 +281,16 @@ public class ManagementSubClientsTests
             return Task.FromResult(Json("{}"));
         });
 
-        await mgmt.Loggers.RegisterAsync(
+        await mgmt.Logging.Loggers.RegisterAsync(
             new[] { new LoggerSource("a", level: LogLevel.Info) }, flush: false);
-        await mgmt.Loggers.RegisterAsync(
+        await mgmt.Logging.Loggers.RegisterAsync(
             new[] { new LoggerSource("b", resolvedLevel: LogLevel.Warn) }, flush: false);
-        Assert.Equal(2, mgmt.Loggers.PendingCount);
+        Assert.Equal(2, mgmt.Logging.Loggers.PendingCount);
 
-        await mgmt.Loggers.FlushAsync();
+        await mgmt.Logging.Loggers.FlushAsync();
 
         Assert.Equal(1, requests);
-        Assert.Equal(0, mgmt.Loggers.PendingCount);
+        Assert.Equal(0, mgmt.Logging.Loggers.PendingCount);
     }
 
     [Fact]
@@ -305,7 +303,7 @@ public class ManagementSubClientsTests
             return Task.FromResult(Json("{}"));
         });
 
-        await mgmt.Loggers.FlushAsync();
+        await mgmt.Logging.Loggers.FlushAsync();
 
         Assert.Equal(0, requests);
     }
@@ -320,25 +318,25 @@ public class ManagementSubClientsTests
             return Task.FromResult(Json("{}"));
         });
 
-        await mgmt.Loggers.RegisterAsync(
+        await mgmt.Logging.Loggers.RegisterAsync(
             new[] { new LoggerSource("a", level: LogLevel.Info) }, flush: false);
-        await mgmt.Loggers.RegisterAsync(
+        await mgmt.Logging.Loggers.RegisterAsync(
             new[] { new LoggerSource("b", resolvedLevel: LogLevel.Warn) }, flush: true);
 
         // One HTTP call sends both items.
         Assert.Equal(1, requests);
-        Assert.Equal(0, mgmt.Loggers.PendingCount);
+        Assert.Equal(0, mgmt.Logging.Loggers.PendingCount);
     }
 
     // ------------------------------------------------------------------
-    // LogGroups sub-client (mgmt.LogGroups)
+    // LogGroups sub-client (mgmt.Logging.LogGroups)
     // ------------------------------------------------------------------
 
     [Fact]
     public void LogGroupsClient_New_DefaultName()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var group = mgmt.LogGroups.New("billing");
+        var group = mgmt.Logging.LogGroups.New("billing");
         Assert.Equal("billing", group.Id);
         Assert.Equal("Billing", group.Name);
     }
@@ -347,7 +345,7 @@ public class ManagementSubClientsTests
     public void LogGroupsClient_New_WithParent()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var group = mgmt.LogGroups.New("invoices", group: "billing");
+        var group = mgmt.Logging.LogGroups.New("invoices", group: "billing");
         Assert.Equal("billing", group.Group);
     }
 
@@ -355,7 +353,7 @@ public class ManagementSubClientsTests
     public void LogGroupsClient_New_ExplicitName()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var group = mgmt.LogGroups.New("billing", name: "Custom");
+        var group = mgmt.Logging.LogGroups.New("billing", name: "Custom");
         Assert.Equal("Custom", group.Name);
     }
 
@@ -363,7 +361,7 @@ public class ManagementSubClientsTests
     public async Task LogGroupsClient_ListAsync_EmptyList()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("""{"data":[]}""")));
-        var groups = await mgmt.LogGroups.ListAsync();
+        var groups = await mgmt.Logging.LogGroups.ListAsync();
         Assert.Empty(groups);
     }
 
@@ -371,7 +369,7 @@ public class ManagementSubClientsTests
     public async Task LogGroupsClient_GetAsync_NotFound_Throws()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("""{"errors":[{"detail":"x"}]}""", HttpStatusCode.NotFound)));
-        await Assert.ThrowsAsync<NotFoundException>(() => mgmt.LogGroups.GetAsync("missing"));
+        await Assert.ThrowsAsync<NotFoundException>(() => mgmt.Logging.LogGroups.GetAsync("missing"));
     }
 
     [Fact]
@@ -383,7 +381,7 @@ public class ManagementSubClientsTests
             captured = req;
             return Task.FromResult(Json("{}", HttpStatusCode.NoContent));
         });
-        await mgmt.LogGroups.DeleteAsync("billing");
+        await mgmt.Logging.LogGroups.DeleteAsync("billing");
         Assert.Equal(HttpMethod.Delete, captured!.Method);
     }
 }

@@ -2,7 +2,6 @@ using System.Net;
 using System.Text;
 using Smplkit.Errors;
 using Smplkit.Jobs;
-using Smplkit.Management;
 using Smplkit.Tests.Helpers;
 using Xunit;
 using GenJobs = Smplkit.Internal.Generated.Jobs;
@@ -32,11 +31,11 @@ public class JobsManagementTests
         return (gen, mock);
     }
 
-    private static JobsManagementClient MakeJobs(
+    private static JobsClient MakeJobs(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> handler)
     {
         var (gen, _) = MakeGen(handler);
-        return new JobsManagementClient(gen);
+        return new JobsClient(gen);
     }
 
     private static StringContent JsonApi(string body) =>

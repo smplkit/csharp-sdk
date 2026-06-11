@@ -4,16 +4,14 @@ using Smplkit.Errors;
 namespace Smplkit.Config;
 
 /// <summary>
-/// A live, dict-like, read-only view of a config's resolved values.
-/// Returned by <see cref="ConfigClient.Get(string)"/>. Always reflects the
-/// latest server-pushed state — every read goes through the client's
-/// resolved-config cache, so WebSocket updates are picked up automatically
-/// with no <c>Subscribe</c> step.
+/// A live, dict-like view of resolved config values.
 /// </summary>
 /// <remarks>
+/// <para>Returned by <see cref="ConfigClient.Subscribe(string)"/>. Always reflects
+/// the latest server-pushed state — every read sees current values.</para>
 /// <para>For typed access via a declarative schema, use
 /// <see cref="ConfigClient.Bind{T}(string, T, object?)"/> instead — bound
-/// instances stay live on the same WebSocket cache, with property access
+/// instances stay live on the same WebSocket cache, with attribute access
 /// typed by the customer's POCO class.</para>
 /// <para>Implements <see cref="IReadOnlyDictionary{TKey,TValue}"/> so
 /// idiomatic C# patterns work: <c>proxy["key"]</c>,
@@ -38,7 +36,7 @@ public sealed class LiveConfigProxy : IReadOnlyDictionary<string, object?>
     private IReadOnlyDictionary<string, object?> Snapshot()
     {
         if (!_client.HasResolved(_configId))
-            _client.EnsureInitialized();
+            _client.EnsureConnected();
 
         return _client.GetCachedValues(_configId)
             ?? throw new NotFoundException($"Config with id '{_configId}' not found in cache.");

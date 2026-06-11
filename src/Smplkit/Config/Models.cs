@@ -6,7 +6,7 @@ namespace Smplkit.Config;
 /// </summary>
 public sealed class Config
 {
-    private readonly Smplkit.Management.ConfigsClient _client;
+    private readonly ConfigClient? _client;
 
     /// <summary>Gets the config identifier (slug). Null for unsaved configs.</summary>
     public string? Id { get; internal set; }
@@ -33,7 +33,7 @@ public sealed class Config
     public DateTime? UpdatedAt { get; internal set; }
 
     internal Config(
-        Smplkit.Management.ConfigsClient client,
+        ConfigClient? client,
         string? id,
         string name,
         string? description,
@@ -54,26 +54,44 @@ public sealed class Config
         UpdatedAt = updatedAt;
     }
 
-    /// <summary>Persists this config to the server.</summary>
+    /// <summary>
+    /// Persists this config to the server.
+    /// </summary>
+    /// <remarks>
+    /// Creates a new config if unsaved, or updates the existing one.
+    /// </remarks>
+    /// <exception cref="Errors.NotFoundException">If the config no longer exists (update).</exception>
+    /// <exception cref="Errors.ValidationException">If the server rejects the request.</exception>
+    /// <exception cref="InvalidOperationException">If the model was constructed without a management client.</exception>
     public async Task SaveAsync(CancellationToken ct = default)
     {
-        var saved = await _client.SaveConfigInternalAsync(this, ct).ConfigureAwait(false);
-        Id = saved.Id;
-        Name = saved.Name;
-        Description = saved.Description;
-        Parent = saved.Parent;
-        Items = saved.Items;
-        Environments = saved.Environments;
-        CreatedAt = saved.CreatedAt;
-        UpdatedAt = saved.UpdatedAt;
+        if (_client is null)
+            throw new InvalidOperationException("Config was constructed without a client; cannot save");
+        var other = CreatedAt is null
+            ? await _client.CreateConfigInternalAsync(this, ct).ConfigureAwait(false)
+            : await _client.UpdateConfigFromModelInternalAsync(this, ct).ConfigureAwait(false);
+        Apply(other);
     }
 
     /// <summary>Deletes this config from the server.</summary>
     public Task DeleteAsync(CancellationToken ct = default)
     {
-        if (Id is null)
-            throw new InvalidOperationException("Cannot delete an unsaved config.");
+        if (_client is null || Id is null)
+            throw new InvalidOperationException("Config was constructed without a client or id; cannot delete");
         return _client.DeleteAsync(Id, ct);
+    }
+
+    /// <summary>Copy all properties from <paramref name="other"/> into this instance.</summary>
+    private void Apply(Config other)
+    {
+        Id = other.Id;
+        Name = other.Name;
+        Description = other.Description;
+        Parent = other.Parent;
+        Items = other.Items;
+        Environments = other.Environments;
+        CreatedAt = other.CreatedAt;
+        UpdatedAt = other.UpdatedAt;
     }
 
     private Dictionary<string, object?> ItemsTarget(string? environment)

@@ -2,7 +2,7 @@ namespace Smplkit.Logging;
 
 /// <summary>
 /// Describes a logger source observation to register via
-/// <see cref="Smplkit.Management.LoggersClient.RegisterAsync"/>.
+/// <see cref="LoggersClient.RegisterAsync"/>.
 /// </summary>
 /// <remarks>
 /// Use this when you want to register loggers with explicit service/environment

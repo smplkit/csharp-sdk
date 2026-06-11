@@ -2,11 +2,10 @@ using Smplkit.Errors;
 using Smplkit.Internal;
 using GenApp = Smplkit.Internal.Generated.App;
 
-namespace Smplkit.Management;
+namespace Smplkit.Platform;
 
 /// <summary>
-/// Provides CRUD operations for services. Accessible via
-/// <see cref="SmplManagementClient.Services"/>.
+/// Service CRUD (<c>client.Platform.Services</c>).
 /// </summary>
 public sealed class ServicesClient
 {
@@ -14,7 +13,7 @@ public sealed class ServicesClient
 
     internal ServicesClient(GenApp.AppClient appClient) => _appClient = appClient;
 
-    /// <summary>Creates an unsaved <see cref="Service"/>.</summary>
+    /// <summary>Return an unsaved <see cref="Service"/>. Call <c>SaveAsync()</c> to persist.</summary>
     public Service New(string id, string name)
     {
         return new Service(this, id: id, name: name, createdAt: null, updatedAt: null);

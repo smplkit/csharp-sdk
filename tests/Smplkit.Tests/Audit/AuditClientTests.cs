@@ -35,7 +35,7 @@ public class AuditClientTests
                 Content = new StringContent(SuccessJson, Encoding.UTF8, "application/vnd.api+json"),
             };
         });
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
         for (int i = 0; i < 20; i++)
@@ -65,7 +65,7 @@ public class AuditClientTests
     public void Create_RejectsMissingFields()
     {
         var (gen, _, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)));
-        var client = new AuditClient(gen);
+        var client = new TestAuditClient(gen);
         Assert.Throws<ArgumentException>(() => client.Events.Record(new CreateEventInput
         {
             EventType = "",
@@ -89,7 +89,7 @@ public class AuditClientTests
                 Content = new StringContent(SuccessJson, Encoding.UTF8, "application/vnd.api+json"),
             });
         });
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
 
         client.Events.Record(new CreateEventInput
         {
@@ -122,7 +122,7 @@ public class AuditClientTests
                 Content = new StringContent(SuccessJson, Encoding.UTF8, "application/vnd.api+json"),
             };
         });
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
 
         client.Events.Record(new CreateEventInput
         {
@@ -155,7 +155,7 @@ public class AuditClientTests
                 "{\"data\":{\"id\":\"11111111-2222-3333-4444-555555555555\",\"type\":\"event\",\"attributes\":{\"event_type\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"data\":{},\"idempotency_key\":\"k\"}}}",
                 Encoding.UTF8, "application/vnd.api+json"),
         }));
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
 
         var ev = await client.Events.GetAsync(eventId);
         Assert.Equal(eventId, ev.Id);
@@ -180,7 +180,7 @@ public class AuditClientTests
                 "{\"data\":[{\"id\":\"11111111-2222-3333-4444-555555555555\",\"type\":\"event\",\"attributes\":{\"event_type\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"data\":{},\"idempotency_key\":\"k\"}}],\"meta\":{\"page_size\":1},\"links\":{\"next\":\"/api/v1/events?page[size]=1&page[after]=tok-xyz\"}}",
                 Encoding.UTF8, "application/vnd.api+json"),
         }));
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
 
         var page = await client.Events.ListAsync(new ListEventsInput { PageSize = 1 });
         Assert.Single(page.Events);
@@ -201,7 +201,7 @@ public class AuditClientTests
                     Encoding.UTF8, "application/vnd.api+json"),
             });
         });
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
 
         var page = await client.Events.ListAsync(new ListEventsInput
         {
@@ -227,7 +227,7 @@ public class AuditClientTests
                     Encoding.UTF8, "application/vnd.api+json"),
             });
         });
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
 
         await client.Events.ListAsync(new ListEventsInput
         {
@@ -241,7 +241,7 @@ public class AuditClientTests
     public async Task GetAsync_404_ThrowsNotFoundException()
     {
         var (gen, _, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)));
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
 
         await Assert.ThrowsAsync<NotFoundException>(
             () => client.Events.GetAsync(Guid.NewGuid()));
@@ -257,7 +257,7 @@ public class AuditClientTests
                 "{\"data\":{\"id\":\"11111111-2222-3333-4444-555555555555\",\"type\":\"event\",\"attributes\":{\"event_type\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"actor_type\":\"API_KEY\",\"actor_id\":null,\"actor_label\":\"\",\"data\":{},\"idempotency_key\":\"\",\"do_not_forward\":true}}}",
                 Encoding.UTF8, "application/vnd.api+json"),
         }));
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
 
         var ev = await client.Events.GetAsync(eventId);
         Assert.True(ev.DoNotForward);
@@ -273,7 +273,7 @@ public class AuditClientTests
                 "{\"data\":{\"id\":\"11111111-2222-3333-4444-555555555555\",\"type\":\"event\",\"attributes\":{\"event_type\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"data\":{},\"idempotency_key\":\"\",\"environment\":\"production\"}}}",
                 Encoding.UTF8, "application/vnd.api+json"),
         }));
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
 
         var ev = await client.Events.GetAsync(eventId);
         Assert.Equal("production", ev.Environment);
@@ -290,7 +290,7 @@ public class AuditClientTests
                 "11111111-2222-3333-4444-555555555555"),
                 Encoding.UTF8, "application/vnd.api+json"),
         }));
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
 
         var ev = await client.Events.GetAsync(eventId);
         Assert.Null(ev.Environment);
@@ -310,7 +310,7 @@ public class AuditClientTests
             });
         });
         gen.RuntimeEnvironment = "production";
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
 
         client.Events.Record(new CreateEventInput
         {
@@ -342,7 +342,7 @@ public class AuditClientTests
             });
         });
         gen.RuntimeEnvironment = "staging";
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
 
         await client.Events.ListAsync();
         Assert.Contains("staging", seen);
@@ -363,7 +363,7 @@ public class AuditClientTests
             });
         });
         // RuntimeEnvironment left null (management-plane behavior).
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
 
         await client.Events.ListAsync();
         Assert.False(hadHeader);
@@ -393,7 +393,7 @@ public class AuditClientTests
             ReadResponseAsString = true,
             RuntimeEnvironment = "configured-env",
         };
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
 
         await client.Events.ListAsync();
         Assert.Equal("explicit-env", capturedEnv);
@@ -411,7 +411,7 @@ public class AuditClientTests
                 Content = new StringContent(SuccessJson, Encoding.UTF8, "application/vnd.api+json"),
             };
         });
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
 
         client.Events.Record(new CreateEventInput
         {

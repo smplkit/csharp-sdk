@@ -194,7 +194,7 @@ public class RuntimePaginationTests
         using var client = MakeClient(handler);
 
         // Init: forces a list. Use a config that exists in the response.
-        client.Config.Get("cfg_0");
+        client.Config.Subscribe("cfg_0");
         await client.Config.RefreshAsync();
 
         // init (2 pages) + refresh (2 pages) = 4
@@ -217,7 +217,7 @@ public class RuntimePaginationTests
         });
         using var client = MakeClient(handler);
 
-        client.Config.Get("cfg_0");
+        client.Config.Subscribe("cfg_0");
         await client.Config.RefreshAsync();
 
         Assert.Equal(2, pageCalls.Count);
@@ -242,7 +242,7 @@ public class RuntimePaginationTests
         });
         using var client = MakeClient(handler);
 
-        client.Config.Get("cfg_0"); // init: 2 pages
+        client.Config.Subscribe("cfg_0"); // init: 2 pages
         Assert.Equal(2, pageCalls.Count);
 
         var method = typeof(Smplkit.Config.ConfigClient).GetMethod(

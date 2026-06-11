@@ -142,3 +142,20 @@ public class TimeoutException : SmplkitException
     {
     }
 }
+
+/// <summary>
+/// Raised when a logging operation is attempted before <c>Install()</c>.
+/// </summary>
+/// <remarks>
+/// Smpl Logging hooks into the host logging framework, so it stays opt-in: its
+/// live surface requires an explicit <see cref="Logging.LoggingClient.InstallAsync"/>
+/// first. Config and flags connect lazily on first live use and never raise this.
+/// </remarks>
+public class NotInstalledException : SmplkitException
+{
+    /// <summary>Initializes a new instance of <see cref="NotInstalledException"/>.</summary>
+    public NotInstalledException(string message)
+        : base(message, statusCode: null, responseBody: null)
+    {
+    }
+}

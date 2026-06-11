@@ -8,7 +8,7 @@ using Smplkit.Errors;
 using Smplkit.Flags;
 using Smplkit.Logging;
 using Smplkit.Logging.Adapters;
-using Smplkit.Management;
+using Smplkit.Platform;
 using Smplkit.Tests.Helpers;
 using Xunit;
 
@@ -28,49 +28,17 @@ public class CoverageGapsTests
         return (client, handler);
     }
 
-    private static (SmplManagementClient mgmt, MockHttpMessageHandler handler) MakeMgmt(
+    private static (SmplClient mgmt, MockHttpMessageHandler handler) MakeMgmt(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> respond)
     {
         var handler = new MockHttpMessageHandler(respond);
         var http = new HttpClient(handler);
-        var mgmt = new SmplManagementClient(new SmplClientOptions { ApiKey = "k" }, http);
+        var mgmt = new SmplClient(TestData.DefaultOptions(), http);
         return (mgmt, handler);
     }
 
     private static HttpResponseMessage Json(string body, HttpStatusCode code = HttpStatusCode.OK)
         => new(code) { Content = new StringContent(body, Encoding.UTF8, "application/vnd.api+json") };
-
-    // ------------------------------------------------------------------
-    // SmplManagementClient parameterless ctor + ThrowingWebSocketFactory
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public void SmplManagementClient_ParameterlessConstructor_AutoResolves()
-    {
-        var savedKey = System.Environment.GetEnvironmentVariable("SMPLKIT_API_KEY");
-        try
-        {
-            System.Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", "sk_via_env");
-            using var mgmt = new SmplManagementClient();
-            Assert.NotNull(mgmt);
-        }
-        finally
-        {
-            System.Environment.SetEnvironmentVariable("SMPLKIT_API_KEY", savedKey);
-        }
-    }
-
-    [Fact]
-    public void SmplManagementClient_OptionsOnlyConstructor_OwnsHttpClient()
-    {
-        var mgmt = new SmplManagementClient(new SmplClientOptions { ApiKey = "k" });
-        mgmt.Dispose();
-        mgmt.Dispose(); // idempotent
-    }
-
-    // ThrowingWebSocketFactory removed in the architectural-inversion remediation —
-    // SmplManagementClient no longer constructs runtime sub-clients, so it has no need
-    // for a websocket-factory placeholder. (See PR review item 1.)
 
     // ------------------------------------------------------------------
     // Color: Equals(object) and GetHashCode coverage
@@ -166,7 +134,7 @@ public class CoverageGapsTests
                     """));
             return Task.FromResult(Json("""{"errors":[{"detail":"x"}]}""", HttpStatusCode.InternalServerError));
         });
-        client.Config.Get("c1"); // initialize
+        client.Config.Subscribe("c1"); // initialize
 
         var method = typeof(ConfigClient).GetMethod("HandleConfigsChanged",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
@@ -224,7 +192,7 @@ public class CoverageGapsTests
             if (path.EndsWith("/loggers")) return Task.FromResult(Json(body));
             return Task.FromResult(Json("{}"));
         });
-        var loggers = await mgmt.Loggers.ListAsync();
+        var loggers = await mgmt.Logging.Loggers.ListAsync();
         Assert.Single(loggers);
         // sources contains the dict
         Assert.NotEmpty(loggers[0].Sources);
@@ -318,7 +286,7 @@ public class CoverageGapsTests
         // SocketException wrapped in HttpRequestException → ConnectionException
         var (client, _) = MakeClient(_ => throw new HttpRequestException("network fail"));
         await Assert.ThrowsAsync<ConnectionException>(() =>
-            client.Manage.Flags.GetAsync("anything"));
+            client.Flags.GetAsync("anything"));
     }
 
     [Fact]
@@ -328,6 +296,6 @@ public class CoverageGapsTests
         cts.Cancel();
         var (client, _) = MakeClient(_ => Task.FromResult(Json("{}")));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            client.Manage.Flags.GetAsync("any", cts.Token));
+            client.Flags.GetAsync("any", cts.Token));
     }
 }

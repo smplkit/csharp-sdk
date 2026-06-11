@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using Smplkit;
+using Smplkit.Account;
 using Smplkit.Errors;
 using Smplkit.Tests.Helpers;
 using Xunit;
@@ -9,13 +10,17 @@ namespace Smplkit.Tests.Management;
 
 public class AccountSettingsClientTests
 {
-    private static (SmplManagementClient mgmt, MockHttpMessageHandler handler) Make(
+    // The account-settings endpoint is not JSON:API, so SettingsClient opens a
+    // short-lived HttpClient per call rather than going through a generated
+    // client. Its internal ctor exposes an HttpMessageHandler seam so tests can
+    // inject the mock; that is the only way to intercept its HTTP.
+    private static (SettingsClient settings, MockHttpMessageHandler handler) Make(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> respond)
     {
         var handler = new MockHttpMessageHandler(respond);
-        var http = new HttpClient(handler);
-        var mgmt = new SmplManagementClient(new SmplClientOptions { ApiKey = "k" }, http);
-        return (mgmt, handler);
+        var settings = new SettingsClient(
+            "https://app.smplkit.com", "sk_test_key", extraHeaders: null, handler: handler);
+        return (settings, handler);
     }
 
     private static HttpResponseMessage Resp(string body, HttpStatusCode code = HttpStatusCode.OK)
@@ -30,78 +35,101 @@ public class AccountSettingsClientTests
                 "feature_x": true
             }
             """;
-        var (mgmt, _) = Make(_ => Task.FromResult(Resp(body)));
-        var settings = await mgmt.AccountSettings.GetAsync();
-        Assert.Equal(2, settings.Raw.Count);
-        Assert.Equal(3, settings.EnvironmentOrder.Count);
-        Assert.Equal("production", settings.EnvironmentOrder[0]);
+        var (settings, _) = Make(_ => Task.FromResult(Resp(body)));
+        var result = await settings.GetAsync();
+        Assert.Equal(2, result.Raw.Count);
+        Assert.Equal(3, result.EnvironmentOrder.Count);
+        Assert.Equal("production", result.EnvironmentOrder[0]);
     }
 
     [Fact]
     public async Task GetAsync_EmptyBody_ReturnsEmptySettings()
     {
-        var (mgmt, _) = Make(_ => Task.FromResult(Resp("")));
-        var settings = await mgmt.AccountSettings.GetAsync();
-        Assert.Empty(settings.Raw);
-        Assert.Empty(settings.EnvironmentOrder);
+        var (settings, _) = Make(_ => Task.FromResult(Resp("")));
+        var result = await settings.GetAsync();
+        Assert.Empty(result.Raw);
+        Assert.Empty(result.EnvironmentOrder);
     }
 
     [Fact]
     public async Task GetAsync_NonObjectBody_ReturnsEmpty()
     {
-        var (mgmt, _) = Make(_ => Task.FromResult(Resp("[\"unexpected\"]")));
-        var settings = await mgmt.AccountSettings.GetAsync();
-        Assert.Empty(settings.Raw);
+        var (settings, _) = Make(_ => Task.FromResult(Resp("[\"unexpected\"]")));
+        var result = await settings.GetAsync();
+        Assert.Empty(result.Raw);
     }
 
     [Fact]
     public async Task GetAsync_HttpError_RaisesException()
     {
-        var (mgmt, _) = Make(_ => Task.FromResult(
+        var (settings, _) = Make(_ => Task.FromResult(
             Resp("""{"errors":[{"detail":"forbidden"}]}""", HttpStatusCode.Forbidden)));
-        await Assert.ThrowsAsync<SmplkitException>(() => mgmt.AccountSettings.GetAsync());
+        await Assert.ThrowsAsync<SmplkitException>(() => settings.GetAsync());
     }
 
     [Fact]
     public async Task GetAsync_NotFound_ThrowsNotFound()
     {
-        var (mgmt, _) = Make(_ => Task.FromResult(
+        var (settings, _) = Make(_ => Task.FromResult(
             Resp("""{"errors":[{"detail":"not found"}]}""", HttpStatusCode.NotFound)));
-        await Assert.ThrowsAsync<NotFoundException>(() => mgmt.AccountSettings.GetAsync());
+        await Assert.ThrowsAsync<NotFoundException>(() => settings.GetAsync());
     }
 
     [Fact]
     public async Task SaveAsync_SendsPut()
     {
         HttpRequestMessage? captured = null;
-        var (mgmt, _) = Make(req =>
+        var (settings, _) = Make(req =>
         {
             captured = req;
             return req.Method == HttpMethod.Get
                 ? Task.FromResult(Resp("""{"environment_order":["a"]}"""))
                 : Task.FromResult(Resp("""{"environment_order":["b"]}"""));
         });
-        var settings = await mgmt.AccountSettings.GetAsync();
-        settings.EnvironmentOrder = new List<string> { "b" };
-        await settings.SaveAsync();
+        var result = await settings.GetAsync();
+        result.EnvironmentOrder = new List<string> { "b" };
+        await result.SaveAsync();
         Assert.Equal(HttpMethod.Put, captured!.Method);
         // After save, internal state should be updated from response
-        Assert.Equal("b", settings.EnvironmentOrder[0]);
+        Assert.Equal("b", result.EnvironmentOrder[0]);
     }
 
     [Fact]
     public async Task EnvironmentOrder_NoneSet_ReturnsEmpty()
     {
-        var (mgmt, _) = Make(_ => Task.FromResult(Resp("{}")));
-        var settings = await mgmt.AccountSettings.GetAsync();
-        Assert.Empty(settings.EnvironmentOrder);
+        var (settings, _) = Make(_ => Task.FromResult(Resp("{}")));
+        var result = await settings.GetAsync();
+        Assert.Empty(result.EnvironmentOrder);
     }
 
     [Fact]
     public async Task ToString_IncludesKeyCount()
     {
-        var (mgmt, _) = Make(_ => Task.FromResult(Resp("""{"a":1,"b":2,"c":3}""")));
-        var settings = await mgmt.AccountSettings.GetAsync();
-        Assert.Contains("3", settings.ToString());
+        var (settings, _) = Make(_ => Task.FromResult(Resp("""{"a":1,"b":2,"c":3}""")));
+        var result = await settings.GetAsync();
+        Assert.Contains("3", result.ToString());
+    }
+
+    [Fact]
+    public async Task GetAsync_SendsBearerToken()
+    {
+        HttpRequestMessage? captured = null;
+        var (settings, _) = Make(req => { captured = req; return Task.FromResult(Resp("{}")); });
+        await settings.GetAsync();
+        Assert.Equal("Bearer sk_test_key", captured!.Headers.GetValues("Authorization").Single());
+        Assert.Contains("/api/v1/accounts/current/settings", captured.RequestUri!.ToString());
+    }
+
+    [Fact]
+    public async Task ExtraHeaders_AreApplied()
+    {
+        HttpRequestMessage? captured = null;
+        var handler = new MockHttpMessageHandler(req => { captured = req; return Task.FromResult(Resp("{}")); });
+        var settings = new SettingsClient(
+            "https://app.smplkit.com/", "sk_test_key",
+            extraHeaders: new Dictionary<string, string> { ["X-Tenant"] = "acme" },
+            handler: handler);
+        await settings.GetAsync();
+        Assert.Equal("acme", captured!.Headers.GetValues("X-Tenant").Single());
     }
 }

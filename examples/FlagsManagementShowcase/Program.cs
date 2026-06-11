@@ -12,18 +12,18 @@ using Smplkit.Examples.Setup;
 using Smplkit.Flags;
 
 // create the client
-using var mgmt = new SmplManagementClient();
-await FlagsManagementSetup.SetupManagementShowcaseAsync(mgmt);
+using var client = new SmplClient(new SmplClientOptions { Service = "showcase-service" });
+await FlagsManagementSetup.SetupManagementShowcaseAsync(client);
 
 // create a boolean flag
-var checkoutFlag = mgmt.Flags.NewBooleanFlag(
+var checkoutFlag = client.Flags.NewBooleanFlag(
     "checkout-v2", defaultValue: false,
     description: "Controls rollout of the new checkout experience.");
 await checkoutFlag.SaveAsync();
 Console.WriteLine($"Created flag: {checkoutFlag.Id}");
 
 // create a string flag (constrained)
-var bannerFlag = mgmt.Flags.NewStringFlag(
+var bannerFlag = client.Flags.NewStringFlag(
     "banner-color", defaultValue: "red",
     name: "Banner Color",
     description: "Controls the banner color shown to users.",
@@ -37,14 +37,14 @@ await bannerFlag.SaveAsync();
 Console.WriteLine($"Created flag: {bannerFlag.Id}");
 
 // create a numeric flag (unconstrained)
-var retryFlag = mgmt.Flags.NewNumberFlag(
+var retryFlag = client.Flags.NewNumberFlag(
     "max-retries", defaultValue: 3,
     description: "Maximum number of API retries before failing.");
 await retryFlag.SaveAsync();
 Console.WriteLine($"Created flag: {retryFlag.Id}");
 
 // create a JSON flag (constrained)
-var themeFlag = mgmt.Flags.NewJsonFlag(
+var themeFlag = client.Flags.NewJsonFlag(
     "ui-theme",
     defaultValue: new Dictionary<string, object?> { ["mode"] = "light", ["accent"] = "#0066cc" },
     description: "Controls the UI theme configuration.",
@@ -77,7 +77,7 @@ await checkoutFlag.SaveAsync();
 Console.WriteLine($"Updated flag: {checkoutFlag.Id}");
 
 // list flags
-var flags = await mgmt.Flags.ListAsync();
+var flags = await client.Flags.ListAsync();
 Console.WriteLine($"Total flags: {flags.Count}");
 foreach (var f in flags)
 {
@@ -86,7 +86,7 @@ foreach (var f in flags)
 }
 
 // get a flag
-var fetched = await mgmt.Flags.GetAsync("checkout-v2");
+var fetched = await client.Flags.GetAsync("checkout-v2");
 Console.WriteLine($"\nFetched by id: {fetched.Id}");
 
 // update a flag
@@ -112,10 +112,10 @@ await bannerFlag.SaveAsync();
 Console.WriteLine($"Updated flag: {bannerFlag.Id}");
 
 // delete flags
-await mgmt.Flags.DeleteAsync("checkout-v2");
+await client.Flags.DeleteAsync("checkout-v2");
 await bannerFlag.DeleteAsync();
 Console.WriteLine("Deleted flags");
 
 // cleanup
-await FlagsManagementSetup.CleanupManagementShowcaseAsync(mgmt);
+await FlagsManagementSetup.CleanupManagementShowcaseAsync(client);
 Console.WriteLine("Done!");

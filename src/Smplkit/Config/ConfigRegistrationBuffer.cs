@@ -1,4 +1,4 @@
-namespace Smplkit.Management;
+namespace Smplkit.Config;
 
 /// <summary>
 /// Thread-safe batch buffer for config declarations. Mirrors Python's

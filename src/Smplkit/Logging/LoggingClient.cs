@@ -1,6 +1,38 @@
-using System.Text.Json;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
+// The Smpl Logging client — one unified LoggingClient.
+//
+// Smpl Logging has two surfaces on a single client, mirroring how the config,
+// flags, audit, and jobs clients expose their full surface from one class:
+//
+// * Management surface — works immediately, no Install() required.
+//   Two sub-clients (the audit pattern):
+//
+//   * client.Logging.Loggers — logger CRUD + discovery: New / List /
+//     Get / Delete plus Register / Flush / PendingCount.
+//   * client.Logging.LogGroups — log-group CRUD: New / List /
+//     Get / Delete.
+//
+//   The fused client owns the logger-discovery buffer directly; the Loggers
+//   sub-client shares that same buffer so discovery and explicit registration
+//   drain through one queue.
+//
+// * Live surface — directly on the client. RegisterAdapter is a
+//   PRE-install configuration call (allowed before Install()).
+//   Install() opens the live connection (monkey-patches the app's logging
+//   framework, discovers loggers, fetches + applies levels, opens the shared
+//   WebSocket). OnChange / Refresh require Install() first;
+//   calling them earlier raises NotInstalledException.
+//
+// The client supports two construction shapes:
+//
+// * Wired into SmplClient — borrows the parent's logging
+//   transport for both runtime fetch and CRUD and the parent's shared WebSocket
+//   for the live channel. This is the common path.
+// * Standalone — new LoggingClient(apiKey: ..., baseDomain: ..., ...) builds and
+//   owns its own logging transport and an app transport (the WebSocket gateway
+//   lives on the app service), and on Install() opens and owns its own
+//   WebSocket. Dispose() tears down only the owned transports and owned
+//   WebSocket.
+
 using Smplkit.Errors;
 using Smplkit.Internal;
 using Smplkit.Logging.Adapters;
@@ -10,16 +42,47 @@ using DebugLog = Smplkit.Internal.Debug;
 namespace Smplkit.Logging;
 
 /// <summary>
-/// Client for the smplkit Logging service. Provides operations for creating,
-/// reading, updating, and deleting loggers and log groups, as well as dynamic
-/// level control via <see cref="InstallAsync"/>.
+/// The Smpl Logging client.
 /// </summary>
-public sealed class LoggingClient
+/// <remarks>
+/// <para>One client exposes the full surface, reachable as <c>client.Logging</c>
+/// (<see cref="Smplkit.SmplClient"/>) or constructed directly:</para>
+/// <code>
+/// using var logging = new LoggingClient(environment: "production", service: "my-svc");
+/// await logging.Loggers.New("sqlalchemy.engine").SaveAsync();
+/// await logging.InstallAsync();
+/// </code>
+/// <para>The management surface (<see cref="Loggers"/> / <see cref="LogGroups"/>
+/// sub-clients) works immediately. <see cref="RegisterAdapter"/> is a pre-install
+/// configuration call. The live surface (<see cref="InstallAsync"/> /
+/// <see cref="OnChange(Action{LoggerChangeEvent})"/> / <see cref="RefreshAsync"/>)
+/// requires <see cref="InstallAsync"/> first; calling <c>OnChange</c> / <c>Refresh</c>
+/// earlier raises <see cref="NotInstalledException"/>.</para>
+/// </remarks>
+public sealed class LoggingClient : IDisposable
 {
+    private const string NotInstalledMessage =
+        "Smpl Logging live operations require InstallAsync() first — this opens a live " +
+        "connection to your running service and hooks into your application's " +
+        "logging framework. Call client.Logging.InstallAsync() before " +
+        "OnChange()/RefreshAsync().";
+
     private readonly GenLogging.LoggingClient _genClient;
-    private readonly string _apiKey;
-    private readonly Func<SharedWebSocket> _ensureWs;
     private readonly SmplClient? _parent;
+    private readonly MetricsReporter? _metrics;
+    private readonly string? _environment;
+    private readonly string? _service;
+
+    // Standalone construction owns its transport + WebSocket; wired construction
+    // borrows the parent's. _ensureWs returns the parent's shared WebSocket when
+    // wired, else lazily builds and owns one.
+    private readonly Func<SharedWebSocket>? _ensureWs;
+    private readonly HttpClient? _ownedHttpClient;
+    private readonly string? _appBaseUrl;
+    private readonly string? _standaloneApiKey;
+    private readonly bool _ownsTransport;
+    private bool _ownsWs;
+
     private volatile bool _started;
     private SharedWebSocket? _wsManager;
     private readonly List<ILoggingAdapter> _adapters = new();
@@ -35,10 +98,6 @@ public sealed class LoggingClient
     private readonly Dictionary<string, LogLevel> _loggerLevelCache = new();
     private readonly object _loggerCacheLock = new();
 
-    /// <summary>
-    /// Initializes a new instance of <see cref="LoggingClient"/>.
-    /// </summary>
-    private readonly MetricsReporter? _metrics;
     private readonly LoggerRegistrationBuffer _loggerBuffer = new();
     private Timer? _loggerFlushTimer;
 
@@ -50,30 +109,115 @@ public sealed class LoggingClient
     internal Task? _lastGroupChangedTask;
     internal Task? _lastLoggersChangedTask;
 
+    /// <summary>The <c>Loggers</c> sub-client — logger CRUD + discovery.</summary>
+    public LoggersClient Loggers { get; }
+
+    /// <summary>The <c>LogGroups</c> sub-client — log-group CRUD.</summary>
+    public LogGroupsClient LogGroups { get; }
+
+    /// <summary>
+    /// Initializes a new standalone <see cref="LoggingClient"/>.
+    /// </summary>
+    /// <param name="apiKey">API key. When omitted, resolved from <c>SMPLKIT_API_KEY</c> or <c>~/.smplkit</c>.</param>
+    /// <param name="environment">Deployment environment used to resolve runtime levels and
+    /// to scope discovery declarations. Optional.</param>
+    /// <param name="service">Service name used to scope discovery declarations. Optional.</param>
+    /// <param name="profile">Named <c>~/.smplkit</c> profile section.</param>
+    /// <param name="baseDomain">Base domain for API requests (default <c>smplkit.com</c>).</param>
+    /// <param name="scheme">URL scheme (default <c>https</c>).</param>
+    /// <param name="debug">Enable SDK debug logging.</param>
+    /// <param name="telemetry">Reserved for parity with the other standalone clients; unused here.</param>
+    /// <param name="extraHeaders">Extra headers attached to every request.</param>
+    public LoggingClient(
+        string? apiKey = null,
+        string? environment = null,
+        string? service = null,
+        string? profile = null,
+        string? baseDomain = null,
+        string? scheme = null,
+        bool? debug = null,
+        bool? telemetry = null,
+        IReadOnlyDictionary<string, string>? extraHeaders = null)
+    {
+        // Reuse the management config resolver (logging CRUD is account-global)
+        // and the shared per-service URL helper, so a standalone logging client
+        // resolves credentials/base-domain from ~/.smplkit / env vars /
+        // constructor args exactly like the top-level clients do.
+        var resolved = ConfigResolver.ResolveForManagement(new SmplClientOptions
+        {
+            ApiKey = apiKey,
+            Profile = profile,
+            BaseDomain = baseDomain,
+            Scheme = scheme,
+            Debug = debug,
+        });
+        if (resolved.Debug)
+            DebugLog.Enabled = true;
+
+        _parent = null;
+        _metrics = null;
+        _environment = environment;
+        _service = service;
+        _ensureWs = null;
+
+        _ownedHttpClient = new HttpClient();
+        var clients = new GeneratedClientFactory(_ownedHttpClient, new SmplClientOptions
+        {
+            ApiKey = resolved.ApiKey,
+            BaseDomain = resolved.BaseDomain,
+            Scheme = resolved.Scheme,
+            ExtraHeaders = extraHeaders is null ? null : new Dictionary<string, string>(extraHeaders),
+        });
+        _genClient = clients.Logging;
+        // The WebSocket gateway lives on the app service (like flags); a
+        // standalone client opens its own WebSocket against it on Install().
+        _appBaseUrl = ConfigResolver.ServiceUrl(resolved.Scheme, "app", resolved.BaseDomain);
+        _standaloneApiKey = resolved.ApiKey;
+        _ownsTransport = true;
+
+        Loggers = new LoggersClient(_genClient, _loggerBuffer);
+        LogGroups = new LogGroupsClient(_genClient);
+    }
+
+    /// <summary>
+    /// Internal — wired by a top-level client so the logging surface shares one
+    /// connection pool and the parent's shared WebSocket. The borrowed generated
+    /// client and WebSocket are owned by the parent; this instance must not tear
+    /// them down.
+    /// </summary>
     internal LoggingClient(GeneratedClientFactory clients, string apiKey, Func<SharedWebSocket> ensureWs, SmplClient? parent = null, MetricsReporter? metrics = null)
     {
         _genClient = clients.Logging;
-        _apiKey = apiKey;
         _ensureWs = ensureWs;
         _parent = parent;
         _metrics = metrics;
+        _environment = parent?.Environment;
+        _service = parent?.Service;
+        _ownsTransport = false;
+
+        Loggers = new LoggersClient(_genClient, _loggerBuffer);
+        LogGroups = new LogGroupsClient(_genClient);
     }
 
     // ------------------------------------------------------------------
-    // Adapter registration
+    // Adapter registration (pre-install, ungated)
     // ------------------------------------------------------------------
 
     /// <summary>
     /// Registers a logging adapter. Must be called before <see cref="InstallAsync"/>.
     /// </summary>
     /// <remarks>
-    /// For Microsoft.Extensions.Logging, prefer the
+    /// If called at least once, only explicitly registered adapters are used.
+    /// This is a pre-install configuration call: it is intentionally NOT gated
+    /// by <see cref="InstallAsync"/>.
+    /// <para>For Microsoft.Extensions.Logging, prefer the
     /// <see cref="SmplkitLoggingBuilderExtensions.AddSmplkit"/> extension on
-    /// <see cref="ILoggingBuilder"/> — it constructs the adapter, registers it
-    /// in DI as <see cref="ILoggerProvider"/> +
-    /// <see cref="IConfigureOptions{LoggerFilterOptions}"/> +
-    /// <see cref="IOptionsChangeTokenSource{LoggerFilterOptions}"/>, and calls
-    /// this method in one step.
+    /// <see cref="Microsoft.Extensions.Logging.ILoggingBuilder"/> — it constructs
+    /// the adapter, registers it in DI as
+    /// <see cref="Microsoft.Extensions.Logging.ILoggerProvider"/> +
+    /// <see cref="Microsoft.Extensions.Options.IConfigureOptions{LoggerFilterOptions}"/> +
+    /// <see cref="Microsoft.Extensions.Options.IOptionsChangeTokenSource{LoggerFilterOptions}"/>,
+    /// and calls this method in one step.</para>
     /// </remarks>
     /// <param name="adapter">The adapter to register.</param>
     /// <exception cref="InvalidOperationException">If called after <see cref="InstallAsync"/>.</exception>
@@ -85,26 +229,46 @@ public sealed class LoggingClient
     }
 
     // ------------------------------------------------------------------
-    // Wire CRUD code (factory, GetAsync, ListAsync, DeleteAsync, Save,
-    // request-body building, MapLoggerResource, MapLogGroupResource,
-    // BuildLoggerRequestBody, BuildLogGroupRequestBody) lives in
-    // Smplkit.Management.LoggersClient and Smplkit.Management.LogGroupsClient.
-    // The runtime client routes its initial fetch / refresh / single-resource
-    // refresh through the management plane via _parent.Manage.Loggers and
-    // _parent.Manage.LogGroups — there is no duplicated wire code here.
+    // Live surface: Install (gate) + WebSocket helper
     // ------------------------------------------------------------------
 
-    // ------------------------------------------------------------------
-    // Runtime: InstallAsync
-    // ------------------------------------------------------------------
+    private void RequireInstalled()
+    {
+        if (!_started)
+            throw new NotInstalledException(NotInstalledMessage);
+    }
+
+    /// <summary>Return the shared WebSocket — the parent's when wired, else our own.</summary>
+    private SharedWebSocket EnsureWs()
+    {
+        if (_ensureWs is not null)
+            return _ensureWs();
+        if (_wsManager is null)
+        {
+            _wsManager = new SharedWebSocket(
+                _standaloneApiKey!,
+                metrics: _metrics,
+                appBaseUrl: _appBaseUrl!);
+            _wsManager.Start();
+            _ownsWs = true;
+        }
+        return _wsManager;
+    }
 
     /// <summary>
-    /// Starts dynamic log level control. Applies server-defined levels to registered
-    /// adapters and subscribes to real-time level updates. Idempotent.
+    /// Hook smplkit into the application's logging machinery.
     /// </summary>
+    /// <remarks>
+    /// Loads adapters, scans existing loggers, applies levels from the
+    /// smplkit server, and wires WebSocket handlers for live updates. This
+    /// IS the explicit consent gate — <see cref="OnChange(Action{LoggerChangeEvent})"/> /
+    /// <see cref="RefreshAsync"/> require it first.
+    /// <para>Idempotent — safe to call multiple times.</para>
+    /// </remarks>
     /// <param name="ct">Cancellation token.</param>
     public async Task InstallAsync(CancellationToken ct = default)
     {
+        DebugLog.Log("lifecycle", "LoggingClient.InstallAsync() called");
         if (_started) return;
 
         // 1. Discover existing loggers from each adapter and add to buffer.
@@ -115,7 +279,7 @@ public sealed class LoggingClient
         var discovered = DiscoverAll();
         DebugLog.Log("discovery", $"discovered {discovered.Count} loggers from adapters");
         foreach (var d in discovered)
-            _loggerBuffer.Add(d.Name, null, d.Level.ToWireString(), _parent?.Service, _parent?.Environment);
+            _loggerBuffer.Add(LoggersClient.NormalizeLoggerName(d.Name), null, d.Level.ToWireString(), _service, _environment);
 
         // 3. Install hooks on each adapter
         InstallAllHooks();
@@ -141,7 +305,7 @@ public sealed class LoggingClient
 
         // 7. Wire WebSocket
         DebugLog.Log("registration", "registering logger_changed, logger_deleted, group_changed, group_deleted, loggers_changed handlers");
-        _wsManager = _ensureWs();
+        _wsManager = EnsureWs();
         _wsManager.On("logger_changed", HandleLoggerChanged);
         _wsManager.On("logger_deleted", HandleLoggerDeleted);
         _wsManager.On("group_changed", HandleGroupChanged);
@@ -156,15 +320,21 @@ public sealed class LoggingClient
     }
 
     // ------------------------------------------------------------------
-    // Runtime: change listeners
+    // Live surface: change listeners
     // ------------------------------------------------------------------
 
     /// <summary>
     /// Register a global change listener that fires when any logger changes.
     /// </summary>
+    /// <remarks>
+    /// Requires <see cref="InstallAsync"/> first; raises
+    /// <see cref="NotInstalledException"/> otherwise.
+    /// </remarks>
     /// <param name="callback">Called with a <see cref="LoggerChangeEvent"/> on each change.</param>
+    /// <exception cref="NotInstalledException">If called before <see cref="InstallAsync"/>.</exception>
     public void OnChange(Action<LoggerChangeEvent> callback)
     {
+        RequireInstalled();
         lock (_listenerLock)
         {
             _globalListeners.Add(callback);
@@ -174,10 +344,16 @@ public sealed class LoggingClient
     /// <summary>
     /// Register a change listener scoped to a specific logger id.
     /// </summary>
+    /// <remarks>
+    /// Requires <see cref="InstallAsync"/> first; raises
+    /// <see cref="NotInstalledException"/> otherwise.
+    /// </remarks>
     /// <param name="loggerId">The logger identifier to listen for.</param>
     /// <param name="callback">Called with a <see cref="LoggerChangeEvent"/> when this logger changes.</param>
+    /// <exception cref="NotInstalledException">If called before <see cref="InstallAsync"/>.</exception>
     public void OnChange(string loggerId, Action<LoggerChangeEvent> callback)
     {
+        RequireInstalled();
         lock (_listenerLock)
         {
             if (!_scopedListeners.TryGetValue(loggerId, out var list))
@@ -189,13 +365,40 @@ public sealed class LoggingClient
         }
     }
 
+    /// <summary>
+    /// Re-fetches managed loggers and log groups from the server and re-applies
+    /// their levels onto every registered adapter. Fires change listeners with
+    /// <c>Source = "manual"</c> for any logger whose effective level differs
+    /// from the cached value. Errors propagate to the caller — the websocket
+    /// path swallows them, but a user-initiated refresh does not.
+    /// </summary>
+    /// <remarks>
+    /// Requires <see cref="InstallAsync"/> first; raises
+    /// <see cref="NotInstalledException"/> otherwise.
+    /// </remarks>
+    /// <param name="ct">Cancellation token.</param>
+    /// <exception cref="NotInstalledException">If called before <see cref="InstallAsync"/>.</exception>
+    public Task RefreshAsync(CancellationToken ct = default)
+    {
+        RequireInstalled();
+        DebugLog.Log("resolution", "RefreshAsync() called, triggering full resolution pass");
+        return RefetchAndApplyAsync("manual", ct);
+    }
+
     // ------------------------------------------------------------------
     // Lifecycle
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Stops dynamic log level control and releases resources.
+    /// Release resources — only those this client owns.
     /// </summary>
+    /// <remarks>
+    /// Uninstalls the adapter hooks, unsubscribes from the WebSocket, and
+    /// tears down the owned WebSocket (standalone install) and the owned
+    /// logging + app HTTP transport (standalone construction). A wired
+    /// client borrows the parent's transport and WebSocket and closes
+    /// neither.
+    /// </remarks>
     internal void Close()
     {
         foreach (var adapter in _adapters)
@@ -214,10 +417,30 @@ public sealed class LoggingClient
             _wsManager.Off("group_changed", HandleGroupChanged);
             _wsManager.Off("group_deleted", HandleGroupDeleted);
             _wsManager.Off("loggers_changed", HandleLoggersChanged);
+            if (_ownsWs)
+            {
+                _wsManager.StopAsync().GetAwaiter().GetResult();
+                _ownsWs = false;
+            }
             _wsManager = null;
         }
         _started = false;
         DebugLog.Log("lifecycle", "LoggingClient closed");
+    }
+
+    /// <summary>
+    /// Release HTTP resources — only when this client owns its transport.
+    /// </summary>
+    /// <remarks>
+    /// A logging client wired by a top-level client shares that client's
+    /// transport and WebSocket; the owning client's <c>Dispose()</c> handles
+    /// teardown via <see cref="Close"/>.
+    /// </remarks>
+    public void Dispose()
+    {
+        Close();
+        if (_ownsTransport)
+            _ownedHttpClient?.Dispose();
     }
 
     // ------------------------------------------------------------------
@@ -257,60 +480,6 @@ public sealed class LoggingClient
             }
         }
     }
-
-    internal async Task BulkRegisterAsync(IReadOnlyList<DiscoveredLogger> discovered, CancellationToken ct = default)
-    {
-        var service = _parent?.Service;
-        var environment = _parent?.Environment;
-        var items = discovered
-            .Select(d => BuildBulkItem(d, service, environment))
-            .ToList();
-
-        var request = new GenLogging.LoggerBulkRequest { Loggers = items };
-        await ApiExceptionMapper.ExecuteAsync(
-            () => _genClient.Bulk_register_loggersAsync(request, ct)).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Registers explicit logger sources. Accepts per-source service and environment overrides —
-    /// useful for sample-data seeding, cross-service migration, and test fixtures.
-    /// </summary>
-    /// <param name="sources">Logger sources to register.</param>
-    /// <param name="ct">Cancellation token.</param>
-    internal async Task RegisterSourcesAsync(IEnumerable<LoggerSource> sources, CancellationToken ct = default)
-    {
-        var items = sources.Select(s => new GenLogging.LoggerBulkItem
-        {
-            Id = s.Name,
-            Level = s.Level?.ToWireString(),
-            Resolved_level = s.ResolvedLevel?.ToWireString(),
-            Service = s.Service,
-            Environment = s.Environment,
-        }).ToList();
-
-        await ApiExceptionMapper.ExecuteAsync(
-            () => _genClient.Bulk_register_loggersAsync(
-                new GenLogging.LoggerBulkRequest { Loggers = items }, ct)).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Builds a <see cref="GenLogging.LoggerBulkItem"/> from a discovered logger.
-    /// <para>
-    /// MEL and Serilog adapters track only the effective (resolved) level — they have
-    /// no concept of an explicitly-set vs. inherited level. The payload therefore sets
-    /// <c>level</c> to <see langword="null"/> (not explicitly configured) and
-    /// <c>resolved_level</c> to the adapter's current minimum level.
-    /// </para>
-    /// </summary>
-    internal static GenLogging.LoggerBulkItem BuildBulkItem(DiscoveredLogger discovered, string? service = null, string? environment = null) =>
-        new()
-        {
-            Id = discovered.Name,
-            Level = null,
-            Resolved_level = discovered.Level.ToWireString(),
-            Service = service,
-            Environment = environment,
-        };
 
     /// <summary>
     /// Re-resolves every managed logger in the cache against the current group
@@ -383,7 +552,7 @@ public sealed class LoggingClient
     /// </summary>
     private Dictionary<string, LogLevel> SnapshotResolvedLevelsLocked()
     {
-        var environment = _parent?.Environment ?? string.Empty;
+        var environment = _environment ?? string.Empty;
         var loggerEntries = BuildResolutionEntries(_loggersCache);
         var groupEntries = BuildResolutionEntries(_groupsCache);
 
@@ -431,7 +600,7 @@ public sealed class LoggingClient
     private void HandleAdapterNewLogger(string loggerName, LogLevel level)
     {
         var smplLevel = level.ToWireString();
-        _loggerBuffer.Add(loggerName, null, smplLevel, _parent?.Service, _parent?.Environment);
+        _loggerBuffer.Add(LoggersClient.NormalizeLoggerName(loggerName), null, smplLevel, _service, _environment);
 
         if (_loggerBuffer.PendingCount >= 50)
             _lastLoggerBufferFlushTask = FlushLoggerBufferAsync();
@@ -443,28 +612,14 @@ public sealed class LoggingClient
 
     internal async Task FlushLoggerBufferAsync(CancellationToken ct = default)
     {
-        var batch = _loggerBuffer.Drain();
-        if (batch.Count == 0) return;
+        var request = LoggersClient.BuildLoggerBulkRequest(_loggerBuffer);
+        if (request is null) return;
 
-        var items = batch.Select(e =>
-        {
-            var item = new GenLogging.LoggerBulkItem
-            {
-                Id = e.Id,
-                Resolved_level = e.ResolvedLevel,
-            };
-            if (e.Level is not null) item.Level = e.Level;
-            if (e.Service is not null) item.Service = e.Service;
-            if (e.Environment is not null) item.Environment = e.Environment;
-            return item;
-        }).ToList();
-
-        var request = new GenLogging.LoggerBulkRequest { Loggers = items };
         try
         {
             await ApiExceptionMapper.ExecuteAsync(
                 () => _genClient.Bulk_register_loggersAsync(request, ct)).ConfigureAwait(false);
-            DebugLog.Log("registration", $"bulk-registered {batch.Count} logger(s)");
+            DebugLog.Log("registration", $"bulk-registered {request.Loggers.Count} logger(s)");
         }
         catch (Exception ex)
         {
@@ -498,8 +653,7 @@ public sealed class LoggingClient
             // entry, then re-resolve and apply. Group-driven effects on this
             // logger would already be captured by group_changed; this handler
             // covers the logger-side config (own level, env overrides, group id).
-            if (_parent?.Manage.Loggers is not { } mgmtL) return;
-            var logger = await mgmtL.GetAsync(loggerId).ConfigureAwait(false);
+            var logger = await Loggers.GetAsync(loggerId).ConfigureAwait(false);
 
             lock (_loggerCacheLock)
             {
@@ -551,8 +705,7 @@ public sealed class LoggingClient
             // then re-resolve every logger. Loggers that inherit (directly or
             // via the parent chain) will pick up the new level; loggers with
             // their own level resolve identically and produce no delta.
-            if (_parent?.Manage.LogGroups is not { } mgmtG) return;
-            var group = await mgmtG.GetAsync(groupId).ConfigureAwait(false);
+            var group = await LogGroups.GetAsync(groupId).ConfigureAwait(false);
 
             lock (_loggerCacheLock)
             {
@@ -608,17 +761,6 @@ public sealed class LoggingClient
         }
     }
 
-    /// <summary>
-    /// Re-fetches managed loggers and log groups from the server and re-applies
-    /// their levels onto every registered adapter. Fires change listeners with
-    /// <c>Source = "manual"</c> for any logger whose effective level differs
-    /// from the cached value. Errors propagate to the caller — the websocket
-    /// path swallows them, but a user-initiated refresh does not.
-    /// </summary>
-    /// <param name="ct">Cancellation token.</param>
-    public Task RefreshAsync(CancellationToken ct = default)
-        => RefetchAndApplyAsync("manual", ct);
-
     private async Task RefetchAndApplyAsync(string source, CancellationToken ct = default)
     {
         // Full refetch of both loggers and groups.
@@ -656,29 +798,23 @@ public sealed class LoggingClient
     }
 
     /// <summary>
-    /// Walks <c>Manage.Loggers.ListAsync</c> page by page until the server
-    /// returns fewer rows than requested. The runtime needs every managed
-    /// logger to apply effective levels to adapters; customers who want
-    /// pagination control go through <c>Manage.Loggers.ListAsync</c>.
+    /// Walks <c>Loggers.ListAsync</c> page by page until the server returns
+    /// fewer rows than requested. The runtime needs every managed logger to
+    /// apply effective levels to adapters; customers who want pagination
+    /// control go through <c>Loggers.ListAsync</c>.
     /// </summary>
-    private async Task<List<Logger>> FetchAllLoggersAsync(CancellationToken ct)
-    {
-        if (_parent?.Manage.Loggers is not { } mgmtLn) return new List<Logger>();
-        return await Smplkit.Internal.Helpers.FetchAllPagesAsync(
-            (page, size, c) => mgmtLn.ListAsync(page, size, c), ct).ConfigureAwait(false);
-    }
+    private Task<List<Logger>> FetchAllLoggersAsync(CancellationToken ct)
+        => Smplkit.Internal.Helpers.FetchAllPagesAsync(
+            (page, size, c) => Loggers.ListAsync(page, size, c), ct);
 
     /// <summary>
-    /// Walks <c>Manage.LogGroups.ListAsync</c> page by page until the server
-    /// returns a short page. The runtime feeds the result into the group cache
-    /// so the resolver can walk group chains for inheritance.
+    /// Walks <c>LogGroups.ListAsync</c> page by page until the server returns a
+    /// short page. The runtime feeds the result into the group cache so the
+    /// resolver can walk group chains for inheritance.
     /// </summary>
-    private async Task<List<LogGroup>> FetchAllLogGroupsAsync(CancellationToken ct)
-    {
-        if (_parent?.Manage.LogGroups is not { } mgmtGn) return new List<LogGroup>();
-        return await Smplkit.Internal.Helpers.FetchAllPagesAsync(
-            (page, size, c) => mgmtGn.ListAsync(page, size, c), ct).ConfigureAwait(false);
-    }
+    private Task<List<LogGroup>> FetchAllLogGroupsAsync(CancellationToken ct)
+        => Smplkit.Internal.Helpers.FetchAllPagesAsync(
+            (page, size, c) => LogGroups.ListAsync(page, size, c), ct);
 
     private void FireListeners(string loggerId, LoggerChangeEvent evt)
     {
@@ -705,42 +841,5 @@ public sealed class LoggingClient
                 catch { /* Ignore listener exceptions */ }
             }
         }
-    }
-
-    // ------------------------------------------------------------------
-    // Inner: registration buffer
-    // ------------------------------------------------------------------
-
-    private sealed class LoggerRegistrationBuffer
-    {
-        private readonly HashSet<string> _seen = new();
-        private readonly List<LoggerRegistrationEntry> _pending = new();
-        private readonly object _lock = new();
-
-        public void Add(string id, string? level, string resolvedLevel, string? service, string? environment)
-        {
-            lock (_lock)
-            {
-                if (_seen.Add(id))
-                    _pending.Add(new(id, level, resolvedLevel, service, environment));
-            }
-        }
-
-        public List<LoggerRegistrationEntry> Drain()
-        {
-            lock (_lock)
-            {
-                var batch = new List<LoggerRegistrationEntry>(_pending);
-                _pending.Clear();
-                return batch;
-            }
-        }
-
-        public int PendingCount
-        {
-            get { lock (_lock) { return _pending.Count; } }
-        }
-
-        internal record LoggerRegistrationEntry(string Id, string? Level, string ResolvedLevel, string? Service, string? Environment);
     }
 }

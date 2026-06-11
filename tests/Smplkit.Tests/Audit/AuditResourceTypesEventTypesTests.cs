@@ -44,7 +44,7 @@ public class AuditResourceTypesEventTypesTests
                 }
                 """),
         }));
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         var page = await client.ResourceTypes.ListAsync();
 
         Assert.Equal(2, page.ResourceTypes.Count);
@@ -73,7 +73,7 @@ public class AuditResourceTypesEventTypesTests
                     + "\"meta\":{\"pagination\":{\"page\":2,\"size\":1,\"total\":3,\"total_pages\":3}}}"),
             });
         });
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         var page = await client.ResourceTypes.ListAsync(new ListResourceTypesInput
         {
             PageNumber = 2,
@@ -98,7 +98,7 @@ public class AuditResourceTypesEventTypesTests
         {
             Content = JsonApi("{\"data\":[],\"meta\":{\"pagination\":{\"page\":1,\"size\":50}}}"),
         }));
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         var page = await client.ResourceTypes.ListAsync();
         Assert.Empty(page.ResourceTypes);
         Assert.Equal(1, page.Pagination.Page);
@@ -116,7 +116,7 @@ public class AuditResourceTypesEventTypesTests
                 Content = JsonApi("{\"data\":[],\"meta\":{\"pagination\":{\"page\":1,\"size\":50}}}"),
             });
         });
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         await client.ResourceTypes.ListAsync(new ListResourceTypesInput
         {
             Environments = new[] { "production", "staging" },
@@ -152,7 +152,7 @@ public class AuditResourceTypesEventTypesTests
                 }
                 """),
         }));
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         var page = await client.EventTypes.ListAsync();
 
         Assert.Equal(2, page.EventTypes.Count);
@@ -178,7 +178,7 @@ public class AuditResourceTypesEventTypesTests
                     + "\"meta\":{\"pagination\":{\"page\":2,\"size\":1,\"total\":3,\"total_pages\":3}}}"),
             });
         });
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         var page = await client.EventTypes.ListAsync(new ListEventTypesInput
         {
             PageNumber = 2,
@@ -206,7 +206,7 @@ public class AuditResourceTypesEventTypesTests
                 Content = JsonApi("{\"data\":[],\"meta\":{\"pagination\":{\"page\":1,\"size\":50}}}"),
             });
         });
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         var page = await client.EventTypes.ListAsync(new ListEventTypesInput
         {
             FilterResourceType = "invoice",
@@ -230,7 +230,7 @@ public class AuditResourceTypesEventTypesTests
                 Content = JsonApi("{\"data\":[],\"meta\":{\"pagination\":{\"page\":1,\"size\":50}}}"),
             });
         });
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         await client.EventTypes.ListAsync(new ListEventTypesInput
         {
             FilterResourceType = "invoice",
@@ -258,7 +258,7 @@ public class AuditResourceTypesEventTypesTests
         {
             Content = JsonApi("{\"data\":[],\"meta\":{\"pagination\":{\"page\":1,\"size\":50}}}"),
         }));
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         var page = await client.EventTypes.ListAsync(null);
         Assert.Empty(page.EventTypes);
     }
@@ -271,7 +271,7 @@ public class AuditResourceTypesEventTypesTests
         {
             Content = JsonApi("{\"data\":[],\"meta\":{\"pagination\":{\"page\":1,\"size\":50}}}"),
         }));
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         var page = await client.ResourceTypes.ListAsync(null);
         Assert.Empty(page.ResourceTypes);
     }
@@ -307,7 +307,7 @@ public class AuditResourceTypesEventTypesTests
                 }
                 """),
         }));
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         var page = await client.Categories.ListAsync();
 
         Assert.Equal(2, page.Categories.Count);
@@ -334,7 +334,7 @@ public class AuditResourceTypesEventTypesTests
                     + "\"meta\":{\"pagination\":{\"page\":2,\"size\":1,\"total\":3,\"total_pages\":3}}}"),
             });
         });
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         var page = await client.Categories.ListAsync(new ListCategoriesInput
         {
             PageNumber = 2,
@@ -354,7 +354,7 @@ public class AuditResourceTypesEventTypesTests
         {
             Content = JsonApi("{\"data\":[],\"meta\":{\"pagination\":{\"page\":1,\"size\":50}}}"),
         }));
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         var page = await client.Categories.ListAsync(null);
         Assert.Empty(page.Categories);
     }
@@ -371,7 +371,7 @@ public class AuditResourceTypesEventTypesTests
                 Content = JsonApi("{\"data\":[],\"meta\":{\"pagination\":{\"page\":1,\"size\":50}}}"),
             });
         });
-        await using var client = new AuditClient(gen);
+        await using var client = new TestAuditClient(gen);
         await client.Categories.ListAsync(new ListCategoriesInput
         {
             Environments = new[] { "smplkit" },

@@ -1,17 +1,63 @@
-using System.Text.RegularExpressions;
+// Shared types for client.platform.*.
 
-namespace Smplkit.Management;
+using System.Text.RegularExpressions;
+using GenApp = Smplkit.Internal.Generated.App;
+
+namespace Smplkit.Platform;
 
 /// <summary>
-/// A color, expressed as a CSS hex string. Immutable — construct a new
-/// <see cref="Color"/> to change the value.
+/// Whether an environment participates in the canonical ordering.
 /// </summary>
+/// <remarks>
+/// STANDARD environments are the customer's deploy targets — production,
+/// staging, development, etc. They participate in
+/// <c>account.settings.environment_order</c> and appear in the standard
+/// Console environment columns.
+///
+/// AD_HOC environments are transient targets (preview branches,
+/// individual developer sandboxes) that should not appear in the
+/// standard ordering.
+/// </remarks>
+public enum EnvironmentClassification
+{
+    /// <summary>A transient target (preview branch, individual developer sandbox).</summary>
+    AdHoc,
+
+    /// <summary>A customer deploy target (production, staging, development).</summary>
+    Standard,
+}
+
+/// <summary>Extension methods for <see cref="EnvironmentClassification"/>.</summary>
+public static class EnvironmentClassificationExtensions
+{
+    /// <summary>Returns the generated wire enum used by the app client.</summary>
+    public static GenApp.EnvironmentClassification ToWireString(this EnvironmentClassification classification) => classification switch
+    {
+        EnvironmentClassification.AdHoc => GenApp.EnvironmentClassification.AD_HOC,
+        EnvironmentClassification.Standard => GenApp.EnvironmentClassification.STANDARD,
+        _ => throw new ArgumentOutOfRangeException(nameof(classification)),
+    };
+
+    /// <summary>Maps the generated wire enum to the public SDK enum. Unknown / null values default to <see cref="EnvironmentClassification.Standard"/>.</summary>
+    public static EnvironmentClassification ParseClassification(GenApp.EnvironmentClassification? wire) => wire switch
+    {
+        GenApp.EnvironmentClassification.AD_HOC => EnvironmentClassification.AdHoc,
+        _ => EnvironmentClassification.Standard,
+    };
+}
+
+/// <summary>
+/// A color, expressed as a CSS hex string.
+/// </summary>
+/// <remarks>
+/// Frozen — construct a fresh <see cref="Color"/> to change a value.
+/// </remarks>
 /// <example>
 /// <code>
 /// new Color("#ef4444");           // 6-digit hex
 /// new Color("#fff");              // 3-digit shorthand
 /// new Color("#ef4444aa");         // 8-digit with alpha
-/// Color.Rgb(239, 68, 68);         // RGB components (0–255)
+/// Color.Rgb(239, 68, 68);         // RGB components
 /// </code>
 /// </example>
 public sealed class Color : IEquatable<Color>
@@ -37,11 +83,12 @@ public sealed class Color : IEquatable<Color>
             throw new ArgumentException(
                 $"Invalid color '{hex}': must be a CSS hex string like '#RGB', '#RRGGBB', or '#RRGGBBAA'",
                 nameof(hex));
+        // normalize to lowercase so equality is canonical
         Hex = hex.ToLowerInvariant();
     }
 
     /// <summary>
-    /// Constructs a <see cref="Color"/> from 0–255 RGB components.
+    /// Construct a <see cref="Color"/> from 0–255 RGB components.
     /// </summary>
     /// <param name="r">Red component (0–255).</param>
     /// <param name="g">Green component (0–255).</param>

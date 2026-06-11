@@ -454,8 +454,10 @@ public class LoggingRuntimeTests
     }
 
     [Fact]
-    public async Task RegisterSourcesAsync_SendsBulk()
+    public async Task LoggersRegisterAsync_SendsBulk()
     {
+        // The one-client refactor moved explicit source registration to the
+        // Loggers sub-client: RegisterAsync buffers, then flushes a bulk POST.
         HttpRequestMessage? captured = null;
         var (client, _) = MakeClient(req =>
         {
@@ -467,20 +469,17 @@ public class LoggingRuntimeTests
             return Task.FromResult(Json("{}"));
         });
 
-        var method = typeof(LoggingClient).GetMethod("RegisterSourcesAsync",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
-        var task = (Task)method.Invoke(client.Logging, new object[]
-        {
+        await client.Logging.Loggers.RegisterAsync(
             new[] { new LoggerSource("a", level: LogLevel.Info, resolvedLevel: LogLevel.Info) },
-            CancellationToken.None,
-        })!;
-        await task;
+            flush: true);
         Assert.NotNull(captured);
     }
 
     [Fact]
-    public async Task BulkRegisterAsync_SendsRequest()
+    public async Task FlushLoggerBufferAsync_SendsRequest()
     {
+        // Adapter-discovered loggers are buffered on the fused client and drained
+        // by FlushLoggerBufferAsync (the timer / threshold flush path).
         HttpRequestMessage? captured = null;
         var (client, _) = MakeClient(req =>
         {
@@ -492,14 +491,14 @@ public class LoggingRuntimeTests
             return Task.FromResult(Json("{}"));
         });
 
-        var method = typeof(LoggingClient).GetMethod("BulkRegisterAsync",
+        // Feed the buffer through the adapter-new-logger entry point.
+        var handle = typeof(LoggingClient).GetMethod("HandleAdapterNewLogger",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
-        var task = (Task)method.Invoke(client.Logging, new object[]
-        {
-            new List<DiscoveredLogger> { new("logger-a", LogLevel.Info) },
-            CancellationToken.None,
-        })!;
-        await task;
+        handle.Invoke(client.Logging, new object[] { "logger-a", LogLevel.Info });
+
+        var flush = typeof(LoggingClient).GetMethod("FlushLoggerBufferAsync",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        await (Task)flush.Invoke(client.Logging, new object[] { CancellationToken.None })!;
         Assert.NotNull(captured);
     }
 
@@ -911,7 +910,7 @@ public class LoggingRuntimeTests
             return Task.FromResult(Json("{}"));
         });
 
-        var loggers = await client.Manage.Loggers.ListAsync();
+        var loggers = await client.Logging.Loggers.ListAsync();
         Assert.Single(loggers);
         Assert.Null(loggers[0].Level); // missing level -> null
     }
@@ -933,7 +932,7 @@ public class LoggingRuntimeTests
             return Task.FromResult(Json("{}"));
         });
 
-        var groups = await client.Manage.LogGroups.ListAsync();
+        var groups = await client.Logging.LogGroups.ListAsync();
         Assert.Single(groups);
         Assert.Null(groups[0].Level);
     }

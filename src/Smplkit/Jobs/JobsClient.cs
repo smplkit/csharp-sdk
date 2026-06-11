@@ -1,21 +1,34 @@
+// Smpl Jobs SDK client (client.Jobs on SmplClient, or standalone JobsClient).
+//
+// Unlike Config/Flags/Logging, Jobs installs no in-process machinery — no
+// environment registration, no WebSocket, no logger monkey-patching. It is a
+// product you *use*, not infrastructure you *install*, so it has no
+// runtime/management split: a single JobsClient exposes the full surface,
+// reachable two ways:
+//
+// * client.Jobs.* on SmplClient
+// * directly — new JobsClient(apiKey: ...) — for callers that only need jobs.
+//
+// A Job is an active record: build it with JobsClient.New, set fields, and
+// call SaveAsync() (create when new, full-replace update when it already
+// exists) or DeleteAsync(). Runs are read-only views; run actions live on
+// jobs.Runs.
+//
+// Every call delegates HTTP to the auto-generated Smplkit.Internal.Generated.Jobs
+// client; this wrapper only shapes models and raises SDK exceptions.
+
 using Smplkit.Internal;
-using Smplkit.Jobs;
 using GenJobs = Smplkit.Internal.Generated.Jobs;
 using HttpMethod = Smplkit.Jobs.HttpMethod;
 
-namespace Smplkit.Management;
+namespace Smplkit.Jobs;
 
-/// <summary>
-/// Run history and run actions — accessed via <see cref="JobsManagementClient.Runs"/>.
-///
-/// <para>Read-only views plus the <c>cancel</c> / <c>rerun</c> run actions. Runs are
-/// created and mutated by the jobs service, not by clients.</para>
-/// </summary>
-public sealed class JobsRunsClient
+/// <summary>Run history and run actions (<c>jobs.Runs</c>).</summary>
+public sealed class RunsClient
 {
     private readonly GenJobs.JobsClient _gen;
 
-    internal JobsRunsClient(GenJobs.JobsClient gen) => _gen = gen;
+    internal RunsClient(GenJobs.JobsClient gen) => _gen = gen;
 
     /// <summary>List runs for the authenticated account, newest first (cursor paginated).</summary>
     /// <param name="job">Filter to a single job's run history, by job id.</param>
@@ -28,7 +41,7 @@ public sealed class JobsRunsClient
         var resp = await ApiExceptionMapper.ExecuteAsync(
             () => _gen.List_runsAsync(job, pageSize, after, ct)).ConfigureAwait(false);
         return (resp.Data ?? new List<GenJobs.RunResource>())
-            .Select(JobsManagementClient.RunFromResource).ToList();
+            .Select(JobsClient.RunFromResource).ToList();
     }
 
     /// <summary>Fetch a single run by id.</summary>
@@ -36,7 +49,7 @@ public sealed class JobsRunsClient
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
             () => _gen.Get_runAsync(Guid.Parse(runId), ct)).ConfigureAwait(false);
-        return JobsManagementClient.RunFromResource(resp.Data);
+        return JobsClient.RunFromResource(resp.Data);
     }
 
     /// <summary>Cancel a pending run.</summary>
@@ -44,7 +57,7 @@ public sealed class JobsRunsClient
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
             () => _gen.Cancel_runAsync(Guid.Parse(runId), ct)).ConfigureAwait(false);
-        return JobsManagementClient.RunFromResource(resp.Data);
+        return JobsClient.RunFromResource(resp.Data);
     }
 
     /// <summary>Re-run a prior run, spawning a new <c>RERUN</c> run.</summary>
@@ -52,45 +65,92 @@ public sealed class JobsRunsClient
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
             () => _gen.Rerun_runAsync(Guid.Parse(runId), ct)).ConfigureAwait(false);
-        return JobsManagementClient.RunFromResource(resp.Data);
+        return JobsClient.RunFromResource(resp.Data);
     }
 }
 
 /// <summary>
-/// Smpl Jobs management surface — accessed via <c>SmplManagementClient.Jobs</c>.
-///
-/// <para>Unlike Config/Flags/Logging, Jobs has no live "phone-home" agent — no
-/// environment registration, no WebSocket — so its entire surface lives on the
-/// management client. Defining a job, triggering a run, and reading run history are
-/// all plain request/response calls here. A <see cref="Job"/> is an active record:
-/// build it with <see cref="New"/>, set fields, and call <see cref="Job.SaveAsync"/>
-/// (create when new, full-replace update when it already exists) or
-/// <see cref="Job.DeleteAsync"/>. Runs are read-only views; run actions live on
-/// <see cref="Runs"/>.</para>
+/// Smpl Jobs client.
 /// </summary>
-public sealed class JobsManagementClient
+/// <remarks>
+/// <para>Reachable as <c>client.Jobs</c> (<see cref="Smplkit.SmplClient"/>) or
+/// constructed directly:</para>
+/// <code>
+/// using var jobs = new JobsClient();
+/// foreach (var job in await jobs.ListAsync())
+///     Console.WriteLine(job.Id);
+/// </code>
+/// </remarks>
+public sealed class JobsClient : IDisposable
 {
     private readonly GenJobs.JobsClient _gen;
+    private readonly HttpClient? _ownedHttpClient;
 
     /// <summary>Run history and run actions.</summary>
-    public JobsRunsClient Runs { get; }
+    public RunsClient Runs { get; }
 
-    internal JobsManagementClient(GenJobs.JobsClient gen)
+    /// <summary>
+    /// Initializes a new <see cref="JobsClient"/>.
+    /// </summary>
+    /// <param name="apiKey">API key. When omitted, resolved from <c>SMPLKIT_API_KEY</c> or <c>~/.smplkit</c>.</param>
+    /// <param name="profile">Named <c>~/.smplkit</c> profile section.</param>
+    /// <param name="baseDomain">Base domain for API requests (default <c>smplkit.com</c>).</param>
+    /// <param name="scheme">URL scheme (default <c>https</c>).</param>
+    /// <param name="debug">Enable SDK debug logging.</param>
+    /// <param name="extraHeaders">Extra headers attached to every request.</param>
+    public JobsClient(
+        string? apiKey = null,
+        string? profile = null,
+        string? baseDomain = null,
+        string? scheme = null,
+        bool? debug = null,
+        IReadOnlyDictionary<string, string>? extraHeaders = null)
     {
-        _gen = gen;
-        Runs = new JobsRunsClient(gen);
+        // Reuse the management config resolver (jobs is account-global and never
+        // environment-scoped) and the shared per-service URL helper, so a
+        // standalone jobs client resolves credentials/base-domain from
+        // ~/.smplkit / env vars / constructor args exactly like the top-level
+        // clients do.
+        var resolved = ConfigResolver.ResolveForManagement(new SmplClientOptions
+        {
+            ApiKey = apiKey,
+            Profile = profile,
+            BaseDomain = baseDomain,
+            Scheme = scheme,
+            Debug = debug,
+        });
+        _ownedHttpClient = new HttpClient();
+        var clients = new GeneratedClientFactory(_ownedHttpClient, new SmplClientOptions
+        {
+            ApiKey = resolved.ApiKey,
+            BaseDomain = resolved.BaseDomain,
+            Scheme = resolved.Scheme,
+            ExtraHeaders = extraHeaders is null ? null : new Dictionary<string, string>(extraHeaders),
+        });
+        _gen = clients.Jobs;
+        Runs = new RunsClient(_gen);
     }
 
     /// <summary>
-    /// Returns an unsaved <see cref="Job"/> bound to this client. Call
-    /// <see cref="Job.SaveAsync"/> to create it.
+    /// Internal — wired by a top-level client so the jobs surface shares one
+    /// connection pool. The borrowed generated client is owned by the parent;
+    /// this instance must not tear it down.
+    /// </summary>
+    internal JobsClient(GenJobs.JobsClient gen)
+    {
+        _gen = gen;
+        _ownedHttpClient = null;
+        Runs = new RunsClient(_gen);
+    }
+
+    /// <summary>
+    /// Return an unsaved <see cref="Job"/>. Call <see cref="Job.SaveAsync"/> to create it.
     /// </summary>
     /// <param name="id">Caller-supplied unique identifier for the job. Unique within
     /// the account and immutable; the service returns 409 if another live job already
     /// uses this id.</param>
     /// <param name="name">Human-readable name for the job.</param>
-    /// <param name="schedule">An ISO-8601 datetime, a 5-field UTC cron expression, or
-    /// the literal <c>"now"</c>.</param>
+    /// <param name="schedule">When the job runs.</param>
     /// <param name="configuration">The HTTP request the job performs.</param>
     /// <param name="description">Optional free-text description.</param>
     /// <param name="enabled">Whether the job schedules runs. Defaults to <c>true</c>.</param>
@@ -131,23 +191,23 @@ public sealed class JobsManagementClient
 
     /// <summary>Retrieve a single job by id. The returned instance is bound to this
     /// client so <see cref="Job.SaveAsync"/> / <see cref="Job.DeleteAsync"/> work.</summary>
-    public async Task<Job> GetAsync(string jobId, CancellationToken ct = default)
+    public async Task<Job> GetAsync(string id, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.Get_jobAsync(jobId, ct)).ConfigureAwait(false);
+            () => _gen.Get_jobAsync(id, ct)).ConfigureAwait(false);
         return FromResource(resp.Data);
     }
 
     /// <summary>Soft-delete a job by id. Prefer <see cref="Job.DeleteAsync"/> when you
     /// already have a <see cref="Job"/> instance.</summary>
-    public Task DeleteAsync(string jobId, CancellationToken ct = default)
-        => ApiExceptionMapper.ExecuteAsync(() => _gen.Delete_jobAsync(jobId, ct));
+    public Task DeleteAsync(string id, CancellationToken ct = default)
+        => ApiExceptionMapper.ExecuteAsync(() => _gen.Delete_jobAsync(id, ct));
 
     /// <summary>Trigger one immediate <c>MANUAL</c> run of the job.</summary>
-    public async Task<Run> RunAsync(string jobId, CancellationToken ct = default)
+    public async Task<Run> RunAsync(string id, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.Run_job_nowAsync(jobId, ct)).ConfigureAwait(false);
+            () => _gen.Run_job_nowAsync(id, ct)).ConfigureAwait(false);
         return RunFromResource(resp.Data);
     }
 
@@ -160,12 +220,8 @@ public sealed class JobsManagementClient
         return new Usage(a.Period, a.Runs_used, a.Runs_included, a.Active_jobs, a.Active_jobs_limit);
     }
 
-    // ------------------------------------------------------------------
-    // Internal: drive Job.SaveAsync
-    // ------------------------------------------------------------------
-
     /// <summary>POST a new job. Called by <see cref="Job.SaveAsync"/>; not for direct use.</summary>
-    internal async Task<Job> SaveCreateAsync(Job job, CancellationToken ct)
+    internal async Task<Job> CreateAsync(Job job, CancellationToken ct)
     {
         var body = new GenJobs.JobCreateRequest
         {
@@ -182,7 +238,7 @@ public sealed class JobsManagementClient
     }
 
     /// <summary>Full-replace PUT. Called by <see cref="Job.SaveAsync"/>; not for direct use.</summary>
-    internal async Task<Job> SaveUpdateAsync(Job job, CancellationToken ct)
+    internal async Task<Job> UpdateAsync(Job job, CancellationToken ct)
     {
         var body = new GenJobs.JobRequest
         {
@@ -196,6 +252,19 @@ public sealed class JobsManagementClient
         var resp = await ApiExceptionMapper.ExecuteAsync(
             () => _gen.Update_jobAsync(job.Id, body, ct)).ConfigureAwait(false);
         return FromResource(resp.Data);
+    }
+
+    /// <summary>
+    /// Release HTTP resources — only when this client owns its transport.
+    /// </summary>
+    /// <remarks>
+    /// A jobs client wired by a top-level client shares that client's transport
+    /// and must not close it here; the owning client's <c>Dispose()</c> handles
+    /// teardown.
+    /// </remarks>
+    public void Dispose()
+    {
+        _ownedHttpClient?.Dispose();
     }
 
     // ------------------------------------------------------------------

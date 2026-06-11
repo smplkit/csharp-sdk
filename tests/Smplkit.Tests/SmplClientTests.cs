@@ -9,7 +9,7 @@ namespace Smplkit.Tests;
 
 /// <summary>
 /// Tests for <see cref="SmplClient"/> covering the runtime-side surface:
-/// SetContext (and disposal), WaitUntilReadyAsync, Manage property, Dispose
+/// SetContext (and disposal), WaitUntilReadyAsync, top-level sub-clients, Dispose
 /// lifecycle, and various constructor paths.
 /// </summary>
 public class SmplClientTests
@@ -119,12 +119,20 @@ public class SmplClientTests
     }
 
     [Fact]
-    public void Manage_Property_AccessibleAndShared()
+    public void TopLevelClients_AccessibleAndShared()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json("""{"data":[]}""")));
-        Assert.NotNull(client.Manage);
-        // Same instance — important for the shared-buffer behavior
-        Assert.Same(client.Manage, client.Manage);
+        Assert.NotNull(client.Platform);
+        Assert.NotNull(client.Account);
+        Assert.NotNull(client.Config);
+        Assert.NotNull(client.Flags);
+        Assert.NotNull(client.Logging);
+        Assert.NotNull(client.Audit);
+        Assert.NotNull(client.Jobs);
+        // Same instance — important for shared-buffer / shared-transport behavior.
+        Assert.Same(client.Platform, client.Platform);
+        Assert.Same(client.Config, client.Config);
+        Assert.Same(client.Flags, client.Flags);
     }
 
     [Fact]

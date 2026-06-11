@@ -58,7 +58,7 @@ using var client = new SmplClient(new SmplClientOptions
     Environment = "production",
     Service = "showcase-service",
 });
-await FlagsRuntimeSetup.SetupRuntimeShowcaseAsync(client.Manage);
+await FlagsRuntimeSetup.SetupRuntimeShowcaseAsync(client);
 await client.WaitUntilReadyAsync();
 
 // declare flags - default values will be used if the flag does not exist
@@ -156,7 +156,7 @@ await Task.Delay(400);
 System.Diagnostics.Debug.Assert(allChanges.Count >= 1);
 System.Diagnostics.Debug.Assert(bannerChanges.Count >= 1);
 
-await FlagsRuntimeSetup.CleanupRuntimeShowcaseAsync(client.Manage);
+await FlagsRuntimeSetup.CleanupRuntimeShowcaseAsync(client);
 Console.WriteLine("Done!");
 
 // Create context within which flags will be evaluated.
@@ -183,7 +183,7 @@ static IEnumerable<Smplkit.Context> CreateContext(
 
 static async Task UpdateRulesAsync(SmplClient client)
 {
-    var currentBanner = await client.Manage.Flags.GetAsync("banner-color");
+    var currentBanner = await client.Flags.GetAsync("banner-color");
     currentBanner.AddRule(new Rule("Red for small companies")
         .Environment("production")
         .When("account.employee_count", "<", 50)

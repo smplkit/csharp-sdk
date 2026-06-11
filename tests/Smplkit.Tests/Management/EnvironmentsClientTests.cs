@@ -2,7 +2,7 @@ using System.Net;
 using System.Text;
 using Smplkit;
 using Smplkit.Errors;
-using Smplkit.Management;
+using Smplkit.Platform;
 using Smplkit.Tests.Helpers;
 using Xunit;
 
@@ -10,12 +10,12 @@ namespace Smplkit.Tests.Management;
 
 public class EnvironmentsClientTests
 {
-    private static (SmplManagementClient mgmt, MockHttpMessageHandler handler) Make(
+    private static (SmplClient mgmt, MockHttpMessageHandler handler) Make(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> respond)
     {
         var handler = new MockHttpMessageHandler(respond);
         var http = new HttpClient(handler);
-        var mgmt = new SmplManagementClient(new SmplClientOptions { ApiKey = "k" }, http);
+        var mgmt = new SmplClient(TestData.DefaultOptions(), http);
         return (mgmt, handler);
     }
 
@@ -69,7 +69,7 @@ public class EnvironmentsClientTests
     public void New_CreatesUnsavedEnvironment()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var env = mgmt.Environments.New("dev", "Development",
+        var env = mgmt.Platform.Environments.New("dev", "Development",
             new Color("#abcdef"), EnvironmentClassification.Standard);
         Assert.Equal("dev", env.Id);
         Assert.Equal("Development", env.Name);
@@ -81,7 +81,7 @@ public class EnvironmentsClientTests
     public void New_StringColorOverload_Validates()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var env = mgmt.Environments.New("dev", "Dev", color: "#000");
+        var env = mgmt.Platform.Environments.New("dev", "Dev", color: "#000");
         Assert.Equal("#000", env.Color!.Hex);
     }
 
@@ -90,14 +90,14 @@ public class EnvironmentsClientTests
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
         Assert.Throws<ArgumentException>(() =>
-            mgmt.Environments.New("dev", "Dev", color: "not-a-color"));
+            mgmt.Platform.Environments.New("dev", "Dev", color: "not-a-color"));
     }
 
     [Fact]
     public void New_NoColor_NullColor()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var env = mgmt.Environments.New("dev", "Development");
+        var env = mgmt.Platform.Environments.New("dev", "Development");
         Assert.Null(env.Color);
     }
 
@@ -105,7 +105,7 @@ public class EnvironmentsClientTests
     public async Task ListAsync_ParsesAll()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json(EnvListJson)));
-        var envs = await mgmt.Environments.ListAsync();
+        var envs = await mgmt.Platform.Environments.ListAsync();
         Assert.Equal(2, envs.Count);
         Assert.Equal("production", envs[0].Id);
         Assert.Equal("#ef4444", envs[0].Color!.Hex);
@@ -118,7 +118,7 @@ public class EnvironmentsClientTests
     public async Task GetAsync_ParsesResponse()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json(SingleEnvJson)));
-        var env = await mgmt.Environments.GetAsync("production");
+        var env = await mgmt.Platform.Environments.GetAsync("production");
         Assert.Equal("production", env.Id);
         Assert.Equal("Production", env.Name);
         Assert.Equal("#ef4444", env.Color!.Hex);
@@ -135,7 +135,7 @@ public class EnvironmentsClientTests
             captured = req;
             return Task.FromResult(Json("{}", HttpStatusCode.NoContent));
         });
-        await mgmt.Environments.DeleteAsync("preview-x");
+        await mgmt.Platform.Environments.DeleteAsync("preview-x");
         Assert.Equal(HttpMethod.Delete, captured!.Method);
         Assert.Contains("preview-x", captured.RequestUri!.ToString());
     }
@@ -149,7 +149,7 @@ public class EnvironmentsClientTests
             captured = req;
             return Task.FromResult(Json(SingleEnvJson, HttpStatusCode.Created));
         });
-        var env = mgmt.Environments.New("production", "Production", new Color("#ef4444"));
+        var env = mgmt.Platform.Environments.New("production", "Production", new Color("#ef4444"));
         await env.SaveAsync();
         Assert.Equal(HttpMethod.Post, captured!.Method);
         Assert.NotNull(env.CreatedAt);
@@ -166,7 +166,7 @@ public class EnvironmentsClientTests
             captured = req;
             return Task.FromResult(Json(SingleEnvJson));
         });
-        var env = await mgmt.Environments.GetAsync("production");
+        var env = await mgmt.Platform.Environments.GetAsync("production");
         env.Name = "Production v2";
         await env.SaveAsync();
         Assert.Equal(HttpMethod.Put, captured!.Method);
@@ -176,7 +176,7 @@ public class EnvironmentsClientTests
     public async Task DeleteAsync_OnUnsavedEnvironment_Throws()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var env = mgmt.Environments.New("nope", "Nope");
+        var env = mgmt.Platform.Environments.New("nope", "Nope");
         env.Id = null;
         await Assert.ThrowsAsync<InvalidOperationException>(() => env.DeleteAsync());
     }
@@ -187,7 +187,7 @@ public class EnvironmentsClientTests
         // BuildCreateBody requires a caller-supplied id; the create
         // envelope's data.id is no longer optional.
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var env = mgmt.Environments.New("placeholder", "Placeholder");
+        var env = mgmt.Platform.Environments.New("placeholder", "Placeholder");
         env.Id = null;
         await Assert.ThrowsAsync<ValidationException>(() => env.SaveAsync());
     }
@@ -202,7 +202,7 @@ public class EnvironmentsClientTests
             captured = req;
             return Task.FromResult(Json("{}", HttpStatusCode.NoContent));
         });
-        var env = await mgmt.Environments.GetAsync("production");
+        var env = await mgmt.Platform.Environments.GetAsync("production");
         await env.DeleteAsync();
         Assert.Equal(HttpMethod.Delete, captured!.Method);
     }
@@ -211,7 +211,7 @@ public class EnvironmentsClientTests
     public void Environment_ToString_IncludesIdAndName()
     {
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
-        var env = mgmt.Environments.New("staging", "Staging");
+        var env = mgmt.Platform.Environments.New("staging", "Staging");
         var s = env.ToString();
         Assert.Contains("staging", s);
         Assert.Contains("Staging", s);

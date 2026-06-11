@@ -14,24 +14,24 @@ public static class ConfigRuntimeSetup
         "showcase-database",
     };
 
-    public static async Task SimulateAdminOverrideAsync(SmplManagementClient mgmt)
+    public static async Task SimulateAdminOverrideAsync(SmplClient client)
     {
         // Real customers never read back through the management API
         // immediately after binding via the runtime client — this is a
         // simulation-only step. Push pending runtime-side registrations
         // through so the management-API lookup below can find the
         // freshly-declared config.
-        await mgmt.Config.FlushAsync();
-        var billing = await mgmt.Config.GetAsync("showcase-billing");
+        await client.Config.FlushAsync();
+        var billing = await client.Config.GetAsync("showcase-billing");
         billing.SetNumber("plan.max_seats", 25, environment: "production");
         await billing.SaveAsync();
     }
 
-    public static async Task CleanupRuntimeShowcaseAsync(SmplManagementClient mgmt)
+    public static async Task CleanupRuntimeShowcaseAsync(SmplClient client)
     {
         foreach (var configId in DemoConfigIds)
         {
-            try { await mgmt.Config.DeleteAsync(configId); }
+            try { await client.Config.DeleteAsync(configId); }
             catch (NotFoundException) { }
         }
     }

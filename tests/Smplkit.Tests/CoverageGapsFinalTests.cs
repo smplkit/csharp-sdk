@@ -27,12 +27,12 @@ public class CoverageGapsFinalTests
         return (client, handler);
     }
 
-    private static (SmplManagementClient mgmt, MockHttpMessageHandler handler) MakeMgmt(
+    private static (SmplClient mgmt, MockHttpMessageHandler handler) MakeMgmt(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> respond)
     {
         var handler = new MockHttpMessageHandler(respond);
         var http = new HttpClient(handler);
-        var mgmt = new SmplManagementClient(new SmplClientOptions { ApiKey = "k" }, http);
+        var mgmt = new SmplClient(TestData.DefaultOptions(), http);
         return (mgmt, handler);
     }
 
@@ -298,9 +298,9 @@ public class CoverageGapsFinalTests
     public void ConfigsClient_MapResource_NullResource_ReturnsNull()
     {
         var (mgmt, _) = MakeMgmt(_ => Task.FromResult(Json("{}")));
-        // After the architectural-inversion remediation, MapResource lives on
-        // Smplkit.Management.ConfigsClient (not the runtime ConfigClient).
-        var method = typeof(Smplkit.Management.ConfigsClient).GetMethod("MapResource",
+        // The one-client refactor fused CRUD onto the runtime ConfigClient, so
+        // MapResource is now a private instance method there.
+        var method = typeof(Smplkit.Config.ConfigClient).GetMethod("MapResource",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
         var result = method.Invoke(mgmt.Config, new object?[] { null });
         Assert.Null(result);
@@ -350,7 +350,7 @@ public class CoverageGapsFinalTests
             ]}
             """;
         var (mgmt, _) = MakeMgmt(_ => Task.FromResult(Json(body)));
-        var loggers = await mgmt.Loggers.ListAsync();
+        var loggers = await mgmt.Logging.Loggers.ListAsync();
         Assert.Single(loggers);
         Assert.Empty(loggers[0].Environments);
     }
@@ -417,7 +417,7 @@ public class CoverageGapsFinalTests
             if (path.EndsWith("/loggers")) return Task.FromResult(Json(body));
             return Task.FromResult(Json("{}"));
         });
-        var loggers = await mgmt.Loggers.ListAsync();
+        var loggers = await mgmt.Logging.Loggers.ListAsync();
         Assert.Single(loggers);
         Assert.NotEmpty(loggers[0].Sources);
     }
@@ -516,7 +516,7 @@ public class CoverageGapsFinalTests
         var (client, _) = MakeClient(_ => Task.FromResult(Json("""{"data":[]}""")));
         // Simulate a flag with neither client wired up.
         var flag = new Smplkit.Flags.BooleanFlag(
-            evalClient: null, mgmtClient: null,
+            evalClient: null,
             id: "f", name: "f", @default: false,
             values: new List<Dictionary<string, object?>>(),
             description: null,
@@ -529,7 +529,7 @@ public class CoverageGapsFinalTests
     public void Flag_Get_NoEvalClient_Throws()
     {
         var flag = new Smplkit.Flags.BooleanFlag(
-            evalClient: null, mgmtClient: null,
+            evalClient: null,
             id: "f", name: "f", @default: false,
             values: new List<Dictionary<string, object?>>(),
             description: null,
@@ -545,7 +545,7 @@ public class CoverageGapsFinalTests
         var (client, _) = MakeClient(_ => Task.FromResult(Json("""
             {"data":[{"id":"c","type":"config","attributes":{"id":"c","name":"c","items":{"k":{"value":"v","type":"STRING"}},"environments":{}}}]}
             """)));
-        var proxy = client.Config.Get("c");
+        var proxy = client.Config.Subscribe("c");
         // Cast to non-generic IEnumerable to hit the explicit interface impl
         System.Collections.IEnumerable enumerable = proxy;
         var found = false;

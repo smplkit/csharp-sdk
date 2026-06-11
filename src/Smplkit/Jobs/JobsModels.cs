@@ -49,10 +49,6 @@ public sealed record HttpHeader(string Name, string Value);
 
 /// <summary>
 /// The HTTP request a job performs when it fires (the <c>http</c> configuration).
-///
-/// <para>Extends the shared forwarder shape with the two fields a scheduled
-/// job needs beyond a forwarder: a request <see cref="Body"/> and a per-run
-/// <see cref="Timeout"/>.</para>
 /// </summary>
 public sealed class HttpConfig
 {
@@ -84,18 +80,10 @@ public sealed class HttpConfig
     public string? CaCert { get; set; }
 }
 
-/// <summary>
-/// A scheduled unit of work: an HTTP request run on a schedule.
-///
-/// <para>Active-record style: mutate fields directly and call <see cref="SaveAsync"/>
-/// to persist, or <see cref="DeleteAsync"/> to remove. Header values in
-/// <see cref="Configuration"/>.Headers are returned redacted on reads — re-supply
-/// the real values before calling <see cref="SaveAsync"/> (the SDK does not cache
-/// them).</para>
-/// </summary>
+/// <summary>A job definition. Mutate fields, then call <see cref="SaveAsync"/>.</summary>
 public sealed class Job
 {
-    private readonly Smplkit.Management.JobsManagementClient? _client;
+    private readonly JobsClient? _client;
 
     /// <summary>Caller-supplied unique identifier for the job (the resource <c>id</c>).</summary>
     public string Id { get; internal set; }
@@ -128,7 +116,7 @@ public sealed class Job
     public int? Version { get; internal set; }
 
     internal Job(
-        Smplkit.Management.JobsManagementClient? client,
+        JobsClient? client,
         string id,
         string name,
         string schedule,
@@ -159,27 +147,22 @@ public sealed class Job
         Version = version;
     }
 
-    /// <summary>
-    /// Create this job, or full-replace it if it already exists. Upsert behavior is
-    /// driven by <see cref="CreatedAt"/>: a job with no <c>CreatedAt</c> is created
-    /// (POST), otherwise it's full-replace updated (PUT). After the call, every
-    /// server-authoritative field is refreshed from the response.
-    /// </summary>
+    /// <summary>Create this job, or full-replace it if it already exists.</summary>
     public async Task SaveAsync(CancellationToken ct = default)
     {
         if (_client is null)
-            throw new InvalidOperationException("Job was constructed without a client; cannot save.");
-        var refreshed = CreatedAt is null
-            ? await _client.SaveCreateAsync(this, ct).ConfigureAwait(false)
-            : await _client.SaveUpdateAsync(this, ct).ConfigureAwait(false);
-        Apply(refreshed);
+            throw new InvalidOperationException("Job was constructed without a client; cannot save");
+        var other = CreatedAt is null
+            ? await _client.CreateAsync(this, ct).ConfigureAwait(false)
+            : await _client.UpdateAsync(this, ct).ConfigureAwait(false);
+        Apply(other);
     }
 
-    /// <summary>Soft-delete this job on the server.</summary>
+    /// <summary>Soft-delete this job.</summary>
     public Task DeleteAsync(CancellationToken ct = default)
     {
         if (_client is null)
-            throw new InvalidOperationException("Job was constructed without a client; cannot delete.");
+            throw new InvalidOperationException("Job was constructed without a client; cannot delete");
         return _client.DeleteAsync(Id, ct);
     }
 
@@ -205,13 +188,7 @@ public sealed class Job
     public override string ToString() => $"Job(Id={Id}, Name={Name}, Enabled={Enabled})";
 }
 
-/// <summary>
-/// A single execution of a job (read-only).
-///
-/// <para>Runs are created and mutated by the jobs service, not by clients; clients
-/// influence runs only through the <c>Run</c> / <c>Cancel</c> / <c>Rerun</c> actions
-/// on <c>mgmt.Jobs</c>.</para>
-/// </summary>
+/// <summary>A single execution of a job (read-only).</summary>
 public sealed class Run
 {
     /// <summary>Server-assigned UUID for this run.</summary>

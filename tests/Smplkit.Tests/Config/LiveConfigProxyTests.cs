@@ -57,7 +57,7 @@ public class LiveConfigProxyTests
     public void Get_ReturnsLiveConfigProxy()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json(ConfigListJson)));
-        var proxy = client.Config.Get("user-svc");
+        var proxy = client.Config.Subscribe("user-svc");
         Assert.IsType<LiveConfigProxy>(proxy);
         Assert.Equal("user-svc", proxy.ConfigId);
     }
@@ -66,7 +66,7 @@ public class LiveConfigProxyTests
     public void Indexer_ReturnsResolvedValue()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json(ConfigListJson)));
-        var proxy = client.Config.Get("user-svc");
+        var proxy = client.Config.Subscribe("user-svc");
         Assert.Equal("test-host", proxy["host"]); // env override wins
         Assert.Equal(3L, proxy["retries"]);
     }
@@ -75,7 +75,7 @@ public class LiveConfigProxyTests
     public void Indexer_UnknownKey_Throws()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json(ConfigListJson)));
-        var proxy = client.Config.Get("user-svc");
+        var proxy = client.Config.Subscribe("user-svc");
         Assert.Throws<KeyNotFoundException>(() => _ = proxy["nope"]);
     }
 
@@ -83,7 +83,7 @@ public class LiveConfigProxyTests
     public void ContainsKey_Works()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json(ConfigListJson)));
-        var proxy = client.Config.Get("user-svc");
+        var proxy = client.Config.Subscribe("user-svc");
         Assert.True(proxy.ContainsKey("host"));
         Assert.False(proxy.ContainsKey("nope"));
     }
@@ -92,7 +92,7 @@ public class LiveConfigProxyTests
     public void TryGetValue_Works()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json(ConfigListJson)));
-        var proxy = client.Config.Get("user-svc");
+        var proxy = client.Config.Subscribe("user-svc");
         Assert.True(proxy.TryGetValue("host", out var v));
         Assert.Equal("test-host", v);
         Assert.False(proxy.TryGetValue("nope", out _));
@@ -102,7 +102,7 @@ public class LiveConfigProxyTests
     public void Count_ReflectsResolvedKeys()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json(ConfigListJson)));
-        var proxy = client.Config.Get("user-svc");
+        var proxy = client.Config.Subscribe("user-svc");
         Assert.Equal(3, proxy.Count);
     }
 
@@ -110,7 +110,7 @@ public class LiveConfigProxyTests
     public void Keys_AndValues_Enumerable()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json(ConfigListJson)));
-        var proxy = client.Config.Get("user-svc");
+        var proxy = client.Config.Subscribe("user-svc");
         Assert.Contains("host", proxy.Keys);
         Assert.Contains("retries", proxy.Keys);
         Assert.NotEmpty(proxy.Values);
@@ -120,7 +120,7 @@ public class LiveConfigProxyTests
     public void Foreach_IteratesKvPairs()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json(ConfigListJson)));
-        var proxy = client.Config.Get("user-svc");
+        var proxy = client.Config.Subscribe("user-svc");
         var seen = new HashSet<string>();
         foreach (var kv in proxy) seen.Add(kv.Key);
         Assert.Contains("host", seen);
@@ -132,7 +132,7 @@ public class LiveConfigProxyTests
     {
         // Cover the IEnumerable.GetEnumerator() explicit interface path.
         var (client, _) = MakeClient(_ => Task.FromResult(Json(ConfigListJson)));
-        var proxy = client.Config.Get("user-svc");
+        var proxy = client.Config.Subscribe("user-svc");
         var seen = new List<string>();
         var enumerable = (System.Collections.IEnumerable)proxy;
         foreach (var item in enumerable)
@@ -147,7 +147,7 @@ public class LiveConfigProxyTests
     public void GetOrDefault_PresentKey_ReturnsValue()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json(ConfigListJson)));
-        var proxy = client.Config.Get("user-svc");
+        var proxy = client.Config.Subscribe("user-svc");
         Assert.Equal("test-host", proxy.GetOrDefault("host"));
     }
 
@@ -155,7 +155,7 @@ public class LiveConfigProxyTests
     public void GetOrDefault_MissingKey_ReturnsDefault()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json(ConfigListJson)));
-        var proxy = client.Config.Get("user-svc");
+        var proxy = client.Config.Subscribe("user-svc");
         Assert.Equal("fallback", proxy.GetOrDefault("nope", "fallback"));
         Assert.Null(proxy.GetOrDefault("nope"));
     }
@@ -170,7 +170,7 @@ public class LiveConfigProxyTests
             call++;
             return Task.FromResult(Json(call == 1 ? ConfigListJson : updated));
         });
-        var proxy = client.Config.Get("user-svc");
+        var proxy = client.Config.Subscribe("user-svc");
         var initial = proxy["host"];
         await client.Config.RefreshAsync();
         var afterRefresh = proxy["host"];
@@ -184,7 +184,7 @@ public class LiveConfigProxyTests
     public void OnChange_ConfigScoped_Sugar()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json(ConfigListJson)));
-        var proxy = client.Config.Get("user-svc");
+        var proxy = client.Config.Subscribe("user-svc");
         var fired = new List<ConfigChangeEvent>();
         proxy.OnChange(evt => fired.Add(evt));
 
@@ -210,7 +210,7 @@ public class LiveConfigProxyTests
     public void OnChange_ItemScoped_Sugar()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json(ConfigListJson)));
-        var proxy = client.Config.Get("user-svc");
+        var proxy = client.Config.Subscribe("user-svc");
         var fired = new List<ConfigChangeEvent>();
         proxy.OnChange("host", evt => fired.Add(evt));
 
@@ -234,7 +234,7 @@ public class LiveConfigProxyTests
     public void ToString_IncludesConfigId()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json(ConfigListJson)));
-        var proxy = client.Config.Get("user-svc");
+        var proxy = client.Config.Subscribe("user-svc");
         Assert.Contains("user-svc", proxy.ToString());
     }
 
@@ -242,7 +242,7 @@ public class LiveConfigProxyTests
     public void Get_UnknownConfig_ThrowsNotFound()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json(ConfigListJson)));
-        Assert.Throws<NotFoundException>(() => client.Config.Get("does-not-exist"));
+        Assert.Throws<NotFoundException>(() => client.Config.Subscribe("does-not-exist"));
     }
 
     [Fact]
@@ -251,7 +251,7 @@ public class LiveConfigProxyTests
         // Cover the LiveConfigProxy.Snapshot null-cache path: build a proxy
         // for a config that exists, then evict it from the cache and re-read.
         var (client, _) = MakeClient(_ => Task.FromResult(Json(ConfigListJson)));
-        var proxy = client.Config.Get("user-svc");
+        var proxy = client.Config.Subscribe("user-svc");
         // Sanity: read once to confirm it works.
         _ = proxy["host"];
 

@@ -384,7 +384,7 @@ public sealed class HttpConfiguration
 /// </summary>
 public sealed class Forwarder
 {
-    private readonly Smplkit.Management.ManagementForwardersClient? _client;
+    private readonly ForwardersClient? _client;
 
     /// <summary>Caller-supplied key for this forwarder. Required at create
     /// time (the audit service does not auto-generate it). <c>null</c> until
@@ -450,7 +450,7 @@ public sealed class Forwarder
     public int? Version { get; internal set; }
 
     internal Forwarder(
-        Smplkit.Management.ManagementForwardersClient? client,
+        ForwardersClient? client,
         string name,
         ForwarderType forwarderType,
         HttpConfiguration configuration,
@@ -512,6 +512,61 @@ public sealed class Forwarder
         return _client.DeleteAsync(Id, ct);
     }
 
+    /// <summary>
+    /// Return the override for <paramref name="environment"/>, creating an empty one if absent.
+    ///
+    /// <para>Mirrors <c>Smplkit.Config.Config.ItemsTarget</c> — the per-environment
+    /// mutators reach through here so an existing override's other field is
+    /// preserved when only one of <c>Enabled</c> / <c>Configuration</c> is being
+    /// set.</para>
+    /// </summary>
+    private ForwarderEnvironment EnvironmentOverride(string environment)
+    {
+        if (!Environments.TryGetValue(environment, out var env))
+        {
+            env = new ForwarderEnvironment();
+            Environments[environment] = env;
+        }
+        return env;
+    }
+
+    /// <summary>
+    /// Set this forwarder's destination configuration in memory.
+    ///
+    /// <para>With <paramref name="environment"/> omitted, replaces the base
+    /// <see cref="Configuration"/>. With <paramref name="environment"/> given,
+    /// sets the per-environment override's configuration on
+    /// <see cref="Environments"/>, creating the override entry if it doesn't
+    /// exist yet (preserving any already-set <c>Enabled</c> on it). Call
+    /// <see cref="SaveAsync"/> to persist.</para>
+    /// </summary>
+    public void SetConfiguration(HttpConfiguration configuration, string? environment = null)
+    {
+        if (environment is null)
+            Configuration = configuration;
+        else
+            EnvironmentOverride(environment).Configuration = configuration;
+    }
+
+    /// <summary>
+    /// Set this forwarder's enablement in memory.
+    ///
+    /// <para>With <paramref name="environment"/> omitted, sets the base
+    /// <see cref="Enabled"/> (which the server pins false regardless —
+    /// enablement is per-environment). With <paramref name="environment"/> given,
+    /// sets the per-environment override's <c>Enabled</c> on
+    /// <see cref="Environments"/>, creating the override entry if it doesn't
+    /// exist yet (preserving any already-set <c>Configuration</c> on it). Call
+    /// <see cref="SaveAsync"/> to persist.</para>
+    /// </summary>
+    public void SetEnabled(bool enabled, string? environment = null)
+    {
+        if (environment is null)
+            Enabled = enabled;
+        else
+            EnvironmentOverride(environment).Enabled = enabled;
+    }
+
     /// <summary>Copy every server-authoritative field from <paramref name="other"/> onto self.</summary>
     internal void Apply(Forwarder other)
     {
@@ -570,7 +625,7 @@ public sealed class Forwarder
     }
 }
 
-/// <summary>Filter + pagination input for <see cref="Smplkit.Management.ManagementForwardersClient.ListAsync"/>.</summary>
+/// <summary>Filter + pagination input for <see cref="Smplkit.Audit.ForwardersClient.ListAsync"/>.</summary>
 public sealed class ListForwardersInput
 {
     /// <summary>Filter by exact-match forwarder type.</summary>

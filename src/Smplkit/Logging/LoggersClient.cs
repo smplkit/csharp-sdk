@@ -1,39 +1,63 @@
 using System.Text.Json;
 using Smplkit.Errors;
 using Smplkit.Internal;
-using Smplkit.Logging;
 using GenLogging = Smplkit.Internal.Generated.Logging;
 
-namespace Smplkit.Management;
+namespace Smplkit.Logging;
 
 /// <summary>
-/// Provides logger CRUD operations on the management plane. Owns the wire code
-/// (HTTP request bodies, response mapping, generated-client invocation) so it
-/// has no dependency on the runtime <see cref="Smplkit.Logging.LoggingClient"/>.
-/// Accessible via <see cref="SmplManagementClient.Loggers"/>.
+/// Surface for <c>client.Logging.Loggers.*</c>.
 /// </summary>
+/// <remarks>
+/// Logger CRUD plus the discovery buffer. The buffer is owned by the fused
+/// <see cref="LoggingClient"/> and shared here so discovery (driven by
+/// <see cref="LoggingClient.InstallAsync"/>) and explicit <see cref="RegisterAsync"/>
+/// drain through one queue.
+/// </remarks>
 public sealed class LoggersClient
 {
     private readonly GenLogging.LoggingClient _genClient;
-    private readonly List<LoggerSource> _buffered = new();
-    private readonly object _bufferLock = new();
+    private readonly LoggerRegistrationBuffer _buffer;
 
-    internal LoggersClient(GeneratedClientFactory clients)
+    internal LoggersClient(GenLogging.LoggingClient genClient, LoggerRegistrationBuffer buffer)
     {
-        _genClient = clients.Logging;
+        _genClient = genClient;
+        _buffer = buffer;
     }
 
-    /// <summary>Returns the count of pending logger registrations not yet flushed.</summary>
-    public int PendingCount
+    /// <summary>Buffer logger sources for registration; optionally flush immediately.</summary>
+    /// <param name="sources">Logger sources to register.</param>
+    /// <param name="flush">Whether to send the buffer immediately. Defaults to <c>true</c>.</param>
+    /// <param name="ct">Cancellation token.</param>
+    public async Task RegisterAsync(IEnumerable<LoggerSource> sources, bool flush = true, CancellationToken ct = default)
     {
-        get { lock (_bufferLock) return _buffered.Count; }
+        foreach (var src in sources)
+            _buffer.Add(
+                NormalizeLoggerName(src.Name),
+                src.Level?.ToWireString(),
+                src.ResolvedLevel?.ToWireString(),
+                src.Service,
+                src.Environment);
+        if (flush)
+            await FlushAsync(ct).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Creates an unsaved logger. The id doubles as the display name; <c>managed</c>
-    /// defaults to <c>true</c> (every logger created via the management API is by
-    /// definition managed).
-    /// </summary>
+    /// <summary>Drain the buffer and POST pending logger sources to the bulk endpoint.</summary>
+    /// <param name="ct">Cancellation token.</param>
+    public async Task FlushAsync(CancellationToken ct = default)
+    {
+        var request = BuildLoggerBulkRequest(_buffer);
+        if (request is null) return;
+        await ApiExceptionMapper.ExecuteAsync(
+            () => _genClient.Bulk_register_loggersAsync(request, ct)).ConfigureAwait(false);
+    }
+
+    /// <summary>Number of sources queued and awaiting flush.</summary>
+    public int PendingCount => _buffer.PendingCount;
+
+    /// <summary>Return a new unsaved <see cref="Logger"/>. Call <see cref="Logger.SaveAsync"/> to persist.</summary>
+    /// <param name="id">The logger identifier (slug); doubles as the display name.</param>
+    /// <param name="managed">Whether this logger is managed. Defaults to <c>true</c>.</param>
     public Logger New(string id, bool managed = true)
     {
         return new Logger(
@@ -49,7 +73,7 @@ public sealed class LoggersClient
             updatedAt: null);
     }
 
-    /// <summary>Lists loggers. Returns one page; defaults to the server's first page.</summary>
+    /// <summary>List loggers for the authenticated account.</summary>
     /// <param name="pageNumber">1-based page number; null lets the server default (1) apply.</param>
     /// <param name="pageSize">Items per page; null lets the server default (1000) apply.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -67,7 +91,7 @@ public sealed class LoggersClient
         return response.Data.Select(r => MapLoggerResource(r)!).Where(l => l is not null).ToList();
     }
 
-    /// <summary>Fetches a logger by id.</summary>
+    /// <summary>Fetch the editable <see cref="Logger"/> resource by id.</summary>
     /// <exception cref="NotFoundException">If no matching logger exists.</exception>
     public async Task<Logger> GetAsync(string id, CancellationToken ct = default)
     {
@@ -77,7 +101,7 @@ public sealed class LoggersClient
             ?? throw new NotFoundException($"Logger with id '{id}' not found");
     }
 
-    /// <summary>Deletes a logger by id.</summary>
+    /// <summary>Delete a logger by id.</summary>
     public async Task DeleteAsync(string id, CancellationToken ct = default)
     {
         await ApiExceptionMapper.ExecuteAsync(
@@ -96,58 +120,8 @@ public sealed class LoggersClient
             ?? throw new ValidationException("Failed to save logger");
     }
 
-    /// <summary>
-    /// Registers explicit logger sources with per-source service and environment overrides.
-    /// Sources are appended to a pending buffer. When <paramref name="flush"/> is
-    /// <c>true</c> (the default), the buffer is drained and bulk-registered with
-    /// the server in a single request before the call returns. With
-    /// <paramref name="flush"/> = <c>false</c>, sources stay in the buffer until
-    /// a subsequent <see cref="FlushAsync"/> or a <c>flush=true</c> register call.
-    /// </summary>
-    /// <param name="sources">Logger sources to register.</param>
-    /// <param name="flush">Whether to send the buffer immediately. Defaults to <c>true</c>.</param>
-    /// <param name="ct">Cancellation token.</param>
-    public async Task RegisterAsync(IEnumerable<LoggerSource> sources, bool flush = true, CancellationToken ct = default)
-    {
-        lock (_bufferLock)
-        {
-            _buffered.AddRange(sources);
-        }
-        if (flush)
-            await FlushAsync(ct).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Sends any pending logger registrations to the server in a single bulk
-    /// request. Returns immediately if the buffer is empty.
-    /// </summary>
-    /// <param name="ct">Cancellation token.</param>
-    public async Task FlushAsync(CancellationToken ct = default)
-    {
-        List<LoggerSource> batch;
-        lock (_bufferLock)
-        {
-            if (_buffered.Count == 0) return;
-            batch = new List<LoggerSource>(_buffered);
-            _buffered.Clear();
-        }
-
-        var items = batch.Select(s => new GenLogging.LoggerBulkItem
-        {
-            Id = s.Name,
-            Level = s.Level?.ToWireString(),
-            Resolved_level = s.ResolvedLevel?.ToWireString(),
-            Service = s.Service,
-            Environment = s.Environment,
-        }).ToList();
-
-        await ApiExceptionMapper.ExecuteAsync(
-            () => _genClient.Bulk_register_loggersAsync(
-                new GenLogging.LoggerBulkRequest { Loggers = items }, ct)).ConfigureAwait(false);
-    }
-
     // ------------------------------------------------------------------
-    // Wire helpers — moved from runtime LoggingClient.
+    // Wire helpers
     // ------------------------------------------------------------------
 
     private Logger? MapLoggerResource(GenLogging.LoggerResource? resource)
@@ -204,6 +178,27 @@ public sealed class LoggersClient
             }
         };
 
+    /// <summary>Drain the logger-discovery buffer and build a JSON:API bulk request body.
+    /// Returns <see langword="null"/> when there is nothing to flush.</summary>
+    internal static GenLogging.LoggerBulkRequest? BuildLoggerBulkRequest(LoggerRegistrationBuffer buffer)
+    {
+        var batch = buffer.Drain();
+        if (batch.Count == 0) return null;
+        var items = batch.Select(e =>
+        {
+            var item = new GenLogging.LoggerBulkItem
+            {
+                Id = e.Id,
+                Resolved_level = e.ResolvedLevel,
+            };
+            if (e.Level is not null) item.Level = e.Level;
+            if (e.Service is not null) item.Service = e.Service;
+            if (e.Environment is not null) item.Environment = e.Environment;
+            return item;
+        }).ToList();
+        return new GenLogging.LoggerBulkRequest { Loggers = items };
+    }
+
     internal static object? BuildEnvironmentsPayload(Dictionary<string, Dictionary<string, object?>> environments)
         => environments.Count == 0 ? null : (object?)environments;
 
@@ -226,4 +221,11 @@ public sealed class LoggersClient
             result[prop.Name] = Smplkit.Config.Resolver.Normalize(prop.Value);
         return result;
     }
+
+    /// <summary>
+    /// Normalize a logger name: replace <c>/</c> and <c>:</c> with <c>.</c> and lowercase.
+    /// Mirrors <c>smplkit.logging._normalize.normalize_logger_name</c>.
+    /// </summary>
+    internal static string NormalizeLoggerName(string name)
+        => name.Replace('/', '.').Replace(':', '.').ToLowerInvariant();
 }

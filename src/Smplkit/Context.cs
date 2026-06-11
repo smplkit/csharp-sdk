@@ -25,7 +25,7 @@ namespace Smplkit;
 /// </example>
 public sealed class Context
 {
-    private readonly Smplkit.Management.IContextSink? _sink;
+    private readonly IContextSink? _sink;
     private string _type;
     private string _key;
 
@@ -78,7 +78,7 @@ public sealed class Context
     }
 
     internal Context(
-        Smplkit.Management.IContextSink sink,
+        IContextSink sink,
         string type,
         string key,
         Dictionary<string, object?>? attributes,
