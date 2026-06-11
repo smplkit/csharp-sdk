@@ -89,7 +89,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>download honors every supplied filter and ignores `page[size]` and
         /// <br/>`page[after]`.
         /// </remarks>
-        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results are scoped to your single accessible environment; send the `X-Smplkit-Environment` header instead if you can access more than one. The reserved value `smplkit` selects platform change events that smplkit records about your own resources (flags, configuration, and so on); these are not tied to a deployment environment and are readable regardless of which environments you manage.</param>
+        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results cover every environment you can access. The reserved value `smplkit` selects platform change events smplkit records about your own resources; it is included by default when your plan grants change history, and requesting it explicitly without that entitlement returns 402.</param>
         /// <param name="filterseverity">Exact match on the event's `severity` field. One of `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.</param>
         /// <param name="filtercategory">Exact match on the event's `category` field.</param>
         /// <param name="filtersearch">Case-insensitive substring match against `resource_id` or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.</param>
@@ -125,10 +125,11 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// Search audit events with column filters and an optional JSON Logic expression.
         /// <br/>
-        /// <br/>Scoped by `filter[environment]` (a comma-separated set). When omitted, a
-        /// <br/>single-environment credential is implied; otherwise send the
-        /// <br/>`X-Smplkit-Environment` header. The reserved `smplkit` value selects
-        /// <br/>platform change events smplkit records about your own resources.
+        /// <br/>Scoped by `filter[environment]` (a comma-separated set). When omitted,
+        /// <br/>results cover every environment you can access. The reserved `smplkit`
+        /// <br/>value selects platform change events smplkit records about your own
+        /// <br/>resources; it is included by default when your plan grants change history,
+        /// <br/>and requesting it explicitly without that entitlement returns 402.
         /// <br/>
         /// <br/>Without a JSON Logic `filter`: behaves like `GET /api/v1/events`
         /// <br/>with the same column filters.
@@ -404,7 +405,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>environments (see `filter[environment]`); platform resource types
         /// <br/>appear under the reserved `smplkit` value.
         /// </remarks>
-        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results are scoped to your single accessible environment; send the `X-Smplkit-Environment` header instead if you can access more than one. The reserved value `smplkit` selects platform change events that smplkit records about your own resources (flags, configuration, and so on); these are not tied to a deployment environment and are readable regardless of which environments you manage.</param>
+        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results cover every environment you can access. The reserved value `smplkit` selects platform change events smplkit records about your own resources; it is included by default when your plan grants change history, and requesting it explicitly without that entitlement returns 402.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
@@ -426,7 +427,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>event_type. With `filter[resource_type]`, returns the event_types
         /// <br/>recorded for that specific resource type.
         /// </remarks>
-        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results are scoped to your single accessible environment; send the `X-Smplkit-Environment` header instead if you can access more than one. The reserved value `smplkit` selects platform change events that smplkit records about your own resources (flags, configuration, and so on); these are not tied to a deployment environment and are readable regardless of which environments you manage.</param>
+        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results cover every environment you can access. The reserved value `smplkit` selects platform change events smplkit records about your own resources; it is included by default when your plan grants change history, and requesting it explicitly without that entitlement returns 402.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
@@ -447,7 +448,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>selected environments (see `filter[environment]`). Useful for
         /// <br/>populating filter dropdowns in a UI.
         /// </remarks>
-        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results are scoped to your single accessible environment; send the `X-Smplkit-Environment` header instead if you can access more than one. The reserved value `smplkit` selects platform change events that smplkit records about your own resources (flags, configuration, and so on); these are not tied to a deployment environment and are readable regardless of which environments you manage.</param>
+        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results cover every environment you can access. The reserved value `smplkit` selects platform change events smplkit records about your own resources; it is included by default when your plan grants change history, and requesting it explicitly without that entitlement returns 402.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
@@ -651,7 +652,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>download honors every supplied filter and ignores `page[size]` and
         /// <br/>`page[after]`.
         /// </remarks>
-        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results are scoped to your single accessible environment; send the `X-Smplkit-Environment` header instead if you can access more than one. The reserved value `smplkit` selects platform change events that smplkit records about your own resources (flags, configuration, and so on); these are not tied to a deployment environment and are readable regardless of which environments you manage.</param>
+        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results cover every environment you can access. The reserved value `smplkit` selects platform change events smplkit records about your own resources; it is included by default when your plan grants change history, and requesting it explicitly without that entitlement returns 402.</param>
         /// <param name="filterseverity">Exact match on the event's `severity` field. One of `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.</param>
         /// <param name="filtercategory">Exact match on the event's `category` field.</param>
         /// <param name="filtersearch">Case-insensitive substring match against `resource_id` or `description`. Use `filter[resource_id]` for an exact match on `resource_id`.</param>
@@ -885,10 +886,11 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// Search audit events with column filters and an optional JSON Logic expression.
         /// <br/>
-        /// <br/>Scoped by `filter[environment]` (a comma-separated set). When omitted, a
-        /// <br/>single-environment credential is implied; otherwise send the
-        /// <br/>`X-Smplkit-Environment` header. The reserved `smplkit` value selects
-        /// <br/>platform change events smplkit records about your own resources.
+        /// <br/>Scoped by `filter[environment]` (a comma-separated set). When omitted,
+        /// <br/>results cover every environment you can access. The reserved `smplkit`
+        /// <br/>value selects platform change events smplkit records about your own
+        /// <br/>resources; it is included by default when your plan grants change history,
+        /// <br/>and requesting it explicitly without that entitlement returns 402.
         /// <br/>
         /// <br/>Without a JSON Logic `filter`: behaves like `GET /api/v1/events`
         /// <br/>with the same column filters.
@@ -2285,7 +2287,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>environments (see `filter[environment]`); platform resource types
         /// <br/>appear under the reserved `smplkit` value.
         /// </remarks>
-        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results are scoped to your single accessible environment; send the `X-Smplkit-Environment` header instead if you can access more than one. The reserved value `smplkit` selects platform change events that smplkit records about your own resources (flags, configuration, and so on); these are not tied to a deployment environment and are readable regardless of which environments you manage.</param>
+        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results cover every environment you can access. The reserved value `smplkit` selects platform change events smplkit records about your own resources; it is included by default when your plan grants change history, and requesting it explicitly without that entitlement returns 402.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
@@ -2395,7 +2397,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>event_type. With `filter[resource_type]`, returns the event_types
         /// <br/>recorded for that specific resource type.
         /// </remarks>
-        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results are scoped to your single accessible environment; send the `X-Smplkit-Environment` header instead if you can access more than one. The reserved value `smplkit` selects platform change events that smplkit records about your own resources (flags, configuration, and so on); these are not tied to a deployment environment and are readable regardless of which environments you manage.</param>
+        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results cover every environment you can access. The reserved value `smplkit` selects platform change events smplkit records about your own resources; it is included by default when your plan grants change history, and requesting it explicitly without that entitlement returns 402.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
@@ -2508,7 +2510,7 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>selected environments (see `filter[environment]`). Useful for
         /// <br/>populating filter dropdowns in a UI.
         /// </remarks>
-        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results are scoped to your single accessible environment; send the `X-Smplkit-Environment` header instead if you can access more than one. The reserved value `smplkit` selects platform change events that smplkit records about your own resources (flags, configuration, and so on); these are not tied to a deployment environment and are readable regardless of which environments you manage.</param>
+        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results cover every environment you can access. The reserved value `smplkit` selects platform change events smplkit records about your own resources; it is included by default when your plan grants change history, and requesting it explicitly without that entitlement returns 402.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `key`. Allowed values: `key`, `-key`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
@@ -3146,7 +3148,7 @@ namespace Smplkit.Internal.Generated.Audit
         public object? Filter { get; set; } = default!;
 
         /// <summary>
-        /// Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results are scoped to your single accessible environment; send the `X-Smplkit-Environment` header instead if you can access more than one. The reserved value `smplkit` selects platform change events that smplkit records about your own resources (flags, configuration, and so on); these are not tied to a deployment environment and are readable regardless of which environments you manage.
+        /// Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results cover every environment you can access. The reserved value `smplkit` selects platform change events smplkit records about your own resources; it is included by default when your plan grants change history, and requesting it explicitly without that entitlement returns 402.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("filter[environment]")]
         public string? Filterenvironment { get; set; } = default!;
