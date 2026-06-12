@@ -66,6 +66,10 @@ public sealed class LiveConfigProxy : IReadOnlyDictionary<string, object?>
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     /// <summary>Get a value with a fallback default if the key is missing.</summary>
+    /// <param name="key">The config item key to read.</param>
+    /// <param name="defaultValue">Value returned when <paramref name="key"/> is not present.</param>
+    /// <returns>The current resolved value for <paramref name="key"/>, or
+    /// <paramref name="defaultValue"/> if the key is absent.</returns>
     public object? GetOrDefault(string key, object? defaultValue = null)
         => Snapshot().TryGetValue(key, out var value) ? value : defaultValue;
 
@@ -73,6 +77,7 @@ public sealed class LiveConfigProxy : IReadOnlyDictionary<string, object?>
     /// Register a change listener scoped to this config — sugar for
     /// <c>client.Config.OnChange(configId, callback)</c>.
     /// </summary>
+    /// <param name="callback">The listener invoked when this config changes.</param>
     public void OnChange(Action<ConfigChangeEvent> callback)
         => _client.OnChange(_configId, callback);
 
@@ -80,6 +85,8 @@ public sealed class LiveConfigProxy : IReadOnlyDictionary<string, object?>
     /// Register a change listener scoped to a specific item within this
     /// config — sugar for <c>client.Config.OnChange(configId, itemKey, callback)</c>.
     /// </summary>
+    /// <param name="itemKey">The single item key to restrict the listener to.</param>
+    /// <param name="callback">The listener invoked when this item changes.</param>
     public void OnChange(string itemKey, Action<ConfigChangeEvent> callback)
         => _client.OnChange(_configId, itemKey, callback);
 

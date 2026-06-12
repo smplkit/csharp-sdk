@@ -43,8 +43,8 @@ public static class HttpMethodExtensions
 
 /// <summary>A single name/value HTTP header on the request a job performs.</summary>
 /// <param name="Name">Header name (e.g. <c>"Authorization"</c>, <c>"Content-Type"</c>).</param>
-/// <param name="Value">Header value, plaintext on writes. The jobs service encrypts
-/// values at rest; reads return them redacted.</param>
+/// <param name="Value">Header value. Returned in plaintext on reads, so a
+/// get-mutate-put round-trip preserves it without re-entering secrets.</param>
 public sealed record HttpHeader(string Name, string Value);
 
 /// <summary>
@@ -56,7 +56,9 @@ public sealed class HttpConfig
     public HttpMethod Method { get; set; } = HttpMethod.Post;
     /// <summary>Destination URL the job requests on each run.</summary>
     public required string Url { get; set; }
-    /// <summary>Headers attached to every request. Values are redacted on reads.</summary>
+    /// <summary>Headers attached to every request. Values come back in plaintext
+    /// on reads, so a fetched job round-trips through <see cref="Job.SaveAsync"/>
+    /// without re-entering secrets.</summary>
     public IList<HttpHeader> Headers { get; set; } = new List<HttpHeader>();
     /// <summary>Request body sent on each run. <c>null</c> (the default) sends an
     /// empty body, suitable for a connectivity ping. Sent verbatim — pair with a
@@ -110,7 +112,7 @@ public sealed class Job
     public DateTimeOffset? CreatedAt { get; internal set; }
     /// <summary>When the job was last modified.</summary>
     public DateTimeOffset? UpdatedAt { get; internal set; }
-    /// <summary>Soft-delete timestamp. <c>null</c> for live jobs.</summary>
+    /// <summary>When the job was deleted; <c>null</c> for live jobs.</summary>
     public DateTimeOffset? DeletedAt { get; internal set; }
     /// <summary>Monotonic version counter; bumped on every server-side write.</summary>
     public int? Version { get; internal set; }
@@ -158,7 +160,7 @@ public sealed class Job
         Apply(other);
     }
 
-    /// <summary>Soft-delete this job.</summary>
+    /// <summary>Delete this job.</summary>
     public Task DeleteAsync(CancellationToken ct = default)
     {
         if (_client is null)
@@ -219,7 +221,8 @@ public sealed class Run
     public string? FailureReason { get; }
     /// <summary>Free-text failure detail, if any.</summary>
     public string? Error { get; }
-    /// <summary>Snapshot of the request that was sent (header values redacted).</summary>
+    /// <summary>Snapshot of the request that was sent, for forensics. Header
+    /// values are redacted in this run snapshot.</summary>
     public object? Request { get; }
     /// <summary>Outcome of the call (status, headers, body, ...).</summary>
     public object? Result { get; }

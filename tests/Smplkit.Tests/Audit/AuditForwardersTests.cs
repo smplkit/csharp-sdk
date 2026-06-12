@@ -9,7 +9,7 @@ using HttpMethod = Smplkit.Audit.HttpMethod;
 namespace Smplkit.Tests.Audit;
 
 /// <summary>
-/// Tests for the management-plane SIEM forwarders wrapper.
+/// Tests for the SIEM forwarders wrapper.
 ///
 /// <para>Stubs the audit service via <see cref="MockHttpMessageHandler"/>;
 /// no real network. Coverage on the wrapper must reach 100% to satisfy

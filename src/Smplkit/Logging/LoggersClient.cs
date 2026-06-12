@@ -173,7 +173,7 @@ public sealed class LoggersClient
                         : (GenLogging.LogLevel)System.Enum.Parse(typeof(GenLogging.LogLevel), logger.Level.Value.ToWireString()),
                     Group = logger.Group,
                     Managed = logger.Managed,
-                    Environments = BuildEnvironmentsPayload(logger.Environments),
+                    Environments = BuildEnvironmentsPayload(logger.EnvironmentsRaw),
                 },
             }
         };

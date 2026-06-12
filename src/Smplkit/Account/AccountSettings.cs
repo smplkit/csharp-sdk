@@ -48,6 +48,8 @@ public sealed class AccountSettings
     }
 
     /// <summary>Persists the full settings object back to the server.</summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <exception cref="System.InvalidOperationException">If this model was constructed without a client (for example, built by hand rather than returned from <c>GetAsync</c>).</exception>
     public async Task SaveAsync(CancellationToken ct = default)
     {
         if (_client is null)

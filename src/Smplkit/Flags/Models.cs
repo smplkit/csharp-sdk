@@ -150,6 +150,8 @@ public class Flag
     /// rules from every environment configured on this flag. Call
     /// <see cref="SaveAsync"/> to persist.
     /// </summary>
+    /// <param name="environment">Name of the environment whose rules to remove. When <c>null</c>
+    /// (the default), removes rules from every environment configured on this flag.</param>
     public void ClearRules(string? environment = null)
     {
         if (environment is null)
@@ -171,6 +173,9 @@ public class Flag
     /// = <c>null</c>, updates the flag-level default; otherwise, sets the
     /// per-environment default. Call <see cref="SaveAsync"/> to persist.
     /// </summary>
+    /// <param name="value">The default value to serve.</param>
+    /// <param name="environment">Name of the environment whose default to set. When <c>null</c>
+    /// (the default), sets the flag-level base default instead.</param>
     public void SetDefault(object? value, string? environment = null)
     {
         if (environment is null)
@@ -192,6 +197,7 @@ public class Flag
     /// Clears the per-environment default override on <paramref name="environment"/>.
     /// After clearing, the environment falls back to the flag's base default.
     /// </summary>
+    /// <param name="environment">Name of the environment whose default override to clear.</param>
     public void ClearDefault(string environment)
     {
         if (Environments.TryGetValue(environment, out var envConfig))
@@ -202,6 +208,8 @@ public class Flag
     /// Enables rule evaluation. With <paramref name="environment"/> = <c>null</c>,
     /// applies to every environment configured on this flag.
     /// </summary>
+    /// <param name="environment">Name of the environment to enable. When <c>null</c>
+    /// (the default), enables rules in every environment configured on this flag.</param>
     public void EnableRules(string? environment = null)
     {
         if (environment is null)
@@ -216,8 +224,12 @@ public class Flag
     }
 
     /// <summary>
-    /// Disables rule evaluation (kill switch — serves base/env default, skips rules).
+    /// Disables rule evaluation (kill switch). With <paramref name="environment"/> = <c>null</c>,
+    /// applies to every environment configured on this flag. When disabled, <see cref="Get"/>
+    /// skips rules and returns the env-specific default (or the flag's base default).
     /// </summary>
+    /// <param name="environment">Name of the environment to disable. When <c>null</c>
+    /// (the default), disables rules in every environment configured on this flag.</param>
     public void DisableRules(string? environment = null)
     {
         if (environment is null)
@@ -232,6 +244,9 @@ public class Flag
     }
 
     /// <summary>Append a constrained value to the flag's values list.</summary>
+    /// <param name="name">Human-readable label for the value entry.</param>
+    /// <param name="value">The value to allow the flag to serve.</param>
+    /// <returns>This flag, so calls can be chained.</returns>
     public Flag AddValue(string name, object? value)
     {
         Values ??= new List<Dictionary<string, object?>>();
@@ -240,6 +255,9 @@ public class Flag
     }
 
     /// <summary>Remove the first values entry whose <c>value</c> field matches.</summary>
+    /// <param name="value">The value to remove. Entries are matched on their <c>value</c> field;
+    /// the first match is removed and others are left in place.</param>
+    /// <returns>This flag, so calls can be chained.</returns>
     public Flag RemoveValue(object? value)
     {
         if (Values is null) return this;

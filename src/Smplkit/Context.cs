@@ -8,8 +8,8 @@ namespace Smplkit;
 /// </summary>
 /// <remarks>
 /// <para>Used for both authoring (<c>flag.Get(context: ...)</c>,
-/// <c>client.SetContext([...])</c>, <c>mgmt.Contexts.RegisterAsync([...])</c>) and
-/// reading (<c>mgmt.Contexts.GetAsync</c> / <c>ListAsync</c> return populated
+/// <c>client.SetContext([...])</c>, <c>client.Platform.Contexts.RegisterAsync([...])</c>) and
+/// reading (<c>client.Platform.Contexts.GetAsync</c> / <c>ListAsync</c> return populated
 /// <see cref="Context"/> instances with <see cref="SaveAsync"/> / <see cref="DeleteAsync"/>
 /// ready to call).</para>
 /// <para>Identity (<see cref="Type"/> / <see cref="Key"/>) is get-only at all times —
@@ -102,7 +102,7 @@ public sealed class Context
         if (_sink is null)
             throw new InvalidOperationException(
                 "Context was constructed without a client; cannot save. "
-                + "Use mgmt.Contexts.RegisterAsync(...) for input-only contexts.");
+                + "Use client.Platform.Contexts.RegisterAsync(...) for input-only contexts.");
         var saved = await _sink.SaveContextAsync(this, ct).ConfigureAwait(false);
         ApplyServerState(saved);
     }

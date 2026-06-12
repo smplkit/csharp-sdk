@@ -14,6 +14,9 @@ public sealed class ServicesClient
     internal ServicesClient(GenApp.AppClient appClient) => _appClient = appClient;
 
     /// <summary>Return an unsaved <see cref="Service"/>. Call <c>SaveAsync()</c> to persist.</summary>
+    /// <param name="id">Stable, human-readable identifier for the service.</param>
+    /// <param name="name">Display name shown in the Console.</param>
+    /// <returns>An unsaved <see cref="Service"/> bound to this client.</returns>
     public Service New(string id, string name)
     {
         return new Service(this, id: id, name: name, createdAt: null, updatedAt: null);
@@ -37,6 +40,10 @@ public sealed class ServicesClient
     }
 
     /// <summary>Fetches a service by id.</summary>
+    /// <param name="id">Identifier of the service to fetch.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The matching <see cref="Service"/>.</returns>
+    /// <exception cref="Smplkit.Errors.NotFoundException">If no service with that id exists.</exception>
     public async Task<Service> GetAsync(string id, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
@@ -45,6 +52,8 @@ public sealed class ServicesClient
     }
 
     /// <summary>Deletes a service by id.</summary>
+    /// <param name="id">Identifier of the service to delete.</param>
+    /// <param name="ct">Cancellation token.</param>
     public Task DeleteAsync(string id, CancellationToken ct = default)
         => ApiExceptionMapper.ExecuteAsync(() => _appClient.Delete_serviceAsync(id, ct));
 

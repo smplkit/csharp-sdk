@@ -217,14 +217,14 @@ public class SmplClientTests
     }
 
     [Fact]
-    public void Constructor_DisableTelemetry_NoMetricsReporter()
+    public void Constructor_TelemetryDisabled_NoMetricsReporter()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json("""{"data":[]}""")), new SmplClientOptions
         {
             ApiKey = "sk_test_key",
             Environment = "t",
             Service = "s",
-            DisableTelemetry = true,
+            Telemetry = false,
         });
         Assert.NotNull(client);
     }

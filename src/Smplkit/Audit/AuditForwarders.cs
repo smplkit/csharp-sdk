@@ -1,9 +1,8 @@
 // SIEM forwarder CRUD for the Smpl Audit client.
 //
-// Forwarders are part of the single unified audit surface — there is no
-// runtime/management split for audit (see Smplkit.Audit.AuditClient). This
-// file holds the forwarder CRUD sub-client that the unified AuditClient
-// exposes as .Forwarders:
+// Forwarders are part of the single unified audit surface (see
+// Smplkit.Audit.AuditClient). This file holds the forwarder CRUD sub-client
+// that the unified AuditClient exposes as .Forwarders:
 //
 // * ForwardersClient — Forwarders.New/GetAsync/ListAsync/SaveAsync/DeleteAsync,
 //   returning Forwarder active records whose SaveAsync() / DeleteAsync() perform
@@ -47,8 +46,9 @@ public sealed class ForwardersClient
     /// <param name="forwarderType">A <see cref="Smplkit.Audit.ForwarderType"/> enum member
     /// (e.g. <c>ForwarderType.Http</c>, <c>ForwarderType.Datadog</c>).</param>
     /// <param name="configuration">Destination HTTP request configuration — an
-    /// <see cref="HttpConfiguration"/> instance. Headers carry credentials and
-    /// are encrypted at rest server-side; reads return them redacted.</param>
+    /// <see cref="HttpConfiguration"/> instance. Header values often carry
+    /// credentials and are returned in plaintext on reads, so a get-mutate-put
+    /// round-trip preserves them without re-entering secrets.</param>
     /// <param name="name">Display name. Free-form. Defaults to <paramref name="id"/>
     /// when not supplied.</param>
     /// <param name="environments">Per-environment overrides keyed by environment
@@ -108,10 +108,13 @@ public sealed class ForwardersClient
 
     /// <summary>List forwarders for the authenticated account.
     ///
-    /// <para>Offset paginated per ADR-014: pass <c>PageNumber</c> (1-based) and
+    /// <para>Offset paginated: pass <c>PageNumber</c> (1-based) and
     /// <c>PageSize</c> (default 1000, max 1000). Pass <c>MetaTotal = true</c> to
     /// populate <c>Total</c> and <c>TotalPages</c> in the returned
     /// <c>Pagination</c> (costs an extra COUNT query server-side).</para></summary>
+    /// <param name="input">Forwarder-type filter and pagination; null lists with defaults.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A page of <see cref="Forwarder"/>s plus the pagination meta.</returns>
     public async Task<ListForwardersPage> ListAsync(
         ListForwardersInput? input = null, CancellationToken ct = default)
     {
@@ -125,7 +128,13 @@ public sealed class ForwardersClient
     }
 
     /// <summary>Fetch a single forwarder by id; returned instance is bound to this
-    /// client so <see cref="Forwarder.SaveAsync"/> and <see cref="Forwarder.DeleteAsync"/> work.</summary>
+    /// client so <see cref="Forwarder.SaveAsync"/> and <see cref="Forwarder.DeleteAsync"/> work.
+    /// Header values come back in plaintext, so a fetched forwarder round-trips
+    /// through <see cref="Forwarder.SaveAsync"/> without re-entering secrets.</summary>
+    /// <param name="forwarderId">Identifier of the forwarder to fetch.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The matching <see cref="Forwarder"/>, bound to this client.</returns>
+    /// <exception cref="Smplkit.Errors.NotFoundException">If no forwarder with that id exists for the account.</exception>
     public async Task<Forwarder> GetAsync(string forwarderId, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
@@ -133,8 +142,10 @@ public sealed class ForwardersClient
         return FromResource(resp.Data);
     }
 
-    /// <summary>Soft-delete a forwarder. Prefer <see cref="Forwarder.DeleteAsync"/>
+    /// <summary>Delete a forwarder. Prefer <see cref="Forwarder.DeleteAsync"/>
     /// when you already have a <see cref="Forwarder"/> instance.</summary>
+    /// <param name="forwarderId">Identifier of the forwarder to delete.</param>
+    /// <param name="ct">Cancellation token.</param>
     public Task DeleteAsync(string forwarderId, CancellationToken ct = default)
         => ApiExceptionMapper.ExecuteAsync(() => _gen.Delete_forwarderAsync(forwarderId, ct));
 
@@ -158,9 +169,9 @@ public sealed class ForwardersClient
     /// <see cref="Forwarder.SaveAsync"/> on instances with <c>CreatedAt</c>; not
     /// intended for direct use.
     ///
-    /// <para>Header values must be re-supplied as plaintext; the GET path redacts
-    /// them, so a PUT body containing <c>"&lt;redacted&gt;"</c> would persist that
-    /// literal. Track real header values client-side and round-trip them.</para></summary>
+    /// <para>Header values come back in plaintext on the GET path, so a fetched
+    /// forwarder round-trips through this full-replace PUT with its header values
+    /// intact — no need to re-enter secrets.</para></summary>
     internal async Task<Forwarder> SaveUpdateAsync(Forwarder forwarder, CancellationToken ct)
     {
         if (string.IsNullOrEmpty(forwarder.Id))

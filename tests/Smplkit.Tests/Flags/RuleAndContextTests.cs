@@ -1,52 +1,10 @@
 using Smplkit;
-using Smplkit.Flags;
 using Xunit;
 
 namespace Smplkit.Tests.Flags;
 
-public class TypesTests
+public class RuleAndContextTests
 {
-    // ---------------------------------------------------------------
-    // FlagType.ToWireString
-    // ---------------------------------------------------------------
-
-    [Theory]
-    [InlineData(FlagType.Boolean, "BOOLEAN")]
-    [InlineData(FlagType.String, "STRING")]
-    [InlineData(FlagType.Numeric, "NUMERIC")]
-    [InlineData(FlagType.Json, "JSON")]
-    public void ToWireString_ReturnsCorrectString(FlagType flagType, string expected)
-    {
-        Assert.Equal(expected, flagType.ToWireString());
-    }
-
-    [Fact]
-    public void ToWireString_ThrowsForInvalidValue()
-    {
-        var invalid = (FlagType)999;
-        Assert.Throws<ArgumentOutOfRangeException>(() => invalid.ToWireString());
-    }
-
-    // ---------------------------------------------------------------
-    // FlagTypeExtensions.ParseFlagType
-    // ---------------------------------------------------------------
-
-    [Theory]
-    [InlineData("BOOLEAN", FlagType.Boolean)]
-    [InlineData("STRING", FlagType.String)]
-    [InlineData("NUMERIC", FlagType.Numeric)]
-    [InlineData("JSON", FlagType.Json)]
-    public void ParseFlagType_ReturnsCorrectEnum(string wireString, FlagType expected)
-    {
-        Assert.Equal(expected, FlagTypeExtensions.ParseFlagType(wireString));
-    }
-
-    [Fact]
-    public void ParseFlagType_ThrowsForUnknownString()
-    {
-        Assert.Throws<ArgumentException>(() => FlagTypeExtensions.ParseFlagType("UNKNOWN"));
-    }
-
     // ---------------------------------------------------------------
     // Context
     // ---------------------------------------------------------------

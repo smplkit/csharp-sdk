@@ -55,6 +55,8 @@ public sealed class SettingsClient
     }
 
     /// <summary>Fetches the current account settings.</summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An <see cref="AccountSettings"/> active record. Mutate its fields and call <c>SaveAsync()</c> to persist the changes.</returns>
     public async Task<AccountSettings> GetAsync(CancellationToken ct = default)
     {
         using var http = NewHttpClient();
@@ -173,12 +175,12 @@ public sealed class AccountClient : IDisposable
     /// <remarks>
     /// <paramref name="baseUrl"/>/<paramref name="apiKey"/> are used directly when both are
     /// supplied (the path the top-level client takes after it has already resolved them);
-    /// otherwise the management config resolver fills in whatever is missing.
+    /// otherwise the account-global config resolver fills in whatever is missing.
     /// </remarks>
     private static (string AppUrl, string ApiKey) ResolveTarget(
         string? apiKey, string? baseUrl, string? profile, string? baseDomain, string? scheme, bool? debug)
     {
-        var resolved = ConfigResolver.ResolveForManagement(new SmplClientOptions
+        var resolved = ConfigResolver.ResolveAccountGlobal(new SmplClientOptions
         {
             ApiKey = apiKey,
             Profile = profile,

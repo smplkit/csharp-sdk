@@ -3,8 +3,8 @@
 // Smpl Logging has two surfaces on a single client, mirroring how the config,
 // flags, audit, and jobs clients expose their full surface from one class:
 //
-// * Management surface — works immediately, no Install() required.
-//   Two sub-clients (the audit pattern):
+// * CRUD surface — works without Install().
+//   Two sub-clients:
 //
 //   * client.Logging.Loggers — logger CRUD + discovery: New / List /
 //     Get / Delete plus Register / Flush / PendingCount.
@@ -17,8 +17,9 @@
 //
 // * Live surface — directly on the client. RegisterAdapter is a
 //   PRE-install configuration call (allowed before Install()).
-//   Install() opens the live connection (monkey-patches the app's logging
-//   framework, discovers loggers, fetches + applies levels, opens the shared
+//   Install() opens the live connection (wires into the app's logging
+//   framework via the registered adapter, discovers loggers, fetches +
+//   applies levels, opens the shared
 //   WebSocket). OnChange / Refresh require Install() first;
 //   calling them earlier raises NotInstalledException.
 //
@@ -52,7 +53,7 @@ namespace Smplkit.Logging;
 /// await logging.Loggers.New("sqlalchemy.engine").SaveAsync();
 /// await logging.InstallAsync();
 /// </code>
-/// <para>The management surface (<see cref="Loggers"/> / <see cref="LogGroups"/>
+/// <para>The CRUD surface (<see cref="Loggers"/> / <see cref="LogGroups"/>
 /// sub-clients) works immediately. <see cref="RegisterAdapter"/> is a pre-install
 /// configuration call. The live surface (<see cref="InstallAsync"/> /
 /// <see cref="OnChange(Action{LoggerChangeEvent})"/> / <see cref="RefreshAsync"/>)
@@ -126,7 +127,7 @@ public sealed class LoggingClient : IDisposable
     /// <param name="baseDomain">Base domain for API requests (default <c>smplkit.com</c>).</param>
     /// <param name="scheme">URL scheme (default <c>https</c>).</param>
     /// <param name="debug">Enable SDK debug logging.</param>
-    /// <param name="telemetry">Reserved for parity with the other standalone clients; unused here.</param>
+    /// <param name="telemetry">Enable anonymous SDK usage telemetry. Defaults to enabled.</param>
     /// <param name="extraHeaders">Extra headers attached to every request.</param>
     public LoggingClient(
         string? apiKey = null,
@@ -139,23 +140,24 @@ public sealed class LoggingClient : IDisposable
         bool? telemetry = null,
         IReadOnlyDictionary<string, string>? extraHeaders = null)
     {
-        // Reuse the management config resolver (logging CRUD is account-global)
-        // and the shared per-service URL helper, so a standalone logging client
-        // resolves credentials/base-domain from ~/.smplkit / env vars /
-        // constructor args exactly like the top-level clients do.
-        var resolved = ConfigResolver.ResolveForManagement(new SmplClientOptions
+        // Reuse the account-global config resolver (logging CRUD is not scoped
+        // to an environment) and the shared per-service URL helper, so a
+        // standalone logging client resolves credentials/base-domain from
+        // ~/.smplkit / env vars / constructor args exactly like the top-level
+        // clients do.
+        var resolved = ConfigResolver.ResolveAccountGlobal(new SmplClientOptions
         {
             ApiKey = apiKey,
             Profile = profile,
             BaseDomain = baseDomain,
             Scheme = scheme,
             Debug = debug,
+            Telemetry = telemetry,
         });
         if (resolved.Debug)
             DebugLog.Enabled = true;
 
         _parent = null;
-        _metrics = null;
         _environment = environment;
         _service = service;
         _ensureWs = null;
@@ -174,6 +176,12 @@ public sealed class LoggingClient : IDisposable
         _appBaseUrl = ConfigResolver.ServiceUrl(resolved.Scheme, "app", resolved.BaseDomain);
         _standaloneApiKey = resolved.ApiKey;
         _ownsTransport = true;
+        // A standalone client owns its metrics reporter (disposed in Dispose()).
+        // Telemetry is opt-in: on by default, disabled when telemetry is false
+        // or SMPLKIT_TELEMETRY resolves to false.
+        _metrics = resolved.Telemetry
+            ? new MetricsReporter(_ownedHttpClient, _environment ?? string.Empty, _service ?? string.Empty, appBaseUrl: _appBaseUrl)
+            : null;
 
         Loggers = new LoggersClient(_genClient, _loggerBuffer);
         LogGroups = new LogGroupsClient(_genClient);
@@ -440,7 +448,10 @@ public sealed class LoggingClient : IDisposable
     {
         Close();
         if (_ownsTransport)
+        {
+            _metrics?.Dispose();
             _ownedHttpClient?.Dispose();
+        }
     }
 
     // ------------------------------------------------------------------
@@ -569,7 +580,7 @@ public sealed class LoggingClient : IDisposable
     {
         var entries = new Dictionary<string, Smplkit.Internal.LevelEntry>(source.Count);
         foreach (var (id, l) in source)
-            entries[id] = new Smplkit.Internal.LevelEntry(l.Level, l.Group, l.Environments);
+            entries[id] = new Smplkit.Internal.LevelEntry(l.Level, l.Group, l.EnvironmentsRaw);
         return entries;
     }
 
@@ -577,7 +588,7 @@ public sealed class LoggingClient : IDisposable
     {
         var entries = new Dictionary<string, Smplkit.Internal.LevelEntry>(source.Count);
         foreach (var (id, g) in source)
-            entries[id] = new Smplkit.Internal.LevelEntry(g.Level, g.Group, g.Environments);
+            entries[id] = new Smplkit.Internal.LevelEntry(g.Level, g.Group, g.EnvironmentsRaw);
         return entries;
     }
 

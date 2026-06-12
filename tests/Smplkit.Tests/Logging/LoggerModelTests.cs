@@ -84,7 +84,31 @@ public class LoggerModelTests
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
         var logger = mgmt.Logging.Loggers.New("showcase");
         logger.SetLevel(LogLevel.Error, environment: "production");
-        Assert.Equal("ERROR", logger.Environments["production"]["level"]);
+        Assert.Equal(LogLevel.Error, logger.Environments["production"].Level);
+    }
+
+    [Fact]
+    public async Task Logger_Environment_NoLevelOverride_YieldsNullLevel()
+    {
+        // An environment entry with no level override surfaces as a
+        // LoggerEnvironment whose Level is null.
+        const string body = """
+            {
+                "data": {
+                    "id": "showcase", "type": "logger",
+                    "attributes": {
+                        "name": "showcase", "level": "INFO", "group": null, "managed": true,
+                        "sources": [],
+                        "environments": { "production": {} },
+                        "created_at": "2024-01-15T10:30:00Z", "updated_at": "2024-01-15T10:30:00Z"
+                    }
+                }
+            }
+            """;
+        var (mgmt, _) = Make(_ => Task.FromResult(Json(body)));
+        var logger = await mgmt.Logging.Loggers.GetAsync("showcase");
+        Assert.True(logger.Environments.ContainsKey("production"));
+        Assert.Null(logger.Environments["production"].Level);
     }
 
     [Fact]
@@ -187,7 +211,7 @@ public class LoggerModelTests
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
         var group = mgmt.Logging.LogGroups.New("billing");
         group.SetLevel(LogLevel.Error, environment: "production");
-        Assert.Equal("ERROR", group.Environments["production"]["level"]);
+        Assert.Equal(LogLevel.Error, group.Environments["production"].Level);
     }
 
     [Fact]

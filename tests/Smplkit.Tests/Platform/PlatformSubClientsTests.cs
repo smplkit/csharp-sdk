@@ -7,14 +7,14 @@ using Smplkit.Logging;
 using Smplkit.Tests.Helpers;
 using Xunit;
 
-namespace Smplkit.Tests.Management;
+namespace Smplkit.Tests.Platform;
 
 /// <summary>
-/// Tests for the management sub-clients (Config, Flags, Loggers, LogGroups,
+/// Tests for the CRUD sub-clients (Config, Flags, Loggers, LogGroups,
 /// Environments, ContextTypes, Contexts, AccountSettings) accessed through
 /// the top-level <see cref="SmplClient"/>.
 /// </summary>
-public class ManagementSubClientsTests
+public class PlatformSubClientsTests
 {
     private static (SmplClient mgmt, MockHttpMessageHandler handler) Make(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> respond)

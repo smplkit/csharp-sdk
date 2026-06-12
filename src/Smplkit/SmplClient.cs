@@ -22,7 +22,9 @@ namespace Smplkit;
 /// </code>
 /// <para>All parameters are optional. When omitted, the SDK resolves them from
 /// environment variables (<c>SMPLKIT_*</c>) or the <c>~/.smplkit</c> configuration
-/// file. See ADR-021 for the full resolution algorithm.</para>
+/// file. Resolution follows a precedence order, from lowest to highest: built-in
+/// defaults, then the <c>~/.smplkit</c> file, then <c>SMPLKIT_*</c> environment
+/// variables, then explicit constructor arguments.</para>
 /// </remarks>
 public sealed class SmplClient : IDisposable
 {
@@ -78,12 +80,21 @@ public sealed class SmplClient : IDisposable
     }
 
     /// <summary>Initializes a new <see cref="SmplClient"/> with the specified options.</summary>
+    /// <param name="options">The options bag that seeds config resolution. Any value left
+    /// unset is resolved from <c>SMPLKIT_*</c> environment variables or the <c>~/.smplkit</c>
+    /// file; explicit values here take precedence over both.</param>
     public SmplClient(SmplClientOptions options)
         : this(options, new HttpClient(), ownsHttpClient: true)
     {
     }
 
     /// <summary>Initializes a new <see cref="SmplClient"/> with caller-owned <see cref="HttpClient"/>.</summary>
+    /// <param name="options">The options bag that seeds config resolution. Any value left
+    /// unset is resolved from <c>SMPLKIT_*</c> environment variables or the <c>~/.smplkit</c>
+    /// file; explicit values here take precedence over both.</param>
+    /// <param name="httpClient">A caller-owned <see cref="HttpClient"/> reused for all requests.
+    /// Because the caller owns it, <see cref="SmplClient"/> does not dispose it; the caller is
+    /// responsible for its lifetime.</param>
     public SmplClient(SmplClientOptions options, HttpClient httpClient)
         : this(options, httpClient, ownsHttpClient: false)
     {
@@ -119,9 +130,9 @@ public sealed class SmplClient : IDisposable
         };
         _clients = new GeneratedClientFactory(_httpClient, resolvedOptions);
 
-        _metrics = resolved.DisableTelemetry
-            ? null
-            : new MetricsReporter(_httpClient, resolved.Environment, resolved.Service, appBaseUrl: _appBaseUrl);
+        _metrics = resolved.Telemetry
+            ? new MetricsReporter(_httpClient, resolved.Environment, resolved.Service, appBaseUrl: _appBaseUrl)
+            : null;
 
         var auditUrl = ConfigResolver.ServiceUrl(resolved.Scheme, "audit", resolved.BaseDomain);
         var extraHeaders = options.ExtraHeaders is null
@@ -146,14 +157,14 @@ public sealed class SmplClient : IDisposable
         // client.Platform.Contexts.
         Flags = new FlagsClient(_clients, _apiKey, EnsureSharedWebSocket, _contextBuffer, this, _metrics);
         // Logging's full surface on one client; wired into this parent so it
-        // borrows the shared logging transport and WebSocket. The two management
+        // borrows the shared logging transport and WebSocket. The two CRUD
         // sub-clients live at client.Logging.Loggers / client.Logging.LogGroups.
         Logging = new LoggingClient(_clients, _apiKey, EnsureSharedWebSocket, this, _metrics);
         // Audit's full surface; this runtime instance carries the configured
         // environment as X-Smplkit-Environment and owns its own transport (closed
         // in Dispose()).
         Audit = new AuditClient(resolved.ApiKey, auditUrl, resolved.Environment, extraHeaders);
-        // Jobs has no runtime/management split — reuse the shared jobs transport
+        // Jobs installs no in-process machinery — reuse the shared jobs transport
         // (single connection pool) so client.Jobs is one-stop.
         Jobs = new JobsClient(_clients.Jobs);
 
@@ -177,6 +188,11 @@ public sealed class SmplClient : IDisposable
     /// Each unique <c>(type, key)</c> is also queued for bulk registration on the
     /// platform API (deduplicated via an LRU; flushed in the background).
     /// </remarks>
+    /// <param name="contexts">The contexts to register as the current ambient evaluation
+    /// context. An empty list clears any registration step but still returns a scope.</param>
+    /// <returns>An <see cref="IDisposable"/> scope that reverts the ambient context to its
+    /// previous value when disposed. Use it in a <c>using</c> block to bound the context to a
+    /// request, or ignore the return value for fire-and-forget registration.</returns>
     public IDisposable SetContext(IEnumerable<Context> contexts)
     {
         ArgumentNullException.ThrowIfNull(contexts);
@@ -194,6 +210,9 @@ public sealed class SmplClient : IDisposable
     }
 
     /// <summary>Convenience overload for a single context.</summary>
+    /// <param name="context">The context to register as the current ambient evaluation context.</param>
+    /// <returns>An <see cref="IDisposable"/> scope that reverts the ambient context on dispose;
+    /// use it in a <c>using</c> block, or ignore it for fire-and-forget registration.</returns>
     public IDisposable SetContext(Context context) => SetContext(new[] { context });
 
     /// <summary>
@@ -210,6 +229,9 @@ public sealed class SmplClient : IDisposable
     /// here — call <see cref="LoggingClient.InstallAsync"/> separately if you want it (it
     /// installs adapters and hooks into your application's logger, which should be opt-in).
     /// </remarks>
+    /// <param name="timeout">Maximum time to wait for the live-updates WebSocket handshake
+    /// before giving up. Defaults to 10 seconds.</param>
+    /// <param name="ct">A token to cancel the wait.</param>
     /// <exception cref="Smplkit.Errors.TimeoutException">If the WebSocket fails to connect within <paramref name="timeout"/>.</exception>
     public async Task WaitUntilReadyAsync(TimeSpan? timeout = null, CancellationToken ct = default)
     {

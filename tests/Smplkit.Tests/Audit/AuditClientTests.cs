@@ -362,7 +362,7 @@ public class AuditClientTests
                     Encoding.UTF8, "application/vnd.api+json"),
             });
         });
-        // RuntimeEnvironment left null (management-plane behavior).
+        // RuntimeEnvironment left null (account-global behavior).
         await using var client = new TestAuditClient(gen);
 
         await client.Events.ListAsync();

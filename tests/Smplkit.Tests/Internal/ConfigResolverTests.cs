@@ -15,7 +15,7 @@ public class ConfigResolverTests
         string? scheme = null,
         string? profile = null,
         bool? debug = null,
-        bool? disableTelemetry = null) =>
+        bool? telemetry = null) =>
         new()
         {
             ApiKey = apiKey,
@@ -25,7 +25,7 @@ public class ConfigResolverTests
             Scheme = scheme,
             Profile = profile,
             Debug = debug,
-            DisableTelemetry = disableTelemetry,
+            Telemetry = telemetry,
         };
 
     // Helper: resolve with injectable overload, defaulting everything to null/empty
@@ -37,7 +37,7 @@ public class ConfigResolverTests
         string? envEnvironment = null,
         string? envService = null,
         string? envDebug = null,
-        string? envDisableTelemetry = null,
+        string? envTelemetry = null,
         string? envProfile = null,
         string? fileContent = null)
     {
@@ -57,7 +57,7 @@ public class ConfigResolverTests
         {
             return ConfigResolver.Resolve(
                 options, envApiKey, envBaseDomain, envScheme,
-                envEnvironment, envService, envDebug, envDisableTelemetry,
+                envEnvironment, envService, envDebug, envTelemetry,
                 envProfile, configPath, reader);
         }
         finally
@@ -108,14 +108,14 @@ public class ConfigResolverTests
     }
 
     [Fact]
-    public void Defaults_DisableTelemetryIsFalse()
+    public void Defaults_TelemetryIsTrue()
     {
         var config = Resolve(
             MinimalOptions(),
             envApiKey: "sk_test",
             envEnvironment: "prod",
             envService: "svc");
-        Assert.False(config.DisableTelemetry);
+        Assert.True(config.Telemetry);
     }
 
     // ------------------------------------------------------------------
@@ -212,11 +212,11 @@ public class ConfigResolverTests
     }
 
     [Fact]
-    public void File_BooleanValues_DisableTelemetry()
+    public void File_BooleanValues_Telemetry()
     {
-        var ini = "[default]\napi_key = sk_test\nenvironment = prod\nservice = svc\ndisable_telemetry = 1\n";
+        var ini = "[default]\napi_key = sk_test\nenvironment = prod\nservice = svc\ntelemetry = 0\n";
         var config = Resolve(MinimalOptions(), fileContent: ini);
-        Assert.True(config.DisableTelemetry);
+        Assert.False(config.Telemetry);
     }
 
     [Fact]
@@ -255,7 +255,7 @@ public class ConfigResolverTests
                 envEnvironment: "prod",
                 envService: "svc",
                 envDebug: null,
-                envDisableTelemetry: null,
+                envTelemetry: null,
                 envProfile: null,
                 configPath: configPath,
                 fileReader: _ => throw new IOException("simulated read error"));
@@ -356,15 +356,15 @@ public class ConfigResolverTests
     }
 
     [Fact]
-    public void EnvVar_DisableTelemetry_Boolean()
+    public void EnvVar_Telemetry_Boolean()
     {
         var config = Resolve(
             MinimalOptions(),
             envApiKey: "sk_test",
             envEnvironment: "prod",
             envService: "svc",
-            envDisableTelemetry: "yes");
-        Assert.True(config.DisableTelemetry);
+            envTelemetry: "no");
+        Assert.False(config.Telemetry);
     }
 
     [Fact]
@@ -451,16 +451,16 @@ public class ConfigResolverTests
     }
 
     [Fact]
-    public void Constructor_DisableTelemetry_OverridesEnv()
+    public void Constructor_Telemetry_OverridesEnv()
     {
         var config = Resolve(
             MinimalOptions(
                 apiKey: "sk_test",
                 environment: "prod",
                 service: "svc",
-                disableTelemetry: true),
-            envDisableTelemetry: "false");
-        Assert.True(config.DisableTelemetry);
+                telemetry: false),
+            envTelemetry: "true");
+        Assert.False(config.Telemetry);
     }
 
     // ------------------------------------------------------------------
@@ -517,25 +517,21 @@ public class ConfigResolverTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public void Validation_MissingEnvironment_Throws()
+    public void Validation_MissingEnvironment_DoesNotThrow_EnvironmentOptional()
     {
-        var ex = Assert.Throws<SmplkitException>(() =>
-            Resolve(
-                MinimalOptions(apiKey: "sk_test", service: "svc")));
-        Assert.Contains("No environment provided", ex.Message);
-        Assert.Contains("SMPLKIT_ENVIRONMENT", ex.Message);
-        Assert.Contains("~/.smplkit", ex.Message);
+        // Environment is optional — the server derives it from the API key.
+        var config = Resolve(MinimalOptions(apiKey: "sk_test", service: "svc"));
+        Assert.Equal(string.Empty, config.Environment);
+        Assert.Equal("svc", config.Service);
     }
 
     [Fact]
-    public void Validation_MissingService_Throws()
+    public void Validation_MissingService_DoesNotThrow_ServiceOptional()
     {
-        var ex = Assert.Throws<SmplkitException>(() =>
-            Resolve(
-                MinimalOptions(apiKey: "sk_test", environment: "prod")));
-        Assert.Contains("No service provided", ex.Message);
-        Assert.Contains("SMPLKIT_SERVICE", ex.Message);
-        Assert.Contains("~/.smplkit", ex.Message);
+        // Service is optional — when unset no service signal is sent.
+        var config = Resolve(MinimalOptions(apiKey: "sk_test", environment: "prod"));
+        Assert.Equal("prod", config.Environment);
+        Assert.Equal(string.Empty, config.Service);
     }
 
     [Fact]
@@ -559,21 +555,22 @@ public class ConfigResolverTests
     }
 
     [Fact]
-    public void Validation_EnvironmentCheckedFirst()
+    public void Validation_MissingEnvironmentAndService_DoesNotThrow()
     {
-        // When both environment and service are missing, error is about environment
-        var ex = Assert.Throws<SmplkitException>(() =>
-            Resolve(MinimalOptions(apiKey: "sk_test")));
-        Assert.Contains("environment", ex.Message, StringComparison.OrdinalIgnoreCase);
+        // Both environment and service are optional; only the API key is required.
+        var config = Resolve(MinimalOptions(apiKey: "sk_test"));
+        Assert.Equal(string.Empty, config.Environment);
+        Assert.Equal(string.Empty, config.Service);
     }
 
     [Fact]
-    public void Validation_ServiceCheckedBeforeApiKey()
+    public void Validation_MissingServiceAndApiKey_ThrowsAboutApiKey()
     {
-        // When both service and api_key are missing, error is about service
+        // Service is optional, but the API key is still required — so the error
+        // is about the API key, not the (optional) service.
         var ex = Assert.Throws<SmplkitException>(() =>
             Resolve(MinimalOptions(environment: "prod")));
-        Assert.Contains("service", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("API key", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     // ------------------------------------------------------------------
@@ -700,7 +697,7 @@ public class ConfigResolverTests
             "environment = all-env",
             "service = all-svc",
             "debug = true",
-            "disable_telemetry = yes",
+            "telemetry = no",
             "");
         var config = Resolve(MinimalOptions(), fileContent: ini);
         Assert.Equal("sk_all", config.ApiKey);
@@ -709,6 +706,6 @@ public class ConfigResolverTests
         Assert.Equal("all-env", config.Environment);
         Assert.Equal("all-svc", config.Service);
         Assert.True(config.Debug);
-        Assert.True(config.DisableTelemetry);
+        Assert.False(config.Telemetry);
     }
 }

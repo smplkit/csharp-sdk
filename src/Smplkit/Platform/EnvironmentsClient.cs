@@ -14,6 +14,11 @@ public sealed class EnvironmentsClient
     internal EnvironmentsClient(GenApp.AppClient appClient) => _appClient = appClient;
 
     /// <summary>Return an unsaved <see cref="Environment"/>. Call <c>SaveAsync()</c> to persist.</summary>
+    /// <param name="id">Stable, human-readable identifier for the environment (for example <c>"production"</c>).</param>
+    /// <param name="name">Display name shown in the Console.</param>
+    /// <param name="color">Accent color for the environment, as a <see cref="Color"/> or a CSS hex string. Defaults to no color.</param>
+    /// <param name="classification">Whether the environment participates in the standard environment ordering. Defaults to <see cref="EnvironmentClassification.Standard"/>.</param>
+    /// <returns>An unsaved <see cref="Environment"/> bound to this client.</returns>
     public Environment New(
         string id,
         string name,
@@ -32,6 +37,11 @@ public sealed class EnvironmentsClient
 
     /// <summary>Return an unsaved <see cref="Environment"/>. Call <c>SaveAsync()</c> to persist.</summary>
     /// <remarks>Convenience overload accepting a hex string for color (validated via <see cref="Color"/>).</remarks>
+    /// <param name="id">Stable, human-readable identifier for the environment (for example <c>"production"</c>).</param>
+    /// <param name="name">Display name shown in the Console.</param>
+    /// <param name="color">Accent color for the environment, as a CSS hex string. Defaults to no color.</param>
+    /// <param name="classification">Whether the environment participates in the standard environment ordering. Defaults to <see cref="EnvironmentClassification.Standard"/>.</param>
+    /// <returns>An unsaved <see cref="Environment"/> bound to this client.</returns>
     public Environment New(
         string id,
         string name,
@@ -57,6 +67,10 @@ public sealed class EnvironmentsClient
     }
 
     /// <summary>Fetches an environment by id.</summary>
+    /// <param name="id">Identifier of the environment to fetch.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The matching <see cref="Environment"/>.</returns>
+    /// <exception cref="Smplkit.Errors.NotFoundException">If no environment with that id exists.</exception>
     public async Task<Environment> GetAsync(string id, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
@@ -65,6 +79,8 @@ public sealed class EnvironmentsClient
     }
 
     /// <summary>Deletes an environment by id.</summary>
+    /// <param name="id">Identifier of the environment to delete.</param>
+    /// <param name="ct">Cancellation token.</param>
     public Task DeleteAsync(string id, CancellationToken ct = default)
         => ApiExceptionMapper.ExecuteAsync(() => _appClient.Delete_environmentAsync(id, null, ct));
 

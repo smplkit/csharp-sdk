@@ -1,7 +1,7 @@
 using Smplkit.Platform;
 using Xunit;
 
-namespace Smplkit.Tests.Management;
+namespace Smplkit.Tests.Platform;
 
 /// <summary>
 /// Tests for <see cref="Color"/> — fail-fast validation per PR #127 rule 6.

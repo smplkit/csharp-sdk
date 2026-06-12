@@ -6,7 +6,7 @@ using Smplkit.Errors;
 using Smplkit.Tests.Helpers;
 using Xunit;
 
-namespace Smplkit.Tests.Management;
+namespace Smplkit.Tests.Platform;
 
 public class AccountSettingsClientTests
 {

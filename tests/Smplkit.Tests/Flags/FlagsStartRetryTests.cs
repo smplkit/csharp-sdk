@@ -61,7 +61,7 @@ public class FlagsStartRetryTests
         });
 
         // Seed the discovery buffer WITHOUT connecting (Register is the
-        // management/discovery path; it never opens the live connection). The
+        // CRUD/discovery path; it never opens the live connection). The
         // one-client refactor declares handle flags only after EnsureConnected,
         // so to exercise the connect-time flush failure the buffer must already
         // hold a declaration before the first live call.

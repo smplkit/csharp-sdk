@@ -9,9 +9,8 @@ namespace Smplkit.Audit;
 /// SIEM streaming destination type.
 /// </summary>
 /// <remarks>
-/// <para>Mirrors the audit OpenAPI <c>ForwarderType</c> enum so the
-/// wrapper public surface keeps customer code outside the
-/// <c>Smplkit.Internal.*</c> namespace. ADR-047 §2.12.</para>
+/// <para>The available types are real-time HTTP SIEM destinations that share
+/// one outbound delivery path.</para>
 /// </remarks>
 public enum ForwarderType
 {

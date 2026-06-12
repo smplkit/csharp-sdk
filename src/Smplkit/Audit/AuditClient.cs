@@ -1,8 +1,7 @@
 // The Smpl Audit client.
 //
-// Audit installs no in-process machinery, so it has no runtime/management
-// split: one AuditClient exposes the full surface, reachable as
-// client.Audit, mgmt.Audit, or standalone:
+// Audit installs no in-process machinery, so a single AuditClient exposes the
+// full surface, reachable as client.Audit or standalone:
 //
 //     audit.Events.Record(new CreateEventInput { ... })
 //     audit.Events.FlushAsync(timeout: TimeSpan.FromSeconds(5))
@@ -38,11 +37,10 @@ namespace Smplkit.Audit;
 /// The Smpl Audit client.
 /// </summary>
 /// <remarks>
-/// <para>Audit installs no in-process machinery, so it has no runtime/management
-/// split: one client exposes the full surface — event recording and reads,
-/// distinct-value discovery, and SIEM forwarder CRUD — reachable as
-/// <c>client.Audit</c> (<see cref="Smplkit.SmplClient"/>) or constructed
-/// directly:</para>
+/// <para>Audit installs no in-process machinery, so a single client exposes the
+/// full surface — event recording and reads, distinct-value discovery, and SIEM
+/// forwarder CRUD — reachable as <c>client.Audit</c>
+/// (<see cref="Smplkit.SmplClient"/>) or constructed directly:</para>
 /// <code>
 /// await using var audit = new AuditClient(environment: "production");
 /// audit.Events.Record(new CreateEventInput
@@ -107,7 +105,7 @@ public sealed class AuditClient : IAsyncDisposable
     {
         // Build a standalone audit transport from resolved config. baseUrl/apiKey
         // are used directly when both are supplied (the path a top-level client
-        // takes after it has already resolved them); otherwise the management
+        // takes after it has already resolved them); otherwise the account-global
         // config resolver fills in whatever is missing (~/.smplkit / env vars /
         // defaults). environment is optional — when present it is stamped as
         // X-Smplkit-Environment so event recording and reads scope to it
@@ -165,7 +163,7 @@ public sealed class AuditClient : IAsyncDisposable
         }
         else
         {
-            var resolved = ConfigResolver.ResolveForManagement(new SmplClientOptions
+            var resolved = ConfigResolver.ResolveAccountGlobal(new SmplClientOptions
             {
                 ApiKey = apiKey,
                 Profile = profile,

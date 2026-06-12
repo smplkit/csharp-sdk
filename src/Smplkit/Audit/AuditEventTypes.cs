@@ -20,6 +20,11 @@ public sealed class AuditEventTypes
     internal AuditEventTypes(GenAudit.AuditClient gen) => _gen = gen;
 
     /// <summary>List the distinct event type slugs recorded for this account.</summary>
+    /// <param name="input">Resource-type filter, pagination, and environments
+    /// scope; null lists with defaults. Set <see cref="ListEventTypesInput.MetaTotal"/>
+    /// to populate the total counts in the returned pagination meta.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A page of <see cref="AuditEventType"/>s plus the pagination meta.</returns>
     public async Task<EventTypeListPage> ListAsync(
         ListEventTypesInput? input = null, CancellationToken ct = default)
     {

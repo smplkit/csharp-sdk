@@ -60,9 +60,10 @@ public sealed class Config
     /// <remarks>
     /// Creates a new config if unsaved, or updates the existing one.
     /// </remarks>
+    /// <param name="ct">Cancellation token.</param>
     /// <exception cref="Errors.NotFoundException">If the config no longer exists (update).</exception>
     /// <exception cref="Errors.ValidationException">If the server rejects the request.</exception>
-    /// <exception cref="InvalidOperationException">If the model was constructed without a management client.</exception>
+    /// <exception cref="InvalidOperationException">If the model was constructed without a client.</exception>
     public async Task SaveAsync(CancellationToken ct = default)
     {
         if (_client is null)
@@ -74,6 +75,7 @@ public sealed class Config
     }
 
     /// <summary>Deletes this config from the server.</summary>
+    /// <param name="ct">Cancellation token.</param>
     public Task DeleteAsync(CancellationToken ct = default)
     {
         if (_client is null || Id is null)
@@ -109,6 +111,14 @@ public sealed class Config
     /// Sets (or replaces) a typed item. With <paramref name="environment"/> = <c>null</c>,
     /// sets the base item; otherwise sets a per-environment override.
     /// </summary>
+    /// <remarks>
+    /// An environment override stores only the raw value; the declared type and
+    /// description come from the base item, so the <see cref="ConfigItem"/>'s type
+    /// and description are ignored when <paramref name="environment"/> is supplied.
+    /// </remarks>
+    /// <param name="item">The <see cref="ConfigItem"/> to set. Its name is the item key.</param>
+    /// <param name="environment">When given, set the value as an override on this
+    /// environment rather than on the base config.</param>
     public void Set(ConfigItem item, string? environment = null)
     {
         ArgumentNullException.ThrowIfNull(item);
@@ -116,18 +126,42 @@ public sealed class Config
     }
 
     /// <summary>Convenience: set a STRING item (or environment override).</summary>
+    /// <param name="name">The item key to set.</param>
+    /// <param name="value">The string value.</param>
+    /// <param name="description">Optional human-readable description. Ignored when
+    /// setting an environment override.</param>
+    /// <param name="environment">When given, set the value as an override on this
+    /// environment rather than on the base config.</param>
     public void SetString(string name, string value, string? description = null, string? environment = null)
         => Set(new ConfigItem(name, value, ItemType.String, description), environment);
 
     /// <summary>Convenience: set a NUMBER item (or environment override).</summary>
+    /// <param name="name">The item key to set.</param>
+    /// <param name="value">The numeric value.</param>
+    /// <param name="description">Optional human-readable description. Ignored when
+    /// setting an environment override.</param>
+    /// <param name="environment">When given, set the value as an override on this
+    /// environment rather than on the base config.</param>
     public void SetNumber(string name, double value, string? description = null, string? environment = null)
         => Set(new ConfigItem(name, value, ItemType.Number, description), environment);
 
     /// <summary>Convenience: set a BOOLEAN item (or environment override).</summary>
+    /// <param name="name">The item key to set.</param>
+    /// <param name="value">The boolean value.</param>
+    /// <param name="description">Optional human-readable description. Ignored when
+    /// setting an environment override.</param>
+    /// <param name="environment">When given, set the value as an override on this
+    /// environment rather than on the base config.</param>
     public void SetBoolean(string name, bool value, string? description = null, string? environment = null)
         => Set(new ConfigItem(name, value, ItemType.Boolean, description), environment);
 
     /// <summary>Convenience: set a JSON item (or environment override).</summary>
+    /// <param name="name">The item key to set.</param>
+    /// <param name="value">Any JSON-serializable value (dictionary, list, or primitive).</param>
+    /// <param name="description">Optional human-readable description. Ignored when
+    /// setting an environment override.</param>
+    /// <param name="environment">When given, set the value as an override on this
+    /// environment rather than on the base config.</param>
     public void SetJson(string name, object? value, string? description = null, string? environment = null)
         => Set(new ConfigItem(name, value, ItemType.Json, description), environment);
 
@@ -135,6 +169,10 @@ public sealed class Config
     /// Removes an item by name. With <paramref name="environment"/> = <c>null</c>,
     /// removes from base; otherwise removes the per-environment override only.
     /// </summary>
+    /// <remarks>Removing an item that isn't present is a no-op.</remarks>
+    /// <param name="name">The item key to remove.</param>
+    /// <param name="environment">When given, remove only this environment's override
+    /// for <paramref name="name"/>, leaving the base item intact.</param>
     public void Remove(string name, string? environment = null)
     {
         ItemsTarget(environment).Remove(name);

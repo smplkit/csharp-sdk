@@ -3,7 +3,7 @@ using Smplkit.Account;
 using Smplkit.Platform;
 using Xunit;
 
-namespace Smplkit.Tests.Management;
+namespace Smplkit.Tests.Platform;
 
 // ---------------------------------------------------------------------------
 // EnvironmentClassification

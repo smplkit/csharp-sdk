@@ -6,10 +6,10 @@ namespace Smplkit.Audit;
 /// <summary>
 /// Audit events surface — accessed via <see cref="AuditClient.Events"/>.
 ///
-/// <para><see cref="Record"/> is fire-and-forget per ADR-047 §2.6 — the
-/// call enqueues the event onto an in-memory bounded buffer and returns
-/// immediately. Reads (<see cref="ListAsync"/>, <see cref="GetAsync"/>)
-/// are async and synchronous on the wire.</para>
+/// <para><see cref="Record"/> is fire-and-forget — the call enqueues the
+/// event onto an in-memory bounded buffer and returns immediately. Reads
+/// (<see cref="ListAsync"/>, <see cref="GetAsync"/>) await their network
+/// round-trip.</para>
 /// </summary>
 public sealed class AuditEvents
 {
@@ -23,6 +23,18 @@ public sealed class AuditEvents
     }
 
     /// <summary>Enqueue an audit event for asynchronous delivery. Returns immediately.</summary>
+    /// <remarks>
+    /// Fire-and-forget: the event is queued onto an in-memory bounded buffer
+    /// whose background worker performs the POST with retry on transient
+    /// failures. Call <see cref="FlushAsync"/> when the event must be durable
+    /// before continuing (CLI tools, tests, or any flow about to exit the
+    /// process). A <see cref="CreateEventInput.ResourceType"/> beginning with
+    /// <c>smpl.</c> is reserved for smplkit-emitted events; the server rejects
+    /// customer attempts with a 403 and the buffer drops the item.
+    /// </remarks>
+    /// <param name="input">The event to record. <see cref="CreateEventInput.EventType"/>,
+    /// <see cref="CreateEventInput.ResourceType"/>, and
+    /// <see cref="CreateEventInput.ResourceId"/> are required.</param>
     public void Record(CreateEventInput input)
     {
         ArgumentNullException.ThrowIfNull(input);
@@ -39,10 +51,6 @@ public sealed class AuditEvents
             Resource_type = input.ResourceType,
             Resource_id = input.ResourceId,
         };
-        if (input.Severity is not null)
-        {
-            attrs.Severity = (GenAudit.Severity)Enum.Parse(typeof(GenAudit.Severity), input.Severity, ignoreCase: true);
-        }
         if (input.Category is not null)
         {
             attrs.Category = input.Category;
@@ -86,8 +94,11 @@ public sealed class AuditEvents
         _buffer.Enqueue(body, input.IdempotencyKey);
     }
 
-    /// <summary>Single-event retrieval.</summary>
-    /// <exception cref="Smplkit.Errors.NotFoundException">If the event does not exist in the caller's account.</exception>
+    /// <summary>Retrieve a single audit event by id.</summary>
+    /// <param name="eventId">The event's id.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The matching <see cref="AuditEvent"/>.</returns>
+    /// <exception cref="Smplkit.Errors.NotFoundException">If no event with that id exists in the caller's account.</exception>
     /// <exception cref="Smplkit.Errors.SmplkitException">On other non-2xx responses.</exception>
     public async Task<AuditEvent> GetAsync(Guid eventId, CancellationToken cancellationToken = default)
     {
@@ -96,7 +107,28 @@ public sealed class AuditEvents
         return FromResource(resp.Data);
     }
 
-    /// <summary>List events with filters and cursor pagination.</summary>
+    /// <summary>
+    /// List audit events for the authenticated account.
+    ///
+    /// <para>Filters apply server-side; pagination uses an opaque cursor
+    /// (<see cref="ListEventsInput.PageAfter"/>), and the returned page exposes
+    /// <see cref="ListEventsPage.NextCursor"/> when more pages are available.</para>
+    ///
+    /// <para><see cref="ListEventsInput.Search"/> is an optional free-text filter
+    /// matching an event's resource id or description as a case-insensitive
+    /// substring. It must be scoped — combine it with
+    /// <see cref="ListEventsInput.OccurredAtRange"/>, or with both
+    /// <see cref="ListEventsInput.ResourceType"/> and
+    /// <see cref="ListEventsInput.ResourceId"/> — or the request is rejected.</para>
+    ///
+    /// <para><see cref="ListEventsInput.Environments"/> scopes the read to a set
+    /// of environment keys (and/or the reserved <c>"smplkit"</c> bucket). When
+    /// omitted, the filter is left off and the server scopes to your accessible
+    /// environment.</para>
+    /// </summary>
+    /// <param name="input">Filters and pagination cursor; null lists with defaults.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A page of matching <see cref="AuditEvent"/>s plus the next-page cursor.</returns>
     public async Task<ListEventsPage> ListAsync(ListEventsInput? input = null, CancellationToken cancellationToken = default)
     {
         input ??= new ListEventsInput();
@@ -111,10 +143,8 @@ public sealed class AuditEvents
             filterevent_type: input.EventType,
             filterresource_type: input.ResourceType,
             filterresource_id: input.ResourceId,
-            filterseverity: input.Severity,
             filtercategory: input.Category,
             filtersearch: input.Search,
-            filterdo_not_forward: input.DoNotForward,
             pagesize: input.PageSize,
             pageafter: input.PageAfter,
             // format: null — wrapper always uses the paginated JSON:API
@@ -141,6 +171,7 @@ public sealed class AuditEvents
     }
 
     /// <summary>Block until the in-memory buffer is drained or timeout elapses.</summary>
+    /// <param name="timeout">Upper bound on the blocking flush.</param>
     public Task FlushAsync(TimeSpan timeout) => _buffer.FlushAsync(timeout);
 
     /// <summary>Drains best-effort and stops the background worker. Called from <see cref="AuditClient.DisposeAsync"/>.</summary>
@@ -154,7 +185,6 @@ public sealed class AuditEvents
             a.Event_type ?? string.Empty,
             a.Resource_type ?? string.Empty,
             a.Resource_id ?? string.Empty,
-            (a.Severity ?? GenAudit.Severity.INFO).ToString(),
             a.Category,
             a.Occurred_at ?? default,
             a.Created_at ?? default,

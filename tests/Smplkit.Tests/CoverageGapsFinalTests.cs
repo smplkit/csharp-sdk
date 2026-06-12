@@ -237,13 +237,13 @@ public class CoverageGapsFinalTests
     }
 
     // ------------------------------------------------------------------
-    // SmplClient: SetContext with broken management.Contexts.RegisterAsync — catch path (146-149)
+    // SmplClient: SetContext with broken Platform.Contexts.RegisterAsync — catch path (146-149)
     // ------------------------------------------------------------------
 
     [Fact]
     public void SmplClient_SetContext_RegisterAsyncThrows_Swallowed()
     {
-        // Force RegisterAsync to throw by closing the management client beforehand
+        // Force RegisterAsync to throw by closing the client beforehand
         // — but actually RegisterAsync doesn't throw synchronously even on bad inputs.
         // The catch is for any unexpected exception from the buffer's Observe call.
         var (client, _) = MakeClient(_ => Task.FromResult(Json("{}")));
@@ -617,6 +617,10 @@ public class CoverageGapsFinalTests
         using var stopPoking = new CancellationTokenSource();
         var poker = Task.Run(async () =>
         {
+            // Let WaitUntilReadyAsync observe the not-yet-connected state and run
+            // its poll-delay loop at least once before we flip the status, so the
+            // delay branch is covered deterministically (not subject to a race).
+            try { await Task.Delay(200, stopPoking.Token); } catch { return; }
             while (!stopPoking.Token.IsCancellationRequested)
             {
                 statusField.SetValue(ws, "connected");

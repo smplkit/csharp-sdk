@@ -26,8 +26,17 @@ public sealed class Logger
     /// <summary>Gets the logger sources.</summary>
     public List<Dictionary<string, object?>> Sources { get; internal set; }
 
-    /// <summary>Gets the per-environment configuration.</summary>
-    public Dictionary<string, Dictionary<string, object?>> Environments { get; internal set; }
+    /// <summary>
+    /// Read-only view of per-environment level overrides, keyed by environment
+    /// name. Mutate via <see cref="SetLevel"/> / <see cref="ClearLevel"/> /
+    /// <see cref="ClearAllEnvironmentLevels"/> with an <c>environment</c> argument.
+    /// </summary>
+    public IReadOnlyDictionary<string, LoggerEnvironment> Environments =>
+        EnvironmentsRaw.ToDictionary(kv => kv.Key, kv => LoggerEnvironment.FromRaw(kv.Value));
+
+    // Raw wire-shaped per-environment data ({env: {"level": "ERROR"}}); the
+    // source of truth that serialization and level resolution read.
+    internal Dictionary<string, Dictionary<string, object?>> EnvironmentsRaw { get; private set; }
 
     /// <summary>Gets the creation timestamp.</summary>
     public DateTime? CreatedAt { get; internal set; }
@@ -54,7 +63,7 @@ public sealed class Logger
         Group = group;
         Managed = managed;
         Sources = sources;
-        Environments = environments;
+        EnvironmentsRaw = environments;
         CreatedAt = createdAt;
         UpdatedAt = updatedAt;
     }
@@ -69,7 +78,7 @@ public sealed class Logger
         Group = saved.Group;
         Managed = saved.Managed;
         Sources = saved.Sources;
-        Environments = saved.Environments;
+        EnvironmentsRaw = saved.EnvironmentsRaw;
         CreatedAt = saved.CreatedAt;
         UpdatedAt = saved.UpdatedAt;
     }
@@ -91,7 +100,7 @@ public sealed class Logger
         if (environment is null)
             Level = level;
         else
-            Environments[environment] = new Dictionary<string, object?> { ["level"] = level.ToWireString() };
+            EnvironmentsRaw[environment] = new Dictionary<string, object?> { ["level"] = level.ToWireString() };
     }
 
     /// <summary>
@@ -103,11 +112,11 @@ public sealed class Logger
         if (environment is null)
             Level = null;
         else
-            Environments.Remove(environment);
+            EnvironmentsRaw.Remove(environment);
     }
 
     /// <summary>Clears all environment-specific level overrides.</summary>
-    public void ClearAllEnvironmentLevels() { Environments.Clear(); }
+    public void ClearAllEnvironmentLevels() { EnvironmentsRaw.Clear(); }
 
     /// <inheritdoc />
     public override string ToString() => $"Logger(Id={Id}, Level={Level})";
@@ -132,8 +141,17 @@ public sealed class LogGroup
     /// <summary>Gets or sets the parent group identifier (slug).</summary>
     public string? Group { get; set; }
 
-    /// <summary>Gets the per-environment configuration.</summary>
-    public Dictionary<string, Dictionary<string, object?>> Environments { get; internal set; }
+    /// <summary>
+    /// Read-only view of per-environment level overrides, keyed by environment
+    /// name. Mutate via <see cref="SetLevel"/> / <see cref="ClearLevel"/> /
+    /// <see cref="ClearAllEnvironmentLevels"/> with an <c>environment</c> argument.
+    /// </summary>
+    public IReadOnlyDictionary<string, LoggerEnvironment> Environments =>
+        EnvironmentsRaw.ToDictionary(kv => kv.Key, kv => LoggerEnvironment.FromRaw(kv.Value));
+
+    // Raw wire-shaped per-environment data ({env: {"level": "ERROR"}}); the
+    // source of truth that serialization and level resolution read.
+    internal Dictionary<string, Dictionary<string, object?>> EnvironmentsRaw { get; private set; }
 
     /// <summary>Gets the creation timestamp.</summary>
     public DateTime? CreatedAt { get; internal set; }
@@ -156,7 +174,7 @@ public sealed class LogGroup
         Name = name;
         Level = level;
         Group = group;
-        Environments = environments;
+        EnvironmentsRaw = environments;
         CreatedAt = createdAt;
         UpdatedAt = updatedAt;
     }
@@ -169,7 +187,7 @@ public sealed class LogGroup
         Name = saved.Name;
         Level = saved.Level;
         Group = saved.Group;
-        Environments = saved.Environments;
+        EnvironmentsRaw = saved.EnvironmentsRaw;
         CreatedAt = saved.CreatedAt;
         UpdatedAt = saved.UpdatedAt;
     }
@@ -191,7 +209,7 @@ public sealed class LogGroup
         if (environment is null)
             Level = level;
         else
-            Environments[environment] = new Dictionary<string, object?> { ["level"] = level.ToWireString() };
+            EnvironmentsRaw[environment] = new Dictionary<string, object?> { ["level"] = level.ToWireString() };
     }
 
     /// <summary>Clears the log level (base or per-env override).</summary>
@@ -200,11 +218,11 @@ public sealed class LogGroup
         if (environment is null)
             Level = null;
         else
-            Environments.Remove(environment);
+            EnvironmentsRaw.Remove(environment);
     }
 
     /// <summary>Clears all environment-specific level overrides.</summary>
-    public void ClearAllEnvironmentLevels() { Environments.Clear(); }
+    public void ClearAllEnvironmentLevels() { EnvironmentsRaw.Clear(); }
 
     /// <inheritdoc />
     public override string ToString() => $"LogGroup(Id={Id}, Level={Level})";

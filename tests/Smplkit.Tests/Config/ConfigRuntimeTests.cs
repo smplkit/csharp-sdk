@@ -92,6 +92,175 @@ public class ConfigRuntimeTests
         }
         """;
 
+    // Transitivity fixture: leaf → mid → root. The initial list returns ONLY
+    // the leaf; mid and root are uncached (e.g. parents created via discovery
+    // after connect that never broadcast their own event).
+    private const string AncestorLeafOnlyListJson = """
+        {
+            "data": [
+                {
+                    "id": "leaf",
+                    "type": "config",
+                    "attributes": {
+                        "id": "leaf", "name": "Leaf", "description": null, "parent": "mid",
+                        "items": {"leaf_key": {"value": "leaf-val", "type": "STRING"}},
+                        "environments": {},
+                        "created_at": "2024-01-15T10:30:00Z", "updated_at": "2024-01-15T10:30:00Z"
+                    }
+                }
+            ]
+        }
+        """;
+
+    private const string AncestorLeafJson = """
+        {
+            "data": {
+                "id": "leaf", "type": "config",
+                "attributes": {
+                    "id": "leaf", "name": "Leaf", "description": null, "parent": "mid",
+                    "items": {"leaf_key": {"value": "leaf-val", "type": "STRING"}},
+                    "environments": {},
+                    "created_at": "2024-01-15T10:30:00Z", "updated_at": "2024-01-15T10:30:00Z"
+                }
+            }
+        }
+        """;
+
+    private const string AncestorMidJson = """
+        {
+            "data": {
+                "id": "mid", "type": "config",
+                "attributes": {
+                    "id": "mid", "name": "Mid", "description": null, "parent": "root",
+                    "items": {"mid_key": {"value": "mid-val", "type": "STRING"}},
+                    "environments": {},
+                    "created_at": "2024-01-15T10:30:00Z", "updated_at": "2024-01-15T10:30:00Z"
+                }
+            }
+        }
+        """;
+
+    private const string AncestorRootJson = """
+        {
+            "data": {
+                "id": "root", "type": "config",
+                "attributes": {
+                    "id": "root", "name": "Root", "description": null, "parent": null,
+                    "items": {"root_key": {"value": "root-val", "type": "STRING"}},
+                    "environments": {},
+                    "created_at": "2024-01-15T10:30:00Z", "updated_at": "2024-01-15T10:30:00Z"
+                }
+            }
+        }
+        """;
+
+    [Fact]
+    public void HandleConfigChanged_FetchesUncachedAncestors_InheritedValuesSurvive()
+    {
+        var (client, _) = MakeClient(req =>
+        {
+            var url = req.RequestUri!.ToString();
+            if (req.Method == HttpMethod.Get && url.Contains("config."))
+            {
+                if (url.Contains("/configs/leaf")) return Task.FromResult(Json(AncestorLeafJson));
+                if (url.Contains("/configs/mid")) return Task.FromResult(Json(AncestorMidJson));
+                if (url.Contains("/configs/root")) return Task.FromResult(Json(AncestorRootJson));
+                // List endpoint (no trailing id): only "leaf" is present.
+                return Task.FromResult(Json(AncestorLeafOnlyListJson));
+            }
+            return Task.FromResult(Json("{}"));
+        });
+
+        // Initial connect sees only "leaf"; its parent "mid" and grandparent
+        // "root" aren't cached, so inherited values aren't resolved yet.
+        var before = client.Config.Subscribe("leaf");
+        Assert.Equal("leaf-val", before["leaf_key"]);
+        Assert.Null(before.GetOrDefault("mid_key", null));
+        Assert.Null(before.GetOrDefault("root_key", null));
+
+        // A config_changed for the leaf must transitively pull in the uncached
+        // parent (mid) AND grandparent (root) so the full chain re-resolves.
+        var handler = typeof(ConfigClient).GetMethod("HandleConfigChanged",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        handler.Invoke(client.Config, new object?[]
+        {
+            new Dictionary<string, object?> { ["id"] = "leaf" },
+        });
+
+        var after = client.Config.Subscribe("leaf");
+        Assert.Equal("leaf-val", after["leaf_key"]);
+        Assert.Equal("mid-val", after.GetOrDefault("mid_key", null));   // parent fetched
+        Assert.Equal("root-val", after.GetOrDefault("root_key", null)); // grandparent fetched transitively
+
+        // A second config_changed finds mid + root already cached, so the
+        // ancestor walk skips re-fetching them and the chain still resolves.
+        handler.Invoke(client.Config, new object?[]
+        {
+            new Dictionary<string, object?> { ["id"] = "leaf" },
+        });
+        var again = client.Config.Subscribe("leaf");
+        Assert.Equal("mid-val", again.GetOrDefault("mid_key", null));
+        Assert.Equal("root-val", again.GetOrDefault("root_key", null));
+    }
+
+    [Fact]
+    public void HandleConfigChanged_AncestorFetchReturnsNull_Skipped()
+    {
+        const string orphanOnlyList = """
+            {
+                "data": [
+                    {
+                        "id": "orphan", "type": "config",
+                        "attributes": {
+                            "id": "orphan", "name": "Orphan", "description": null, "parent": "ghost",
+                            "items": {"orphan_key": {"value": "orphan-val", "type": "STRING"}},
+                            "environments": {},
+                            "created_at": "2024-01-15T10:30:00Z", "updated_at": "2024-01-15T10:30:00Z"
+                        }
+                    }
+                ]
+            }
+            """;
+        const string orphanSingle = """
+            {
+                "data": {
+                    "id": "orphan", "type": "config",
+                    "attributes": {
+                        "id": "orphan", "name": "Orphan", "description": null, "parent": "ghost",
+                        "items": {"orphan_key": {"value": "orphan-val", "type": "STRING"}},
+                        "environments": {},
+                        "created_at": "2024-01-15T10:30:00Z", "updated_at": "2024-01-15T10:30:00Z"
+                    }
+                }
+            }
+            """;
+        var (client, _) = MakeClient(req =>
+        {
+            var url = req.RequestUri!.ToString();
+            if (req.Method == HttpMethod.Get && url.Contains("config."))
+            {
+                // The uncached parent "ghost" resolves to no data — the walk skips it.
+                if (url.Contains("/configs/ghost")) return Task.FromResult(Json("""{"data":null}"""));
+                if (url.Contains("/configs/orphan")) return Task.FromResult(Json(orphanSingle));
+                return Task.FromResult(Json(orphanOnlyList));
+            }
+            return Task.FromResult(Json("{}"));
+        });
+
+        client.Config.Subscribe("orphan");
+
+        var handler = typeof(ConfigClient).GetMethod("HandleConfigChanged",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        // Should not throw even though the ancestor fetch yields no config.
+        handler.Invoke(client.Config, new object?[]
+        {
+            new Dictionary<string, object?> { ["id"] = "orphan" },
+        });
+
+        var values = client.Config.Subscribe("orphan");
+        Assert.Equal("orphan-val", values["orphan_key"]);
+    }
+
     [Fact]
     public void Get_ResolvesValuesFromCache()
     {

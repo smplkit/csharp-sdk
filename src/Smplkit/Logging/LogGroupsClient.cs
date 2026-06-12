@@ -143,6 +143,6 @@ public sealed class LogGroupsClient
                 ? null
                 : (GenLogging.LogLevel)System.Enum.Parse(typeof(GenLogging.LogLevel), logGroup.Level.Value.ToWireString()),
             Parent_id = logGroup.Group,
-            Environments = LoggersClient.BuildEnvironmentsPayload(logGroup.Environments),
+            Environments = LoggersClient.BuildEnvironmentsPayload(logGroup.EnvironmentsRaw),
         };
 }

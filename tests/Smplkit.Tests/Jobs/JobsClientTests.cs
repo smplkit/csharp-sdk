@@ -17,7 +17,7 @@ namespace Smplkit.Tests.Jobs;
 /// Exercises the active-record API: <c>mgmt.Jobs.New(...)</c> → mutate →
 /// <c>SaveAsync</c> / <c>DeleteAsync</c>, plus run history and usage.</para>
 /// </summary>
-public class JobsManagementTests
+public class JobsClientTests
 {
     private const string JobId = "my-job";
     private const string RunId = "8f2b1c4a-0000-4a1b-9c3d-1e2f3a4b5c6d";

@@ -20,10 +20,26 @@ public sealed class ContextsClient : IContextSink
     }
 
     /// <summary>Buffer a single context for registration; optionally flush immediately.</summary>
+    /// <remarks>
+    /// Buffered contexts are sent in batches: a background flush kicks in once enough have
+    /// accumulated, and any remainder is sent on the next explicit flush. Pass
+    /// <paramref name="flush"/> as <c>true</c> to send everything buffered right away.
+    /// </remarks>
+    /// <param name="context">The context to register.</param>
+    /// <param name="flush">When <c>true</c>, send all buffered contexts immediately rather than waiting for the batch threshold. Defaults to <c>false</c>.</param>
+    /// <param name="ct">Cancellation token.</param>
     public Task RegisterAsync(Smplkit.Context context, bool flush = false, CancellationToken ct = default)
         => RegisterAsync(new[] { context }, flush, ct);
 
     /// <summary>Buffer contexts for registration; optionally flush immediately.</summary>
+    /// <remarks>
+    /// Buffered contexts are sent in batches: a background flush kicks in once enough have
+    /// accumulated, and any remainder is sent on the next explicit flush. Pass
+    /// <paramref name="flush"/> as <c>true</c> to send everything buffered right away.
+    /// </remarks>
+    /// <param name="contexts">The contexts to register.</param>
+    /// <param name="flush">When <c>true</c>, send all buffered contexts immediately rather than waiting for the batch threshold. Defaults to <c>false</c>.</param>
+    /// <param name="ct">Cancellation token.</param>
     public async Task RegisterAsync(IEnumerable<Smplkit.Context> contexts, bool flush = false, CancellationToken ct = default)
     {
         _buffer.Observe(contexts);
@@ -62,6 +78,7 @@ public sealed class ContextsClient : IContextSink
     /// <param name="pageNumber">1-based page number; null lets the server default (1) apply.</param>
     /// <param name="pageSize">Items per page; null lets the server default (1000) apply.</param>
     /// <param name="ct">Cancellation token.</param>
+    /// <returns>The contexts of the given type on the requested page.</returns>
     public async Task<List<Smplkit.Context>> ListAsync(
         string type,
         int? pageNumber = null,
@@ -74,6 +91,10 @@ public sealed class ContextsClient : IContextSink
     }
 
     /// <summary>Fetches a context by composite <c>"{type}:{key}"</c> id.</summary>
+    /// <param name="id">The composite context id <c>"type:key"</c>.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The matching <see cref="Smplkit.Context"/>.</returns>
+    /// <exception cref="Smplkit.Errors.NotFoundException">If no context with that id exists.</exception>
     public async Task<Smplkit.Context> GetAsync(string id, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
@@ -82,14 +103,24 @@ public sealed class ContextsClient : IContextSink
     }
 
     /// <summary>Fetches a context by type and key.</summary>
+    /// <param name="type">The context type.</param>
+    /// <param name="key">The context key.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The matching <see cref="Smplkit.Context"/>.</returns>
+    /// <exception cref="Smplkit.Errors.NotFoundException">If no context with that id exists.</exception>
     public Task<Smplkit.Context> GetAsync(string type, string key, CancellationToken ct = default)
         => GetAsync($"{type}:{key}", ct);
 
     /// <summary>Deletes a context by composite <c>"{type}:{key}"</c> id.</summary>
+    /// <param name="id">The composite context id <c>"type:key"</c>.</param>
+    /// <param name="ct">Cancellation token.</param>
     public Task DeleteAsync(string id, CancellationToken ct = default)
         => ApiExceptionMapper.ExecuteAsync(() => _appClient.Delete_contextAsync(id, ct));
 
     /// <summary>Deletes a context by type and key.</summary>
+    /// <param name="type">The context type.</param>
+    /// <param name="key">The context key.</param>
+    /// <param name="ct">Cancellation token.</param>
     public Task DeleteAsync(string type, string key, CancellationToken ct = default)
         => DeleteAsync($"{type}:{key}", ct);
 

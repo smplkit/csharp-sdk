@@ -18,6 +18,11 @@ public sealed class AuditCategories
     internal AuditCategories(GenAudit.AuditClient gen) => _gen = gen;
 
     /// <summary>List the distinct category values recorded for this account.</summary>
+    /// <param name="input">Pagination and environments scope; null lists with
+    /// defaults. Set <see cref="ListCategoriesInput.MetaTotal"/> to populate the
+    /// total counts in the returned pagination meta.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A page of <see cref="AuditCategory"/> values plus the pagination meta.</returns>
     public async Task<ListCategoriesPage> ListAsync(
         ListCategoriesInput? input = null, CancellationToken ct = default)
     {

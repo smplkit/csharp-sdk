@@ -165,7 +165,7 @@ public class AuditCoverageTests
     }
 
     [Fact]
-    public async Task ListAsync_PassesSeverityAndCategoryFilters()
+    public async Task ListAsync_PassesCategoryFilter()
     {
         string? capturedUrl = null;
         var (gen, _) = MakeGen(req =>
@@ -179,16 +179,14 @@ public class AuditCoverageTests
         await using var client = new TestAuditClient(gen);
         await client.Events.ListAsync(new ListEventsInput
         {
-            Severity = "ERROR",
             Category = "auth",
         });
         Assert.NotNull(capturedUrl);
-        Assert.Contains("filter%5Bseverity%5D=ERROR", capturedUrl!);
         Assert.Contains("filter%5Bcategory%5D=auth", capturedUrl!);
     }
 
     [Fact]
-    public async Task Record_PassesSeverityAndCategory()
+    public async Task Record_PassesCategory()
     {
         string? capturedBody = null;
         var (gen, _) = MakeGen(async req =>
@@ -206,7 +204,6 @@ public class AuditCoverageTests
             EventType = "user.login_failed",
             ResourceType = "user",
             ResourceId = "u-1",
-            Severity = "WARN",
             Category = "auth",
         });
         await client.Events.FlushAsync(TimeSpan.FromSeconds(2));
@@ -214,15 +211,14 @@ public class AuditCoverageTests
         while (capturedBody is null && DateTime.UtcNow < deadline)
             await Task.Delay(20);
         Assert.NotNull(capturedBody);
-        Assert.Contains("\"severity\":\"WARN\"", capturedBody!);
         Assert.Contains("\"category\":\"auth\"", capturedBody!);
     }
 
     [Fact]
-    public async Task EventResource_SeverityAndCategoryFromResponse()
+    public async Task EventResource_CategoryFromResponse()
     {
         const string body = """
-            {"data":{"id":"11111111-2222-3333-4444-555555555555","type":"event","attributes":{"event_type":"x","resource_type":"x","resource_id":"1","severity":"ERROR","category":"auth","occurred_at":"2026-05-06T12:00:00Z","created_at":"2026-05-06T12:00:01Z","actor_type":"USER","actor_id":null,"actor_label":"","data":{},"idempotency_key":"k"}}}
+            {"data":{"id":"11111111-2222-3333-4444-555555555555","type":"event","attributes":{"event_type":"x","resource_type":"x","resource_id":"1","category":"auth","occurred_at":"2026-05-06T12:00:00Z","created_at":"2026-05-06T12:00:01Z","actor_type":"USER","actor_id":null,"actor_label":"","data":{},"idempotency_key":"k"}}}
             """;
         var (gen, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
@@ -230,7 +226,6 @@ public class AuditCoverageTests
         }));
         await using var client = new TestAuditClient(gen);
         var ev = await client.Events.GetAsync(Guid.Parse("11111111-2222-3333-4444-555555555555"));
-        Assert.Equal("ERROR", ev.Severity);
         Assert.Equal("auth", ev.Category);
     }
 

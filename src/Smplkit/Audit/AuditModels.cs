@@ -1,15 +1,13 @@
 namespace Smplkit.Audit;
 
 /// <summary>
-/// Public-facing audit event resource — the JSON:API attribute object
-/// flattened into a record so callers don't have to traverse the
-/// envelope. ADR-047 §2.3.1.
+/// Audit event resource — the JSON:API attribute object flattened into a
+/// record so callers don't have to traverse the envelope.
 /// </summary>
 /// <param name="Id">Server-assigned event id.</param>
-/// <param name="EventType"><c>{resource_type}.{verb}</c> per ADR-047 §2.4.</param>
+/// <param name="EventType"><c>{resource_type}.{verb}</c>, e.g. <c>invoice.created</c>.</param>
 /// <param name="ResourceType">The resource type the event acts on.</param>
 /// <param name="ResourceId">Identifier of the affected resource.</param>
-/// <param name="Severity">Severity. One of <c>TRACE</c>, <c>DEBUG</c>, <c>INFO</c>, <c>WARN</c>, <c>ERROR</c>, <c>FATAL</c>. Always present on read.</param>
 /// <param name="Category">Optional free-form bucket label. Null when not supplied.</param>
 /// <param name="OccurredAt">When the event happened in the originating system.</param>
 /// <param name="CreatedAt">When the audit service recorded the event.</param>
@@ -20,10 +18,7 @@ namespace Smplkit.Audit;
 /// accepted, including non-UUID values. Null when not supplied.</param>
 /// <param name="ActorLabel">Human-readable label for the actor (e.g. an email address
 /// or API key name). Null when not supplied.</param>
-/// <param name="Data">Free-form contextual extras. Any resource snapshot
-/// recorded with the event lives inside <c>Data</c>; smplkit's internal
-/// convention nests it at <c>Data["snapshot"]</c>, but the shape is
-/// unconstrained.</param>
+/// <param name="Data">Free-form per-event payload defined by the customer.</param>
 /// <param name="IdempotencyKey">Caller-supplied or server-derived idempotency key.</param>
 /// <param name="DoNotForward">When true, the event was recorded but not forwarded to any SIEM forwarder.</param>
 /// <param name="Environment">The environment the event was recorded in. Read-only
@@ -37,7 +32,6 @@ public sealed record AuditEvent(
     string EventType,
     string ResourceType,
     string ResourceId,
-    string Severity,
     string? Category,
     DateTimeOffset OccurredAt,
     DateTimeOffset CreatedAt,
@@ -65,8 +59,6 @@ public sealed class CreateEventInput
     public required string ResourceType { get; set; }
     /// <summary>Identifier of the affected resource.</summary>
     public required string ResourceId { get; set; }
-    /// <summary>Severity. One of <c>TRACE</c>, <c>DEBUG</c>, <c>INFO</c>, <c>WARN</c>, <c>ERROR</c>, <c>FATAL</c>. Null records the event at <c>INFO</c>.</summary>
-    public string? Severity { get; set; }
     /// <summary>Optional free-form bucket label. Null round-trips as null on read.</summary>
     public string? Category { get; set; }
     /// <summary>Optional. Defaults to server-side <c>now()</c> if null.</summary>
@@ -112,13 +104,18 @@ public sealed class ListEventsInput
     public string? ActorType { get; set; }
     /// <summary>Filter by exact-match actor id — the literal string stored on the event.</summary>
     public string? ActorId { get; set; }
-    /// <summary>Filter by exact-match severity. One of <c>TRACE</c>, <c>DEBUG</c>, <c>INFO</c>, <c>WARN</c>, <c>ERROR</c>, <c>FATAL</c>.</summary>
-    public string? Severity { get; set; }
     /// <summary>Filter by exact-match category.</summary>
     public string? Category { get; set; }
-    /// <summary>Range syntax per ADR-014, e.g. <c>[2026-01-01T00:00:00Z,*)</c>.</summary>
+    /// <summary>Restrict to events whose <c>occurred_at</c> falls in this range,
+    /// e.g. <c>[2026-01-01T00:00:00Z,*)</c>. Null leaves the time window open.</summary>
     public string? OccurredAtRange { get; set; }
-    /// <summary>Case-insensitive substring match against <c>resource_id</c>.</summary>
+    /// <summary>
+    /// Optional free-text filter — returns only events whose <c>ResourceId</c>
+    /// or description contains it as a case-insensitive substring. Must be
+    /// scoped — combine it with <see cref="OccurredAtRange"/>, or with both
+    /// <see cref="ResourceType"/> and <see cref="ResourceId"/> — or the request
+    /// is rejected. Null disables text filtering.
+    /// </summary>
     public string? Search { get; set; }
     /// <summary>
     /// Scope results to one or more environment keys (e.g.
@@ -128,14 +125,6 @@ public sealed class ListEventsInput
     /// platform change events that smplkit records about your own resources.
     /// </summary>
     public IEnumerable<string>? Environments { get; set; }
-    /// <summary>
-    /// Restrict to events whose <c>do_not_forward</c> flag matches the given
-    /// boolean. Forwarder previews typically pass <c>false</c> to match
-    /// live-pipeline semantics (events flagged <c>do_not_forward=true</c>
-    /// are skipped by the forwarder pipeline). <c>null</c> leaves the
-    /// filter unset.
-    /// </summary>
-    public bool? DoNotForward { get; set; }
     /// <summary>Page size; default 50, max 200 server-side.</summary>
     public int? PageSize { get; set; }
     /// <summary>Opaque cursor returned as <c>NextCursor</c> by the previous page.</summary>
@@ -241,7 +230,7 @@ public sealed class ListCategoriesInput
 public sealed record ListCategoriesPage(IReadOnlyList<AuditCategory> Categories, Pagination Pagination);
 
 // ---------------------------------------------------------------------------
-// Forwarders (SIEM streaming) — domain models shared with the management plane
+// Forwarders (SIEM streaming) — domain models
 // ---------------------------------------------------------------------------
 
 /// <summary>HTTP verb used by a forwarder's outbound delivery request.</summary>
@@ -313,8 +302,8 @@ public static class TransformTypeExtensions
 
 /// <summary>A single name/value HTTP header on a forwarder destination.</summary>
 /// <param name="Name">Header name (e.g. <c>"Authorization"</c>, <c>"DD-API-KEY"</c>).</param>
-/// <param name="Value">Header value, plaintext on writes. The audit service encrypts
-/// values at rest; reads return them as <c>"&lt;redacted&gt;"</c>.</param>
+/// <param name="Value">Header value. Returned in plaintext on reads, so a
+/// get-mutate-put round-trip preserves it without re-entering secrets.</param>
 public sealed record HttpHeader(string Name, string Value);
 
 /// <summary>
@@ -335,8 +324,8 @@ public sealed class ForwarderEnvironment
     /// replaces the forwarder's base <see cref="Forwarder.Configuration"/> for
     /// this environment. <c>null</c> (the default) inherits the base
     /// configuration. As with the base configuration, header values are
-    /// plaintext on writes and returned redacted on reads — re-supply real
-    /// values before <see cref="Forwarder.SaveAsync"/>.</summary>
+    /// returned in plaintext on reads, so a get-mutate-put round-trip preserves
+    /// them without re-entering secrets.</summary>
     public HttpConfiguration? Configuration { get; set; }
 }
 
@@ -352,9 +341,9 @@ public sealed class HttpConfiguration
     public HttpMethod Method { get; set; } = HttpMethod.Post;
     /// <summary>Destination URL the audit service posts each event to.</summary>
     public required string Url { get; set; }
-    /// <summary>Headers attached to every outbound request. Values carry
-    /// credentials and are encrypted at rest server-side; reads return them
-    /// redacted.</summary>
+    /// <summary>Headers attached to every outbound request. Values often carry
+    /// credentials and are returned in plaintext on reads, so a get-mutate-put
+    /// round-trip preserves them without re-entering secrets.</summary>
     public IList<HttpHeader> Headers { get; set; } = new List<HttpHeader>();
     /// <summary>Status code or class that signals delivery success.
     /// Defaults to <c>"2xx"</c>.</summary>
@@ -377,10 +366,10 @@ public sealed class HttpConfiguration
 ///
 /// <para>Active-record style: mutate fields directly and call
 /// <see cref="SaveAsync"/> to persist, or <see cref="DeleteAsync"/> to remove.
-/// Header values in <see cref="Configuration"/>.Headers are always returned
-/// redacted on reads — the GET path on the audit API replaces every header
-/// value with <c>"&lt;redacted&gt;"</c>. Re-supply the real values before
-/// calling <see cref="SaveAsync"/> (the SDK does not cache them client-side).</para>
+/// Header values in <see cref="Configuration"/>.Headers are returned in
+/// plaintext on reads, so fetching a forwarder, mutating it, and calling
+/// <see cref="SaveAsync"/> preserves its header values without re-entering
+/// secrets.</para>
 /// </summary>
 public sealed class Forwarder
 {
@@ -444,7 +433,7 @@ public sealed class Forwarder
     public DateTimeOffset? CreatedAt { get; internal set; }
     /// <summary>When this forwarder was last mutated.</summary>
     public DateTimeOffset? UpdatedAt { get; internal set; }
-    /// <summary>Soft-delete timestamp. <c>null</c> for live forwarders.</summary>
+    /// <summary>Deletion timestamp; <c>null</c> for live forwarders.</summary>
     public DateTimeOffset? DeletedAt { get; internal set; }
     /// <summary>Monotonic version counter; bumped on every server-side write.</summary>
     public int? Version { get; internal set; }
@@ -494,6 +483,7 @@ public sealed class Forwarder
     /// otherwise full-replace PUT. After the call, every server-authoritative
     /// field is refreshed from the response.
     /// </summary>
+    /// <param name="ct">Cancellation token.</param>
     public async Task SaveAsync(CancellationToken ct = default)
     {
         if (_client is null)
@@ -504,7 +494,8 @@ public sealed class Forwarder
         Apply(refreshed);
     }
 
-    /// <summary>Soft-delete this forwarder on the server.</summary>
+    /// <summary>Delete this forwarder on the server.</summary>
+    /// <param name="ct">Cancellation token.</param>
     public Task DeleteAsync(CancellationToken ct = default)
     {
         if (_client is null || Id is null)
@@ -540,6 +531,9 @@ public sealed class Forwarder
     /// exist yet (preserving any already-set <c>Enabled</c> on it). Call
     /// <see cref="SaveAsync"/> to persist.</para>
     /// </summary>
+    /// <param name="configuration">The <see cref="HttpConfiguration"/> to apply.</param>
+    /// <param name="environment">Environment key to scope the change to. Omit to
+    /// set the base configuration that all environments inherit.</param>
     public void SetConfiguration(HttpConfiguration configuration, string? environment = null)
     {
         if (environment is null)
@@ -559,6 +553,10 @@ public sealed class Forwarder
     /// exist yet (preserving any already-set <c>Configuration</c> on it). Call
     /// <see cref="SaveAsync"/> to persist.</para>
     /// </summary>
+    /// <param name="enabled">Whether the forwarder delivers events in the targeted scope.</param>
+    /// <param name="environment">Environment key to scope the change to. Omit to
+    /// set the base <c>Enabled</c> (which the server pins false — enablement is
+    /// per-environment).</param>
     public void SetEnabled(bool enabled, string? environment = null)
     {
         if (environment is null)

@@ -20,6 +20,8 @@ public enum ItemType
 public static class ItemTypeExtensions
 {
     /// <summary>Returns the wire-format string ("BOOLEAN", "JSON", "NUMBER", "STRING").</summary>
+    /// <param name="type">The item type to convert.</param>
+    /// <returns>The wire-format string for <paramref name="type"/>.</returns>
     public static string ToWireString(this ItemType type) => type switch
     {
         ItemType.Boolean => "BOOLEAN",
@@ -30,6 +32,8 @@ public static class ItemTypeExtensions
     };
 
     /// <summary>Parses a wire-format string. Unknown values default to <see cref="ItemType.Json"/>.</summary>
+    /// <param name="wire">The wire-format string to parse ("BOOLEAN", "JSON", "NUMBER", "STRING").</param>
+    /// <returns>The matching <see cref="ItemType"/>, or <see cref="ItemType.Json"/> for unknown values.</returns>
     public static ItemType Parse(string wire) => wire switch
     {
         "BOOLEAN" => ItemType.Boolean,
@@ -56,6 +60,10 @@ public sealed class ConfigItem
     public string? Description { get; }
 
     /// <summary>Initializes a new <see cref="ConfigItem"/>.</summary>
+    /// <param name="name">The item key within its config.</param>
+    /// <param name="value">The item's value.</param>
+    /// <param name="type">The item value type.</param>
+    /// <param name="description">Optional human-readable description.</param>
     public ConfigItem(string name, object? value, ItemType type, string? description = null)
     {
         Name = name;

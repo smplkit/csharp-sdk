@@ -12,7 +12,7 @@ internal sealed record ResolvedConfig(
     string Environment,
     string Service,
     bool Debug,
-    bool DisableTelemetry);
+    bool Telemetry);
 
 /// <summary>
 /// Resolves SDK configuration using a 4-step algorithm:
@@ -30,35 +30,32 @@ internal static class ConfigResolver
     /// </summary>
     internal static ResolvedConfig Resolve(SmplClientOptions options)
     {
-        return Resolve(options, requireEnvironmentAndService: true);
-    }
-
-    /// <summary>
-    /// Resolves configuration for the management plane. Environment and service
-    /// are not required (management endpoints are global to an account).
-    /// </summary>
-    internal static ResolvedConfig ResolveForManagement(SmplClientOptions options)
-    {
-        return Resolve(options, requireEnvironmentAndService: false);
-    }
-
-    private static ResolvedConfig Resolve(SmplClientOptions options, bool requireEnvironmentAndService)
-    {
         return Resolve(
             options,
-            requireEnvironmentAndService: requireEnvironmentAndService,
             envApiKey: System.Environment.GetEnvironmentVariable("SMPLKIT_API_KEY"),
             envBaseDomain: System.Environment.GetEnvironmentVariable("SMPLKIT_BASE_DOMAIN"),
             envScheme: System.Environment.GetEnvironmentVariable("SMPLKIT_SCHEME"),
             envEnvironment: System.Environment.GetEnvironmentVariable("SMPLKIT_ENVIRONMENT"),
             envService: System.Environment.GetEnvironmentVariable("SMPLKIT_SERVICE"),
             envDebug: System.Environment.GetEnvironmentVariable("SMPLKIT_DEBUG"),
-            envDisableTelemetry: System.Environment.GetEnvironmentVariable("SMPLKIT_DISABLE_TELEMETRY"),
+            envTelemetry: System.Environment.GetEnvironmentVariable("SMPLKIT_TELEMETRY"),
             envProfile: System.Environment.GetEnvironmentVariable("SMPLKIT_PROFILE"),
             configPath: Path.Combine(
                 System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile),
                 ".smplkit"),
             fileReader: File.ReadAllText);
+    }
+
+    /// <summary>
+    /// Resolves configuration where environment and service are not required —
+    /// account-global operations (CRUD against the platform) are not scoped to
+    /// either. When an environment or service is supplied via the options,
+    /// <c>~/.smplkit</c>, or an environment variable, it is still resolved and
+    /// returned so a standalone client can pick it up.
+    /// </summary>
+    internal static ResolvedConfig ResolveAccountGlobal(SmplClientOptions options)
+    {
+        return Resolve(options);
     }
 
     /// <summary>
@@ -72,23 +69,7 @@ internal static class ConfigResolver
         string? envEnvironment,
         string? envService,
         string? envDebug,
-        string? envDisableTelemetry,
-        string? envProfile,
-        string configPath,
-        Func<string, string> fileReader)
-        => Resolve(options, true, envApiKey, envBaseDomain, envScheme, envEnvironment,
-            envService, envDebug, envDisableTelemetry, envProfile, configPath, fileReader);
-
-    internal static ResolvedConfig Resolve(
-        SmplClientOptions options,
-        bool requireEnvironmentAndService,
-        string? envApiKey,
-        string? envBaseDomain,
-        string? envScheme,
-        string? envEnvironment,
-        string? envService,
-        string? envDebug,
-        string? envDisableTelemetry,
+        string? envTelemetry,
         string? envProfile,
         string configPath,
         Func<string, string> fileReader)
@@ -100,7 +81,7 @@ internal static class ConfigResolver
         string? environment = null;
         string? service = null;
         bool debug = false;
-        bool disableTelemetry = false;
+        bool telemetry = true;
 
         // Determine profile: constructor arg > SMPLKIT_PROFILE env > "default"
         var activeProfile = options.Profile
@@ -111,7 +92,7 @@ internal static class ConfigResolver
         var fileValues = ReadConfigFile(configPath, activeProfile, fileReader);
         ApplyFileValues(fileValues, activeProfile,
             ref apiKey, ref baseDomain, ref scheme, ref environment,
-            ref service, ref debug, ref disableTelemetry);
+            ref service, ref debug, ref telemetry);
 
         // Step 3: Environment variables
         if (!string.IsNullOrEmpty(envApiKey))
@@ -125,7 +106,7 @@ internal static class ConfigResolver
         if (!string.IsNullOrEmpty(envService))
             service = envService;
         ApplyEnvBool(envDebug, "SMPLKIT_DEBUG", ref debug);
-        ApplyEnvBool(envDisableTelemetry, "SMPLKIT_DISABLE_TELEMETRY", ref disableTelemetry);
+        ApplyEnvBool(envTelemetry, "SMPLKIT_TELEMETRY", ref telemetry);
 
         // Step 4: Constructor arguments
         if (!string.IsNullOrEmpty(options.ApiKey))
@@ -140,24 +121,15 @@ internal static class ConfigResolver
             service = options.Service;
         if (options.Debug is not null)
             debug = options.Debug.Value;
-        if (options.DisableTelemetry is not null)
-            disableTelemetry = options.DisableTelemetry.Value;
+        if (options.Telemetry is not null)
+            telemetry = options.Telemetry.Value;
 
-        // Validate required fields
-        if (requireEnvironmentAndService && string.IsNullOrEmpty(environment))
-            throw new SmplkitException(
-                "No environment provided. Set one of:\n" +
-                "  1. Pass Environment in SmplClientOptions\n" +
-                "  2. Set the SMPLKIT_ENVIRONMENT environment variable\n" +
-                $"  3. Add environment to the [{activeProfile}] section in ~/.smplkit");
-
-        if (requireEnvironmentAndService && string.IsNullOrEmpty(service))
-            throw new SmplkitException(
-                "No service provided. Set one of:\n" +
-                "  1. Pass Service in SmplClientOptions\n" +
-                "  2. Set the SMPLKIT_SERVICE environment variable\n" +
-                $"  3. Add service to the [{activeProfile}] section in ~/.smplkit");
-
+        // Validate required fields.
+        //
+        // Environment and service are OPTIONAL: an audit-only or jobs-only
+        // customer needs neither, and when environment is absent the server
+        // derives it from the API key. config/flags/logging simply send no
+        // environment signal when it's unset. The API key remains required.
         if (string.IsNullOrEmpty(apiKey))
             throw new SmplkitException(
                 "No API key provided. Set one of:\n" +
@@ -172,7 +144,7 @@ internal static class ConfigResolver
             Environment: environment ?? string.Empty,
             Service: service ?? string.Empty,
             Debug: debug,
-            DisableTelemetry: disableTelemetry);
+            Telemetry: telemetry);
     }
 
     /// <summary>
@@ -301,7 +273,7 @@ internal static class ConfigResolver
         ref string? environment,
         ref string? service,
         ref bool debug,
-        ref bool disableTelemetry)
+        ref bool telemetry)
     {
         if (fileValues.TryGetValue("api_key", out var fileApiKey))
             apiKey = fileApiKey;
@@ -315,8 +287,8 @@ internal static class ConfigResolver
             service = fileSvc;
         if (fileValues.TryGetValue("debug", out var fileDebug))
             debug = ParseBool(fileDebug, "debug");
-        if (fileValues.TryGetValue("disable_telemetry", out var fileDt))
-            disableTelemetry = ParseBool(fileDt, "disable_telemetry");
+        if (fileValues.TryGetValue("telemetry", out var fileTelemetry))
+            telemetry = ParseBool(fileTelemetry, "telemetry");
     }
 
     private static void ApplyEnvBool(string? envVal, string envVarName, ref bool target)

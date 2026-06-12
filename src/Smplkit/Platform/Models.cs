@@ -61,6 +61,8 @@ public sealed class Environment
     }
 
     /// <summary>Create or update this environment on the server.</summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <exception cref="System.InvalidOperationException">If this model was constructed without a client (for example, built by hand rather than returned from <c>New</c> or a fetch).</exception>
     public async Task SaveAsync(CancellationToken ct = default)
     {
         if (_client is null)
@@ -130,6 +132,8 @@ public sealed class Service
     }
 
     /// <summary>Create or update this service on the server.</summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <exception cref="System.InvalidOperationException">If this model was constructed without a client (for example, built by hand rather than returned from <c>New</c> or a fetch).</exception>
     public async Task SaveAsync(CancellationToken ct = default)
     {
         if (_client is null)
@@ -203,6 +207,8 @@ public sealed class ContextType
     }
 
     /// <summary>Add a known-attribute slot. Local; call <see cref="SaveAsync"/> to persist.</summary>
+    /// <param name="name">Attribute name to declare on this context type.</param>
+    /// <param name="metadata">Arbitrary metadata stored for the attribute slot. Defaults to no metadata.</param>
     public void AddAttribute(string name, Dictionary<string, object?>? metadata = null)
     {
         Attributes[name] = metadata is not null
@@ -211,9 +217,12 @@ public sealed class ContextType
     }
 
     /// <summary>Remove a known-attribute slot. Local; call <see cref="SaveAsync"/> to persist.</summary>
+    /// <param name="name">Attribute name to remove. A no-op if the attribute is not declared on this context type.</param>
     public void RemoveAttribute(string name) => Attributes.Remove(name);
 
     /// <summary>Replace a known-attribute slot's metadata. Local; call <see cref="SaveAsync"/>.</summary>
+    /// <param name="name">Attribute name whose metadata to replace.</param>
+    /// <param name="metadata">New metadata for the attribute slot, replacing any existing metadata. Defaults to no metadata.</param>
     public void UpdateAttribute(string name, Dictionary<string, object?>? metadata = null)
     {
         Attributes[name] = metadata is not null
@@ -222,6 +231,8 @@ public sealed class ContextType
     }
 
     /// <summary>Create or update this context type on the server.</summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <exception cref="System.InvalidOperationException">If this model was constructed without a client (for example, built by hand rather than returned from <c>New</c> or a fetch).</exception>
     public async Task SaveAsync(CancellationToken ct = default)
     {
         if (_client is null)

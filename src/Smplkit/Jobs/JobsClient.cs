@@ -1,10 +1,9 @@
 // Smpl Jobs SDK client (client.Jobs on SmplClient, or standalone JobsClient).
 //
 // Unlike Config/Flags/Logging, Jobs installs no in-process machinery — no
-// environment registration, no WebSocket, no logger monkey-patching. It is a
-// product you *use*, not infrastructure you *install*, so it has no
-// runtime/management split: a single JobsClient exposes the full surface,
-// reachable two ways:
+// environment registration, no WebSocket, no in-process logging hooks. It is a
+// product you *use*, not infrastructure you *install*: a single JobsClient
+// exposes the full surface, reachable two ways:
 //
 // * client.Jobs.* on SmplClient
 // * directly — new JobsClient(apiKey: ...) — for callers that only need jobs.
@@ -30,11 +29,15 @@ public sealed class RunsClient
 
     internal RunsClient(GenJobs.JobsClient gen) => _gen = gen;
 
-    /// <summary>List runs for the authenticated account, newest first (cursor paginated).</summary>
-    /// <param name="job">Filter to a single job's run history, by job id.</param>
-    /// <param name="pageSize">Items per page (cursor pagination).</param>
-    /// <param name="after">Opaque cursor token from a prior page's <c>next</c> link.</param>
+    /// <summary>List past runs, most recent first (cursor paginated).</summary>
+    /// <param name="job">Return only runs of the job with this id. <c>null</c>
+    /// lists runs across all jobs in the account.</param>
+    /// <param name="pageSize">Maximum number of runs to return in this page.
+    /// <c>null</c> uses the server default.</param>
+    /// <param name="after">Opaque cursor from a previous page; returns the runs
+    /// that follow it. <c>null</c> starts from the first page.</param>
     /// <param name="ct">Optional cancellation token.</param>
+    /// <returns>The runs in this page, as a list of <see cref="Run"/>.</returns>
     public async Task<IReadOnlyList<Run>> ListAsync(
         string? job = null, int? pageSize = null, string? after = null, CancellationToken ct = default)
     {
@@ -44,7 +47,10 @@ public sealed class RunsClient
             .Select(JobsClient.RunFromResource).ToList();
     }
 
-    /// <summary>Fetch a single run by id.</summary>
+    /// <summary>Fetch a single run by its id.</summary>
+    /// <param name="runId">Identifier of the run to fetch.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    /// <returns>The matching <see cref="Run"/>.</returns>
     public async Task<Run> GetAsync(string runId, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
@@ -52,7 +58,10 @@ public sealed class RunsClient
         return JobsClient.RunFromResource(resp.Data);
     }
 
-    /// <summary>Cancel a pending run.</summary>
+    /// <summary>Cancel a run that has not finished yet.</summary>
+    /// <param name="runId">Identifier of the run to cancel.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    /// <returns>The updated <see cref="Run"/> reflecting the cancellation.</returns>
     public async Task<Run> CancelAsync(string runId, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
@@ -60,7 +69,10 @@ public sealed class RunsClient
         return JobsClient.RunFromResource(resp.Data);
     }
 
-    /// <summary>Re-run a prior run, spawning a new <c>RERUN</c> run.</summary>
+    /// <summary>Start a new run that repeats a previous one.</summary>
+    /// <param name="runId">Identifier of the run to repeat.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    /// <returns>The new <see cref="Run"/>, with <see cref="Run.RerunOf"/> set to <paramref name="runId"/>.</returns>
     public async Task<Run> RerunAsync(string runId, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
@@ -106,12 +118,12 @@ public sealed class JobsClient : IDisposable
         bool? debug = null,
         IReadOnlyDictionary<string, string>? extraHeaders = null)
     {
-        // Reuse the management config resolver (jobs is account-global and never
+        // Reuse the account-global config resolver (jobs is never
         // environment-scoped) and the shared per-service URL helper, so a
         // standalone jobs client resolves credentials/base-domain from
         // ~/.smplkit / env vars / constructor args exactly like the top-level
         // clients do.
-        var resolved = ConfigResolver.ResolveForManagement(new SmplClientOptions
+        var resolved = ConfigResolver.ResolveAccountGlobal(new SmplClientOptions
         {
             ApiKey = apiKey,
             Profile = profile,
@@ -150,11 +162,18 @@ public sealed class JobsClient : IDisposable
     /// the account and immutable; the service returns 409 if another live job already
     /// uses this id.</param>
     /// <param name="name">Human-readable name for the job.</param>
-    /// <param name="schedule">When the job runs.</param>
-    /// <param name="configuration">The HTTP request the job performs.</param>
-    /// <param name="description">Optional free-text description.</param>
-    /// <param name="enabled">Whether the job schedules runs. Defaults to <c>true</c>.</param>
-    /// <param name="concurrencyPolicy">How overlapping runs are handled. Defaults to <c>"ALLOW"</c>.</param>
+    /// <param name="schedule">When the job runs. One of: a 5-field cron expression
+    /// evaluated in UTC (recurring), an ISO-8601 datetime (a one-off run at that
+    /// instant), or the literal <c>"now"</c> (run once, as soon as possible). A
+    /// datetime or <c>"now"</c> job disables itself after it fires.</param>
+    /// <param name="configuration">The HTTP request the job sends each time it fires.</param>
+    /// <param name="description">Free-text description for the job. Defaults to none.</param>
+    /// <param name="enabled">Whether the job schedules runs. Set to <c>false</c> to
+    /// pause it without deleting. Defaults to <c>true</c>.</param>
+    /// <param name="concurrencyPolicy">How overlapping runs are handled. <c>"ALLOW"</c>
+    /// (the default and only value today) permits a new run to start while a previous
+    /// one is still in flight.</param>
+    /// <returns>An unsaved <see cref="Job"/> bound to this client.</returns>
     public Job New(
         string id,
         string name,
@@ -175,11 +194,14 @@ public sealed class JobsClient : IDisposable
             concurrencyPolicy: concurrencyPolicy);
     }
 
-    /// <summary>List jobs for the authenticated account, newest first.</summary>
-    /// <param name="enabled">Filter to jobs matching this enabled state.</param>
-    /// <param name="pageNumber">1-based page number to return.</param>
-    /// <param name="pageSize">Items per page.</param>
+    /// <summary>List jobs in the account.</summary>
+    /// <param name="enabled">Return only jobs with this enabled state. <c>null</c>
+    /// lists both enabled and paused jobs.</param>
+    /// <param name="pageNumber">1-based page to return. <c>null</c> returns the first page.</param>
+    /// <param name="pageSize">Maximum number of jobs to return in this page.
+    /// <c>null</c> uses the server default.</param>
     /// <param name="ct">Optional cancellation token.</param>
+    /// <returns>The jobs in this page, as a list of <see cref="Job"/>.</returns>
     public async Task<IReadOnlyList<Job>> ListAsync(
         bool? enabled = null, int? pageNumber = null, int? pageSize = null, CancellationToken ct = default)
     {
@@ -189,8 +211,11 @@ public sealed class JobsClient : IDisposable
             .Select(FromResource).ToList();
     }
 
-    /// <summary>Retrieve a single job by id. The returned instance is bound to this
+    /// <summary>Fetch a single job by its id. The returned instance is bound to this
     /// client so <see cref="Job.SaveAsync"/> / <see cref="Job.DeleteAsync"/> work.</summary>
+    /// <param name="id">Identifier of the job to fetch.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    /// <returns>The matching <see cref="Job"/>.</returns>
     public async Task<Job> GetAsync(string id, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
@@ -198,12 +223,21 @@ public sealed class JobsClient : IDisposable
         return FromResource(resp.Data);
     }
 
-    /// <summary>Soft-delete a job by id. Prefer <see cref="Job.DeleteAsync"/> when you
+    /// <summary>Delete a job by its id. Prefer <see cref="Job.DeleteAsync"/> when you
     /// already have a <see cref="Job"/> instance.</summary>
+    /// <param name="id">Identifier of the job to delete.</param>
+    /// <param name="ct">Optional cancellation token.</param>
     public Task DeleteAsync(string id, CancellationToken ct = default)
         => ApiExceptionMapper.ExecuteAsync(() => _gen.Delete_jobAsync(id, ct));
 
-    /// <summary>Trigger one immediate <c>MANUAL</c> run of the job.</summary>
+    /// <summary>Trigger one immediate, manual run of a job, ignoring its schedule.
+    ///
+    /// <para>This starts an ad-hoc run right now in addition to any scheduled
+    /// runs; it does not alter the job's schedule. To read or act on existing
+    /// runs, use <see cref="Runs"/>.</para></summary>
+    /// <param name="id">Identifier of the job to run.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    /// <returns>The <see cref="Run"/> that was started, with <see cref="Run.Trigger"/> set to <c>MANUAL</c>.</returns>
     public async Task<Run> RunAsync(string id, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
@@ -211,7 +245,10 @@ public sealed class JobsClient : IDisposable
         return RunFromResource(resp.Data);
     }
 
-    /// <summary>Current-period usage counters for the account.</summary>
+    /// <summary>Report current-period usage against the account's plan allotments.</summary>
+    /// <param name="ct">Optional cancellation token.</param>
+    /// <returns>A <see cref="Usage"/> snapshot with runs used/included and
+    /// active-job counts for the current period.</returns>
     public async Task<Usage> UsageAsync(CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(

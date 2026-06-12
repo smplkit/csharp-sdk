@@ -12,9 +12,9 @@ public sealed class ApiErrorDetail
 
     /// <summary>
     /// Gets the application-specific machine-readable error code
-    /// (e.g. <c>environment_unmanaged</c>). Per JSON:API §7 and
-    /// ADR-014, smplkit sets this on every error so callers can branch
-    /// without string-matching the human <see cref="Detail"/> field.
+    /// (e.g. <c>environment_unmanaged</c>). Per JSON:API §7, smplkit sets
+    /// this on every error so callers can branch without string-matching
+    /// the human <see cref="Detail"/> field.
     /// </summary>
     public string? Code { get; }
 

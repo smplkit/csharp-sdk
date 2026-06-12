@@ -14,6 +14,10 @@ public sealed class ContextTypesClient
     internal ContextTypesClient(GenApp.AppClient appClient) => _appClient = appClient;
 
     /// <summary>Creates an unsaved <see cref="ContextType"/>. <c>name</c> defaults to <c>id</c>.</summary>
+    /// <param name="id">Stable, human-readable identifier for the context type (for example <c>"user"</c>).</param>
+    /// <param name="name">Display name shown in the Console. Defaults to <paramref name="id"/> when omitted.</param>
+    /// <param name="attributes">Known-attribute slots, keyed by attribute name, with a metadata dictionary per slot. Defaults to no declared attributes.</param>
+    /// <returns>An unsaved <see cref="ContextType"/> bound to this client.</returns>
     public ContextType New(
         string id,
         string? name = null,
@@ -43,6 +47,10 @@ public sealed class ContextTypesClient
     }
 
     /// <summary>Fetches a context type by id.</summary>
+    /// <param name="id">Identifier of the context type to fetch.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The matching <see cref="ContextType"/>.</returns>
+    /// <exception cref="Smplkit.Errors.NotFoundException">If no context type with that id exists.</exception>
     public async Task<ContextType> GetAsync(string id, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
@@ -51,6 +59,8 @@ public sealed class ContextTypesClient
     }
 
     /// <summary>Deletes a context type by id.</summary>
+    /// <param name="id">Identifier of the context type to delete.</param>
+    /// <param name="ct">Cancellation token.</param>
     public Task DeleteAsync(string id, CancellationToken ct = default)
         => ApiExceptionMapper.ExecuteAsync(() => _appClient.Delete_context_typeAsync(id, ct));
 

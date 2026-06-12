@@ -86,7 +86,7 @@ public sealed class PlatformClient : IDisposable
         bool? debug = null,
         IReadOnlyDictionary<string, string>? extraHeaders = null)
     {
-        var resolved = ConfigResolver.ResolveForManagement(new SmplClientOptions
+        var resolved = ConfigResolver.ResolveAccountGlobal(new SmplClientOptions
         {
             ApiKey = apiKey,
             Profile = profile,

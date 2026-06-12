@@ -19,28 +19,30 @@ public sealed class SmplClientOptions
     public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(30);
 
     /// <summary>
-    /// Gets the environment key (e.g. "production", "staging").
+    /// Gets the environment key (e.g. "production", "staging"). Optional.
     /// When <c>null</c>, the SDK falls back to the <c>SMPLKIT_ENVIRONMENT</c>
     /// environment variable or the <c>~/.smplkit</c> configuration file.
-    /// If none is set, the <see cref="SmplClient"/> constructor throws.
+    /// When unset everywhere, the SDK sends no environment signal and the
+    /// server derives the environment from the API key — an audit-only or
+    /// jobs-only client needs none.
     /// </summary>
     public string? Environment { get; init; }
 
     /// <summary>
-    /// Gets the service identifier for automatic context injection.
+    /// Gets the service identifier for automatic context injection. Optional.
     /// When <c>null</c>, the SDK falls back to the <c>SMPLKIT_SERVICE</c>
     /// environment variable or the <c>~/.smplkit</c> configuration file.
-    /// If none is set, the <see cref="SmplClient"/> constructor throws.
+    /// When unset everywhere, no service signal is sent.
     /// </summary>
     public string? Service { get; init; }
 
     /// <summary>
-    /// Gets a value indicating whether SDK telemetry reporting is disabled.
-    /// When <c>null</c>, the SDK resolves this from the <c>SMPLKIT_DISABLE_TELEMETRY</c>
+    /// Gets a value indicating whether anonymous SDK usage telemetry is enabled.
+    /// When <c>null</c>, the SDK resolves this from the <c>SMPLKIT_TELEMETRY</c>
     /// environment variable or the <c>~/.smplkit</c> configuration file.
-    /// Defaults to <c>false</c> if unset everywhere.
+    /// Defaults to <c>true</c> if unset everywhere; set to <c>false</c> to disable.
     /// </summary>
-    public bool? DisableTelemetry { get; init; }
+    public bool? Telemetry { get; init; }
 
     /// <summary>
     /// Gets the configuration profile name to read from <c>~/.smplkit</c>.

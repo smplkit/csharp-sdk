@@ -18,6 +18,11 @@ public sealed class AuditResourceTypes
     internal AuditResourceTypes(GenAudit.AuditClient gen) => _gen = gen;
 
     /// <summary>List the distinct resource_type slugs recorded for this account.</summary>
+    /// <param name="input">Pagination and environments scope; null lists with
+    /// defaults. Set <see cref="ListResourceTypesInput.MetaTotal"/> to populate
+    /// the total counts in the returned pagination meta.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A page of <see cref="ResourceType"/>s plus the pagination meta.</returns>
     public async Task<ListResourceTypesPage> ListAsync(
         ListResourceTypesInput? input = null, CancellationToken ct = default)
     {

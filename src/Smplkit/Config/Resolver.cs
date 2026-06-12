@@ -22,8 +22,9 @@ internal sealed class ConfigChainEntry
 }
 
 /// <summary>
-/// Deep-merge resolution algorithm for config inheritance chains.
-/// Mirrors ADR-024 sections 2.5 and 2.6 from the Python SDK.
+/// Deep-merge resolution algorithm for config inheritance chains: child values
+/// override parent values; an environment override wins over base values within
+/// a config.
 /// </summary>
 internal static class Resolver
 {

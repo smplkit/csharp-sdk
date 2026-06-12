@@ -4,10 +4,10 @@ using Smplkit;
 using Smplkit.Tests.Helpers;
 using Xunit;
 
-namespace Smplkit.Tests.Management;
+namespace Smplkit.Tests.Platform;
 
 /// <summary>
-/// Verifies that the handwritten management <c>ListAsync</c> wrappers forward
+/// Verifies that the handwritten CRUD <c>ListAsync</c> wrappers forward
 /// the optional <c>pageNumber</c> / <c>pageSize</c> parameters through to the
 /// generated client, producing the expected JSON:API <c>page[number]</c> and
 /// <c>page[size]</c> query parameters. The wrappers should NOT loop — that's

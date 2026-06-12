@@ -3,7 +3,7 @@
 // Smpl Config has two surfaces on a single client, mirroring how the audit
 // and jobs clients expose their full surface from one class:
 //
-// * Management surface — pure CRUD, no live connection: New / Get
+// * CRUD surface — pure CRUD, no live connection: New / Get
 //   / List / Delete and the discovery buffer (RegisterConfig /
 //   RegisterConfigItem / Flush / PendingCount). The client owns
 //   the discovery buffer directly.
@@ -47,9 +47,10 @@ namespace Smplkit.Config;
 /// var proxy = config.Subscribe("billing");
 /// Console.WriteLine(proxy["max_seats"]);
 /// </code>
-/// <para>The management surface (<see cref="New(string, string?, string?, object?)"/> /
+/// <para>The CRUD surface (<see cref="New(string, string?, string?, object?)"/> /
 /// <see cref="GetAsync(string, CancellationToken)"/> / <see cref="ListAsync(int?, int?, CancellationToken)"/> /
-/// <see cref="DeleteAsync(string, CancellationToken)"/> and discovery) is pure CRUD. The live surface
+/// <see cref="DeleteAsync(string, CancellationToken)"/> and the discovery buffer) is pure CRUD with no live
+/// connection. The live surface
 /// (<see cref="Subscribe(string)"/> / <see cref="GetValue(string, string)"/> /
 /// <see cref="Bind{T}(string, T, object?)"/> / <c>OnChange</c> / <see cref="RefreshAsync(CancellationToken)"/>)
 /// connects lazily on first use — the first call flushes discovery, fetches and resolves all configs into
@@ -76,7 +77,7 @@ public sealed class ConfigClient : IDisposable
     private readonly string? _appBaseUrl;
     private readonly string? _standaloneApiKey;
 
-    // Discovery buffer is owned by this client (no management delegation).
+    // Discovery buffer is owned by this client (no delegation).
     private readonly ConfigRegistrationBuffer _buffer = new();
     private const int RegistrationFlushSize = 50;
 
@@ -84,6 +85,12 @@ public sealed class ConfigClient : IDisposable
     private volatile bool _connected;
     private readonly object _initLock = new();
     private Dictionary<string, Dictionary<string, object?>> _configCache = new();
+    // Raw config snapshot (id → fetched Config) that drives re-resolution on
+    // live updates. A config_changed event updates this entry, pulls any
+    // uncached ancestors into it, then re-resolves every config so descendants
+    // pick up inherited changes — kept in lock-step with the resolved
+    // _configCache.
+    private Dictionary<string, Config> _rawConfigCache = new();
     private readonly List<(Action<ConfigChangeEvent> Callback, string? ConfigId, string? ItemKey)> _listeners = new();
     private readonly object _listenerLock = new();
     private SharedWebSocket? _wsManager;
@@ -126,11 +133,11 @@ public sealed class ConfigClient : IDisposable
         bool? telemetry = null,
         IReadOnlyDictionary<string, string>? extraHeaders = null)
     {
-        // Reuse the management config resolver, filling in whatever is missing
-        // (~/.smplkit / env vars / defaults). Environment is not required for
-        // management resolution — a standalone config client without an
-        // environment simply resolves base values.
-        var resolved = ConfigResolver.ResolveForManagement(new SmplClientOptions
+        // Reuse the account-global config resolver, filling in whatever is
+        // missing (~/.smplkit / env vars / defaults). Environment is not
+        // required — a standalone config client without an environment simply
+        // resolves base values.
+        var resolved = ConfigResolver.ResolveAccountGlobal(new SmplClientOptions
         {
             ApiKey = apiKey,
             Environment = environment,
@@ -139,7 +146,7 @@ public sealed class ConfigClient : IDisposable
             BaseDomain = baseDomain,
             Scheme = scheme,
             Debug = debug,
-            DisableTelemetry = telemetry is null ? null : !telemetry.Value,
+            Telemetry = telemetry,
         });
         if (resolved.Debug)
             DebugLog.Enabled = true;
@@ -164,9 +171,9 @@ public sealed class ConfigClient : IDisposable
         _standaloneApiKey = resolved.ApiKey;
         _parent = null;
         _ensureWs = null;
-        _ownedMetrics = resolved.DisableTelemetry
-            ? null
-            : new MetricsReporter(_ownedHttpClient, _environment ?? string.Empty, _service ?? string.Empty, appBaseUrl: _appBaseUrl);
+        _ownedMetrics = resolved.Telemetry
+            ? new MetricsReporter(_ownedHttpClient, _environment ?? string.Empty, _service ?? string.Empty, appBaseUrl: _appBaseUrl)
+            : null;
         _metrics = _ownedMetrics;
     }
 
@@ -194,7 +201,7 @@ public sealed class ConfigClient : IDisposable
     private static string? NullIfEmpty(string? s) => string.IsNullOrEmpty(s) ? null : s;
 
     // ------------------------------------------------------------------
-    // Management surface: CRUD (no live connection)
+    // CRUD surface: CRUD (no live connection)
     // ------------------------------------------------------------------
 
     /// <summary>
@@ -295,7 +302,7 @@ public sealed class ConfigClient : IDisposable
     }
 
     // ------------------------------------------------------------------
-    // Management surface: discovery buffer (owned directly)
+    // CRUD surface: discovery buffer (owned directly)
     // ------------------------------------------------------------------
 
     /// <summary>Queue a configuration declaration for bulk-discovery upload.</summary>
@@ -327,11 +334,11 @@ public sealed class ConfigClient : IDisposable
     /// POST pending declarations to <c>/api/v1/configs/bulk</c>.
     /// </summary>
     /// <remarks>
-    /// Per ADR-024 §2.9, bulk registration always lands rows as
-    /// <c>managed=false</c> and is plan-limit-exempt — failures here never
-    /// propagate to customer code. Drained entries are not requeued;
-    /// the SDK will re-observe on the next process start.
+    /// Discovery is best-effort — failures here never propagate to your code.
+    /// Drained entries are not requeued; the SDK re-observes them on the next
+    /// process start.
     /// </remarks>
+    /// <param name="ct">Cancellation token.</param>
     public async Task FlushAsync(CancellationToken ct = default)
     {
         var batch = _buffer.Drain();
@@ -373,7 +380,7 @@ public sealed class ConfigClient : IDisposable
         var body = new GenConfig.ConfigBulkRequest { Configs = items };
         // Failures propagate to the caller; the discovery-flush call sites
         // (threshold flush, EnsureConnected, periodic flush) swallow them so
-        // they never reach customer code (ADR-024 §2.9).
+        // they never reach customer code.
         await ApiExceptionMapper.ExecuteAsync(
             () => _genClient.Bulk_register_configsAsync(body, ct)).ConfigureAwait(false);
     }
@@ -392,10 +399,11 @@ public sealed class ConfigClient : IDisposable
     /// the instance carries the in-code defaults. Public read/write
     /// properties are walked; nested POCO properties flatten to
     /// dot-notation. PascalCase property names are converted to snake_case
-    /// on the wire (e.g. <c>MaxSeats</c> → <c>max_seats</c>). Every
-    /// reachable leaf property is registered as an explicit override —
-    /// C# has no equivalent of Python's <c>model_fields_set</c>, so to get
-    /// omit-to-inherit semantics, use a dictionary instead.</description></item>
+    /// when sent (e.g. <c>MaxSeats</c> → <c>max_seats</c>). Every
+    /// reachable leaf property is registered as an explicit override;
+    /// C# POCOs have no notion of an unset-vs-default field, so to get
+    /// omit-to-inherit semantics, bind a dictionary and include only the
+    /// keys you want to set.</description></item>
     /// <item><description><b>Dictionary:</b> every key in the dict is a leaf
     /// to register, with its value as the in-code default. Nested
     /// <c>IDictionary&lt;string, object?&gt;</c> values flatten to
@@ -475,9 +483,12 @@ public sealed class ConfigClient : IDisposable
     /// through it (<c>proxy["key"]</c>, <c>proxy.GetOrDefault("key", default)</c>).
     /// Subscribing registers the config declaration for code-first
     /// observability so the reference appears in the smplkit console.
-    /// <para>Connects lazily on first use — no explicit install step. Raises
-    /// <see cref="NotFoundException"/> if the config is unknown.</para>
+    /// <para>Connects lazily on first use — no explicit install step.</para>
     /// </remarks>
+    /// <param name="id">The config identifier (slug) to subscribe to.</param>
+    /// <returns>A live <see cref="LiveConfigProxy"/> whose reads always see the
+    /// current resolved values.</returns>
+    /// <exception cref="NotFoundException">If the config is unknown.</exception>
     public LiveConfigProxy Subscribe(string id)
     {
         EnsureConnected();
@@ -504,6 +515,9 @@ public sealed class ConfigClient : IDisposable
     /// a POCO schema use <see cref="Bind{T}(string, T, object?)"/>. Connects lazily on first use — no
     /// explicit install step.</para>
     /// </remarks>
+    /// <param name="id">The config identifier (slug) to read from.</param>
+    /// <param name="key">The item key within the config.</param>
+    /// <returns>The resolved value.</returns>
     /// <exception cref="NotFoundException">If the config is missing.</exception>
     /// <exception cref="KeyNotFoundException">If the key is missing within the config.</exception>
     public object? GetValue(string id, string key)
@@ -530,6 +544,15 @@ public sealed class ConfigClient : IDisposable
     /// a POCO schema use <see cref="Bind{T}(string, T, object?)"/>. Connects lazily on first use — no
     /// explicit install step.</para>
     /// </remarks>
+    /// <typeparam name="T">The expected value type. The resolved value is coerced to this type.</typeparam>
+    /// <param name="id">The config identifier (slug) to read from.</param>
+    /// <param name="key">The item key within the config.</param>
+    /// <param name="defaultValue">Value returned when the config or key is missing.
+    /// Supplying it also registers the config (if new) and the key — with its type
+    /// inferred and <paramref name="defaultValue"/> as its value — so the reference
+    /// appears in the smplkit console.</param>
+    /// <returns>The resolved value, or <paramref name="defaultValue"/> if the config or
+    /// key is missing.</returns>
     public T GetValueOr<T>(string id, string key, T defaultValue)
     {
         EnsureConnected();
@@ -804,6 +827,7 @@ public sealed class ConfigClient : IDisposable
         MergePendingSeeds(newCache);
         var oldCache = _configCache;
         _configCache = newCache;
+        _rawConfigCache = BuildRawCache(allConfigs);
         DiffAndFire(oldCache, newCache, "manual");
     }
 
@@ -837,11 +861,13 @@ public sealed class ConfigClient : IDisposable
         MergePendingSeeds(newCache);
         var oldCache = _configCache;
         _configCache = newCache;
+        _rawConfigCache = BuildRawCache(allConfigs);
         DiffAndFire(oldCache, newCache, source);
     }
 
     /// <summary>Register a global change listener that fires on any config change.</summary>
     /// <remarks>Connects lazily on first use — no explicit install step.</remarks>
+    /// <param name="callback">The listener invoked on every config change.</param>
     public void OnChange(Action<ConfigChangeEvent> callback)
     {
         EnsureConnected();
@@ -850,6 +876,8 @@ public sealed class ConfigClient : IDisposable
 
     /// <summary>Register a change listener scoped to a specific config id.</summary>
     /// <remarks>Connects lazily on first use — no explicit install step.</remarks>
+    /// <param name="configId">The config id to scope the listener to.</param>
+    /// <param name="callback">The listener invoked when this config changes.</param>
     public void OnChange(string configId, Action<ConfigChangeEvent> callback)
     {
         EnsureConnected();
@@ -858,6 +886,9 @@ public sealed class ConfigClient : IDisposable
 
     /// <summary>Register a change listener scoped to a specific config id and item key.</summary>
     /// <remarks>Connects lazily on first use — no explicit install step.</remarks>
+    /// <param name="configId">The config id to scope the listener to.</param>
+    /// <param name="itemKey">The single item key to restrict the listener to.</param>
+    /// <param name="callback">The listener invoked when this item changes.</param>
     public void OnChange(string configId, string itemKey, Action<ConfigChangeEvent> callback)
     {
         EnsureConnected();
@@ -906,6 +937,75 @@ public sealed class ConfigClient : IDisposable
         return cache;
     }
 
+    /// <summary>Snapshot a list of configs into a raw id → <see cref="Config"/> map.</summary>
+    private static Dictionary<string, Config> BuildRawCache(List<Config> allConfigs)
+    {
+        var raw = new Dictionary<string, Config>();
+        foreach (var cfg in allConfigs)
+        {
+            if (cfg.Id is not null)
+                raw[cfg.Id] = cfg;
+        }
+        return raw;
+    }
+
+    /// <summary>
+    /// Pull any referenced-but-uncached parent (and its ancestors) into
+    /// <paramref name="rawCache"/>.
+    /// </summary>
+    /// <remarks>
+    /// A <c>config_changed</c> event fetches only the changed config. If that
+    /// config inherits from a parent that isn't already in the raw cache — e.g.
+    /// a parent created via discovery after the initial connect that never
+    /// broadcast its own event — the chain walk in <see cref="BuildResolvedCache"/>
+    /// would stop at the gap and the child would re-resolve missing its inherited
+    /// values. Walk every config's parent pointer and fetch each absent ancestor
+    /// so the inheritance chain resolves fully.
+    /// </remarks>
+    private void EnsureAncestorsCached(Dictionary<string, Config> rawCache)
+    {
+        var pending = new Stack<string>();
+        foreach (var cfg in rawCache.Values)
+        {
+            if (cfg.Parent is not null)
+                pending.Push(cfg.Parent);
+        }
+
+        while (pending.Count > 0)
+        {
+            var parentId = pending.Pop();
+            if (rawCache.ContainsKey(parentId))
+                continue;
+            var parent = FetchConfigAsync(parentId, default).GetAwaiter().GetResult();
+            if (parent is null)
+                continue;
+            rawCache[parentId] = parent;
+            if (parent.Parent is not null)
+                pending.Push(parent.Parent);
+        }
+    }
+
+    /// <summary>
+    /// Re-resolve every config in <paramref name="rawCache"/> and fire change
+    /// listeners.
+    /// </summary>
+    /// <remarks>
+    /// Inheritance means a single config change can shift descendants' resolved
+    /// values too — so whenever the raw snapshot is mutated (config added,
+    /// updated, or deleted), every config gets re-resolved against it. Swaps in
+    /// the new raw and resolved caches together.
+    /// </remarks>
+    private void RebuildResolvedCache(Dictionary<string, Config> rawCache, string source)
+    {
+        var environment = _environment ?? string.Empty;
+        var newCache = BuildResolvedCache(rawCache.Values.ToList(), environment);
+        MergePendingSeeds(newCache);
+        var oldCache = _configCache;
+        _configCache = newCache;
+        _rawConfigCache = rawCache;
+        DiffAndFire(oldCache, newCache, source);
+    }
+
     // ------------------------------------------------------------------
     // Internal: WebSocket event handlers
     // ------------------------------------------------------------------
@@ -920,22 +1020,17 @@ public sealed class ConfigClient : IDisposable
             return;
         }
 
-        var environment = _environment ?? string.Empty;
-
         try
         {
+            // Snapshot the raw cache, fetch the changed config into it, pull in
+            // any uncached ancestors transitively, then re-resolve every config
+            // so descendants pick up inherited changes.
+            var rawCache = new Dictionary<string, Config>(_rawConfigCache);
             var config = FetchConfigAsync(configId, default).GetAwaiter().GetResult();
             if (config is null) return;
-
-            var oldCache = new Dictionary<string, Dictionary<string, object?>>(_configCache);
-
-            var chain = new List<ConfigChainEntry> { Resolver.ToChainEntry(config) };
-            var newCache = new Dictionary<string, Dictionary<string, object?>>(_configCache);
-            newCache[configId] = Resolver.Resolve(chain, environment);
-            MergePendingSeeds(newCache);
-            _configCache = newCache;
-
-            DiffAndFire(oldCache, _configCache, "websocket");
+            rawCache[configId] = config;
+            EnsureAncestorsCached(rawCache);
+            RebuildResolvedCache(rawCache, "websocket");
         }
         catch (Exception ex)
         {
@@ -954,13 +1049,11 @@ public sealed class ConfigClient : IDisposable
             return;
         }
 
-        var oldCache = new Dictionary<string, Dictionary<string, object?>>(_configCache);
-        var newCache = new Dictionary<string, Dictionary<string, object?>>(_configCache);
-        if (!newCache.Remove(configId)) return;
-        MergePendingSeeds(newCache);
-        _configCache = newCache;
-
-        DiffAndFire(oldCache, _configCache, "websocket");
+        // Drop the deleted config from the raw snapshot, then re-resolve every
+        // remaining config so any descendants lose its inherited values.
+        var rawCache = new Dictionary<string, Config>(_rawConfigCache);
+        if (!rawCache.Remove(configId)) return;
+        RebuildResolvedCache(rawCache, "websocket");
     }
 
     private void HandleConfigsChanged(Dictionary<string, object?> data)
@@ -1124,9 +1217,9 @@ public sealed class ConfigClient : IDisposable
         return result;
     }
 
-    // Per ADR-024 §2.4 the wire shape is now flat — `{env: {key: rawValue}}` —
-    // so we emit each env's overrides as a plain dict of key → raw value with
-    // no wrapper envelope.
+    // The wire shape is flat — `{env: {key: rawValue}}` — so we emit each
+    // env's overrides as a plain dict of key → raw value with no wrapper
+    // envelope.
     private static IDictionary<string, object>? WrapEnvsForRequest(
         Dictionary<string, Dictionary<string, object?>>? environments)
     {
@@ -1189,11 +1282,11 @@ public sealed class ConfigClient : IDisposable
         return result;
     }
 
-    // Per ADR-024 §2.4 the wire shape is flat — `{env: {key: rawValue}}`. The
-    // generated client surfaces each env as `object` (after JSON deserialization
-    // it's typically a `JsonElement` for an object, or a `Dictionary<string,
-    // object?>` if constructed in-memory). Normalize unwraps both into a flat
-    // dict of key → raw value, dropping anything that isn't an object shape.
+    // The wire shape is flat — `{env: {key: rawValue}}`. The generated client
+    // surfaces each env as `object` (after JSON deserialization it's typically
+    // a `JsonElement` for an object, or a `Dictionary<string, object?>` if
+    // constructed in-memory). Normalize unwraps both into a flat dict of
+    // key → raw value, dropping anything that isn't an object shape.
     private static Dictionary<string, Dictionary<string, object?>> ExtractRawEnvironments(
         IDictionary<string, object>? environments)
     {
@@ -1253,7 +1346,7 @@ public sealed class ConfigClient : IDisposable
     /// <summary>
     /// Walk a POCO instance's public, readable, non-indexer properties and
     /// yield <c>(key, type, value)</c> triples flattened to dot-notation.
-    /// Property names are converted PascalCase → snake_case on the wire.
+    /// Property names are converted PascalCase → snake_case when sent.
     /// Nested POCO properties (non-primitive, non-string, non-enumerable
     /// reference types) are descended; arrays, dictionaries, and other
     /// collections are treated as opaque leaves.
@@ -1396,7 +1489,7 @@ public sealed class ConfigClient : IDisposable
 
         // JsonElement passthrough — rare after resolver normalization, but
         // the resolver doesn't touch single-config-replace WS payloads if
-        // the management mapper hasn't already unwrapped them.
+        // the resource mapper hasn't already unwrapped them.
         if (value is JsonElement je) value = UnwrapJsonElement(je);
 
         if (value is null) return null;

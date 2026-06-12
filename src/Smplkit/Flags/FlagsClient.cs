@@ -3,7 +3,7 @@
 // Smpl Flags has two surfaces on a single client, mirroring how the config,
 // audit, and jobs clients expose their full surface from one class:
 //
-// * Management surface — pure CRUD, no live connection:
+// * CRUD surface — pure CRUD, no live connection:
 //   NewBooleanFlag / NewStringFlag / NewNumberFlag / NewJsonFlag
 //   constructors, GetAsync / ListAsync / DeleteAsync CRUD, and the
 //   flag-declaration discovery buffer (Register / FlushAsync /
@@ -58,7 +58,7 @@ namespace Smplkit.Flags;
 ///     // ...
 /// }
 /// </code>
-/// <para>The management surface (<c>NewXxx</c> / <c>GetAsync</c> / <c>ListAsync</c> /
+/// <para>The CRUD surface (<c>NewXxx</c> / <c>GetAsync</c> / <c>ListAsync</c> /
 /// <c>DeleteAsync</c> and discovery) is pure CRUD. The live surface
 /// (<c>BooleanFlag</c> / <c>StringFlag</c> / <c>NumberFlag</c> / <c>JsonFlag</c> /
 /// <c>RefreshAsync</c> / <c>Stats</c> / <c>OnChange</c>) connects lazily on first
@@ -167,18 +167,19 @@ public sealed class FlagsClient : IDisposable
         bool? telemetry = null,
         IReadOnlyDictionary<string, string>? extraHeaders = null)
     {
-        // Reuse the management config resolver (flags CRUD is account-global) and
-        // the shared per-service URL helper, so a standalone flags client resolves
-        // credentials/base-domain from ~/.smplkit / env vars / constructor args
-        // exactly like the top-level clients do. Runtime evaluation is scoped by the
-        // supplied environment/service.
-        var resolved = ConfigResolver.ResolveForManagement(new SmplClientOptions
+        // Reuse the account-global config resolver (flags CRUD is not scoped to
+        // an environment) and the shared per-service URL helper, so a standalone
+        // flags client resolves credentials/base-domain from ~/.smplkit / env
+        // vars / constructor args exactly like the top-level clients do. Runtime
+        // evaluation is scoped by the supplied environment/service.
+        var resolved = ConfigResolver.ResolveAccountGlobal(new SmplClientOptions
         {
             ApiKey = apiKey,
             Profile = profile,
             BaseDomain = baseDomain,
             Scheme = scheme,
             Debug = debug,
+            Telemetry = telemetry,
         });
         if (resolved.Debug)
             DebugLog.Enabled = true;
@@ -201,9 +202,9 @@ public sealed class FlagsClient : IDisposable
         _genFlagsClient = factory.Flags;
         _genAppClient = factory.App;
 
-        _metrics = telemetry == false
-            ? null
-            : new MetricsReporter(_ownedHttpClient, environment ?? string.Empty, service ?? string.Empty, appBaseUrl: _appBaseUrl);
+        _metrics = resolved.Telemetry
+            ? new MetricsReporter(_ownedHttpClient, environment ?? string.Empty, service ?? string.Empty, appBaseUrl: _appBaseUrl)
+            : null;
 
         // Standalone: build our own contexts buffer (the evaluation-context seam) and
         // open our own WebSocket on first live use.
@@ -213,10 +214,15 @@ public sealed class FlagsClient : IDisposable
     }
 
     // ------------------------------------------------------------------
-    // Management surface: builders (no live connection)
+    // CRUD surface: builders (no live connection)
     // ------------------------------------------------------------------
 
     /// <summary>Return a new unsaved boolean <see cref="BooleanFlag"/>. Call <see cref="Flag.SaveAsync"/> to persist.</summary>
+    /// <param name="id">Stable flag identifier. Unique per account.</param>
+    /// <param name="defaultValue">Value served when no environment override or rule applies.</param>
+    /// <param name="name">Human-readable display name. Defaults to a title-cased form of <paramref name="id"/>.</param>
+    /// <param name="description">Optional free-text description of the flag.</param>
+    /// <returns>An unsaved <see cref="BooleanFlag"/>; call <see cref="Flag.SaveAsync"/> to persist it.</returns>
     public BooleanFlag NewBooleanFlag(string id, bool defaultValue, string? name = null, string? description = null)
     {
         return new BooleanFlag(
@@ -236,6 +242,12 @@ public sealed class FlagsClient : IDisposable
     }
 
     /// <summary>Return a new unsaved string <see cref="StringFlag"/>. Call <see cref="Flag.SaveAsync"/> to persist.</summary>
+    /// <param name="id">Stable flag identifier. Unique per account.</param>
+    /// <param name="defaultValue">Value served when no environment override or rule applies.</param>
+    /// <param name="name">Human-readable display name. Defaults to a title-cased form of <paramref name="id"/>.</param>
+    /// <param name="description">Optional free-text description of the flag.</param>
+    /// <param name="values">Optional list of allowed values constraining what the flag may serve. When omitted, the flag is unconstrained.</param>
+    /// <returns>An unsaved <see cref="StringFlag"/>; call <see cref="Flag.SaveAsync"/> to persist it.</returns>
     public StringFlag NewStringFlag(string id, string defaultValue, string? name = null, string? description = null, IEnumerable<FlagValue>? values = null)
     {
         return new StringFlag(
@@ -251,6 +263,12 @@ public sealed class FlagsClient : IDisposable
     }
 
     /// <summary>Return a new unsaved numeric <see cref="NumberFlag"/>. Call <see cref="Flag.SaveAsync"/> to persist.</summary>
+    /// <param name="id">Stable flag identifier. Unique per account.</param>
+    /// <param name="defaultValue">Value served when no environment override or rule applies.</param>
+    /// <param name="name">Human-readable display name. Defaults to a title-cased form of <paramref name="id"/>.</param>
+    /// <param name="description">Optional free-text description of the flag.</param>
+    /// <param name="values">Optional list of allowed values constraining what the flag may serve. When omitted, the flag is unconstrained.</param>
+    /// <returns>An unsaved <see cref="NumberFlag"/>; call <see cref="Flag.SaveAsync"/> to persist it.</returns>
     public NumberFlag NewNumberFlag(string id, double defaultValue, string? name = null, string? description = null, IEnumerable<FlagValue>? values = null)
     {
         return new NumberFlag(
@@ -266,6 +284,12 @@ public sealed class FlagsClient : IDisposable
     }
 
     /// <summary>Return a new unsaved JSON <see cref="JsonFlag"/>. Call <see cref="Flag.SaveAsync"/> to persist.</summary>
+    /// <param name="id">Stable flag identifier. Unique per account.</param>
+    /// <param name="defaultValue">Value served when no environment override or rule applies.</param>
+    /// <param name="name">Human-readable display name. Defaults to a title-cased form of <paramref name="id"/>.</param>
+    /// <param name="description">Optional free-text description of the flag.</param>
+    /// <param name="values">Optional list of allowed values constraining what the flag may serve. When omitted, the flag is unconstrained.</param>
+    /// <returns>An unsaved <see cref="JsonFlag"/>; call <see cref="Flag.SaveAsync"/> to persist it.</returns>
     public JsonFlag NewJsonFlag(string id, Dictionary<string, object?> defaultValue, string? name = null, string? description = null, IEnumerable<FlagValue>? values = null)
     {
         return new JsonFlag(
@@ -281,10 +305,13 @@ public sealed class FlagsClient : IDisposable
     }
 
     // ------------------------------------------------------------------
-    // Management surface: CRUD (no live connection)
+    // CRUD surface: CRUD (no live connection)
     // ------------------------------------------------------------------
 
     /// <summary>Fetch the editable <see cref="Flag"/> resource by id.</summary>
+    /// <param name="id">Identifier of the flag to fetch.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The <see cref="Flag"/>, ready to mutate and <see cref="Flag.SaveAsync"/>.</returns>
     /// <exception cref="NotFoundException">If no matching flag exists.</exception>
     public async Task<Flag> GetAsync(string id, CancellationToken ct = default)
     {
@@ -313,6 +340,9 @@ public sealed class FlagsClient : IDisposable
     }
 
     /// <summary>Delete a flag by id.</summary>
+    /// <param name="id">Identifier of the flag to delete.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <exception cref="NotFoundException">No flag with that id exists for the account.</exception>
     public async Task DeleteAsync(string id, CancellationToken ct = default)
     {
         await ApiExceptionMapper.ExecuteAsync(
@@ -346,14 +376,24 @@ public sealed class FlagsClient : IDisposable
     }
 
     // ------------------------------------------------------------------
-    // Management surface: discovery buffer (owned directly)
+    // CRUD surface: discovery buffer (owned directly)
     // ------------------------------------------------------------------
 
     /// <summary>Buffer flag declarations for bulk-discovery upload; optionally flush now.</summary>
+    /// <param name="declaration">A single <see cref="FlagDeclaration"/> to queue.</param>
+    /// <param name="flush">When <c>true</c>, send the buffered declarations immediately via
+    /// <see cref="FlushAsync"/> before returning. When <c>false</c> (the default), they
+    /// stay buffered and are sent on the next flush — automatic once the buffer reaches
+    /// its batch size, or on the first live call.</param>
     public void Register(FlagDeclaration declaration, bool flush = false)
         => Register(new[] { declaration }, flush);
 
     /// <summary>Buffer flag declarations for bulk-discovery upload; optionally flush now.</summary>
+    /// <param name="items">A single <see cref="FlagDeclaration"/> or a list of them to queue.</param>
+    /// <param name="flush">When <c>true</c>, send the buffered declarations immediately via
+    /// <see cref="FlushAsync"/> before returning. When <c>false</c> (the default), they
+    /// stay buffered and are sent on the next flush — automatic once the buffer reaches
+    /// its batch size, or on the first live call.</param>
     public void Register(IEnumerable<FlagDeclaration> items, bool flush = false)
     {
         foreach (var d in items)
@@ -1265,7 +1305,7 @@ public sealed class FlagsClient : IDisposable
 
     // ------------------------------------------------------------------
     // Wire helpers — CRUD response mapping + request-body building, owned by
-    // the fused client (runtime + management on one path).
+    // the fused client (one path for CRUD and live evaluation).
     // ------------------------------------------------------------------
 
     private Flag? MapFlagResource(GenFlags.FlagResource? resource)
