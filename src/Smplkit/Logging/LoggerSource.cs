@@ -16,14 +16,14 @@ public sealed class LoggerSource
     /// <summary>Gets the normalized logger name (e.g., "sqlalchemy.engine", "httpx").</summary>
     public string Name { get; }
 
+    /// <summary>Gets the effective log level after framework inheritance. Always reported to the server.</summary>
+    public LogLevel ResolvedLevel { get; }
+
     /// <summary>Gets the service name override. Null uses the default SmplClient service.</summary>
     public string? Service { get; }
 
     /// <summary>Gets the environment override. Null uses the default SmplClient environment.</summary>
     public string? Environment { get; }
-
-    /// <summary>Gets the effective log level after framework inheritance. Null if not known.</summary>
-    public LogLevel? ResolvedLevel { get; }
 
     /// <summary>Gets the explicitly-set log level on this logger. Null if inherited.</summary>
     public LogLevel? Level { get; }
@@ -32,21 +32,21 @@ public sealed class LoggerSource
     /// Initializes a new <see cref="LoggerSource"/>.
     /// </summary>
     /// <param name="name">The normalized logger name.</param>
+    /// <param name="resolvedLevel">Effective log level after framework inheritance. Required — always sent to the server.</param>
     /// <param name="service">Optional service override.</param>
     /// <param name="environment">Optional environment override.</param>
-    /// <param name="resolvedLevel">Effective log level after framework inheritance.</param>
     /// <param name="level">Explicitly-set level, or null if inherited.</param>
     public LoggerSource(
         string name,
+        LogLevel resolvedLevel,
         string? service = null,
         string? environment = null,
-        LogLevel? resolvedLevel = null,
         LogLevel? level = null)
     {
         Name = name;
+        ResolvedLevel = resolvedLevel;
         Service = service;
         Environment = environment;
-        ResolvedLevel = resolvedLevel;
         Level = level;
     }
 

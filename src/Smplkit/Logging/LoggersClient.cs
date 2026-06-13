@@ -35,7 +35,7 @@ public sealed class LoggersClient
             _buffer.Add(
                 NormalizeLoggerName(src.Name),
                 src.Level?.ToWireString(),
-                src.ResolvedLevel?.ToWireString(),
+                src.ResolvedLevel.ToWireString(),
                 src.Service,
                 src.Environment);
         if (flush)

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using Smplkit;
 using Smplkit.Errors;
 using Smplkit.Flags;
@@ -246,11 +247,38 @@ public class PlatformSubClientsTests
         });
         await mgmt.Logging.Loggers.RegisterAsync(new[]
         {
-            new LoggerSource("a", level: LogLevel.Info),
+            new LoggerSource("a", resolvedLevel: LogLevel.Info),
             new LoggerSource("b", resolvedLevel: LogLevel.Warn),
         });
         Assert.NotNull(captured);
         Assert.Equal(HttpMethod.Post, captured!.Method);
+    }
+
+    [Fact]
+    public async Task LoggersClient_RegisterAsync_AlwaysSendsResolvedLevel_NeverNull()
+    {
+        // resolved_level is a required field on LoggerSource; a source registered
+        // with only a resolved level (no explicit level) must still carry a
+        // non-null resolved_level on the wire — the canonical parity contract.
+        string? body = null;
+        var (mgmt, _) = Make(async req =>
+        {
+            if (req.Content is not null)
+                body = await req.Content.ReadAsStringAsync();
+            return Json("{}");
+        });
+
+        await mgmt.Logging.Loggers.RegisterAsync(new[]
+        {
+            new LoggerSource("sqlalchemy.engine", resolvedLevel: LogLevel.Warn),
+        });
+
+        Assert.NotNull(body);
+        using var doc = JsonDocument.Parse(body!);
+        var logger = doc.RootElement.GetProperty("loggers")[0];
+        var resolved = logger.GetProperty("resolved_level");
+        Assert.Equal(JsonValueKind.String, resolved.ValueKind);
+        Assert.Equal("WARN", resolved.GetString());
     }
 
     [Fact]
@@ -264,7 +292,7 @@ public class PlatformSubClientsTests
         });
 
         await mgmt.Logging.Loggers.RegisterAsync(
-            new[] { new LoggerSource("a", level: LogLevel.Info) },
+            new[] { new LoggerSource("a", resolvedLevel: LogLevel.Info) },
             flush: false);
 
         Assert.Equal(0, requests);
@@ -282,7 +310,7 @@ public class PlatformSubClientsTests
         });
 
         await mgmt.Logging.Loggers.RegisterAsync(
-            new[] { new LoggerSource("a", level: LogLevel.Info) }, flush: false);
+            new[] { new LoggerSource("a", resolvedLevel: LogLevel.Info) }, flush: false);
         await mgmt.Logging.Loggers.RegisterAsync(
             new[] { new LoggerSource("b", resolvedLevel: LogLevel.Warn) }, flush: false);
         Assert.Equal(2, mgmt.Logging.Loggers.PendingCount);
@@ -319,7 +347,7 @@ public class PlatformSubClientsTests
         });
 
         await mgmt.Logging.Loggers.RegisterAsync(
-            new[] { new LoggerSource("a", level: LogLevel.Info) }, flush: false);
+            new[] { new LoggerSource("a", resolvedLevel: LogLevel.Info) }, flush: false);
         await mgmt.Logging.Loggers.RegisterAsync(
             new[] { new LoggerSource("b", resolvedLevel: LogLevel.Warn) }, flush: true);
 
