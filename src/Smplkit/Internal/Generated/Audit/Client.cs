@@ -37,10 +37,11 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// Record an audit event for this account.
         /// <br/>
-        /// <br/>The event is stamped with the environment it occurred in: a
-        /// <br/>single-environment credential implies it; a multi-environment or
-        /// <br/>unrestricted credential must send the `X-Smplkit-Environment` header.
-        /// <br/>The resolved environment must exist and be managed for the account.
+        /// <br/>The event is stamped with the environment it occurred in. Name the target
+        /// <br/>environment in the request body's `environment` field; omit it and a
+        /// <br/>single-environment credential implies it, while a multi-environment or
+        /// <br/>unrestricted credential must name it. The named environment must be one
+        /// <br/>the caller may access and must exist and be managed for the account.
         /// <br/>
         /// <br/>Returns `201 Created` on first write, `200 OK` if the request was a
         /// <br/>duplicate (matched by `Idempotency-Key` or a key derived from the
@@ -110,9 +111,8 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>Authorized against the caller's permitted environment set: the event
         /// <br/>is returned only if its environment is one the caller may access,
         /// <br/>otherwise `404` (the same response as a non-existent id, so existence
-        /// <br/>never leaks across environments). The `X-Smplkit-Environment` header is
-        /// <br/>ignored here — a single-object lookup names the object by id, it does
-        /// <br/>not resolve an ambient environment.
+        /// <br/>never leaks across environments). A single-object lookup names the
+        /// <br/>object by id; it does not resolve a target environment.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -156,7 +156,10 @@ namespace Smplkit.Internal.Generated.Audit
         /// Mint a short-lived signed URL to stream an events download.
         /// <br/>
         /// <br/>The request body specifies `format` (`CSV` or `JSONL`) and any
-        /// <br/>subset of the event filters accepted by `GET /api/v1/events`. The
+        /// <br/>subset of the event filters accepted by `GET /api/v1/events`. An
+        /// <br/>export is scoped to a single environment: name it in the body's
+        /// <br/>`environment` field, or omit it and a single-environment credential
+        /// <br/>implies it (a multi-environment credential must name it). The
         /// <br/>response returns the signed URL plus its expiry (30 seconds from
         /// <br/>mint). Open the URL in a browser to stream the file to disk; no
         /// <br/>`Authorization` header is required at download time.
@@ -305,16 +308,19 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// List delivery log entries for a forwarder.
         /// <br/>
-        /// <br/>Scoped to the resolved environment — only that environment's deliveries
-        /// <br/>for the forwarder are shown. Default sort is `-created_at` (newest
-        /// <br/>first). Filter by `status` (`SUCCEEDED` or `FAILED`, case-insensitive),
-        /// <br/>by `event`, or by a `created_at` range using interval notation
-        /// <br/>(e.g. `[2026-01-01T00:00:00Z,*)`).
+        /// <br/>Scoped by environment. Pass `filter[environment]` as a comma-separated
+        /// <br/>list of environment keys to restrict results to that subset of the
+        /// <br/>environments you can access; omit it to cover every environment you can
+        /// <br/>access. Default sort is `-created_at` (newest first). Filter by `status`
+        /// <br/>(`SUCCEEDED` or `FAILED`, case-insensitive), by `event`, or by a
+        /// <br/>`created_at` range using interval notation (e.g.
+        /// <br/>`[2026-01-01T00:00:00Z,*)`).
         /// </remarks>
+        /// <param name="filterenvironment">Comma-separated list of environment keys to scope deliveries to (e.g. `production,staging`). When omitted, results cover every environment you can access. The reserved value `smplkit` selects deliveries of platform change events smplkit records about your own resources; it is included by default when your plan grants change history, and requesting it explicitly without that entitlement returns 402.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ForwarderDeliveryListResponse> List_forwarder_deliveriesAsync(string forwarder_id, string? filterstatus = null, string? filtercreated_at = null, string? filterevent = null, int? pagesize = null, string? pageafter = null, Anonymous2? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ForwarderDeliveryListResponse> List_forwarder_deliveriesAsync(string forwarder_id, string? filterenvironment = null, string? filterstatus = null, string? filtercreated_at = null, string? filterevent = null, int? pagesize = null, string? pageafter = null, Anonymous2? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -337,17 +343,18 @@ namespace Smplkit.Internal.Generated.Audit
         /// Retry Failed Forwarder Deliveries
         /// </summary>
         /// <remarks>
-        /// Retry every failed delivery for this forwarder in the resolved environment.
+        /// Retry every failed delivery for this forwarder in the target environment.
         /// <br/>
-        /// <br/>Scoped to the resolved environment (a single-environment credential
-        /// <br/>implies it; otherwise send the `X-Smplkit-Environment` header): only
-        /// <br/>that environment's failed deliveries are re-attempted, each using the
-        /// <br/>forwarder's effective configuration for that environment and the
-        /// <br/>original event. Returns the counts.
+        /// <br/>Targets a single environment: name it in the request body's `environment`
+        /// <br/>field, or omit it and a single-environment credential implies it (a
+        /// <br/>multi-environment credential must name it). Only that environment's failed
+        /// <br/>deliveries are re-attempted, each using the forwarder's effective
+        /// <br/>configuration for that environment and the original event. Returns the
+        /// <br/>counts.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<RetryFailedDeliveriesSummary> Retry_failed_forwarder_deliveriesAsync(string forwarder_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<RetryFailedDeliveriesSummary> Retry_failed_forwarder_deliveriesAsync(string forwarder_id, RetryFailedDeliveriesRequest? body = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -514,10 +521,11 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// Record an audit event for this account.
         /// <br/>
-        /// <br/>The event is stamped with the environment it occurred in: a
-        /// <br/>single-environment credential implies it; a multi-environment or
-        /// <br/>unrestricted credential must send the `X-Smplkit-Environment` header.
-        /// <br/>The resolved environment must exist and be managed for the account.
+        /// <br/>The event is stamped with the environment it occurred in. Name the target
+        /// <br/>environment in the request body's `environment` field; omit it and a
+        /// <br/>single-environment credential implies it, while a multi-environment or
+        /// <br/>unrestricted credential must name it. The named environment must be one
+        /// <br/>the caller may access and must exist and be managed for the account.
         /// <br/>
         /// <br/>Returns `201 Created` on first write, `200 OK` if the request was a
         /// <br/>duplicate (matched by `Idempotency-Key` or a key derived from the
@@ -801,9 +809,8 @@ namespace Smplkit.Internal.Generated.Audit
         /// <br/>Authorized against the caller's permitted environment set: the event
         /// <br/>is returned only if its environment is one the caller may access,
         /// <br/>otherwise `404` (the same response as a non-existent id, so existence
-        /// <br/>never leaks across environments). The `X-Smplkit-Environment` header is
-        /// <br/>ignored here — a single-object lookup names the object by id, it does
-        /// <br/>not resolve an ambient environment.
+        /// <br/>never leaks across environments). A single-object lookup names the
+        /// <br/>object by id; it does not resolve a target environment.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -990,7 +997,10 @@ namespace Smplkit.Internal.Generated.Audit
         /// Mint a short-lived signed URL to stream an events download.
         /// <br/>
         /// <br/>The request body specifies `format` (`CSV` or `JSONL`) and any
-        /// <br/>subset of the event filters accepted by `GET /api/v1/events`. The
+        /// <br/>subset of the event filters accepted by `GET /api/v1/events`. An
+        /// <br/>export is scoped to a single environment: name it in the body's
+        /// <br/>`environment` field, or omit it and a single-environment credential
+        /// <br/>implies it (a multi-environment credential must name it). The
         /// <br/>response returns the signed URL plus its expiry (30 seconds from
         /// <br/>mint). Open the URL in a browser to stream the file to disk; no
         /// <br/>`Authorization` header is required at download time.
@@ -1732,16 +1742,19 @@ namespace Smplkit.Internal.Generated.Audit
         /// <remarks>
         /// List delivery log entries for a forwarder.
         /// <br/>
-        /// <br/>Scoped to the resolved environment — only that environment's deliveries
-        /// <br/>for the forwarder are shown. Default sort is `-created_at` (newest
-        /// <br/>first). Filter by `status` (`SUCCEEDED` or `FAILED`, case-insensitive),
-        /// <br/>by `event`, or by a `created_at` range using interval notation
-        /// <br/>(e.g. `[2026-01-01T00:00:00Z,*)`).
+        /// <br/>Scoped by environment. Pass `filter[environment]` as a comma-separated
+        /// <br/>list of environment keys to restrict results to that subset of the
+        /// <br/>environments you can access; omit it to cover every environment you can
+        /// <br/>access. Default sort is `-created_at` (newest first). Filter by `status`
+        /// <br/>(`SUCCEEDED` or `FAILED`, case-insensitive), by `event`, or by a
+        /// <br/>`created_at` range using interval notation (e.g.
+        /// <br/>`[2026-01-01T00:00:00Z,*)`).
         /// </remarks>
+        /// <param name="filterenvironment">Comma-separated list of environment keys to scope deliveries to (e.g. `production,staging`). When omitted, results cover every environment you can access. The reserved value `smplkit` selects deliveries of platform change events smplkit records about your own resources; it is included by default when your plan grants change history, and requesting it explicitly without that entitlement returns 402.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ForwarderDeliveryListResponse> List_forwarder_deliveriesAsync(string forwarder_id, string? filterstatus = null, string? filtercreated_at = null, string? filterevent = null, int? pagesize = null, string? pageafter = null, Anonymous2? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ForwarderDeliveryListResponse> List_forwarder_deliveriesAsync(string forwarder_id, string? filterenvironment = null, string? filterstatus = null, string? filtercreated_at = null, string? filterevent = null, int? pagesize = null, string? pageafter = null, Anonymous2? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (forwarder_id == null)
                 throw new System.ArgumentNullException("forwarder_id");
@@ -1762,6 +1775,10 @@ namespace Smplkit.Internal.Generated.Audit
                     urlBuilder_.Append(System.Uri.EscapeDataString(ConvertToString(forwarder_id, System.Globalization.CultureInfo.InvariantCulture)));
                     urlBuilder_.Append("/deliveries");
                     urlBuilder_.Append('?');
+                    if (filterenvironment != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[environment]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterenvironment, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
                     if (filterstatus != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[status]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterstatus, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
@@ -1938,17 +1955,18 @@ namespace Smplkit.Internal.Generated.Audit
         /// Retry Failed Forwarder Deliveries
         /// </summary>
         /// <remarks>
-        /// Retry every failed delivery for this forwarder in the resolved environment.
+        /// Retry every failed delivery for this forwarder in the target environment.
         /// <br/>
-        /// <br/>Scoped to the resolved environment (a single-environment credential
-        /// <br/>implies it; otherwise send the `X-Smplkit-Environment` header): only
-        /// <br/>that environment's failed deliveries are re-attempted, each using the
-        /// <br/>forwarder's effective configuration for that environment and the
-        /// <br/>original event. Returns the counts.
+        /// <br/>Targets a single environment: name it in the request body's `environment`
+        /// <br/>field, or omit it and a single-environment credential implies it (a
+        /// <br/>multi-environment credential must name it). Only that environment's failed
+        /// <br/>deliveries are re-attempted, each using the forwarder's effective
+        /// <br/>configuration for that environment and the original event. Returns the
+        /// <br/>counts.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<RetryFailedDeliveriesSummary> Retry_failed_forwarder_deliveriesAsync(string forwarder_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<RetryFailedDeliveriesSummary> Retry_failed_forwarder_deliveriesAsync(string forwarder_id, RetryFailedDeliveriesRequest? body = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (forwarder_id == null)
                 throw new System.ArgumentNullException("forwarder_id");
@@ -1959,9 +1977,12 @@ namespace Smplkit.Internal.Generated.Audit
             {
                 using (var request_ = new System.Net.Http.HttpRequestMessage())
                 {
-                    request_.Content = new System.Net.Http.StringContent(string.Empty, System.Text.Encoding.UTF8, "application/json");
+                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
+                    request_.Content = content_;
                     request_.Method = new System.Net.Http.HttpMethod("POST");
-                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
 
                     var urlBuilder_ = new System.Text.StringBuilder();
                     if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
@@ -2897,7 +2918,7 @@ namespace Smplkit.Internal.Generated.Audit
         public bool Do_not_forward { get; set; } = false;
 
         /// <summary>
-        /// The environment the event occurred in. Always present on read. Resolved when the event is recorded — from a single-environment credential, or the `X-Smplkit-Environment` header for multi-environment credentials — and never set on the request body. The same content recorded in two environments produces two distinct events.
+        /// The environment the event occurred in. On write, optionally names the target environment: omit it and a single-environment credential implies it (a multi-environment credential must name it), and a named environment must be one the caller may access. Always present on read as the resolved environment. The same content recorded in two environments produces two distinct events.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("environment")]
         public string? Environment { get; set; } = default!;
@@ -3408,6 +3429,12 @@ namespace Smplkit.Internal.Generated.Audit
         [System.Text.Json.Serialization.JsonPropertyName("format")]
         [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ExportFormat>))]
         public ExportFormat Format { get; set; } = default!;
+
+        /// <summary>
+        /// The single environment the export is scoped to. Omit it and a single-environment credential implies it (a multi-environment credential must name it), and a named environment must be one the caller may access. An export always covers exactly one environment.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("environment")]
+        public string? Environment { get; set; } = default!;
 
         /// <summary>
         /// Date range using interval notation, e.g. `[2026-04-01T00:00:00Z,2026-04-15T00:00:00Z)`.
@@ -4555,6 +4582,21 @@ namespace Smplkit.Internal.Generated.Audit
             get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
             set { _additionalProperties = value; }
         }
+
+    }
+
+    /// <summary>
+    /// Inputs to the retry-failed-deliveries action.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RetryFailedDeliveriesRequest
+    {
+
+        /// <summary>
+        /// The single environment whose failed deliveries are re-attempted. Omit it and a single-environment credential implies it (a multi-environment credential must name it), and a named environment must be one the caller may access. The action always targets exactly one environment.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("environment")]
+        public string? Environment { get; set; } = default!;
 
     }
 

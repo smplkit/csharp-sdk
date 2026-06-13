@@ -14,8 +14,13 @@ namespace Smplkit.Audit;
 public sealed class AuditCategories
 {
     private readonly GenAudit.AuditClient _gen;
+    private readonly string? _environment;
 
-    internal AuditCategories(GenAudit.AuditClient gen) => _gen = gen;
+    internal AuditCategories(GenAudit.AuditClient gen, string? environment = null)
+    {
+        _gen = gen;
+        _environment = environment;
+    }
 
     /// <summary>List the distinct category values recorded for this account.</summary>
     /// <param name="input">Pagination and environments scope; null lists with
@@ -29,7 +34,7 @@ public sealed class AuditCategories
         input ??= new ListCategoriesInput();
         var resp = await ApiExceptionMapper.ExecuteAsync(
             () => _gen.List_categoriesAsync(
-                filterenvironment: Helpers.JoinEnvironments(input.Environments),
+                filterenvironment: Helpers.ResolveEnvironmentFilter(input.Environments, _environment),
                 sort: null,
                 pagenumber: input.PageNumber,
                 pagesize: input.PageSize,

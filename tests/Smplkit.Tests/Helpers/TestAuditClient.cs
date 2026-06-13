@@ -33,12 +33,15 @@ internal sealed class TestAuditClient : IAsyncDisposable
     /// <summary>The <c>forwarders</c> CRUD sub-client.</summary>
     public ForwardersClient Forwarders { get; }
 
-    public TestAuditClient(GenAudit.AuditClient gen)
+    public TestAuditClient(GenAudit.AuditClient gen, string? environment = null)
     {
-        Events = new AuditEvents(gen);
-        ResourceTypes = new AuditResourceTypes(gen);
-        EventTypes = new AuditEventTypes(gen);
-        Categories = new AuditCategories(gen);
+        // Mirror the production wiring: the configured environment is handed to
+        // the recording and read sub-clients (body / filter[environment] routing,
+        // ADR-055); forwarder CRUD is environment-agnostic and gets none.
+        Events = new AuditEvents(gen, environment);
+        ResourceTypes = new AuditResourceTypes(gen, environment);
+        EventTypes = new AuditEventTypes(gen, environment);
+        Categories = new AuditCategories(gen, environment);
         Forwarders = new ForwardersClient(gen);
     }
 

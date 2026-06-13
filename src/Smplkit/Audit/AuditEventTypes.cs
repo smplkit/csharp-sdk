@@ -16,8 +16,13 @@ namespace Smplkit.Audit;
 public sealed class AuditEventTypes
 {
     private readonly GenAudit.AuditClient _gen;
+    private readonly string? _environment;
 
-    internal AuditEventTypes(GenAudit.AuditClient gen) => _gen = gen;
+    internal AuditEventTypes(GenAudit.AuditClient gen, string? environment = null)
+    {
+        _gen = gen;
+        _environment = environment;
+    }
 
     /// <summary>List the distinct event type slugs recorded for this account.</summary>
     /// <param name="input">Resource-type filter, pagination, and environments
@@ -31,7 +36,7 @@ public sealed class AuditEventTypes
         input ??= new ListEventTypesInput();
         var resp = await ApiExceptionMapper.ExecuteAsync(
             () => _gen.List_event_typesAsync(
-                filterenvironment: Helpers.JoinEnvironments(input.Environments),
+                filterenvironment: Helpers.ResolveEnvironmentFilter(input.Environments, _environment),
                 filterresource_type: input.FilterResourceType,
                 sort: null,
                 pagenumber: input.PageNumber,

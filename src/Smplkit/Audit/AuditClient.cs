@@ -78,12 +78,14 @@ public sealed class AuditClient : IAsyncDisposable
     /// Initializes a new <see cref="AuditClient"/>.
     /// </summary>
     /// <param name="apiKey">API key. When omitted, resolved from <c>SMPLKIT_API_KEY</c> or <c>~/.smplkit</c>.</param>
-    /// <param name="environment">Deployment environment to scope recording and reads to,
-    /// sent as <c>X-Smplkit-Environment</c>. Optional — forwarder CRUD and discovery are
-    /// environment-agnostic, and reads accept an explicit <c>environments: [...]</c> filter.
-    /// When reached via <see cref="Smplkit.SmplClient"/> this is the SDK's configured runtime
-    /// environment; via a standalone client without it, recording falls back to the
-    /// server-side default environment.</param>
+    /// <param name="environment">Deployment environment to scope recording and reads to.
+    /// Sent on the event request body when recording and as the default
+    /// <c>filter[environment]</c> on the read surfaces. Optional — forwarder CRUD and
+    /// get-by-id are environment-agnostic, and reads accept an explicit
+    /// <c>environments: [...]</c> filter that overrides this default. When reached via
+    /// <see cref="Smplkit.SmplClient"/> this is the SDK's configured runtime environment;
+    /// via a standalone client without it, recording falls back to the server-side
+    /// default environment.</param>
     /// <param name="baseUrl">Full audit-service base URL. Usually resolved from
     /// <paramref name="baseDomain"/>/<paramref name="scheme"/>; supplied directly by the
     /// top-level clients which have already computed it.</param>
@@ -91,8 +93,7 @@ public sealed class AuditClient : IAsyncDisposable
     /// <param name="baseDomain">Base domain for API requests (default <c>smplkit.com</c>).</param>
     /// <param name="scheme">URL scheme (default <c>https</c>).</param>
     /// <param name="debug">Enable SDK debug logging.</param>
-    /// <param name="extraHeaders">Extra headers attached to every request. An
-    /// <c>X-Smplkit-Environment</c> entry here wins over <paramref name="environment"/>.</param>
+    /// <param name="extraHeaders">Extra headers attached to every request.</param>
     public AuditClient(
         string? apiKey = null,
         string? environment = null,
@@ -107,18 +108,17 @@ public sealed class AuditClient : IAsyncDisposable
         // are used directly when both are supplied (the path a top-level client
         // takes after it has already resolved them); otherwise the account-global
         // config resolver fills in whatever is missing (~/.smplkit / env vars /
-        // defaults). environment is optional — when present it is stamped as
-        // X-Smplkit-Environment so event recording and reads scope to it
-        // server-side (ADR-055); when absent the client still works (forwarder
-        // CRUD and discovery are environment-agnostic, and reads accept an
-        // explicit environments: [...] filter).
+        // defaults). environment is optional and no longer rides the transport
+        // (ADR-055): it is handed to the recording and read sub-clients, which
+        // stamp it on the event body and default filter[environment] on reads.
+        // Forwarder CRUD and get-by-id are environment-agnostic and get none.
         var generated = BuildTransport(
-            apiKey, baseUrl, environment, profile, baseDomain, scheme, debug, extraHeaders,
+            apiKey, baseUrl, profile, baseDomain, scheme, debug, extraHeaders,
             out _ownedHttpClient);
-        Events = new AuditEvents(generated);
-        ResourceTypes = new AuditResourceTypes(generated);
-        EventTypes = new AuditEventTypes(generated);
-        Categories = new AuditCategories(generated);
+        Events = new AuditEvents(generated, environment);
+        ResourceTypes = new AuditResourceTypes(generated, environment);
+        EventTypes = new AuditEventTypes(generated, environment);
+        Categories = new AuditCategories(generated, environment);
         Forwarders = new ForwardersClient(generated);
     }
 
@@ -139,14 +139,15 @@ public sealed class AuditClient : IAsyncDisposable
     }
 
     /// <summary>
-    /// Resolve the (audit base URL, api key) and build a generated audit client over
-    /// a fresh <see cref="HttpClient"/> that stamps <c>X-Smplkit-Environment</c>
-    /// (ADR-055) when <paramref name="environment"/> is set.
+    /// Resolve the (audit base URL, api key) and build a generated audit client
+    /// over a fresh <see cref="HttpClient"/>. Environment scoping no longer rides
+    /// on this transport (ADR-055) — it travels on the event body when recording
+    /// and as the default <c>filter[environment]</c> on reads — so the transport
+    /// carries only auth plus any caller-supplied <paramref name="extraHeaders"/>.
     /// </summary>
     private static GenAudit.AuditClient BuildTransport(
         string? apiKey,
         string? baseUrl,
-        string? environment,
         string? profile,
         string? baseDomain,
         string? scheme,
@@ -186,13 +187,11 @@ public sealed class AuditClient : IAsyncDisposable
             ApiKey = resolvedKey,
             BaseDomain = ParseDomain(auditUrl, out var parsedScheme),
             Scheme = parsedScheme,
-            Environment = environment,
             ExtraHeaders = extraHeaders is null ? null : new Dictionary<string, string>(extraHeaders),
         });
-        // Runtime audit ops carry the configured environment as
-        // X-Smplkit-Environment (ADR-055); the factory's AuditRuntime instance
-        // stamps it per request, while forwarder CRUD and discovery — which are
-        // environment-agnostic — tolerate the header being present.
+        // Environment scoping rides the event body and filter[environment]
+        // (ADR-055), not the transport, so the shared generated audit client is
+        // handed as-is to every audit sub-client.
         var generated = clients.AuditRuntime;
         // Pin the resolved audit base URL directly: the factory derives per-service
         // URLs from base domain + scheme, but a caller-supplied full base URL (the

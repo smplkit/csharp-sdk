@@ -15,10 +15,12 @@ public sealed class AuditEvents
 {
     private readonly GenAudit.AuditClient _gen;
     private readonly AuditEventBuffer _buffer;
+    private readonly string? _environment;
 
-    internal AuditEvents(GenAudit.AuditClient gen)
+    internal AuditEvents(GenAudit.AuditClient gen, string? environment = null)
     {
         _gen = gen;
+        _environment = environment;
         _buffer = new AuditEventBuffer(gen);
     }
 
@@ -87,6 +89,14 @@ public sealed class AuditEvents
         {
             attrs.Do_not_forward = true;
         }
+        // Stamp the client's configured environment onto the event body — the
+        // body-driven replacement for the old X-Smplkit-Environment header
+        // (ADR-055). Omitted when unset so a single-environment credential
+        // resolves it server-side.
+        if (_environment is not null)
+        {
+            attrs.Environment = _environment;
+        }
 
         var resource = new GenAudit.EventResource
         {
@@ -135,8 +145,9 @@ public sealed class AuditEvents
     ///
     /// <para><see cref="ListEventsInput.Environments"/> scopes the read to a set
     /// of environment keys (and/or the reserved <c>"smplkit"</c> bucket). When
-    /// omitted, the filter is left off and the server scopes to your accessible
-    /// environment.</para>
+    /// omitted, the read falls back to the client's configured environment; with
+    /// no configured environment the filter is left off and the credential's own
+    /// scoping applies server-side.</para>
     /// </summary>
     /// <param name="input">Filters and pagination cursor; null lists with defaults.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -148,7 +159,7 @@ public sealed class AuditEvents
         // leading filter[*]) inserted by the generator can't silently re-bind
         // these positionally.
         var resp = await ApiExceptionMapper.ExecuteAsync(() => _gen.List_eventsAsync(
-            filterenvironment: Helpers.JoinEnvironments(input.Environments),
+            filterenvironment: Helpers.ResolveEnvironmentFilter(input.Environments, _environment),
             filteroccurred_at: input.OccurredAtRange,
             filteractor_type: input.ActorType,
             filteractor_id: input.ActorId,
