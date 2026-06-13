@@ -116,32 +116,55 @@ public class HelpersTests
     }
 
     // ------------------------------------------------------------------
-    // JoinEnvironments
+    // ResolveEnvironmentFilter (ADR-055: explicit list wins, else the
+    // configured environment, else omitted)
     // ------------------------------------------------------------------
 
     [Fact]
-    public void JoinEnvironments_Null_ReturnsNull()
+    public void ResolveEnvironmentFilter_NullList_NoConfigured_ReturnsNull()
     {
-        Assert.Null(InternalHelpers.JoinEnvironments(null));
+        Assert.Null(InternalHelpers.ResolveEnvironmentFilter(null, null));
     }
 
     [Fact]
-    public void JoinEnvironments_Empty_ReturnsNull()
+    public void ResolveEnvironmentFilter_NullList_FallsBackToConfigured()
     {
-        Assert.Null(InternalHelpers.JoinEnvironments(Array.Empty<string>()));
+        Assert.Equal("production", InternalHelpers.ResolveEnvironmentFilter(null, "production"));
     }
 
     [Fact]
-    public void JoinEnvironments_SingleValue_ReturnsValue()
+    public void ResolveEnvironmentFilter_EmptyList_FallsBackToConfigured()
     {
-        Assert.Equal("production", InternalHelpers.JoinEnvironments(new[] { "production" }));
+        // An empty explicit list is treated like "unspecified" — it falls back
+        // to the configured environment rather than forcing the filter off.
+        Assert.Equal("staging", InternalHelpers.ResolveEnvironmentFilter(Array.Empty<string>(), "staging"));
     }
 
     [Fact]
-    public void JoinEnvironments_MultipleValues_JoinsWithComma()
+    public void ResolveEnvironmentFilter_EmptyList_NoConfigured_ReturnsNull()
+    {
+        Assert.Null(InternalHelpers.ResolveEnvironmentFilter(Array.Empty<string>(), null));
+    }
+
+    [Fact]
+    public void ResolveEnvironmentFilter_SingleValue_ReturnsValue()
+    {
+        Assert.Equal("production", InternalHelpers.ResolveEnvironmentFilter(new[] { "production" }, null));
+    }
+
+    [Fact]
+    public void ResolveEnvironmentFilter_MultipleValues_JoinsWithComma()
     {
         Assert.Equal(
             "production,staging",
-            InternalHelpers.JoinEnvironments(new[] { "production", "staging" }));
+            InternalHelpers.ResolveEnvironmentFilter(new[] { "production", "staging" }, null));
+    }
+
+    [Fact]
+    public void ResolveEnvironmentFilter_ExplicitListWinsOverConfigured()
+    {
+        Assert.Equal(
+            "override",
+            InternalHelpers.ResolveEnvironmentFilter(new[] { "override" }, "configured"));
     }
 }

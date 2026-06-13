@@ -333,19 +333,52 @@ public class AuditClientTests
     }
 
     [Fact]
-    public async Task RuntimeEnvironment_StampsHeaderOnRecord()
+    public async Task ConfiguredEnvironment_StampsEnvironmentOnRecordBody()
     {
-        string? capturedEnv = null;
-        var (gen, _, _) = MakeGen(req =>
+        // ADR-055: the configured environment travels on the event request body
+        // (the generated Event.environment field), not the X-Smplkit-Environment
+        // header (which the audit service no longer reads).
+        string? capturedBody = null;
+        var (gen, _, _) = MakeGen(async req =>
         {
-            if (req.Headers.TryGetValues("X-Smplkit-Environment", out var v))
-                capturedEnv = v.FirstOrDefault();
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)
+            capturedBody = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.Created)
             {
                 Content = new StringContent(SuccessJson, Encoding.UTF8, "application/vnd.api+json"),
-            });
+            };
         });
-        gen.RuntimeEnvironment = "production";
+        await using var client = new TestAuditClient(gen, environment: "production");
+
+        client.Events.Record(new CreateEventInput
+        {
+            EventType = "user.created",
+            ResourceType = "user",
+            ResourceId = "u-1",
+        });
+        await client.Events.FlushAsync(TimeSpan.FromSeconds(2));
+        var deadline = DateTime.UtcNow.AddSeconds(2);
+        while (capturedBody is null && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(20);
+        }
+        Assert.NotNull(capturedBody);
+        Assert.Contains("\"environment\":\"production\"", capturedBody!);
+    }
+
+    [Fact]
+    public async Task NoConfiguredEnvironment_OmitsEnvironmentFromRecordBody()
+    {
+        // With no configured environment the body carries no environment field,
+        // so a single-environment credential resolves it server-side.
+        string? capturedBody = null;
+        var (gen, _, _) = MakeGen(async req =>
+        {
+            capturedBody = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = new StringContent(SuccessJson, Encoding.UTF8, "application/vnd.api+json"),
+            };
+        });
         await using var client = new TestAuditClient(gen);
 
         client.Events.Record(new CreateEventInput
@@ -356,20 +389,22 @@ public class AuditClientTests
         });
         await client.Events.FlushAsync(TimeSpan.FromSeconds(2));
         var deadline = DateTime.UtcNow.AddSeconds(2);
-        while (capturedEnv is null && DateTime.UtcNow < deadline)
+        while (capturedBody is null && DateTime.UtcNow < deadline)
         {
             await Task.Delay(20);
         }
-        Assert.Equal("production", capturedEnv);
+        Assert.NotNull(capturedBody);
+        Assert.DoesNotContain("\"environment\"", capturedBody!);
     }
 
     [Fact]
-    public async Task RuntimeEnvironment_StampsHeaderOnListAndGet()
+    public async Task ConfiguredEnvironment_DefaultsFilterEnvironmentOnList()
     {
-        var seen = new List<string?>();
+        // ADR-055: reads default filter[environment] to the configured environment.
+        string? capturedUrl = null;
         var (gen, _, _) = MakeGen(req =>
         {
-            seen.Add(req.Headers.TryGetValues("X-Smplkit-Environment", out var v) ? v.FirstOrDefault() : null);
+            capturedUrl = req.RequestUri!.ToString();
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(
@@ -377,20 +412,20 @@ public class AuditClientTests
                     Encoding.UTF8, "application/vnd.api+json"),
             });
         });
-        gen.RuntimeEnvironment = "staging";
-        await using var client = new TestAuditClient(gen);
+        await using var client = new TestAuditClient(gen, environment: "staging");
 
         await client.Events.ListAsync();
-        Assert.Contains("staging", seen);
+        Assert.NotNull(capturedUrl);
+        Assert.Contains("filter%5Benvironment%5D=staging", capturedUrl!);
     }
 
     [Fact]
-    public async Task RuntimeEnvironment_Null_DoesNotStampHeader()
+    public async Task NoConfiguredEnvironment_OmitsFilterEnvironmentOnList()
     {
-        bool hadHeader = true;
+        string? capturedUrl = null;
         var (gen, _, _) = MakeGen(req =>
         {
-            hadHeader = req.Headers.Contains("X-Smplkit-Environment");
+            capturedUrl = req.RequestUri!.ToString();
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(
@@ -398,23 +433,22 @@ public class AuditClientTests
                     Encoding.UTF8, "application/vnd.api+json"),
             });
         });
-        // RuntimeEnvironment left null (account-global behavior).
+        // No configured environment and no explicit filter — the param is omitted.
         await using var client = new TestAuditClient(gen);
 
         await client.Events.ListAsync();
-        Assert.False(hadHeader);
+        Assert.NotNull(capturedUrl);
+        Assert.DoesNotContain("filter%5Benvironment%5D", capturedUrl!);
     }
 
     [Fact]
-    public async Task RuntimeEnvironment_DoesNotOverrideCallerSuppliedHeader()
+    public async Task ExplicitEnvironments_OverrideConfiguredDefaultOnList()
     {
-        // Explicit X-Smplkit-Environment on the shared HttpClient default
-        // headers wins over the client-level stamp.
-        string? capturedEnv = null;
-        var mock = new MockHttpMessageHandler(req =>
+        // An explicit environments argument wins over the configured default.
+        string? capturedUrl = null;
+        var (gen, _, _) = MakeGen(req =>
         {
-            if (req.Headers.TryGetValues("X-Smplkit-Environment", out var v))
-                capturedEnv = v.FirstOrDefault();
+            capturedUrl = req.RequestUri!.ToString();
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(
@@ -422,17 +456,38 @@ public class AuditClientTests
                     Encoding.UTF8, "application/vnd.api+json"),
             });
         });
-        var http = new HttpClient(mock);
-        http.DefaultRequestHeaders.TryAddWithoutValidation("X-Smplkit-Environment", "explicit-env");
-        var gen = new GenAudit.AuditClient("https://audit.example.com", http)
-        {
-            ReadResponseAsString = true,
-            RuntimeEnvironment = "configured-env",
-        };
-        await using var client = new TestAuditClient(gen);
+        await using var client = new TestAuditClient(gen, environment: "configured-env");
 
-        await client.Events.ListAsync();
-        Assert.Equal("explicit-env", capturedEnv);
+        await client.Events.ListAsync(new ListEventsInput
+        {
+            Environments = new[] { "override-env" },
+        });
+        Assert.NotNull(capturedUrl);
+        Assert.Contains("filter%5Benvironment%5D=override-env", capturedUrl!);
+        Assert.DoesNotContain("configured-env", capturedUrl!);
+    }
+
+    [Fact]
+    public async Task GetById_SendsNoEnvironmentFilter_EvenWhenConfigured()
+    {
+        // get-by-id names the object by id; it never scopes by environment.
+        var eventId = Guid.Parse("11111111-2222-3333-4444-555555555555");
+        string? capturedUrl = null;
+        var (gen, _, _) = MakeGen(req =>
+        {
+            capturedUrl = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    "{\"data\":{\"id\":\"11111111-2222-3333-4444-555555555555\",\"type\":\"event\",\"attributes\":{\"event_type\":\"x.created\",\"resource_type\":\"x\",\"resource_id\":\"1\",\"occurred_at\":\"2026-05-06T12:00:00Z\",\"created_at\":\"2026-05-06T12:00:01Z\",\"data\":{},\"idempotency_key\":\"\"}}}",
+                    Encoding.UTF8, "application/vnd.api+json"),
+            });
+        });
+        await using var client = new TestAuditClient(gen, environment: "production");
+
+        await client.Events.GetAsync(eventId);
+        Assert.NotNull(capturedUrl);
+        Assert.DoesNotContain("filter%5Benvironment%5D", capturedUrl!);
     }
 
     [Fact]

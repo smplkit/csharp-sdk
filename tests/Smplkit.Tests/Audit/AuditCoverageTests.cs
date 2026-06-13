@@ -532,6 +532,11 @@ public class AuditCoverageTests
         // still queued, retrying every send would burn MaxAttempts × backoff
         // (~3.75s) per item — 1000+ events would take roughly an hour. The
         // ObjectDisposedException branch must drain the queue and stop fast.
+        //
+        // The HttpClient is torn down BEFORE any drain so the worker's first
+        // POST attempt throws ObjectDisposedException deterministically — the
+        // test then asserts on the branch's stderr signal, so a missed branch
+        // fails loudly rather than silently dropping coverage on a slow CI run.
         var mock = new MockHttpMessageHandler(req => Task.FromResult(
             new HttpResponseMessage(HttpStatusCode.Created)
             {
@@ -541,9 +546,13 @@ public class AuditCoverageTests
         var gen = new GenAudit.AuditClient("https://audit.example.com", http) { ReadResponseAsString = true };
         var client = new TestAuditClient(gen);
         var origStderr = Console.Error;
-        Console.SetError(TextWriter.Null);
+        var captured = new StringWriter();
+        Console.SetError(captured);
         try
         {
+            // Yank the HttpClient out from under the worker up front, so the
+            // first drain's POST hits the disposed-client path for certain.
+            http.Dispose();
             for (int i = 0; i < 50; i++)
             {
                 client.Events.Record(new CreateEventInput
@@ -553,9 +562,6 @@ public class AuditCoverageTests
                     ResourceId = i.ToString(),
                 });
             }
-            // Yank the HttpClient out from under the worker, then await
-            // dispose — should return promptly (well under MaxAttempts × backoff).
-            http.Dispose();
             var sw = System.Diagnostics.Stopwatch.StartNew();
             await client.DisposeAsync();
             sw.Stop();
@@ -566,5 +572,7 @@ public class AuditCoverageTests
         {
             Console.SetError(origStderr);
         }
+        // Proves the ObjectDisposedException branch ran (drained + dropped).
+        Assert.Contains("HttpClient disposed", captured.ToString());
     }
 }

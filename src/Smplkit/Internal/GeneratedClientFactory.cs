@@ -29,10 +29,9 @@ internal sealed class GeneratedClientFactory
     /// <summary>Gets the generated Logging API client.</summary>
     internal GenLogging.LoggingClient Logging { get; }
 
-    /// <summary>Gets the generated Audit API client. Carries the
-    /// <c>X-Smplkit-Environment</c> header resolved from the SDK's configured
-    /// environment (ADR-055) when one is available. Forwarder CRUD and discovery —
-    /// which are environment-agnostic — tolerate the header being present.</summary>
+    /// <summary>Gets the generated Audit API client shared by every audit
+    /// sub-client. Environment scoping rides the event request body and the
+    /// <c>filter[environment]</c> query param (ADR-055), not this transport.</summary>
     internal GenAudit.AuditClient AuditRuntime { get; }
 
     /// <summary>Gets the generated Jobs API client.</summary>
@@ -70,15 +69,11 @@ internal sealed class GeneratedClientFactory
         Flags = new GenFlags.FlagsClient($"{scheme}://flags.{domain}", httpClient) { ReadResponseAsString = true };
         App = new GenApp.AppClient($"{scheme}://app.{domain}", httpClient) { ReadResponseAsString = true };
         Logging = new GenLogging.LoggingClient($"{scheme}://logging.{domain}", httpClient) { ReadResponseAsString = true };
-        // Runtime audit ops are environment-scoped (ADR-055): the generated
-        // Audit client stamps X-Smplkit-Environment from the configured
-        // environment on every request.
+        // Audit env scoping rides the event body and filter[environment]
+        // (ADR-055), not the transport, so the generated audit client carries
+        // only the shared auth/headers configured above.
         var auditBaseUrl = $"{scheme}://audit.{domain}";
-        AuditRuntime = new GenAudit.AuditClient(auditBaseUrl, httpClient)
-        {
-            ReadResponseAsString = true,
-            RuntimeEnvironment = options.Environment,
-        };
+        AuditRuntime = new GenAudit.AuditClient(auditBaseUrl, httpClient) { ReadResponseAsString = true };
         Jobs = new GenJobs.JobsClient($"{scheme}://jobs.{domain}", httpClient) { ReadResponseAsString = true };
     }
 }

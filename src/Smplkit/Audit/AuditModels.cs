@@ -21,12 +21,12 @@ namespace Smplkit.Audit;
 /// <param name="Data">Free-form per-event payload defined by the customer.</param>
 /// <param name="IdempotencyKey">Caller-supplied or server-derived idempotency key.</param>
 /// <param name="DoNotForward">When true, the event was recorded but not forwarded to any SIEM forwarder.</param>
-/// <param name="Environment">The environment the event was recorded in. Read-only
-/// and present on every read — the audit service resolves it when the event is
-/// recorded (from a single-environment credential, or from the runtime SDK's
-/// configured environment, which the SDK sends on every recording call). Never
-/// set on the recording request; <c>null</c> only for an event constructed
-/// locally before a server round-trip.</param>
+/// <param name="Environment">The environment the event was recorded in. Present on
+/// every read as the resolved environment — the audit service resolves it when the
+/// event is recorded, either from a single-environment credential or from the
+/// environment the SDK names on the recording request body (its configured
+/// environment). <c>null</c> only for an event constructed locally before a server
+/// round-trip.</param>
 public sealed record AuditEvent(
     Guid Id,
     string EventType,
@@ -133,9 +133,10 @@ public sealed class ListEventsInput
     /// <summary>
     /// Scope results to one or more environment keys (e.g.
     /// <c>["production", "staging"]</c>). When <c>null</c> (the default) or
-    /// empty, the filter is omitted and the server scopes to your single
-    /// accessible environment. The reserved value <c>"smplkit"</c> selects
-    /// platform change events that smplkit records about your own resources.
+    /// empty, the read falls back to the client's configured environment; with no
+    /// configured environment the filter is omitted and the credential's own
+    /// scoping applies. The reserved value <c>"smplkit"</c> selects platform
+    /// change events that smplkit records about your own resources.
     /// </summary>
     public IEnumerable<string>? Environments { get; set; }
     /// <summary>Page size; default 50, max 200 server-side.</summary>
@@ -173,9 +174,10 @@ public sealed class ListResourceTypesInput
     /// <summary>
     /// Scope results to one or more environment keys (e.g.
     /// <c>["production", "staging"]</c>). When <c>null</c> (the default) or
-    /// empty, the filter is omitted and the server scopes to your single
-    /// accessible environment. The reserved value <c>"smplkit"</c> selects
-    /// platform change events that smplkit records about your own resources.
+    /// empty, the read falls back to the client's configured environment; with no
+    /// configured environment the filter is omitted and the credential's own
+    /// scoping applies. The reserved value <c>"smplkit"</c> selects platform
+    /// change events that smplkit records about your own resources.
     /// </summary>
     public IEnumerable<string>? Environments { get; set; }
 }
@@ -208,9 +210,10 @@ public sealed class ListEventTypesInput
     /// <summary>
     /// Scope results to one or more environment keys (e.g.
     /// <c>["production", "staging"]</c>). When <c>null</c> (the default) or
-    /// empty, the filter is omitted and the server scopes to your single
-    /// accessible environment. The reserved value <c>"smplkit"</c> selects
-    /// platform change events that smplkit records about your own resources.
+    /// empty, the read falls back to the client's configured environment; with no
+    /// configured environment the filter is omitted and the credential's own
+    /// scoping applies. The reserved value <c>"smplkit"</c> selects platform
+    /// change events that smplkit records about your own resources.
     /// </summary>
     public IEnumerable<string>? Environments { get; set; }
 }
@@ -241,9 +244,10 @@ public sealed class ListCategoriesInput
     /// <summary>
     /// Scope results to one or more environment keys (e.g.
     /// <c>["production", "staging"]</c>). When <c>null</c> (the default) or
-    /// empty, the filter is omitted and the server scopes to your single
-    /// accessible environment. The reserved value <c>"smplkit"</c> selects
-    /// platform change events that smplkit records about your own resources.
+    /// empty, the read falls back to the client's configured environment; with no
+    /// configured environment the filter is omitted and the credential's own
+    /// scoping applies. The reserved value <c>"smplkit"</c> selects platform
+    /// change events that smplkit records about your own resources.
     /// </summary>
     public IEnumerable<string>? Environments { get; set; }
 }

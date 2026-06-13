@@ -12,19 +12,31 @@ internal static class Helpers
     internal const int RuntimePageSize = 1000;
 
     /// <summary>
-    /// Renders a set of environment keys into the comma-separated value the
-    /// audit read endpoints expect for the <c>filter[environment]</c> query
-    /// parameter. Returns <c>null</c> when the input is <c>null</c> or contains
-    /// no entries, so the caller omits the parameter entirely and the server
-    /// applies its default single-environment scoping.
+    /// Resolves the value for the audit read endpoints' <c>filter[environment]</c>
+    /// query parameter, mirroring the canonical Python SDK's body-driven env
+    /// routing (ADR-055).
+    ///
+    /// <para>An explicit, non-empty <paramref name="environments"/> list always
+    /// wins and is comma-joined. Otherwise the read falls back to the client's
+    /// <paramref name="configured"/> environment — the body-driven replacement
+    /// for the old per-request <c>X-Smplkit-Environment</c> header, which
+    /// previously scoped every read to the client's environment. When neither is
+    /// supplied the result is <c>null</c>, so the caller omits the parameter and
+    /// the credential's own scoping applies server-side.</para>
     /// </summary>
-    /// <param name="environments">Environment keys, e.g. <c>["production", "staging"]</c>. Null or empty omits the filter.</param>
-    /// <returns>The comma-joined value, or <c>null</c> when no filter should be sent.</returns>
-    internal static string? JoinEnvironments(IEnumerable<string>? environments)
+    /// <param name="environments">Explicit environment keys to scope to, e.g.
+    /// <c>["production", "staging"]</c>. <c>null</c> or empty falls back to
+    /// <paramref name="configured"/>.</param>
+    /// <param name="configured">The client's configured environment, or <c>null</c> when none is set.</param>
+    /// <returns>The comma-joined value, the configured environment, or <c>null</c> when no filter should be sent.</returns>
+    internal static string? ResolveEnvironmentFilter(IEnumerable<string>? environments, string? configured)
     {
-        if (environments is null) return null;
-        var joined = string.Join(",", environments);
-        return joined.Length == 0 ? null : joined;
+        if (environments is not null)
+        {
+            var joined = string.Join(",", environments);
+            if (joined.Length > 0) return joined;
+        }
+        return configured;
     }
 
     /// <summary>

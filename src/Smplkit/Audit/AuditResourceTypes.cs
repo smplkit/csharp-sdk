@@ -14,8 +14,13 @@ namespace Smplkit.Audit;
 public sealed class AuditResourceTypes
 {
     private readonly GenAudit.AuditClient _gen;
+    private readonly string? _environment;
 
-    internal AuditResourceTypes(GenAudit.AuditClient gen) => _gen = gen;
+    internal AuditResourceTypes(GenAudit.AuditClient gen, string? environment = null)
+    {
+        _gen = gen;
+        _environment = environment;
+    }
 
     /// <summary>List the distinct resource_type slugs recorded for this account.</summary>
     /// <param name="input">Pagination and environments scope; null lists with
@@ -29,7 +34,7 @@ public sealed class AuditResourceTypes
         input ??= new ListResourceTypesInput();
         var resp = await ApiExceptionMapper.ExecuteAsync(
             () => _gen.List_resource_typesAsync(
-                filterenvironment: Helpers.JoinEnvironments(input.Environments),
+                filterenvironment: Helpers.ResolveEnvironmentFilter(input.Environments, _environment),
                 sort: null,
                 pagenumber: input.PageNumber,
                 pagesize: input.PageSize,

@@ -123,11 +123,11 @@ public sealed class SmplClient : IDisposable
             Timeout = options.Timeout,
             BaseDomain = resolved.BaseDomain,
             Scheme = resolved.Scheme,
-            // Runtime audit ops are environment-scoped (ADR-055): the factory
-            // stamps X-Smplkit-Environment from this on the runtime audit client.
-            Environment = resolved.Environment,
             ExtraHeaders = options.ExtraHeaders,
         };
+        // Audit env scoping rides the event body and filter[environment] (ADR-055),
+        // not the transport, so the factory no longer needs the configured
+        // environment; the audit wrapper below receives it directly.
         _clients = new GeneratedClientFactory(_httpClient, resolvedOptions);
 
         _metrics = resolved.Telemetry
@@ -160,9 +160,9 @@ public sealed class SmplClient : IDisposable
         // borrows the shared logging transport and WebSocket. The two CRUD
         // sub-clients live at client.Logging.Loggers / client.Logging.LogGroups.
         Logging = new LoggingClient(_clients, _apiKey, EnsureSharedWebSocket, this, _metrics);
-        // Audit's full surface; this runtime instance carries the configured
-        // environment as X-Smplkit-Environment and owns its own transport (closed
-        // in Dispose()).
+        // Audit's full surface; this runtime instance scopes recording and reads
+        // to the configured environment via the event body and filter[environment]
+        // (ADR-055) and owns its own transport (closed in Dispose()).
         Audit = new AuditClient(resolved.ApiKey, auditUrl, resolved.Environment, extraHeaders);
         // Jobs installs no in-process machinery — reuse the shared jobs transport
         // (single connection pool) so client.Jobs is one-stop.

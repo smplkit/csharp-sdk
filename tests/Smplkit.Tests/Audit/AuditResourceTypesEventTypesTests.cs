@@ -126,6 +126,26 @@ public class AuditResourceTypesEventTypesTests
     }
 
     [Fact]
+    public async Task ResourceTypes_List_DefaultsToConfiguredEnvironment()
+    {
+        // ADR-055: with no explicit filter, the discovery read defaults
+        // filter[environment] to the client's configured environment.
+        string? capturedUrl = null;
+        var (gen, _) = MakeGen(req =>
+        {
+            capturedUrl = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":[],\"meta\":{\"pagination\":{\"page\":1,\"size\":50}}}"),
+            });
+        });
+        await using var client = new TestAuditClient(gen, environment: "production");
+        await client.ResourceTypes.ListAsync();
+        Assert.NotNull(capturedUrl);
+        Assert.Contains("filter%5Benvironment%5D=production", capturedUrl!);
+    }
+
+    [Fact]
     public void ResourceTypeRecord_AccessorsCovered()
     {
         var rt = new ResourceType("invoice", DateTimeOffset.UtcNow);
@@ -240,6 +260,29 @@ public class AuditResourceTypesEventTypesTests
         Assert.Contains("filter%5Benvironment%5D=production", capturedUrl!);
         // The pre-existing resource_type filter must still ride alongside it.
         Assert.Contains("invoice", capturedUrl!);
+    }
+
+    [Fact]
+    public async Task EventTypes_List_ExplicitEnvironmentsOverrideConfiguredDefault()
+    {
+        // An explicit environments argument wins over the configured default.
+        string? capturedUrl = null;
+        var (gen, _) = MakeGen(req =>
+        {
+            capturedUrl = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":[],\"meta\":{\"pagination\":{\"page\":1,\"size\":50}}}"),
+            });
+        });
+        await using var client = new TestAuditClient(gen, environment: "configured-env");
+        await client.EventTypes.ListAsync(new ListEventTypesInput
+        {
+            Environments = new[] { "production" },
+        });
+        Assert.NotNull(capturedUrl);
+        Assert.Contains("filter%5Benvironment%5D=production", capturedUrl!);
+        Assert.DoesNotContain("configured-env", capturedUrl!);
     }
 
     [Fact]
@@ -380,6 +423,26 @@ public class AuditResourceTypesEventTypesTests
         });
         Assert.NotNull(capturedUrl);
         Assert.Contains("filter%5Benvironment%5D=smplkit", capturedUrl!);
+    }
+
+    [Fact]
+    public async Task Categories_List_DefaultsToConfiguredEnvironment()
+    {
+        // ADR-055: with no explicit filter, the discovery read defaults
+        // filter[environment] to the client's configured environment.
+        string? capturedUrl = null;
+        var (gen, _) = MakeGen(req =>
+        {
+            capturedUrl = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":[],\"meta\":{\"pagination\":{\"page\":1,\"size\":50}}}"),
+            });
+        });
+        await using var client = new TestAuditClient(gen, environment: "staging");
+        await client.Categories.ListAsync();
+        Assert.NotNull(capturedUrl);
+        Assert.Contains("filter%5Benvironment%5D=staging", capturedUrl!);
     }
 
     [Fact]
