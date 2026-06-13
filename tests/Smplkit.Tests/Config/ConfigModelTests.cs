@@ -59,7 +59,7 @@ public class ConfigModelTests
         var cfg = mgmt.Config.New("c");
         cfg.SetString("host", "prod.example.com", environment: "production");
         Assert.True(cfg.Environments.ContainsKey("production"));
-        Assert.Equal("prod.example.com", cfg.Environments["production"]["host"]);
+        Assert.Equal("prod.example.com", cfg.Environments["production"].Values["host"]);
     }
 
     [Fact]
@@ -77,7 +77,7 @@ public class ConfigModelTests
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
         var cfg = mgmt.Config.New("c");
         cfg.SetNumber("retries", 5, environment: "production");
-        Assert.Equal(5.0, cfg.Environments["production"]["retries"]);
+        Assert.Equal(5.0, cfg.Environments["production"].Values["retries"]);
     }
 
     [Fact]
@@ -95,7 +95,7 @@ public class ConfigModelTests
         var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
         var cfg = mgmt.Config.New("c");
         cfg.SetBoolean("enabled", false, environment: "production");
-        Assert.Equal(false, cfg.Environments["production"]["enabled"]);
+        Assert.Equal(false, cfg.Environments["production"].Values["enabled"]);
     }
 
     [Fact]
@@ -114,7 +114,7 @@ public class ConfigModelTests
         var cfg = mgmt.Config.New("c");
         cfg.SetJson("settings", new Dictionary<string, object?> { ["mode"] = "dark" },
             environment: "staging");
-        Assert.IsType<Dictionary<string, object?>>(cfg.Environments["staging"]["settings"]);
+        Assert.IsType<Dictionary<string, object?>>(cfg.Environments["staging"].Values["settings"]);
     }
 
     [Fact]
@@ -134,7 +134,94 @@ public class ConfigModelTests
         var cfg = mgmt.Config.New("c");
         cfg.SetString("k", "v", environment: "production");
         cfg.Remove("k", environment: "production");
-        Assert.False(cfg.Environments["production"].ContainsKey("k"));
+        Assert.False(cfg.Environments["production"].Values.ContainsKey("k"));
+    }
+
+    // ------------------------------------------------------------------
+    // ItemsRaw — typed {key: {value, type}} view of base items
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void ItemsRaw_StringItem_HasValueAndStringType()
+    {
+        var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
+        var cfg = mgmt.Config.New("c");
+        cfg.SetString("host", "localhost");
+        var raw = cfg.ItemsRaw["host"];
+        Assert.Equal("localhost", raw["value"]);
+        Assert.Equal("STRING", raw["type"]);
+    }
+
+    [Fact]
+    public void ItemsRaw_NumberItem_HasNumberType()
+    {
+        var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
+        var cfg = mgmt.Config.New("c");
+        cfg.SetNumber("retries", 3);
+        Assert.Equal(3.0, cfg.ItemsRaw["retries"]["value"]);
+        Assert.Equal("NUMBER", cfg.ItemsRaw["retries"]["type"]);
+    }
+
+    [Fact]
+    public void ItemsRaw_BooleanItem_HasBooleanType()
+    {
+        var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
+        var cfg = mgmt.Config.New("c");
+        cfg.SetBoolean("enabled", true);
+        Assert.Equal("BOOLEAN", cfg.ItemsRaw["enabled"]["type"]);
+    }
+
+    [Fact]
+    public void ItemsRaw_JsonItem_OmitsTypeWhenNotInferable()
+    {
+        var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
+        var cfg = mgmt.Config.New("c");
+        cfg.SetJson("settings", new Dictionary<string, object?> { ["x"] = 1 });
+        var raw = cfg.ItemsRaw["settings"];
+        Assert.IsType<Dictionary<string, object?>>(raw["value"]);
+        Assert.False(raw.ContainsKey("type"));
+    }
+
+    [Fact]
+    public void ItemsRaw_Empty_WhenNoItems()
+    {
+        var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
+        var cfg = mgmt.Config.New("c");
+        Assert.Empty(cfg.ItemsRaw);
+    }
+
+    // ------------------------------------------------------------------
+    // Environments — typed, read-only view backed by ConfigEnvironment
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Environments_ExposesTypedConfigEnvironmentView()
+    {
+        var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
+        var cfg = mgmt.Config.New("c");
+        cfg.SetString("host", "prod.example.com", environment: "production");
+        Assert.IsAssignableFrom<IReadOnlyDictionary<string, ConfigEnvironment>>(cfg.Environments);
+        ConfigEnvironment env = cfg.Environments["production"];
+        Assert.Equal("prod.example.com", env.Values["host"]);
+    }
+
+    [Fact]
+    public void Environments_TracksMultipleEnvironments()
+    {
+        var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
+        var cfg = mgmt.Config.New("c");
+        cfg.SetNumber("retries", 5, environment: "production");
+        cfg.SetNumber("retries", 1, environment: "staging");
+        Assert.Equal(5.0, cfg.Environments["production"].Values["retries"]);
+        Assert.Equal(1.0, cfg.Environments["staging"].Values["retries"]);
+    }
+
+    [Fact]
+    public void Environments_Empty_WhenNoOverrides()
+    {
+        var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
+        var cfg = mgmt.Config.New("c");
+        Assert.Empty(cfg.Environments);
     }
 
     [Fact]

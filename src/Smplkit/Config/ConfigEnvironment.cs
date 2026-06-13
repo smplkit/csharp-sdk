@@ -93,6 +93,21 @@ public sealed class ConfigEnvironment
     }
 
     /// <summary>
+    /// Build a <see cref="ConfigEnvironment"/> from the flat wire-shaped
+    /// per-environment overrides dict (<c>{key: rawValue}</c>) — the form stored
+    /// on <see cref="Config"/>. Each raw value is wrapped as
+    /// <c>{ "value": rawValue }</c> so <see cref="Values"/> surfaces it unchanged.
+    /// Mirrors <see cref="Logging.LoggerEnvironment.FromRaw"/>.
+    /// </summary>
+    internal static ConfigEnvironment FromRaw(Dictionary<string, object?> raw)
+    {
+        var nested = new Dictionary<string, Dictionary<string, object?>>(raw.Count);
+        foreach (var (key, value) in raw)
+            nested[key] = new Dictionary<string, object?> { ["value"] = value };
+        return new ConfigEnvironment(nested);
+    }
+
+    /// <summary>
     /// Returns overrides as a plain dictionary <c>{key: rawValue}</c>.
     /// Returns a defensive copy — mutating it has no effect on the underlying state.
     /// </summary>

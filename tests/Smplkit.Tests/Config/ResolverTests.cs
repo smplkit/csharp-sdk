@@ -33,7 +33,8 @@ public class ResolverTests
 
         var config = smplClient.Config.New(key, name, description, parent);
         config.Items = items;
-        config.Environments = environments;
+        foreach (var (env, vals) in environments)
+            config.EnvironmentsRaw[env] = vals;
         config.Id = id;
         return config;
     }

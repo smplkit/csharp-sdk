@@ -86,9 +86,9 @@ internal static class Resolver
         var values = NormalizeDict(config.Items);
 
         var envValues = new Dictionary<string, Dictionary<string, object?>>(
-            config.Environments.Count);
+            config.EnvironmentsRaw.Count);
 
-        foreach (var (envName, envData) in config.Environments)
+        foreach (var (envName, envData) in config.EnvironmentsRaw)
         {
             // envData is already a flat {key: raw_value} dict (extracted by MapResource)
             envValues[envName] = NormalizeDict(envData);

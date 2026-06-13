@@ -23,8 +23,43 @@ public sealed class Config
     /// <summary>Gets or sets the base items dictionary (raw key-value pairs).</summary>
     public Dictionary<string, object?> Items { get; set; }
 
-    /// <summary>Gets or sets the environment-specific override values.</summary>
-    public Dictionary<string, Dictionary<string, object?>> Environments { get; set; }
+    /// <summary>
+    /// Read-only typed view of the base items, keyed by item key, with each
+    /// value a <c>{value, type}</c> dictionary. The <c>type</c> entry is one of
+    /// <c>STRING</c> / <c>NUMBER</c> / <c>BOOLEAN</c>, derived from the value;
+    /// values whose type can't be determined (objects, arrays) carry no
+    /// <c>type</c> entry. Mutate the underlying items via <see cref="Set"/> /
+    /// <see cref="SetString"/> / <see cref="SetNumber"/> / <see cref="SetBoolean"/> /
+    /// <see cref="SetJson"/> / <see cref="Remove"/>.
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyDictionary<string, object?>> ItemsRaw
+    {
+        get
+        {
+            var result = new Dictionary<string, IReadOnlyDictionary<string, object?>>(Items.Count);
+            foreach (var (key, value) in Items)
+            {
+                var def = new Dictionary<string, object?> { ["value"] = value };
+                var type = InferWireType(value);
+                if (type is not null) def["type"] = type;
+                result[key] = def;
+            }
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// Read-only view of per-environment overrides, keyed by environment name.
+    /// Mutate via the <c>environment</c> argument on <see cref="Set"/> /
+    /// <see cref="SetString"/> / <see cref="SetNumber"/> / <see cref="SetBoolean"/> /
+    /// <see cref="SetJson"/> / <see cref="Remove"/>.
+    /// </summary>
+    public IReadOnlyDictionary<string, ConfigEnvironment> Environments =>
+        EnvironmentsRaw.ToDictionary(kv => kv.Key, kv => ConfigEnvironment.FromRaw(kv.Value));
+
+    // Raw wire-shaped per-environment overrides ({env: {key: rawValue}}); the
+    // source of truth that serialization and resolution read.
+    internal Dictionary<string, Dictionary<string, object?>> EnvironmentsRaw { get; private set; }
 
     /// <summary>Gets the creation timestamp.</summary>
     public DateTime? CreatedAt { get; internal set; }
@@ -49,7 +84,7 @@ public sealed class Config
         Description = description;
         Parent = parent;
         Items = items;
-        Environments = environments;
+        EnvironmentsRaw = environments;
         CreatedAt = createdAt;
         UpdatedAt = updatedAt;
     }
@@ -91,18 +126,28 @@ public sealed class Config
         Description = other.Description;
         Parent = other.Parent;
         Items = other.Items;
-        Environments = other.Environments;
+        EnvironmentsRaw = other.EnvironmentsRaw;
         CreatedAt = other.CreatedAt;
         UpdatedAt = other.UpdatedAt;
     }
 
+    /// <summary>Infer the wire-format type string for a base-item value, or
+    /// <c>null</c> when it can't be inferred (objects, arrays, null).</summary>
+    private static string? InferWireType(object? value) => value switch
+    {
+        string => "STRING",
+        bool => "BOOLEAN",
+        int or long or float or double or decimal => "NUMBER",
+        _ => null,
+    };
+
     private Dictionary<string, object?> ItemsTarget(string? environment)
     {
         if (environment is null) return Items;
-        if (!Environments.TryGetValue(environment, out var envValues))
+        if (!EnvironmentsRaw.TryGetValue(environment, out var envValues))
         {
             envValues = new Dictionary<string, object?>();
-            Environments[environment] = envValues;
+            EnvironmentsRaw[environment] = envValues;
         }
         return envValues;
     }

@@ -1221,7 +1221,7 @@ public sealed class ConfigClient : IDisposable
             Description = config.Description,
             Parent = config.Parent,
             Items = WrapItemsForRequest(config.Items),
-            Environments = WrapEnvsForRequest(config.Environments),
+            Environments = WrapEnvsForRequest(config.EnvironmentsRaw),
         };
 
     private static IDictionary<string, GenConfig.ConfigItemDefinition>? WrapItemsForRequest(
