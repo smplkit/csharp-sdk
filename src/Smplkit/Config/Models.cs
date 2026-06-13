@@ -20,8 +20,19 @@ public sealed class Config
     /// <summary>Gets or sets the parent config identifier (slug).</summary>
     public string? Parent { get; set; }
 
-    /// <summary>Gets or sets the base items dictionary (raw key-value pairs).</summary>
-    public Dictionary<string, object?> Items { get; set; }
+    /// <summary>
+    /// Read-only plain <c>{key: rawValue}</c> view of the base items.
+    /// Mutate via <see cref="Set"/> / <see cref="SetString"/> / <see cref="SetNumber"/> /
+    /// <see cref="SetBoolean"/> / <see cref="SetJson"/> / <see cref="Remove"/>, then call
+    /// <see cref="SaveAsync"/> to persist.
+    /// </summary>
+    public IReadOnlyDictionary<string, object?> Items => new Dictionary<string, object?>(ItemsBacking);
+
+    // Flat base items ({key: rawValue}); the source of truth that the mutation
+    // path, serialization, and resolution read. Internal so ConfigClient /
+    // Resolver can serialize and normalize it directly without exposing a
+    // mutable public dict. Mirrors EnvironmentsRaw.
+    internal Dictionary<string, object?> ItemsBacking { get; private set; }
 
     /// <summary>
     /// Read-only typed view of the base items, keyed by item key, with each
@@ -36,8 +47,8 @@ public sealed class Config
     {
         get
         {
-            var result = new Dictionary<string, IReadOnlyDictionary<string, object?>>(Items.Count);
-            foreach (var (key, value) in Items)
+            var result = new Dictionary<string, IReadOnlyDictionary<string, object?>>(ItemsBacking.Count);
+            foreach (var (key, value) in ItemsBacking)
             {
                 var def = new Dictionary<string, object?> { ["value"] = value };
                 var type = InferWireType(value);
@@ -83,7 +94,7 @@ public sealed class Config
         Name = name;
         Description = description;
         Parent = parent;
-        Items = items;
+        ItemsBacking = items;
         EnvironmentsRaw = environments;
         CreatedAt = createdAt;
         UpdatedAt = updatedAt;
@@ -125,7 +136,7 @@ public sealed class Config
         Name = other.Name;
         Description = other.Description;
         Parent = other.Parent;
-        Items = other.Items;
+        ItemsBacking = other.ItemsBacking;
         EnvironmentsRaw = other.EnvironmentsRaw;
         CreatedAt = other.CreatedAt;
         UpdatedAt = other.UpdatedAt;
@@ -143,7 +154,7 @@ public sealed class Config
 
     private Dictionary<string, object?> ItemsTarget(string? environment)
     {
-        if (environment is null) return Items;
+        if (environment is null) return ItemsBacking;
         if (!EnvironmentsRaw.TryGetValue(environment, out var envValues))
         {
             envValues = new Dictionary<string, object?>();

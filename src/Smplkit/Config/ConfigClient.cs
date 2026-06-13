@@ -1220,7 +1220,7 @@ public sealed class ConfigClient : IDisposable
             Name = config.Name,
             Description = config.Description,
             Parent = config.Parent,
-            Items = WrapItemsForRequest(config.Items),
+            Items = WrapItemsForRequest(config.ItemsBacking),
             Environments = WrapEnvsForRequest(config.EnvironmentsRaw),
         };
 

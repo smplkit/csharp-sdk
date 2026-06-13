@@ -83,7 +83,7 @@ internal static class Resolver
     /// </summary>
     public static ConfigChainEntry ToChainEntry(Config config)
     {
-        var values = NormalizeDict(config.Items);
+        var values = NormalizeDict(config.ItemsBacking);
 
         var envValues = new Dictionary<string, Dictionary<string, object?>>(
             config.EnvironmentsRaw.Count);

@@ -138,6 +138,64 @@ public class ConfigModelTests
     }
 
     // ------------------------------------------------------------------
+    // Items — read-only flat {key: rawValue} view of base items
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Items_IsReadOnlyDictionaryView()
+    {
+        var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
+        var cfg = mgmt.Config.New("c");
+        cfg.SetString("host", "localhost");
+        Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(cfg.Items);
+        Assert.Equal("localhost", cfg.Items["host"]);
+    }
+
+    [Fact]
+    public void Items_Empty_WhenNoItems()
+    {
+        var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
+        var cfg = mgmt.Config.New("c");
+        Assert.Empty(cfg.Items);
+    }
+
+    [Fact]
+    public void Items_ReturnsDefensiveSnapshot_AndSettersMutateSource()
+    {
+        var (mgmt, _) = Make(_ => Task.FromResult(Json("{}")));
+        var cfg = mgmt.Config.New("c");
+        cfg.SetString("k", "v1");
+
+        // Snapshot taken before the next mutation must not change afterwards —
+        // the view is a defensive copy, not a live handle on the backing dict.
+        var snapshot = cfg.Items;
+        cfg.SetString("k", "v2");
+
+        Assert.Equal("v1", snapshot["k"]);   // snapshot frozen
+        Assert.Equal("v2", cfg.Items["k"]);  // setter mutated the source of truth
+    }
+
+    [Fact]
+    public async Task SaveAsync_SerializesBaseItems_IntoRequestBody()
+    {
+        // Round-trip: a base item set via the active-record setter must be wired
+        // into the request body through the internal backing dict.
+        string? body = null;
+        var (mgmt, _) = Make(async req =>
+        {
+            if (req.Content is not null)
+                body = await req.Content.ReadAsStringAsync();
+            return Json(ConfigJson, HttpStatusCode.Created);
+        });
+        var cfg = mgmt.Config.New("user-svc");
+        cfg.SetString("host", "localhost");
+        await cfg.SaveAsync();
+        Assert.NotNull(body);
+        Assert.Contains("host", body);
+        Assert.Contains("localhost", body);
+    }
+
+    // ------------------------------------------------------------------
     // ItemsRaw — typed {key: {value, type}} view of base items
     // ------------------------------------------------------------------
 
