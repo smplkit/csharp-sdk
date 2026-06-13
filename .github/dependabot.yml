@@ -21,6 +21,29 @@ updates:
       prefix: "fix"
       include: "scope"
     open-pull-requests-limit: 10
+    # SDK floor protection. NuGet supports no `versioning-strategy`, and a
+    # `PackageReference Version` is the floor consumers must satisfy. Freeze
+    # the customer-facing packages (those WITHOUT PrivateAssets="All") so
+    # Dependabot cannot raise the floor we publish to NuGet — most critically
+    # Microsoft.Extensions.Logging.Abstractions, a logging framework customers
+    # usually cannot move off their pinned (often .NET 8 LTS = 8.0.0) version.
+    # `update-types` ignores suppress only scheduled VERSION updates; Dependabot
+    # SECURITY updates still flow. Microsoft.Extensions.Logging is private
+    # (PrivateAssets="All", not customer-facing) but is frozen too: it's pinned
+    # to the same 8.0.0 LTS baseline as Abstractions, and letting Dependabot
+    # bump it would pull in Abstractions >= 8.0.2 transitively, re-raising the
+    # frozen Abstractions floor (NU1605 downgrade conflict). Serilog is private
+    # and independent, so it is left to bump freely.
+    ignore:
+      - dependency-name: "Microsoft.Extensions.Logging.Abstractions"
+        update-types:
+          ["version-update:semver-patch", "version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "Microsoft.Extensions.Logging"
+        update-types:
+          ["version-update:semver-patch", "version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "JsonLogic.Net"
+        update-types:
+          ["version-update:semver-patch", "version-update:semver-minor", "version-update:semver-major"]
     groups:
       nuget:
         update-types:
