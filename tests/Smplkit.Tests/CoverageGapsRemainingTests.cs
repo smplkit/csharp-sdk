@@ -50,9 +50,7 @@ public class CoverageGapsRemainingTests
 
         // Seed a discovery declaration WITHOUT connecting, so the connect-time
         // flush has something to POST — that POST 500s and the catch swallows it.
-        var register = typeof(ConfigClient).GetMethod("RegisterConfig",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
-        register.Invoke(client.Config, new object?[] { "billing", "svc", "test", null, null, null });
+        client.Config.RegisterConfig("billing", "svc", "test");
 
         // Subscribe triggers EnsureConnected (flush fails, swallowed) then NotFound
         // because the (empty) list has no "billing".

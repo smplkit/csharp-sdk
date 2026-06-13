@@ -266,6 +266,36 @@ public class ConfigDiscoveryTests
     }
 
     [Fact]
+    public async Task ConfigsClient_RegisterConfig_PublicSurface_DefaultServiceAndEnvironment()
+    {
+        // The public RegisterConfig / RegisterConfigItem surface: service and
+        // environment default to null, so a customer can declare a config with
+        // just its id and queue items against it.
+        string? lastBody = null;
+        var (client, _) = MakeClient(async req =>
+        {
+            if (IsConfigsBulkPost(req))
+            {
+                lastBody = await req.Content!.ReadAsStringAsync();
+                return Json(EmptyListJson);
+            }
+            return Json(EmptyListJson);
+        });
+
+        client.Config.RegisterConfig("billing");
+        client.Config.RegisterConfigItem("billing", "max_seats", "NUMBER", 50, "Plan seat cap.");
+        Assert.Equal(1, client.Config.PendingCount);
+
+        await client.Config.FlushAsync();
+        Assert.Equal(0, client.Config.PendingCount);
+        Assert.NotNull(lastBody);
+        Assert.Contains("\"billing\"", lastBody);
+        Assert.Contains("\"max_seats\"", lastBody);
+        Assert.Contains("NUMBER", lastBody);
+        Assert.Contains("\"Plan seat cap.\"", lastBody);
+    }
+
+    [Fact]
     public async Task ConfigsClient_FlushAsync_ServerError_Propagates()
     {
         var (client, _) = MakeClient(req =>
@@ -824,9 +854,7 @@ public class ConfigDiscoveryTests
         // Buffer a discovery declaration BEFORE the first live use so the
         // connect-time flush has something to send. EnsureConnected drains the
         // buffer before the initial config list, so "bulk" must precede "list".
-        var register = typeof(ConfigClient).GetMethod("RegisterConfig",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
-        register.Invoke(client.Config, new object?[] { "billing", "svc", "test", null, null, null });
+        client.Config.RegisterConfig("billing", "svc", "test");
 
         // Any live call triggers EnsureConnected (flush-then-list). The list is
         // empty so Subscribe ultimately raises NotFound — but only after connect

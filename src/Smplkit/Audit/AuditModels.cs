@@ -89,6 +89,19 @@ public sealed class CreateEventInput
     /// forwarder so the skip is visible in the delivery log.
     /// </summary>
     public bool DoNotForward { get; set; }
+    /// <summary>
+    /// When <c>true</c>, <see cref="AuditEvents.Record"/> blocks until this event
+    /// has been delivered (or <see cref="FlushTimeout"/> elapses) before returning,
+    /// instead of enqueuing it for background delivery. Use it when the event must
+    /// be durable before the caller continues — CLI tools, in-test assertions, or
+    /// any flow about to exit the process. Defaults to <c>false</c> (fire-and-forget).
+    /// </summary>
+    public bool Flush { get; set; }
+    /// <summary>
+    /// Upper bound on the blocking flush triggered by <see cref="Flush"/>. Ignored
+    /// when <see cref="Flush"/> is <c>false</c>. Defaults to 5 seconds.
+    /// </summary>
+    public TimeSpan FlushTimeout { get; set; } = TimeSpan.FromSeconds(5);
 }
 
 /// <summary>Filters and pagination cursor for <see cref="AuditEvents.ListAsync"/>.</summary>
@@ -143,6 +156,9 @@ public sealed record ListEventsPage(IReadOnlyList<AuditEvent> Events, string? Ne
 /// <summary>A distinct resource_type slug seen in the account's audit log.</summary>
 /// <param name="Id">The resource_type slug (same as the JSON:API id).</param>
 /// <param name="CreatedAt">First sighting of this resource_type for the account.</param>
+// Note: the canonical readability alias (a `ResourceType` member duplicating `Id`,
+// as AuditEventType.EventType / AuditCategory.Category do) cannot exist here — C#
+// forbids a member sharing its enclosing type's name (CS0542). `Id` is the slug.
 public sealed record ResourceType(string Id, DateTimeOffset CreatedAt);
 
 /// <summary>Pagination input for <see cref="AuditResourceTypes.ListAsync"/>.</summary>
@@ -172,7 +188,11 @@ public sealed record ListResourceTypesPage(IReadOnlyList<ResourceType> ResourceT
 /// <summary>A distinct event type slug seen in the account's audit log.</summary>
 /// <param name="Id">The event type slug (same as the JSON:API id).</param>
 /// <param name="CreatedAt">First sighting of this event type for the account.</param>
-public sealed record AuditEventType(string Id, DateTimeOffset CreatedAt);
+public sealed record AuditEventType(string Id, DateTimeOffset CreatedAt)
+{
+    /// <summary>The event type slug — the same value as <see cref="Id"/>, named for readability.</summary>
+    public string EventType => Id;
+}
 
 /// <summary>Filter + pagination input for <see cref="AuditEventTypes.ListAsync"/>.</summary>
 public sealed class ListEventTypesInput
@@ -203,7 +223,11 @@ public sealed record EventTypeListPage(IReadOnlyList<AuditEventType> EventTypes,
 /// <summary>A distinct category value seen in the account's audit log.</summary>
 /// <param name="Id">The category value (same as the JSON:API id).</param>
 /// <param name="CreatedAt">First sighting of this category for the account.</param>
-public sealed record AuditCategory(string Id, DateTimeOffset CreatedAt);
+public sealed record AuditCategory(string Id, DateTimeOffset CreatedAt)
+{
+    /// <summary>The category value — the same value as <see cref="Id"/>, named for readability.</summary>
+    public string Category => Id;
+}
 
 /// <summary>Pagination input for <see cref="AuditCategories.ListAsync"/>.</summary>
 public sealed class ListCategoriesInput

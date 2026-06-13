@@ -247,6 +247,8 @@ public class AuditResourceTypesEventTypesTests
     {
         var a = new AuditEventType("invoice.created", DateTimeOffset.UtcNow);
         Assert.Equal("invoice.created", a.Id);
+        // EventType is a readability alias returning the same value as Id.
+        Assert.Equal(a.Id, a.EventType);
         Assert.True(a.CreatedAt > DateTimeOffset.MinValue);
     }
 
@@ -378,5 +380,15 @@ public class AuditResourceTypesEventTypesTests
         });
         Assert.NotNull(capturedUrl);
         Assert.Contains("filter%5Benvironment%5D=smplkit", capturedUrl!);
+    }
+
+    [Fact]
+    public void AuditCategoryRecord_AliasReturnsId()
+    {
+        var c = new AuditCategory("billing", DateTimeOffset.UtcNow);
+        Assert.Equal("billing", c.Id);
+        // Category is a readability alias returning the same value as Id.
+        Assert.Equal(c.Id, c.Category);
+        Assert.True(c.CreatedAt > DateTimeOffset.MinValue);
     }
 }

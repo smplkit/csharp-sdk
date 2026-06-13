@@ -305,8 +305,20 @@ public sealed class ConfigClient : IDisposable
     // CRUD surface: discovery buffer (owned directly)
     // ------------------------------------------------------------------
 
-    /// <summary>Queue a configuration declaration for bulk-discovery upload.</summary>
-    internal void RegisterConfig(string configId, string? service, string? environment,
+    /// <summary>
+    /// Queue a configuration declaration for bulk-discovery upload.
+    /// </summary>
+    /// <remarks>
+    /// The declaration is buffered and sent in the background; it surfaces the
+    /// config in the smplkit console even if no values are set yet.
+    /// </remarks>
+    /// <param name="configId">The config identifier (slug) being declared.</param>
+    /// <param name="service">Name of the service declaring the config, or <c>null</c>.</param>
+    /// <param name="environment">Environment the declaration is scoped to, or <c>null</c>.</param>
+    /// <param name="parent">Optional parent config id this config inherits from.</param>
+    /// <param name="name">Optional display name for the config.</param>
+    /// <param name="description">Optional human-readable description.</param>
+    public void RegisterConfig(string configId, string? service = null, string? environment = null,
         string? parent = null, string? name = null, string? description = null)
     {
         _buffer.Declare(configId, service, environment, parent, name, description);
@@ -316,11 +328,23 @@ public sealed class ConfigClient : IDisposable
         }
     }
 
-    /// <summary>Queue a config item declaration. <see cref="RegisterConfig"/> must run first.</summary>
-    internal void RegisterConfigItem(string configId, string itemKey, string itemType,
-        object? defaultValue, string? description = null)
+    /// <summary>
+    /// Queue a config item declaration. <see cref="RegisterConfig"/> must run first.
+    /// </summary>
+    /// <remarks>
+    /// The declaration is buffered and sent in the background, surfacing the
+    /// item (with its type and default) in the smplkit console.
+    /// </remarks>
+    /// <param name="configId">The config identifier (slug) the item belongs to.</param>
+    /// <param name="itemKey">Key of the item within the config.</param>
+    /// <param name="itemType">Item value type — one of <c>STRING</c>, <c>NUMBER</c>,
+    /// <c>BOOLEAN</c>, or <c>JSON</c>.</param>
+    /// <param name="default">The in-code default value for the item.</param>
+    /// <param name="description">Optional human-readable description.</param>
+    public void RegisterConfigItem(string configId, string itemKey, string itemType,
+        object? @default, string? description = null)
     {
-        _buffer.AddItem(configId, itemKey, itemType, defaultValue, description);
+        _buffer.AddItem(configId, itemKey, itemType, @default, description);
         if (_buffer.PendingCount >= RegistrationFlushSize)
         {
             _ = Task.Run(async () => { try { await FlushAsync().ConfigureAwait(false); } catch { } });

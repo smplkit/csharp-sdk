@@ -22,15 +22,19 @@ public sealed class AuditEvents
         _buffer = new AuditEventBuffer(gen);
     }
 
-    /// <summary>Enqueue an audit event for asynchronous delivery. Returns immediately.</summary>
+    /// <summary>Record an audit event. Fire-and-forget by default; blocks when <see cref="CreateEventInput.Flush"/> is set.</summary>
     /// <remarks>
-    /// Fire-and-forget: the event is queued onto an in-memory bounded buffer
-    /// whose background worker performs the POST with retry on transient
-    /// failures. Call <see cref="FlushAsync"/> when the event must be durable
-    /// before continuing (CLI tools, tests, or any flow about to exit the
-    /// process). A <see cref="CreateEventInput.ResourceType"/> beginning with
-    /// <c>smpl.</c> is reserved for smplkit-emitted events; the server rejects
-    /// customer attempts with a 403 and the buffer drops the item.
+    /// By default the event is queued onto an in-memory bounded buffer whose
+    /// background worker performs the POST with retry on transient failures, and
+    /// the call returns immediately. Set <see cref="CreateEventInput.Flush"/> to
+    /// block until the event has been delivered (or
+    /// <see cref="CreateEventInput.FlushTimeout"/> elapses) — use it when the event
+    /// must be durable before continuing (CLI tools, tests, or any flow about to
+    /// exit the process). <see cref="FlushAsync"/> drains the whole buffer the same
+    /// way without recording a new event. A
+    /// <see cref="CreateEventInput.ResourceType"/> beginning with <c>smpl.</c> is
+    /// reserved for smplkit-emitted events; the server rejects customer attempts
+    /// with a 403 and the buffer drops the item.
     /// </remarks>
     /// <param name="input">The event to record. <see cref="CreateEventInput.EventType"/>,
     /// <see cref="CreateEventInput.ResourceType"/>, and
@@ -92,6 +96,14 @@ public sealed class AuditEvents
         };
         var body = new GenAudit.EventRequest { Data = resource };
         _buffer.Enqueue(body, input.IdempotencyKey);
+
+        // Inline flush: block until the buffer drains (or the timeout elapses) so
+        // the event is durable before the caller continues. Mirrors the canonical
+        // record(flush=True, flush_timeout=...) blocking path.
+        if (input.Flush)
+        {
+            _buffer.FlushAsync(input.FlushTimeout).GetAwaiter().GetResult();
+        }
     }
 
     /// <summary>Retrieve a single audit event by id.</summary>

@@ -62,6 +62,42 @@ public class AuditClientTests
     }
 
     [Fact]
+    public async Task Record_WithFlush_BlocksUntilDelivered()
+    {
+        var posts = 0;
+        var (gen, _, _) = MakeGen(req =>
+        {
+            Interlocked.Increment(ref posts);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = new StringContent(SuccessJson, Encoding.UTF8, "application/vnd.api+json"),
+            });
+        });
+        await using var client = new TestAuditClient(gen);
+
+        client.Events.Record(new CreateEventInput
+        {
+            EventType = "user.created",
+            ResourceType = "user",
+            ResourceId = "u-1",
+            Flush = true,
+            FlushTimeout = TimeSpan.FromSeconds(2),
+        });
+
+        // Record returned only after the inline flush drained the buffer, so the
+        // POST has already completed — no separate FlushAsync was needed.
+        Assert.True(posts >= 1);
+    }
+
+    [Fact]
+    public void CreateEventInput_FlushDefaults()
+    {
+        var input = new CreateEventInput { EventType = "x.created", ResourceType = "x", ResourceId = "1" };
+        Assert.False(input.Flush);
+        Assert.Equal(TimeSpan.FromSeconds(5), input.FlushTimeout);
+    }
+
+    [Fact]
     public void Create_RejectsMissingFields()
     {
         var (gen, _, _) = MakeGen(req => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)));

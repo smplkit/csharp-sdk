@@ -196,4 +196,132 @@ public class RuleAndContextTests
         Assert.Equal("user.score", varRef["var"]);
         Assert.Equal(100, operands[1]);
     }
+
+    // ---------------------------------------------------------------
+    // Rule builder — typed Op operator
+    // ---------------------------------------------------------------
+
+    [Theory]
+    [InlineData(Op.Eq, "==")]
+    [InlineData(Op.Neq, "!=")]
+    [InlineData(Op.Gt, ">")]
+    [InlineData(Op.Gte, ">=")]
+    [InlineData(Op.Lt, "<")]
+    [InlineData(Op.Lte, "<=")]
+    [InlineData(Op.In, "in")]
+    public void Rule_TypedOp_MapsToWireOperator(Op op, string wire)
+    {
+        var rule = new Rule($"Test {op}")
+            .When("user.score", op, 100)
+            .Serve(true)
+            .Build();
+
+        var logic = (Dictionary<string, object?>)rule["logic"]!;
+        Assert.True(logic.ContainsKey(wire));
+
+        var operands = (object?[])logic[wire]!;
+        var varRef = (Dictionary<string, object?>)operands[0]!;
+        Assert.Equal("user.score", varRef["var"]);
+        Assert.Equal(100, operands[1]);
+    }
+
+    [Fact]
+    public void Rule_TypedOp_Contains_ReversesOperands()
+    {
+        // Op.Contains routes through the raw-string overload's "contains" →
+        // reversed-"in" rewrite, so the JSON Logic operator is "in".
+        var rule = new Rule("Contains via Op")
+            .When("user.tags", Op.Contains, "beta")
+            .Serve(true)
+            .Build();
+
+        var logic = (Dictionary<string, object?>)rule["logic"]!;
+        Assert.True(logic.ContainsKey("in"));
+
+        var operands = (object?[])logic["in"]!;
+        Assert.Equal("beta", operands[0]);
+        var varRef = (Dictionary<string, object?>)operands[1]!;
+        Assert.Equal("user.tags", varRef["var"]);
+    }
+
+    [Fact]
+    public void Rule_TypedOp_AndRawString_AreEquivalent()
+    {
+        var typed = new Rule("e").When("user.plan", Op.Eq, "enterprise").Serve(true).Build();
+        var raw = new Rule("e").When("user.plan", "==", "enterprise").Serve(true).Build();
+
+        var typedLogic = (Dictionary<string, object?>)typed["logic"]!;
+        var rawLogic = (Dictionary<string, object?>)raw["logic"]!;
+        Assert.Equal(rawLogic.Keys, typedLogic.Keys);
+    }
+
+    // ---------------------------------------------------------------
+    // Rule builder — required-environment ctor
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void Rule_EnvironmentCtor_SetsEnvironment()
+    {
+        var rule = new Rule("Enterprise rule", "production")
+            .When("user.plan", Op.Eq, "enterprise")
+            .Serve(true)
+            .Build();
+
+        Assert.Equal("Enterprise rule", rule["description"]);
+        Assert.Equal("production", rule["environment"]);
+    }
+
+    [Fact]
+    public void Rule_EnvironmentCtor_OverriddenByEnvironmentMethod()
+    {
+        var rule = new Rule("r", "production")
+            .Environment("staging")
+            .Serve(true)
+            .Build();
+
+        Assert.Equal("staging", rule["environment"]);
+    }
+
+    // ---------------------------------------------------------------
+    // Rule builder — raw JSON Logic When overload
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void Rule_WhenJsonLogic_SingleExpression_UsedAsLogic()
+    {
+        var orExpr = new Dictionary<string, object?>
+        {
+            ["or"] = new object?[]
+            {
+                new Dictionary<string, object?> { ["=="] = new object?[] { new Dictionary<string, object?> { ["var"] = "user.plan" }, "pro" } },
+                new Dictionary<string, object?> { ["=="] = new object?[] { new Dictionary<string, object?> { ["var"] = "user.plan" }, "enterprise" } },
+            },
+        };
+
+        var rule = new Rule("Pro or enterprise", "production")
+            .When(orExpr)
+            .Serve(true)
+            .Build();
+
+        var logic = (Dictionary<string, object?>)rule["logic"]!;
+        Assert.True(logic.ContainsKey("or"));
+    }
+
+    [Fact]
+    public void Rule_WhenJsonLogic_CombinesWithTypedWhen_UnderAnd()
+    {
+        var rule = new Rule("Mixed")
+            .When("user.plan", Op.Eq, "enterprise")
+            .When(new Dictionary<string, object?>
+            {
+                ["!"] = new Dictionary<string, object?> { ["var"] = "user.banned" },
+            })
+            .Serve(true)
+            .Build();
+
+        var logic = (Dictionary<string, object?>)rule["logic"]!;
+        Assert.True(logic.ContainsKey("and"));
+        var conditions = (object?[])logic["and"]!;
+        Assert.Equal(2, conditions.Length);
+    }
 }
