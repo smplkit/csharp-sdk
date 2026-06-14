@@ -16230,6 +16230,12 @@ namespace Smplkit.Internal.Generated.App
         [System.Text.Json.Serialization.JsonPropertyName("limits")]
         public System.Collections.Generic.IDictionary<string, int> Limits { get; set; } = new System.Collections.Generic.Dictionary<string, int>();
 
+        /// <summary>
+        /// For metered products only: map of metered limit key to the per-unit overage price in micro-USD ($0.000001) charged for each unit beyond the plan's included allotment. A rate of `0` means the plan stops at its allotment with no overage. Omitted for products that are not metered.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("overage_rates")]
+        public System.Collections.Generic.IDictionary<string, int>? Overage_rates { get; set; } = default!;
+
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
         [System.Text.Json.Serialization.JsonExtensionData]
@@ -16335,6 +16341,12 @@ namespace Smplkit.Internal.Generated.App
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("limits")]
         public System.Collections.Generic.IDictionary<string, LimitDefinition> Limits { get; set; } = new System.Collections.Generic.Dictionary<string, LimitDefinition>();
+
+        /// <summary>
+        /// Limit keys on this product that are metered: each includes a monthly allotment in the plan price and bills per unit beyond it at the plan's `overage_rates` rate, rather than capping hard. Empty for products with no metered limits.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("metered_limits")]
+        public System.Collections.Generic.List<string> Metered_limits { get; set; } = default!;
 
         /// <summary>
         /// Map of plan key to plan definition for this product.
