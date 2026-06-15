@@ -896,8 +896,7 @@ namespace Smplkit.Internal.Generated.App
         /// List Products
         /// </summary>
         /// <remarks>
-        /// Return all flag-enabled products with their plans, limits, and
-        /// <br/>marketing content.
+        /// Return all products with their plans, limits, and marketing content.
         /// <br/>
         /// <br/>Default sort is `display_name` ascending.
         /// </remarks>
@@ -10291,8 +10290,7 @@ namespace Smplkit.Internal.Generated.App
         /// List Products
         /// </summary>
         /// <remarks>
-        /// Return all flag-enabled products with their plans, limits, and
-        /// <br/>marketing content.
+        /// Return all products with their plans, limits, and marketing content.
         /// <br/>
         /// <br/>Default sort is `display_name` ascending.
         /// </remarks>
@@ -16329,12 +16327,6 @@ namespace Smplkit.Internal.Generated.App
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("features")]
         public System.Collections.Generic.List<string> Features { get; set; } = default!;
-
-        /// <summary>
-        /// When `true`, the product is listed but not yet available for subscription.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("coming_soon")]
-        public bool Coming_soon { get; set; } = false;
 
         /// <summary>
         /// Map of limit key to limit definition for this product.
