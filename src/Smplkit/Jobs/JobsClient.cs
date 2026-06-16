@@ -42,7 +42,7 @@ public sealed class RunsClient
         string? job = null, int? pageSize = null, string? after = null, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.List_runsAsync(job, pageSize, after, ct)).ConfigureAwait(false);
+            () => _gen.List_runsAsync(filterjob: job, pagesize: pageSize, pageafter: after, cancellationToken: ct)).ConfigureAwait(false);
         return (resp.Data ?? new List<GenJobs.RunResource>())
             .Select(JobsClient.RunFromResource).ToList();
     }
@@ -208,7 +208,7 @@ public sealed class JobsClient : IDisposable
         bool? enabled = null, bool? recurring = null, int? pageNumber = null, int? pageSize = null, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.List_jobsAsync(enabled, recurring, pageNumber, pageSize, null, ct)).ConfigureAwait(false);
+            () => _gen.List_jobsAsync(filterenabled: enabled, filterrecurring: recurring, pagenumber: pageNumber, pagesize: pageSize, cancellationToken: ct)).ConfigureAwait(false);
         return (resp.Data ?? new List<GenJobs.JobResource>())
             .Select(FromResource).ToList();
     }
