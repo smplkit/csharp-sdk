@@ -119,6 +119,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <br/>
         /// <br/>Use `filter[job]={id}` for a single job's run history.
         /// </remarks>
+        /// <param name="pagesize">Number of runs per page. Optional; defaults to `50` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<RunListResponse> List_runsAsync(string? filterjob = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
@@ -755,6 +756,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <br/>
         /// <br/>Use `filter[job]={id}` for a single job's run history.
         /// </remarks>
+        /// <param name="pagesize">Number of runs per page. Optional; defaults to `50` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<RunListResponse> List_runsAsync(string? filterjob = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
