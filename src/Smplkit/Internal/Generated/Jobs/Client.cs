@@ -50,14 +50,22 @@ namespace Smplkit.Internal.Generated.Jobs
         /// List Jobs
         /// </summary>
         /// <remarks>
-        /// List this account's jobs, newest first.
+        /// List this account's jobs.
+        /// <br/>
+        /// <br/>Default sort is `name` ascending. Sort by `name`, `created_at`,
+        /// <br/>`updated_at`, `next_run_at`, or `enabled`, ascending or descending (prefix
+        /// <br/>`-` for descending). Filter with `filter[enabled]`, `filter[recurring]`,
+        /// <br/>and `filter[name]` (case-insensitive substring match on the name); filters
+        /// <br/>compose with AND.
         /// </remarks>
+        /// <param name="filtername">Case-insensitive substring match on the job `name` (matches when the name contains the given text).</param>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `enabled`, `-enabled`, `name`, `-name`, `next_run_at`, `-next_run_at`, `updated_at`, `-updated_at`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<JobListResponse> List_jobsAsync(bool? filterenabled = null, bool? filterrecurring = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<JobListResponse> List_jobsAsync(bool? filterenabled = null, bool? filterrecurring = null, string? filtername = null, Sort? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -115,14 +123,34 @@ namespace Smplkit.Internal.Generated.Jobs
         /// List Runs
         /// </summary>
         /// <remarks>
-        /// List runs for this account, newest first (cursor paginated).
+        /// List runs for this account (cursor paginated).
         /// <br/>
-        /// <br/>Use `filter[job]={id}` for a single job's run history.
+        /// <br/>Default sort is `-created_at` (newest first). Sort by `created_at`,
+        /// <br/>`started_at`, `finished_at`, `scheduled_for`, `status`, `job`, or
+        /// <br/>`total_duration_ms`, ascending or descending (prefix `-` for descending).
+        /// <br/>Keep the same `sort` value across paginated requests so the cursor stays
+        /// <br/>consistent. Runs that have not reached the relevant lifecycle point
+        /// <br/>(`started_at`, `finished_at`, `scheduled_for`, `total_duration_ms` unset)
+        /// <br/>sort to the end regardless of direction.
+        /// <br/>
+        /// <br/>Filters compose with AND:
+        /// <br/>
+        /// <br/>- `filter[job]={id}` — a single job's run history.
+        /// <br/>- `filter[status]` — one state or a comma-separated list (any-of).
+        /// <br/>- `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
+        /// <br/>  `filter[scheduled_for]` — half-open `[start,end)` date ranges (see each
+        /// <br/>  parameter for the interval syntax).
         /// </remarks>
+        /// <param name="filterstatus">Restrict to runs in the given lifecycle state. One of `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`, `CANCELED`, or a comma-separated list of them to match any (e.g. `SUCCEEDED,FAILED`).</param>
+        /// <param name="filtercreated_at">Restrict to runs whose `created_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
+        /// <param name="filterstarted_at">Restrict to runs whose `started_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
+        /// <param name="filterfinished_at">Restrict to runs whose `finished_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
+        /// <param name="filterscheduled_for">Restrict to runs whose `scheduled_for` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
         /// <param name="pagesize">Number of runs per page. Optional; defaults to `50` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `finished_at`, `-finished_at`, `job`, `-job`, `scheduled_for`, `-scheduled_for`, `started_at`, `-started_at`, `status`, `-status`, `total_duration_ms`, `-total_duration_ms`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<RunListResponse> List_runsAsync(string? filterjob = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<RunListResponse> List_runsAsync(string? filterjob = null, string? filterstatus = null, string? filtercreated_at = null, string? filterstarted_at = null, string? filterfinished_at = null, string? filterscheduled_for = null, int? pagesize = null, string? pageafter = null, Anonymous? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -320,14 +348,22 @@ namespace Smplkit.Internal.Generated.Jobs
         /// List Jobs
         /// </summary>
         /// <remarks>
-        /// List this account's jobs, newest first.
+        /// List this account's jobs.
+        /// <br/>
+        /// <br/>Default sort is `name` ascending. Sort by `name`, `created_at`,
+        /// <br/>`updated_at`, `next_run_at`, or `enabled`, ascending or descending (prefix
+        /// <br/>`-` for descending). Filter with `filter[enabled]`, `filter[recurring]`,
+        /// <br/>and `filter[name]` (case-insensitive substring match on the name); filters
+        /// <br/>compose with AND.
         /// </remarks>
+        /// <param name="filtername">Case-insensitive substring match on the job `name` (matches when the name contains the given text).</param>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `enabled`, `-enabled`, `name`, `-name`, `next_run_at`, `-next_run_at`, `updated_at`, `-updated_at`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
         /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<JobListResponse> List_jobsAsync(bool? filterenabled = null, bool? filterrecurring = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<JobListResponse> List_jobsAsync(bool? filterenabled = null, bool? filterrecurring = null, string? filtername = null, Sort? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -350,6 +386,14 @@ namespace Smplkit.Internal.Generated.Jobs
                     if (filterrecurring != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[recurring]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterrecurring, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filtername != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[name]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtername, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     if (pagenumber != null)
                     {
@@ -756,14 +800,34 @@ namespace Smplkit.Internal.Generated.Jobs
         /// List Runs
         /// </summary>
         /// <remarks>
-        /// List runs for this account, newest first (cursor paginated).
+        /// List runs for this account (cursor paginated).
         /// <br/>
-        /// <br/>Use `filter[job]={id}` for a single job's run history.
+        /// <br/>Default sort is `-created_at` (newest first). Sort by `created_at`,
+        /// <br/>`started_at`, `finished_at`, `scheduled_for`, `status`, `job`, or
+        /// <br/>`total_duration_ms`, ascending or descending (prefix `-` for descending).
+        /// <br/>Keep the same `sort` value across paginated requests so the cursor stays
+        /// <br/>consistent. Runs that have not reached the relevant lifecycle point
+        /// <br/>(`started_at`, `finished_at`, `scheduled_for`, `total_duration_ms` unset)
+        /// <br/>sort to the end regardless of direction.
+        /// <br/>
+        /// <br/>Filters compose with AND:
+        /// <br/>
+        /// <br/>- `filter[job]={id}` — a single job's run history.
+        /// <br/>- `filter[status]` — one state or a comma-separated list (any-of).
+        /// <br/>- `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
+        /// <br/>  `filter[scheduled_for]` — half-open `[start,end)` date ranges (see each
+        /// <br/>  parameter for the interval syntax).
         /// </remarks>
+        /// <param name="filterstatus">Restrict to runs in the given lifecycle state. One of `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`, `CANCELED`, or a comma-separated list of them to match any (e.g. `SUCCEEDED,FAILED`).</param>
+        /// <param name="filtercreated_at">Restrict to runs whose `created_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
+        /// <param name="filterstarted_at">Restrict to runs whose `started_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
+        /// <param name="filterfinished_at">Restrict to runs whose `finished_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
+        /// <param name="filterscheduled_for">Restrict to runs whose `scheduled_for` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
         /// <param name="pagesize">Number of runs per page. Optional; defaults to `50` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `finished_at`, `-finished_at`, `job`, `-job`, `scheduled_for`, `-scheduled_for`, `started_at`, `-started_at`, `status`, `-status`, `total_duration_ms`, `-total_duration_ms`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<RunListResponse> List_runsAsync(string? filterjob = null, int? pagesize = null, string? pageafter = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<RunListResponse> List_runsAsync(string? filterjob = null, string? filterstatus = null, string? filtercreated_at = null, string? filterstarted_at = null, string? filterfinished_at = null, string? filterscheduled_for = null, int? pagesize = null, string? pageafter = null, Anonymous? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -783,6 +847,26 @@ namespace Smplkit.Internal.Generated.Jobs
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[job]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterjob, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
+                    if (filterstatus != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[status]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterstatus, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filtercreated_at != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[created_at]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtercreated_at, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filterstarted_at != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[started_at]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterstarted_at, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filterfinished_at != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[finished_at]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterfinished_at, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filterscheduled_for != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[scheduled_for]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterscheduled_for, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
                     if (pagesize != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
@@ -790,6 +874,10 @@ namespace Smplkit.Internal.Generated.Jobs
                     if (pageafter != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("page[after]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pageafter, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -2051,6 +2139,96 @@ namespace Smplkit.Internal.Generated.Jobs
             get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
             set { _additionalProperties = value; }
         }
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `enabled`, `-enabled`, `name`, `-name`, `next_run_at`, `-next_run_at`, `updated_at`, `-updated_at`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Sort
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
+        Created_at = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-created_at")]
+        Minuscreated_at = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"enabled")]
+        Enabled = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-enabled")]
+        Minusenabled = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"name")]
+        Name = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-name")]
+        Minusname = 5,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"next_run_at")]
+        Next_run_at = 6,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-next_run_at")]
+        Minusnext_run_at = 7,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"updated_at")]
+        Updated_at = 8,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-updated_at")]
+        Minusupdated_at = 9,
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `finished_at`, `-finished_at`, `job`, `-job`, `scheduled_for`, `-scheduled_for`, `started_at`, `-started_at`, `status`, `-status`, `total_duration_ms`, `-total_duration_ms`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
+        Created_at = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-created_at")]
+        Minuscreated_at = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"finished_at")]
+        Finished_at = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-finished_at")]
+        Minusfinished_at = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"job")]
+        Job = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-job")]
+        Minusjob = 5,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"scheduled_for")]
+        Scheduled_for = 6,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-scheduled_for")]
+        Minusscheduled_for = 7,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"started_at")]
+        Started_at = 8,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-started_at")]
+        Minusstarted_at = 9,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"status")]
+        Status = 10,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-status")]
+        Minusstatus = 11,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"total_duration_ms")]
+        Total_duration_ms = 12,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-total_duration_ms")]
+        Minustotal_duration_ms = 13,
 
     }
 
