@@ -197,16 +197,18 @@ public sealed class JobsClient : IDisposable
     /// <summary>List jobs in the account.</summary>
     /// <param name="enabled">Return only jobs with this enabled state. <c>null</c>
     /// lists both enabled and paused jobs.</param>
+    /// <param name="recurring">Return only recurring (<c>true</c>) or only one-off
+    /// (<c>false</c>) jobs. <c>null</c> lists both.</param>
     /// <param name="pageNumber">1-based page to return. <c>null</c> returns the first page.</param>
     /// <param name="pageSize">Maximum number of jobs to return in this page.
     /// <c>null</c> uses the server default.</param>
     /// <param name="ct">Optional cancellation token.</param>
     /// <returns>The jobs in this page, as a list of <see cref="Job"/>.</returns>
     public async Task<IReadOnlyList<Job>> ListAsync(
-        bool? enabled = null, int? pageNumber = null, int? pageSize = null, CancellationToken ct = default)
+        bool? enabled = null, bool? recurring = null, int? pageNumber = null, int? pageSize = null, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.List_jobsAsync(enabled, pageNumber, pageSize, null, ct)).ConfigureAwait(false);
+            () => _gen.List_jobsAsync(enabled, recurring, pageNumber, pageSize, null, ct)).ConfigureAwait(false);
         return (resp.Data ?? new List<GenJobs.JobResource>())
             .Select(FromResource).ToList();
     }
