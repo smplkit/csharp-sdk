@@ -57,7 +57,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<JobListResponse> List_jobsAsync(bool? filterenabled = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<JobListResponse> List_jobsAsync(bool? filterenabled = null, bool? filterrecurring = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -327,7 +327,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<JobListResponse> List_jobsAsync(bool? filterenabled = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<JobListResponse> List_jobsAsync(bool? filterenabled = null, bool? filterrecurring = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -346,6 +346,10 @@ namespace Smplkit.Internal.Generated.Jobs
                     if (filterenabled != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[enabled]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterenabled, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filterrecurring != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[recurring]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterrecurring, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     if (pagenumber != null)
                     {
@@ -1402,6 +1406,12 @@ namespace Smplkit.Internal.Generated.Jobs
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("next_run_at")]
         public System.DateTimeOffset? Next_run_at { get; set; } = default!;
+
+        /// <summary>
+        /// Whether the job runs on a repeating schedule. `true` for a cron schedule; `false` for a one-off datetime or `now` schedule, which runs a single time. Derived from `schedule`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("recurring")]
+        public bool Recurring { get; set; } = false;
 
         /// <summary>
         /// When the job was created.
