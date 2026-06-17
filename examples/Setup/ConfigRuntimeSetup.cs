@@ -7,11 +7,16 @@ namespace Smplkit.Examples.Setup;
 
 public static class ConfigRuntimeSetup
 {
+    // Complete, dependency-ordered list of every config the config showcases
+    // create. Children are listed before the shared "showcase-common" parent so
+    // cleanup never trips the "config referenced as parent" conflict — even when
+    // a prior run crashed mid-way and left a sibling showcase's child orphaned.
     private static readonly string[] DemoConfigIds = new[]
     {
-        "showcase-billing",
-        "showcase-common",
-        "showcase-database",
+        "showcase-billing",      // child of showcase-common (runtime showcase)
+        "showcase-user-service", // child of showcase-common (management showcase)
+        "showcase-database",     // root (runtime showcase)
+        "showcase-common",       // shared parent — must be deleted last
     };
 
     public static async Task SimulateAdminOverrideAsync(SmplClient client)

@@ -16,68 +16,75 @@ using Smplkit.Flags;
 
 // create the client
 using var client = new SmplClient(new SmplClientOptions { Service = "showcase-service" });
-await ConfigManagementSetup.SetupManagementShowcaseAsync(client);
-
-// create a "parent" configuration that all other configs inherit from
-var shared = client.Config.New(
-    "showcase-common",
-    name: "Showcase Common",
-    description: "Showcase-only shared configuration.");
-shared.SetString("app_name", "Acme SaaS Platform");
-shared.SetString("support_email", "support@acme.dev");
-shared.SetNumber("max_retries", 3);
-shared.SetNumber("request_timeout_ms", 5000);
-shared.SetNumber("pagination_default_page_size", 25);
-shared.SetNumber("max_retries", 5, environment: "production");
-shared.SetNumber("request_timeout_ms", 10000, environment: "production");
-await shared.SaveAsync();
-Console.WriteLine($"Created config: {shared.Id}");
-
-// create a config (inherits from showcase-common)
-var userService = client.Config.New(
-    "showcase-user-service",
-    name: "Showcase User Service",
-    description: "Configuration for the user microservice.",
-    parent: shared);
-userService.SetString("database.host", "localhost");
-userService.SetNumber("database.port", 5432);
-userService.SetString("database.name", "users_dev");
-userService.SetNumber("database.pool_size", 5);
-userService.SetNumber("cache_ttl_seconds", 300);
-userService.SetBoolean("enable_signup", true);
-userService.SetNumber("pagination_default_page_size", 50);
-await userService.SaveAsync();
-
-// update a config
-userService.SetString("database.host", "prod-users-rds.internal.acme.dev",
-    environment: "production");
-userService.SetString("database.name", "users_prod", environment: "production");
-userService.SetNumber("database.pool_size", 20, environment: "production");
-userService.SetNumber("cache_ttl_seconds", 600, environment: "production");
-userService.SetBoolean("enable_signup", false, environment: "production");
-await userService.SaveAsync();
-Console.WriteLine($"Updated config: {userService.Id}");
-
-// list configs
-var configs = await client.Config.ListAsync();
-foreach (var cfg in configs)
+try
 {
-    var parentInfo = cfg.Parent is not null ? $" (parent: {cfg.Parent})" : " (root)";
-    Console.WriteLine($"  {cfg.Id}{parentInfo}");
+    await ConfigManagementSetup.SetupManagementShowcaseAsync(client);
+
+    // create a "parent" configuration that all other configs inherit from
+    var shared = client.Config.New(
+        "showcase-common",
+        name: "Showcase Common",
+        description: "Showcase-only shared configuration.");
+    shared.SetString("app_name", "Acme SaaS Platform");
+    shared.SetString("support_email", "support@acme.dev");
+    shared.SetNumber("max_retries", 3);
+    shared.SetNumber("request_timeout_ms", 5000);
+    shared.SetNumber("pagination_default_page_size", 25);
+    shared.SetNumber("max_retries", 5, environment: "production");
+    shared.SetNumber("request_timeout_ms", 10000, environment: "production");
+    await shared.SaveAsync();
+    Console.WriteLine($"Created config: {shared.Id}");
+
+    // create a config (inherits from showcase-common)
+    var userService = client.Config.New(
+        "showcase-user-service",
+        name: "Showcase User Service",
+        description: "Configuration for the user microservice.",
+        parent: shared);
+    userService.SetString("database.host", "localhost");
+    userService.SetNumber("database.port", 5432);
+    userService.SetString("database.name", "users_dev");
+    userService.SetNumber("database.pool_size", 5);
+    userService.SetNumber("cache_ttl_seconds", 300);
+    userService.SetBoolean("enable_signup", true);
+    userService.SetNumber("pagination_default_page_size", 50);
+    await userService.SaveAsync();
+
+    // update a config
+    userService.SetString("database.host", "prod-users-rds.internal.acme.dev",
+        environment: "production");
+    userService.SetString("database.name", "users_prod", environment: "production");
+    userService.SetNumber("database.pool_size", 20, environment: "production");
+    userService.SetNumber("cache_ttl_seconds", 600, environment: "production");
+    userService.SetBoolean("enable_signup", false, environment: "production");
+    await userService.SaveAsync();
+    Console.WriteLine($"Updated config: {userService.Id}");
+
+    // list configs
+    var configs = await client.Config.ListAsync();
+    foreach (var cfg in configs)
+    {
+        var parentInfo = cfg.Parent is not null ? $" (parent: {cfg.Parent})" : " (root)";
+        Console.WriteLine($"  {cfg.Id}{parentInfo}");
+    }
+
+    // get a config
+    var fetched = await client.Config.GetAsync("showcase-user-service");
+    Console.WriteLine($"Fetched: id={fetched.Id}, name={fetched.Name}");
+    Console.WriteLine($"  description={fetched.Description}");
+    Console.WriteLine($"  parent={fetched.Parent ?? "(none)"}");
+    Console.WriteLine($"  items: [{string.Join(", ", fetched.Items.Keys)}]");
+
+    // delete configs
+    await userService.DeleteAsync();
+    await shared.DeleteAsync();
+    Console.WriteLine("Deleted configs");
+
+    Console.WriteLine("Done!");
 }
-
-// get a config
-var fetched = await client.Config.GetAsync("showcase-user-service");
-Console.WriteLine($"Fetched: id={fetched.Id}, name={fetched.Name}");
-Console.WriteLine($"  description={fetched.Description}");
-Console.WriteLine($"  parent={fetched.Parent ?? "(none)"}");
-Console.WriteLine($"  items: [{string.Join(", ", fetched.Items.Keys)}]");
-
-// delete configs
-await userService.DeleteAsync();
-await shared.DeleteAsync();
-Console.WriteLine("Deleted configs");
-
-// cleanup
-await ConfigManagementSetup.CleanupManagementShowcaseAsync(client);
-Console.WriteLine("Done!");
+finally
+{
+    // Always tear down — even if an error occurred above — so a failed run
+    // never leaves orphaned configs for the next run.
+    await ConfigManagementSetup.CleanupManagementShowcaseAsync(client);
+}
