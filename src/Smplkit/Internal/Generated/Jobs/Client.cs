@@ -37,9 +37,12 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <remarks>
         /// Create a job for this account.
         /// <br/>
-        /// <br/>The caller supplies the job's id as `data.id`. Ids are unique
-        /// <br/>within an account and immutable. An enabled job begins scheduling
-        /// <br/>immediately.
+        /// <br/>The caller supplies the job's id as `data.id`. Ids are unique within an
+        /// <br/>account and immutable. A recurring job supplies `environments` to choose
+        /// <br/>where it runs and begins scheduling immediately in each enabled
+        /// <br/>environment. A one-off job is created in the environment named by the
+        /// <br/>`X-Smplkit-Environment` header (implied when the credential is scoped to a
+        /// <br/>single environment).
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -54,9 +57,11 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <br/>
         /// <br/>Default sort is `name` ascending. Sort by `name`, `created_at`,
         /// <br/>`updated_at`, `next_run_at`, or `enabled`, ascending or descending (prefix
-        /// <br/>`-` for descending). Filter with `filter[enabled]`, `filter[recurring]`,
-        /// <br/>and `filter[name]` (case-insensitive substring match on the name); filters
-        /// <br/>compose with AND.
+        /// <br/>`-` for descending). Filter with `filter[enabled]` (enabled in at least one
+        /// <br/>environment), `filter[recurring]`, and `filter[name]` (case-insensitive
+        /// <br/>substring match on the name); filters compose with AND. A scoped caller
+        /// <br/>sees each job's `environments` map narrowed to the environments it may
+        /// <br/>access.
         /// </remarks>
         /// <param name="filtername">Case-insensitive substring match on the job `name` (matches when the name contains the given text).</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `enabled`, `-enabled`, `name`, `-name`, `next_run_at`, `-next_run_at`, `updated_at`, `-updated_at`.</param>
@@ -85,8 +90,10 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <remarks>
         /// Replace an existing job. Every writable field is overwritten.
         /// <br/>
-        /// <br/>Enabling a paused job is a `PUT` with `enabled: true`; pausing is
-        /// <br/>`enabled: false`. Editing the schedule recomputes the next fire time.
+        /// <br/>Set enablement per environment via the `environments` map (a recurring
+        /// <br/>job), or by recreating a one-off job in the desired environment. Editing
+        /// <br/>the schedule recomputes the next fire time; changing only which
+        /// <br/>environments are enabled preserves the existing cadence.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -110,9 +117,13 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <remarks>
         /// Trigger one immediate run of the job (a `MANUAL` run).
         /// <br/>
-        /// <br/>The job's schedule and enabled state are untouched. The run is enqueued and
-        /// <br/>executed by the worker; if the account is over its run allotment the run
-        /// <br/>will fail with reason `QUOTA_EXCEEDED` rather than being rejected here.
+        /// <br/>The job's schedule and enabled state are untouched. The run executes in the
+        /// <br/>environment named by the `X-Smplkit-Environment` header; when the job is
+        /// <br/>enabled in exactly one environment that environment is used, and a
+        /// <br/>single-environment credential implies it. The run executes the job's
+        /// <br/>effective configuration for that environment. It is enqueued and executed
+        /// <br/>by the worker; if the account is over its run allotment the run will fail
+        /// <br/>with reason `QUOTA_EXCEEDED` rather than being rejected here.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -137,11 +148,14 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <br/>
         /// <br/>- `filter[job]={id}` — a single job's run history.
         /// <br/>- `filter[status]` — one state or a comma-separated list (any-of).
+        /// <br/>- `filter[environment]` — one environment key or a comma-separated list
+        /// <br/>  (any-of); omitted covers every environment you can access.
         /// <br/>- `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
         /// <br/>  `filter[scheduled_for]` — half-open `[start,end)` date ranges (see each
         /// <br/>  parameter for the interval syntax).
         /// </remarks>
         /// <param name="filterstatus">Restrict to runs in the given lifecycle state. One of `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`, `CANCELED`, or a comma-separated list of them to match any (e.g. `SUCCEEDED,FAILED`).</param>
+        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results cover every environment you can access.</param>
         /// <param name="filtercreated_at">Restrict to runs whose `created_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
         /// <param name="filterstarted_at">Restrict to runs whose `started_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
         /// <param name="filterfinished_at">Restrict to runs whose `finished_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
@@ -150,7 +164,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `finished_at`, `-finished_at`, `job`, `-job`, `scheduled_for`, `-scheduled_for`, `started_at`, `-started_at`, `status`, `-status`, `total_duration_ms`, `-total_duration_ms`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<RunListResponse> List_runsAsync(string? filterjob = null, string? filterstatus = null, string? filtercreated_at = null, string? filterstarted_at = null, string? filterfinished_at = null, string? filterscheduled_for = null, int? pagesize = null, string? pageafter = null, Anonymous? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<RunListResponse> List_runsAsync(string? filterjob = null, string? filterstatus = null, string? filterenvironment = null, string? filtercreated_at = null, string? filterstarted_at = null, string? filterfinished_at = null, string? filterscheduled_for = null, int? pagesize = null, string? pageafter = null, Anonymous? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -262,9 +276,12 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <remarks>
         /// Create a job for this account.
         /// <br/>
-        /// <br/>The caller supplies the job's id as `data.id`. Ids are unique
-        /// <br/>within an account and immutable. An enabled job begins scheduling
-        /// <br/>immediately.
+        /// <br/>The caller supplies the job's id as `data.id`. Ids are unique within an
+        /// <br/>account and immutable. A recurring job supplies `environments` to choose
+        /// <br/>where it runs and begins scheduling immediately in each enabled
+        /// <br/>environment. A one-off job is created in the environment named by the
+        /// <br/>`X-Smplkit-Environment` header (implied when the credential is scoped to a
+        /// <br/>single environment).
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -352,9 +369,11 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <br/>
         /// <br/>Default sort is `name` ascending. Sort by `name`, `created_at`,
         /// <br/>`updated_at`, `next_run_at`, or `enabled`, ascending or descending (prefix
-        /// <br/>`-` for descending). Filter with `filter[enabled]`, `filter[recurring]`,
-        /// <br/>and `filter[name]` (case-insensitive substring match on the name); filters
-        /// <br/>compose with AND.
+        /// <br/>`-` for descending). Filter with `filter[enabled]` (enabled in at least one
+        /// <br/>environment), `filter[recurring]`, and `filter[name]` (case-insensitive
+        /// <br/>substring match on the name); filters compose with AND. A scoped caller
+        /// <br/>sees each job's `environments` map narrowed to the environments it may
+        /// <br/>access.
         /// </remarks>
         /// <param name="filtername">Case-insensitive substring match on the job `name` (matches when the name contains the given text).</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `enabled`, `-enabled`, `name`, `-name`, `next_run_at`, `-next_run_at`, `updated_at`, `-updated_at`.</param>
@@ -549,8 +568,10 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <remarks>
         /// Replace an existing job. Every writable field is overwritten.
         /// <br/>
-        /// <br/>Enabling a paused job is a `PUT` with `enabled: true`; pausing is
-        /// <br/>`enabled: false`. Editing the schedule recomputes the next fire time.
+        /// <br/>Set enablement per environment via the `environments` map (a recurring
+        /// <br/>job), or by recreating a one-off job in the desired environment. Editing
+        /// <br/>the schedule recomputes the next fire time; changing only which
+        /// <br/>environments are enabled preserves the existing cadence.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -715,9 +736,13 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <remarks>
         /// Trigger one immediate run of the job (a `MANUAL` run).
         /// <br/>
-        /// <br/>The job's schedule and enabled state are untouched. The run is enqueued and
-        /// <br/>executed by the worker; if the account is over its run allotment the run
-        /// <br/>will fail with reason `QUOTA_EXCEEDED` rather than being rejected here.
+        /// <br/>The job's schedule and enabled state are untouched. The run executes in the
+        /// <br/>environment named by the `X-Smplkit-Environment` header; when the job is
+        /// <br/>enabled in exactly one environment that environment is used, and a
+        /// <br/>single-environment credential implies it. The run executes the job's
+        /// <br/>effective configuration for that environment. It is enqueued and executed
+        /// <br/>by the worker; if the account is over its run allotment the run will fail
+        /// <br/>with reason `QUOTA_EXCEEDED` rather than being rejected here.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -814,11 +839,14 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <br/>
         /// <br/>- `filter[job]={id}` — a single job's run history.
         /// <br/>- `filter[status]` — one state or a comma-separated list (any-of).
+        /// <br/>- `filter[environment]` — one environment key or a comma-separated list
+        /// <br/>  (any-of); omitted covers every environment you can access.
         /// <br/>- `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
         /// <br/>  `filter[scheduled_for]` — half-open `[start,end)` date ranges (see each
         /// <br/>  parameter for the interval syntax).
         /// </remarks>
         /// <param name="filterstatus">Restrict to runs in the given lifecycle state. One of `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`, `CANCELED`, or a comma-separated list of them to match any (e.g. `SUCCEEDED,FAILED`).</param>
+        /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results cover every environment you can access.</param>
         /// <param name="filtercreated_at">Restrict to runs whose `created_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
         /// <param name="filterstarted_at">Restrict to runs whose `started_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
         /// <param name="filterfinished_at">Restrict to runs whose `finished_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
@@ -827,7 +855,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `finished_at`, `-finished_at`, `job`, `-job`, `scheduled_for`, `-scheduled_for`, `started_at`, `-started_at`, `status`, `-status`, `total_duration_ms`, `-total_duration_ms`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<RunListResponse> List_runsAsync(string? filterjob = null, string? filterstatus = null, string? filtercreated_at = null, string? filterstarted_at = null, string? filterfinished_at = null, string? filterscheduled_for = null, int? pagesize = null, string? pageafter = null, Anonymous? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<RunListResponse> List_runsAsync(string? filterjob = null, string? filterstatus = null, string? filterenvironment = null, string? filtercreated_at = null, string? filterstarted_at = null, string? filterfinished_at = null, string? filterscheduled_for = null, int? pagesize = null, string? pageafter = null, Anonymous? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -850,6 +878,10 @@ namespace Smplkit.Internal.Generated.Jobs
                     if (filterstatus != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[status]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterstatus, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filterenvironment != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[environment]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterenvironment, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     if (filtercreated_at != null)
                     {
@@ -1441,7 +1473,11 @@ namespace Smplkit.Internal.Generated.Jobs
     /// A scheduled unit of work: an HTTP request run on a schedule.
     /// <br/>
     /// <br/>The job is the definition; each time it fires the service records a run
-    /// <br/>capturing the request, response, timing, and outcome.
+    /// <br/>capturing the request, response, timing, and outcome. A job is enabled per
+    /// <br/>environment: set `environments[&lt;env&gt;].enabled` to schedule runs there. A
+    /// <br/>recurring (cron) job may be enabled in several environments at once and
+    /// <br/>fires once per enabled environment; a one-off (`now` or future datetime)
+    /// <br/>job runs a single time in the environment it was created in.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Job
@@ -1460,10 +1496,10 @@ namespace Smplkit.Internal.Generated.Jobs
         public string? Description { get; set; } = default!;
 
         /// <summary>
-        /// Whether the job is scheduling runs. Set to `false` to pause without deleting.
+        /// Whether the job is enabled in at least one environment. Read-only roll-up of `environments[*].enabled`; set enablement per environment via `environments`.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("enabled")]
-        public bool Enabled { get; set; } = true;
+        public bool? Enabled { get; set; } = default!;
 
         /// <summary>
         /// Job type. Only `http` is supported today.
@@ -1482,6 +1518,12 @@ namespace Smplkit.Internal.Generated.Jobs
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("configuration")]
         public JobHttpConfiguration Configuration { get; set; } = new JobHttpConfiguration();
+
+        /// <summary>
+        /// Per-environment overrides keyed by environment key (e.g. `production`, `staging`). Each entry sets `enabled` (whether the job schedules runs in that environment) and an optional `configuration` override (omit to inherit the base `configuration`). A job with no entry for an environment is disabled there. For a recurring job, supply this map to choose where it runs. For a one-off job, the environment it is created in is recorded here automatically — name it with the `X-Smplkit-Environment` header. Every referenced environment must exist for the account.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("environments")]
+        public System.Collections.Generic.IDictionary<string, JobEnvironment> Environments { get; set; } = default!;
 
         /// <summary>
         /// How overlapping runs are handled. `ALLOW` (the only value today) permits them.
@@ -1575,6 +1617,36 @@ namespace Smplkit.Internal.Generated.Jobs
 
         [System.Text.Json.Serialization.JsonPropertyName("attributes")]
         public Job Attributes { get; set; } = new Job();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Per-environment override for a job's enablement and configuration.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JobEnvironment
+    {
+
+        /// <summary>
+        /// Whether the job schedules runs in this environment. A job runs in an environment only via this field; it is disabled in every environment by default.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("enabled")]
+        public bool Enabled { get; set; } = false;
+
+        /// <summary>
+        /// Per-environment HTTP request override. Omit to inherit the job's base `configuration`. When present, it fully replaces the base configuration for runs in this environment.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("configuration")]
+        public JobHttpConfiguration? Configuration { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -1827,6 +1899,12 @@ namespace Smplkit.Internal.Generated.Jobs
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("job_version")]
         public int? Job_version { get; set; } = default!;
+
+        /// <summary>
+        /// The environment this run executed in. A scheduled run inherits the firing job-environment; a manual run is created in the environment you name with the `X-Smplkit-Environment` header; a rerun copies its source run's environment.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("environment")]
+        public string Environment { get; set; } = default!;
 
         /// <summary>
         /// Why the run exists: `SCHEDULE`, `MANUAL` (Run now), or `RERUN`.
