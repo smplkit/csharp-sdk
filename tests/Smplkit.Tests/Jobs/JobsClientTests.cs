@@ -239,10 +239,11 @@ public class JobsClientTests
                     + "],\"meta\":{\"pagination\":{\"page\":1,\"size\":50}}}"),
             });
         });
-        var rows = await jobs.ListAsync(enabled: true, recurring: true, pageNumber: 1, pageSize: 10);
+        var rows = await jobs.ListAsync(enabled: true, recurring: true, name: "health", pageNumber: 1, pageSize: 10);
         Assert.Equal(2, rows.Count);
         Assert.Contains("filter%5Benabled%5D=true", url!);
         Assert.Contains("filter%5Brecurring%5D=true", url!);
+        Assert.Contains("filter%5Bname%5D=health", url!);
         Assert.Contains("page%5Bnumber%5D=1", url!);
         Assert.Contains("page%5Bsize%5D=10", url!);
     }
