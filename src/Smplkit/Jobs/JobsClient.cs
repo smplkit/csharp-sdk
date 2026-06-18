@@ -242,8 +242,6 @@ public sealed class JobsClient : IDisposable
     }
 
     /// <summary>List jobs in the account.</summary>
-    /// <param name="enabled">Return only jobs with this enabled state (enabled in
-    /// at least one environment). <c>null</c> lists both enabled and paused jobs.</param>
     /// <param name="recurring">Return only recurring (<c>true</c>) or only one-off
     /// (<c>false</c>) jobs. <c>null</c> lists both.</param>
     /// <param name="name">Return only jobs whose name contains this text
@@ -254,10 +252,10 @@ public sealed class JobsClient : IDisposable
     /// <param name="ct">Optional cancellation token.</param>
     /// <returns>The jobs in this page, as a list of <see cref="Job"/>.</returns>
     public async Task<IReadOnlyList<Job>> ListAsync(
-        bool? enabled = null, bool? recurring = null, string? name = null, int? pageNumber = null, int? pageSize = null, CancellationToken ct = default)
+        bool? recurring = null, string? name = null, int? pageNumber = null, int? pageSize = null, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.List_jobsAsync(filterenabled: enabled, filterrecurring: recurring, filtername: name, pagenumber: pageNumber, pagesize: pageSize, cancellationToken: ct)).ConfigureAwait(false);
+            () => _gen.List_jobsAsync(filterrecurring: recurring, filtername: name, pagenumber: pageNumber, pagesize: pageSize, cancellationToken: ct)).ConfigureAwait(false);
         return (resp.Data ?? new List<GenJobs.JobResource>())
             .Select(FromResource).ToList();
     }
@@ -390,7 +388,11 @@ public sealed class JobsClient : IDisposable
                 kv => new GenJobs.JobEnvironment
                 {
                     Enabled = kv.Value.Enabled,
+                    // Per-environment cron override; sent only when set (omitted by
+                    // the jobs serializer when null, inheriting the base schedule).
+                    Schedule = kv.Value.Schedule,
                     Configuration = kv.Value.Configuration is { } cfg ? ToGenConfiguration(cfg) : null,
+                    // Next_run_at is read-only/server-derived; never sent.
                 });
         }
         return attrs;
@@ -429,6 +431,9 @@ public sealed class JobsClient : IDisposable
     private Job FromResource(GenJobs.JobResource r)
     {
         var a = r.Attributes;
+        // The base `enabled` is no longer a wire attribute; the wrapper derives it
+        // as a roll-up over the per-environment map (see Job.Enabled). NextRunAt is
+        // now per-environment (JobEnvironment.NextRunAt), not a top-level field.
         return new Job(
             this,
             id: r.Id ?? string.Empty,
@@ -437,11 +442,9 @@ public sealed class JobsClient : IDisposable
             configuration: ConfigFromGen(a.Configuration),
             description: a.Description,
             environments: EnvironmentsFromGen(a.Environments),
-            enabled: a.Enabled ?? false,
             recurring: a.Recurring,
             type: a.Type ?? "http",
             concurrencyPolicy: a.Concurrency_policy ?? "ALLOW",
-            nextRunAt: a.Next_run_at,
             createdAt: a.Created_at,
             updatedAt: a.Updated_at,
             deletedAt: a.Deleted_at,
@@ -458,7 +461,9 @@ public sealed class JobsClient : IDisposable
             result[key] = new JobEnvironment
             {
                 Enabled = env.Enabled,
+                Schedule = env.Schedule,
                 Configuration = env.Configuration is { } cfg ? ConfigFromGen(cfg) : null,
+                NextRunAt = env.Next_run_at,
             };
         }
         return result;

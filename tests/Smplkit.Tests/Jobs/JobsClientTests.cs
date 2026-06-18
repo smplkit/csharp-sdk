@@ -27,10 +27,12 @@ public class JobsClientTests
     private const string JobId = "my-job";
     private const string RunId = "8f2b1c4a-0000-4a1b-9c3d-1e2f3a4b5c6d";
 
-    // environments map fixture: production enabled with NO config override;
-    // development disabled WITH a per-environment configuration override.
+    // environments map fixture: production enabled with NO config override but a
+    // per-environment schedule override + a next_run_at; development disabled WITH a
+    // per-environment configuration override (and no schedule / next_run_at).
     private const string EnvsJson =
-        "{\"production\":{\"enabled\":true},"
+        "{\"production\":{\"enabled\":true,\"schedule\":\"0 3 * * *\","
+        + "\"next_run_at\":\"2026-06-19T03:00:00Z\"},"
         + "\"development\":{\"enabled\":false,\"configuration\":{\"method\":\"POST\","
         + "\"url\":\"https://dev.example.com/hook\",\"headers\":[],\"body\":null,"
         + "\"success_status\":\"2xx\",\"timeout\":30,\"tls_verify\":true,\"ca_cert\":null}}}";
@@ -55,13 +57,16 @@ public class JobsClientTests
         new(body, Encoding.UTF8, "application/vnd.api+json");
 
     private static string JobResource(
-        string id = JobId, string name = "My Job", int version = 1, bool enabled = true,
+        string id = JobId, string name = "My Job", int version = 1,
         bool recurring = true, bool created = true, string environmentsJson = "{}")
     {
+        // The top-level `enabled` and `next_run_at` attributes were removed from the
+        // wire: enablement is a derived roll-up over `environments`, and the next
+        // fire time is now per-environment (environments[<env>].next_run_at).
         var ts = created ? "\"2026-06-04T00:00:00Z\"" : "null";
         return "{\"id\":\"" + id + "\",\"type\":\"job\",\"attributes\":{"
             + "\"name\":\"" + name + "\",\"description\":\"does a thing\","
-            + "\"enabled\":" + (enabled ? "true" : "false") + ",\"type\":\"http\","
+            + "\"type\":\"http\","
             + "\"schedule\":\"0 * * * *\","
             + "\"configuration\":{\"method\":\"POST\",\"url\":\"https://api.example.com/hook\","
             + "\"headers\":[{\"name\":\"X-Api-Key\",\"value\":\"secret\"}],"
@@ -69,7 +74,6 @@ public class JobsClientTests
             + "\"tls_verify\":true,\"ca_cert\":null},"
             + "\"environments\":" + environmentsJson + ","
             + "\"concurrency_policy\":\"ALLOW\","
-            + "\"next_run_at\":\"2026-06-05T00:00:00Z\","
             + "\"recurring\":" + (recurring ? "true" : "false") + ","
             + "\"created_at\":" + ts + ",\"updated_at\":" + ts + ",\"deleted_at\":null,"
             + "\"version\":" + version + "}}";
@@ -222,7 +226,6 @@ public class JobsClientTests
         Assert.Equal(30, job.Configuration.Timeout);
         Assert.Single(job.Configuration.Headers);
         Assert.Equal("X-Api-Key", job.Configuration.Headers[0].Name);
-        Assert.NotNull(job.NextRunAt);
         Assert.True(job.Recurring);
     }
 
@@ -239,9 +242,10 @@ public class JobsClientTests
                     + "],\"meta\":{\"pagination\":{\"page\":1,\"size\":50}}}"),
             });
         });
-        var rows = await jobs.ListAsync(enabled: true, recurring: true, name: "health", pageNumber: 1, pageSize: 10);
+        var rows = await jobs.ListAsync(recurring: true, name: "health", pageNumber: 1, pageSize: 10);
         Assert.Equal(2, rows.Count);
-        Assert.Contains("filter%5Benabled%5D=true", url!);
+        // filter[enabled] was removed from the list endpoint.
+        Assert.DoesNotContain("filter%5Benabled%5D", url!);
         Assert.Contains("filter%5Brecurring%5D=true", url!);
         Assert.Contains("filter%5Bname%5D=health", url!);
         Assert.Contains("page%5Bnumber%5D=1", url!);
@@ -306,18 +310,29 @@ public class JobsClientTests
     // ----------------------------------------------------------------------
 
     [Fact]
-    public void SetEnabled_PerEnvironment_RollupReflectsServerValueOnly()
+    public void SetEnabled_PerEnvironment_RollupDerivedFromEnvironmentMap()
     {
         var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
         var job = jobs.New(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        // Roll-up (no arg) is a derived value over the environment map: false until
+        // at least one environment is enabled.
+        Assert.False(job.IsEnabled());
+        Assert.False(job.Enabled);
+
         job.SetEnabled(true, environment: "production");
         job.SetEnabled(false, environment: "development");
         Assert.True(job.IsEnabled(environment: "production"));
         Assert.False(job.IsEnabled(environment: "development"));
         // Absent environment → not enabled.
         Assert.False(job.IsEnabled(environment: "staging"));
-        // Roll-up (no arg) is the server-derived value, still false on an unsaved job.
+        // Roll-up is now true (production is enabled) — derived, not server-only.
+        Assert.True(job.IsEnabled());
+        Assert.True(job.Enabled);
+
+        // Disable the only enabled environment → roll-up flips back to false.
+        job.SetEnabled(false, environment: "production");
         Assert.False(job.IsEnabled());
+        Assert.False(job.Enabled);
     }
 
     [Fact]
@@ -356,12 +371,39 @@ public class JobsClientTests
     }
 
     [Fact]
-    public void SetSchedule_ReplacesSchedule()
+    public void SetSchedule_Base_ReplacesBaseSchedule()
     {
         var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
         var job = jobs.New(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
         job.SetSchedule("30 2 * * *");
         Assert.Equal("30 2 * * *", job.Schedule);
+        Assert.Empty(job.Environments);
+    }
+
+    [Fact]
+    public void SetSchedule_PerEnvironment_SetsOverrideAndPreservesBase()
+    {
+        var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var job = jobs.New(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        job.SetSchedule("0 3 * * *", environment: "production");
+        // Base schedule is untouched; the override lands on the environment entry.
+        Assert.Equal("0 * * * *", job.Schedule);
+        Assert.Equal("0 3 * * *", job.Environments["production"].Schedule);
+        // The override entry is created on demand, defaulting disabled.
+        Assert.False(job.Environments["production"].Enabled);
+    }
+
+    [Fact]
+    public void SetSchedule_PerEnvironment_ReusesExistingOverride()
+    {
+        var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var job = jobs.New(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        // Enable first, then schedule — the same override entry is reused so the
+        // enablement survives.
+        job.SetEnabled(true, environment: "production");
+        job.SetSchedule("0 3 * * *", environment: "production");
+        Assert.True(job.Environments["production"].Enabled);
+        Assert.Equal("0 3 * * *", job.Environments["production"].Schedule);
     }
 
     [Fact]
@@ -377,13 +419,22 @@ public class JobsClientTests
         Assert.True(job.IsEnabled(environment: "production"));
         Assert.False(job.IsEnabled(environment: "development"));
 
-        // production: no override → inherits base configuration.
+        // production: no config override → inherits base configuration, but it
+        // carries a per-environment schedule override and a server-derived
+        // next_run_at that the wrapper surfaces read-only.
         Assert.Null(job.Environments["production"].Configuration);
         Assert.Equal("https://api.example.com/hook", job.GetConfiguration(environment: "production").Url);
+        Assert.Equal("0 3 * * *", job.Environments["production"].Schedule);
+        Assert.Equal(
+            DateTimeOffset.Parse("2026-06-19T03:00:00Z", System.Globalization.CultureInfo.InvariantCulture),
+            job.Environments["production"].NextRunAt);
 
-        // development: per-environment override present.
+        // development: per-environment config override present, no schedule override,
+        // and next_run_at omitted (the environment is disabled).
         Assert.NotNull(job.Environments["development"].Configuration);
         Assert.Equal("https://dev.example.com/hook", job.GetConfiguration(environment: "development").Url);
+        Assert.Null(job.Environments["development"].Schedule);
+        Assert.Null(job.Environments["development"].NextRunAt);
 
         // base + unknown environment fall back to the base configuration.
         Assert.Equal("https://api.example.com/hook", job.GetConfiguration().Url);
@@ -410,6 +461,7 @@ public class JobsClientTests
         job.SetConfiguration(new HttpConfig { Url = "https://dev.example.com/hook" }, environment: "development");
         job.SetEnabled(false, environment: "development");
         job.SetEnabled(true, environment: "production");
+        job.SetSchedule("0 3 * * *", environment: "production");
         await job.SaveAsync();
 
         using var doc = JsonDocument.Parse(capturedBody!);
@@ -426,6 +478,12 @@ public class JobsClientTests
         Assert.False(envs.GetProperty("production").TryGetProperty("configuration", out _));
         Assert.Equal("https://dev.example.com/hook",
             envs.GetProperty("development").GetProperty("configuration").GetProperty("url").GetString());
+        // A per-environment schedule override is sent when set; development (no
+        // override) and the read-only next_run_at are omitted on every entry.
+        Assert.Equal("0 3 * * *", envs.GetProperty("production").GetProperty("schedule").GetString());
+        Assert.False(envs.GetProperty("development").TryGetProperty("schedule", out _));
+        Assert.False(envs.GetProperty("production").TryGetProperty("next_run_at", out _));
+        Assert.False(envs.GetProperty("development").TryGetProperty("next_run_at", out _));
     }
 
     [Fact]
@@ -914,7 +972,7 @@ public class JobsClientTests
         {
             Content = JsonApi(
                 "{\"data\":{\"id\":\"" + JobId + "\",\"type\":\"job\",\"attributes\":{"
-                + "\"name\":\"x\",\"schedule\":\"now\",\"enabled\":false,\"type\":\"http\","
+                + "\"name\":\"x\",\"schedule\":\"now\",\"type\":\"http\","
                 + "\"concurrency_policy\":\"ALLOW\"}}}"),
         })).GetAsync(JobId);
         Assert.Equal(string.Empty, job.Configuration.Url);
@@ -1075,11 +1133,9 @@ public class JobsClientTests
                 new HttpConfig { Url = "u" },
                 null,           // description
                 null,           // environments
-                false,          // enabled
                 null,           // recurring
                 "http",         // type
                 "ALLOW",        // concurrencyPolicy
-                null,           // nextRunAt
                 null,           // createdAt
                 null,           // updatedAt
                 null,           // deletedAt
