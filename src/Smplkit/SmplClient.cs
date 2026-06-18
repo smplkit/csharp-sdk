@@ -165,8 +165,10 @@ public sealed class SmplClient : IDisposable
         // (ADR-055) and owns its own transport (closed in Dispose()).
         Audit = new AuditClient(resolved.ApiKey, auditUrl, resolved.Environment, extraHeaders);
         // Jobs installs no in-process machinery — reuse the shared jobs transport
-        // (single connection pool) so client.Jobs is one-stop.
-        Jobs = new JobsClient(_clients.Jobs);
+        // (single connection pool) so client.Jobs is one-stop. The SDK's
+        // configured runtime environment defaults the one-off birth / manual-run /
+        // run-filter scoping, mirroring the audit surface.
+        Jobs = new JobsClient(_clients.Jobs, resolved.Environment);
 
         // Wire up ambient-context bridge for flag evaluation.
         Flags.SetContextProvider(GetAmbientContext);

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using Smplkit.Errors;
 using Smplkit.Jobs;
 using Smplkit.Tests.Helpers;
@@ -10,17 +11,29 @@ using HttpMethod = Smplkit.Jobs.HttpMethod;
 namespace Smplkit.Tests.Jobs;
 
 /// <summary>
-/// Tests for the management-plane Smpl Jobs wrapper (<c>mgmt.Jobs</c>).
+/// Tests for the management-plane Smpl Jobs wrapper (<c>mgmt.Jobs</c>) with
+/// per-environment scoping.
 ///
 /// <para>Stubs the jobs service via <see cref="MockHttpMessageHandler"/>; no real
 /// network. Coverage on the wrapper must reach 100% to satisfy the SDK CI gate.
 /// Exercises the active-record API: <c>mgmt.Jobs.New(...)</c> → mutate →
-/// <c>SaveAsync</c> / <c>DeleteAsync</c>, plus run history and usage.</para>
+/// <c>SaveAsync</c> / <c>DeleteAsync</c>, plus per-environment enablement /
+/// configuration overrides, the environment header on create/update/run, the
+/// <c>filter[environment]</c> resolution on run reads, run history, run
+/// active-record actions, and usage.</para>
 /// </summary>
 public class JobsClientTests
 {
     private const string JobId = "my-job";
     private const string RunId = "8f2b1c4a-0000-4a1b-9c3d-1e2f3a4b5c6d";
+
+    // environments map fixture: production enabled with NO config override;
+    // development disabled WITH a per-environment configuration override.
+    private const string EnvsJson =
+        "{\"production\":{\"enabled\":true},"
+        + "\"development\":{\"enabled\":false,\"configuration\":{\"method\":\"POST\","
+        + "\"url\":\"https://dev.example.com/hook\",\"headers\":[],\"body\":null,"
+        + "\"success_status\":\"2xx\",\"timeout\":30,\"tls_verify\":true,\"ca_cert\":null}}}";
 
     private static (GenJobs.JobsClient gen, MockHttpMessageHandler mock) MakeGen(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> handler)
@@ -32,17 +45,18 @@ public class JobsClientTests
     }
 
     private static JobsClient MakeJobs(
-        Func<HttpRequestMessage, Task<HttpResponseMessage>> handler)
+        Func<HttpRequestMessage, Task<HttpResponseMessage>> handler, string? environment = null)
     {
         var (gen, _) = MakeGen(handler);
-        return new JobsClient(gen);
+        return new JobsClient(gen, environment);
     }
 
     private static StringContent JsonApi(string body) =>
         new(body, Encoding.UTF8, "application/vnd.api+json");
 
     private static string JobResource(
-        string id = JobId, string name = "My Job", int version = 1, bool enabled = true, bool created = true)
+        string id = JobId, string name = "My Job", int version = 1, bool enabled = true,
+        bool recurring = true, bool created = true, string environmentsJson = "{}")
     {
         var ts = created ? "\"2026-06-04T00:00:00Z\"" : "null";
         return "{\"id\":\"" + id + "\",\"type\":\"job\",\"attributes\":{"
@@ -53,18 +67,21 @@ public class JobsClientTests
             + "\"headers\":[{\"name\":\"X-Api-Key\",\"value\":\"secret\"}],"
             + "\"body\":\"{}\",\"success_status\":\"2xx\",\"timeout\":30,"
             + "\"tls_verify\":true,\"ca_cert\":null},"
+            + "\"environments\":" + environmentsJson + ","
             + "\"concurrency_policy\":\"ALLOW\","
             + "\"next_run_at\":\"2026-06-05T00:00:00Z\","
+            + "\"recurring\":" + (recurring ? "true" : "false") + ","
             + "\"created_at\":" + ts + ",\"updated_at\":" + ts + ",\"deleted_at\":null,"
             + "\"version\":" + version + "}}";
     }
 
     private static string RunResource(
-        string id = RunId, string status = "SUCCEEDED", string trigger = "SCHEDULE", string? rerunOf = null)
+        string id = RunId, string status = "SUCCEEDED", string trigger = "SCHEDULE",
+        string? rerunOf = null, string environment = "production")
     {
         var ro = rerunOf is null ? "null" : "\"" + rerunOf + "\"";
         return "{\"id\":\"" + id + "\",\"type\":\"run\",\"attributes\":{"
-            + "\"job\":\"" + JobId + "\",\"job_version\":1,"
+            + "\"job\":\"" + JobId + "\",\"job_version\":1,\"environment\":\"" + environment + "\","
             + "\"trigger\":\"" + trigger + "\",\"rerun_of\":" + ro + ","
             + "\"scheduled_for\":\"2026-06-05T00:00:00Z\",\"status\":\"" + status + "\","
             + "\"started_at\":\"2026-06-05T00:00:00.1Z\",\"finished_at\":\"2026-06-05T00:00:00.4Z\","
@@ -99,7 +116,21 @@ public class JobsClientTests
         var job = jobs.New(JobId, name: "My Job", schedule: "0 * * * *", configuration: Cfg());
         Assert.Equal(JobId, job.Id);
         Assert.Null(job.CreatedAt);
+        Assert.False(job.Enabled);
+        Assert.Empty(job.Environments);
         Assert.Equal(0, calls);
+    }
+
+    [Fact]
+    public void New_WithEnvironmentsDictionary_SeedsMap()
+    {
+        var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var job = jobs.New(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg(),
+            environments: new Dictionary<string, JobEnvironment>
+            {
+                ["production"] = new JobEnvironment { Enabled = true },
+            });
+        Assert.True(job.IsEnabled(environment: "production"));
     }
 
     [Fact]
@@ -192,6 +223,7 @@ public class JobsClientTests
         Assert.Single(job.Configuration.Headers);
         Assert.Equal("X-Api-Key", job.Configuration.Headers[0].Name);
         Assert.NotNull(job.NextRunAt);
+        Assert.True(job.Recurring);
     }
 
     [Fact]
@@ -238,7 +270,7 @@ public class JobsClientTests
     }
 
     [Fact]
-    public async Task Run_TriggersManualRun()
+    public async Task Run_TriggersManualRun_ParsesEnvironment()
     {
         var run = await MakeJobs(req =>
         {
@@ -250,6 +282,7 @@ public class JobsClientTests
         }).RunAsync(JobId);
         Assert.Equal("MANUAL", run.Trigger);
         Assert.Equal(JobId, run.Job);
+        Assert.Equal("production", run.Environment);
         Assert.Equal("SUCCEEDED", run.Status);
     }
 
@@ -268,7 +301,301 @@ public class JobsClientTests
     }
 
     // ----------------------------------------------------------------------
-    // Runs sub-client
+    // Per-environment enablement, configuration overrides, roll-up
+    // ----------------------------------------------------------------------
+
+    [Fact]
+    public void SetEnabled_PerEnvironment_RollupReflectsServerValueOnly()
+    {
+        var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var job = jobs.New(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        job.SetEnabled(true, environment: "production");
+        job.SetEnabled(false, environment: "development");
+        Assert.True(job.IsEnabled(environment: "production"));
+        Assert.False(job.IsEnabled(environment: "development"));
+        // Absent environment → not enabled.
+        Assert.False(job.IsEnabled(environment: "staging"));
+        // Roll-up (no arg) is the server-derived value, still false on an unsaved job.
+        Assert.False(job.IsEnabled());
+    }
+
+    [Fact]
+    public void SetConfiguration_BaseAndPerEnvironment_GetConfigurationResolves()
+    {
+        var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var job = jobs.New(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+
+        var baseCfg = new HttpConfig { Url = "https://base.example.com" };
+        job.SetConfiguration(baseCfg);
+        Assert.Same(baseCfg, job.Configuration);
+        Assert.Same(baseCfg, job.GetConfiguration());
+
+        var devCfg = new HttpConfig { Url = "https://dev.example.com" };
+        job.SetConfiguration(devCfg, environment: "development");
+        Assert.Same(devCfg, job.GetConfiguration(environment: "development"));
+        // An environment override entry is created on demand, defaulting disabled.
+        Assert.False(job.Environments["development"].Enabled);
+        // Environment without an override falls back to the base configuration.
+        Assert.Same(baseCfg, job.GetConfiguration(environment: "production"));
+    }
+
+    [Fact]
+    public void EnvironmentOverride_Reused_PreservesOtherField()
+    {
+        var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var job = jobs.New(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+
+        // Configuration first, then enablement — the same override entry is reused
+        // (the EnvironmentOverride get-existing path) so the configuration survives.
+        var devCfg = new HttpConfig { Url = "https://dev.example.com" };
+        job.SetConfiguration(devCfg, environment: "development");
+        job.SetEnabled(true, environment: "development");
+        Assert.True(job.Environments["development"].Enabled);
+        Assert.Same(devCfg, job.Environments["development"].Configuration);
+    }
+
+    [Fact]
+    public void SetSchedule_ReplacesSchedule()
+    {
+        var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var job = jobs.New(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        job.SetSchedule("30 2 * * *");
+        Assert.Equal("30 2 * * *", job.Schedule);
+    }
+
+    [Fact]
+    public async Task Get_ParsesEnvironments_WithAndWithoutOverride()
+    {
+        var job = await MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi("{\"data\":" + JobResource(environmentsJson: EnvsJson) + "}"),
+        })).GetAsync(JobId);
+
+        // Roll-up + per-environment enablement.
+        Assert.True(job.IsEnabled());
+        Assert.True(job.IsEnabled(environment: "production"));
+        Assert.False(job.IsEnabled(environment: "development"));
+
+        // production: no override → inherits base configuration.
+        Assert.Null(job.Environments["production"].Configuration);
+        Assert.Equal("https://api.example.com/hook", job.GetConfiguration(environment: "production").Url);
+
+        // development: per-environment override present.
+        Assert.NotNull(job.Environments["development"].Configuration);
+        Assert.Equal("https://dev.example.com/hook", job.GetConfiguration(environment: "development").Url);
+
+        // base + unknown environment fall back to the base configuration.
+        Assert.Equal("https://api.example.com/hook", job.GetConfiguration().Url);
+        Assert.Equal("https://api.example.com/hook", job.GetConfiguration(environment: "staging").Url);
+    }
+
+    // ----------------------------------------------------------------------
+    // Build-to-wire: drop base `enabled`, emit `environments`
+    // ----------------------------------------------------------------------
+
+    [Fact]
+    public async Task SaveAsync_BuildBody_DropsBaseEnabled_EmitsEnvironments()
+    {
+        string? capturedBody = null;
+        var jobs = MakeJobs(async req =>
+        {
+            capturedBody = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = JsonApi("{\"data\":" + JobResource() + "}"),
+            };
+        });
+        var job = jobs.New(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg(), description: "d");
+        job.SetConfiguration(new HttpConfig { Url = "https://dev.example.com/hook" }, environment: "development");
+        job.SetEnabled(false, environment: "development");
+        job.SetEnabled(true, environment: "production");
+        await job.SaveAsync();
+
+        using var doc = JsonDocument.Parse(capturedBody!);
+        var attrs = doc.RootElement.GetProperty("data").GetProperty("attributes");
+        // Base read-only roll-ups are never written.
+        Assert.False(attrs.TryGetProperty("enabled", out _));
+        Assert.False(attrs.TryGetProperty("recurring", out _));
+        Assert.False(attrs.TryGetProperty("version", out _));
+        // environments map is emitted; each entry carries its own enabled flag.
+        var envs = attrs.GetProperty("environments");
+        Assert.True(envs.GetProperty("production").GetProperty("enabled").GetBoolean());
+        Assert.False(envs.GetProperty("development").GetProperty("enabled").GetBoolean());
+        // production has no config override (inherits base); development does.
+        Assert.False(envs.GetProperty("production").TryGetProperty("configuration", out _));
+        Assert.Equal("https://dev.example.com/hook",
+            envs.GetProperty("development").GetProperty("configuration").GetProperty("url").GetString());
+    }
+
+    [Fact]
+    public async Task SaveAsync_BuildBody_NoEnvironments_OmitsEnvironmentsKey()
+    {
+        string? capturedBody = null;
+        var jobs = MakeJobs(async req =>
+        {
+            capturedBody = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = JsonApi("{\"data\":" + JobResource() + "}"),
+            };
+        });
+        var job = jobs.New(JobId, name: "n", schedule: "now", configuration: Cfg());
+        await job.SaveAsync();
+
+        using var doc = JsonDocument.Parse(capturedBody!);
+        var attrs = doc.RootElement.GetProperty("data").GetProperty("attributes");
+        Assert.False(attrs.TryGetProperty("enabled", out _));
+        Assert.False(attrs.TryGetProperty("environments", out _));
+    }
+
+    // ----------------------------------------------------------------------
+    // X-Smplkit-Environment header on create / update / run
+    // ----------------------------------------------------------------------
+
+    [Fact]
+    public async Task Create_SendsBirthEnvironmentHeader_FromNewArgument()
+    {
+        string? header = null;
+        var jobs = MakeJobs(req =>
+        {
+            header = req.Headers.TryGetValues("X-Smplkit-Environment", out var v) ? v.First() : null;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = JsonApi("{\"data\":" + JobResource() + "}"),
+            });
+        });
+        var job = jobs.New("showcase-oneoff", name: "n", schedule: "now", configuration: Cfg(), environment: "development");
+        await job.SaveAsync();
+        Assert.Equal("development", header);
+    }
+
+    [Fact]
+    public async Task Create_BirthEnvironmentDefaultsToClientEnvironment()
+    {
+        string? header = null;
+        var jobs = MakeJobs(req =>
+        {
+            header = req.Headers.TryGetValues("X-Smplkit-Environment", out var v) ? v.First() : null;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = JsonApi("{\"data\":" + JobResource() + "}"),
+            });
+        }, environment: "production");
+        var job = jobs.New(JobId, name: "n", schedule: "now", configuration: Cfg());
+        await job.SaveAsync();
+        Assert.Equal("production", header);
+    }
+
+    [Fact]
+    public async Task Create_NoEnvironment_OmitsHeader()
+    {
+        bool hasHeader = true;
+        var jobs = MakeJobs(req =>
+        {
+            hasHeader = req.Headers.Contains("X-Smplkit-Environment");
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = JsonApi("{\"data\":" + JobResource() + "}"),
+            });
+        });
+        var job = jobs.New(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        await job.SaveAsync();
+        Assert.False(hasHeader);
+    }
+
+    [Fact]
+    public async Task Update_SendsClientEnvironmentHeader()
+    {
+        string? putHeader = null;
+        var jobs = MakeJobs(req =>
+        {
+            if (req.Method == System.Net.Http.HttpMethod.Get)
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonApi("{\"data\":" + JobResource() + "}"),
+                });
+            putHeader = req.Headers.TryGetValues("X-Smplkit-Environment", out var v) ? v.First() : null;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":" + JobResource(version: 2) + "}"),
+            });
+        }, environment: "production");
+        var job = await jobs.GetAsync(JobId);
+        job.Name = "renamed";
+        await job.SaveAsync();
+        Assert.Equal("production", putHeader);
+    }
+
+    [Fact]
+    public async Task Update_NoClientEnvironment_OmitsHeader()
+    {
+        bool hasHeader = true;
+        var jobs = MakeJobs(req =>
+        {
+            if (req.Method == System.Net.Http.HttpMethod.Get)
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonApi("{\"data\":" + JobResource() + "}"),
+                });
+            hasHeader = req.Headers.Contains("X-Smplkit-Environment");
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":" + JobResource(version: 2) + "}"),
+            });
+        });
+        var job = await jobs.GetAsync(JobId);
+        await job.SaveAsync();
+        Assert.False(hasHeader);
+    }
+
+    [Fact]
+    public async Task Run_SendsExplicitEnvironmentHeader()
+    {
+        string? header = null;
+        var run = await MakeJobs(req =>
+        {
+            header = req.Headers.TryGetValues("X-Smplkit-Environment", out var v) ? v.First() : null;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":" + RunResource(trigger: "MANUAL") + "}"),
+            });
+        }, environment: "development").RunAsync(JobId, environment: "production");
+        Assert.Equal("production", header);
+        Assert.Equal("MANUAL", run.Trigger);
+    }
+
+    [Fact]
+    public async Task Run_DefaultsToClientEnvironmentHeader()
+    {
+        string? header = null;
+        await MakeJobs(req =>
+        {
+            header = req.Headers.TryGetValues("X-Smplkit-Environment", out var v) ? v.First() : null;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":" + RunResource(trigger: "MANUAL") + "}"),
+            });
+        }, environment: "production").RunAsync(JobId);
+        Assert.Equal("production", header);
+    }
+
+    [Fact]
+    public async Task Run_NoEnvironment_OmitsHeader()
+    {
+        bool hasHeader = true;
+        await MakeJobs(req =>
+        {
+            hasHeader = req.Headers.Contains("X-Smplkit-Environment");
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":" + RunResource(trigger: "MANUAL") + "}"),
+            });
+        }).RunAsync(JobId);
+        Assert.False(hasHeader);
+    }
+
+    // ----------------------------------------------------------------------
+    // Runs sub-client + filter[environment] resolution
     // ----------------------------------------------------------------------
 
     [Fact]
@@ -301,6 +628,52 @@ public class JobsClientTests
     }
 
     [Fact]
+    public async Task Runs_List_FilterEnvironment_ExplicitListWins()
+    {
+        string? url = null;
+        await MakeJobs(req =>
+        {
+            url = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":[],\"meta\":{\"page_size\":50}}"),
+            });
+        }, environment: "production").Runs.ListAsync(environments: new[] { "production", "development" });
+        // Explicit, comma-joined list wins over the client default.
+        Assert.Contains("filter%5Benvironment%5D=production%2Cdevelopment", url!);
+    }
+
+    [Fact]
+    public async Task Runs_List_FilterEnvironment_FallsBackToClientDefault()
+    {
+        string? url = null;
+        await MakeJobs(req =>
+        {
+            url = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":[],\"meta\":{\"page_size\":50}}"),
+            });
+        }, environment: "production").Runs.ListAsync();
+        Assert.Contains("filter%5Benvironment%5D=production", url!);
+    }
+
+    [Fact]
+    public async Task Runs_List_FilterEnvironment_OmittedWhenUnset()
+    {
+        string? url = null;
+        await MakeJobs(req =>
+        {
+            url = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":[],\"meta\":{\"page_size\":50}}"),
+            });
+        }).Runs.ListAsync();
+        Assert.DoesNotContain("filter%5Benvironment%5D", url!);
+    }
+
+    [Fact]
     public async Task Runs_Get_ReturnsRun()
     {
         var run = await MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
@@ -309,6 +682,7 @@ public class JobsClientTests
         })).Runs.GetAsync(RunId);
         Assert.Equal(RunId, run.Id);
         Assert.Equal("SUCCEEDED", run.Status);
+        Assert.Equal("production", run.Environment);
         Assert.Equal(400, run.TotalDurationMs);
         Assert.Equal(1, run.JobVersion);
         Assert.NotNull(run.Request);
@@ -353,6 +727,156 @@ public class JobsClientTests
     }
 
     // ----------------------------------------------------------------------
+    // Run active-record actions (rerun / cancel via the run's client backref)
+    // ----------------------------------------------------------------------
+
+    [Fact]
+    public async Task Run_RerunAsync_ActiveRecord()
+    {
+        const string rerunId = "1a2b3c4d-0000-4a1b-9c3d-aaaaaaaaaaaa";
+        var jobs = MakeJobs(req =>
+        {
+            if (req.RequestUri!.AbsolutePath.EndsWith("/actions/rerun"))
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonApi("{\"data\":" + RunResource(id: rerunId, trigger: "RERUN", rerunOf: RunId) + "}"),
+                });
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":" + RunResource() + "}"),
+            });
+        });
+        var run = await jobs.Runs.GetAsync(RunId);
+        var rerun = await run.RerunAsync();
+        Assert.Equal("RERUN", rerun.Trigger);
+        Assert.Equal(rerunId, rerun.Id);
+        Assert.Equal(RunId, rerun.RerunOf);
+    }
+
+    [Fact]
+    public async Task Run_CancelAsync_ActiveRecord()
+    {
+        var jobs = MakeJobs(req =>
+        {
+            if (req.RequestUri!.AbsolutePath.EndsWith("/actions/cancel"))
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonApi("{\"data\":" + RunResource(status: "CANCELED") + "}"),
+                });
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":" + RunResource() + "}"),
+            });
+        });
+        var run = await jobs.Runs.GetAsync(RunId);
+        var canceled = await run.CancelAsync();
+        Assert.Equal("CANCELED", canceled.Status);
+    }
+
+    [Fact]
+    public async Task Run_RerunAsync_WithoutClient_Throws()
+    {
+        var run = BuildClientlessRun();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => run.RerunAsync());
+    }
+
+    [Fact]
+    public async Task Run_CancelAsync_WithoutClient_Throws()
+    {
+        var run = BuildClientlessRun();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => run.CancelAsync());
+    }
+
+    // ----------------------------------------------------------------------
+    // Job active-record run helpers (TriggerAsync / ListRunsAsync)
+    // ----------------------------------------------------------------------
+
+    [Fact]
+    public async Task Job_TriggerAsync_DelegatesToRun_WithEnvironment()
+    {
+        string? header = null;
+        var jobs = MakeJobs(req =>
+        {
+            if (req.Method == System.Net.Http.HttpMethod.Get)
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonApi("{\"data\":" + JobResource() + "}"),
+                });
+            header = req.Headers.TryGetValues("X-Smplkit-Environment", out var v) ? v.First() : null;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":" + RunResource(trigger: "MANUAL") + "}"),
+            });
+        });
+        var job = await jobs.GetAsync(JobId);
+        var run = await job.TriggerAsync(environment: "production");
+        Assert.Equal("MANUAL", run.Trigger);
+        Assert.Equal("production", header);
+    }
+
+    [Fact]
+    public async Task Job_TriggerAsync_WithoutClient_Throws()
+    {
+        var job = BuildClientlessJob();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => job.TriggerAsync());
+    }
+
+    [Fact]
+    public async Task Job_ListRunsAsync_DelegatesAndFiltersByEnvironment()
+    {
+        string? url = null;
+        var jobs = MakeJobs(req =>
+        {
+            if (req.Method == System.Net.Http.HttpMethod.Get && req.RequestUri!.AbsolutePath.EndsWith("/" + JobId))
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonApi("{\"data\":" + JobResource() + "}"),
+                });
+            url = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":[" + RunResource() + "],\"meta\":{\"page_size\":50}}"),
+            });
+        });
+        var job = await jobs.GetAsync(JobId);
+        var runs = await job.ListRunsAsync(environment: "production", pageSize: 5);
+        Assert.Single(runs);
+        Assert.Contains("filter%5Bjob%5D=" + JobId, url!);
+        Assert.Contains("filter%5Benvironment%5D=production", url!);
+        Assert.Contains("page%5Bsize%5D=5", url!);
+    }
+
+    [Fact]
+    public async Task Job_ListRunsAsync_NoEnvironment_OmitsFilter()
+    {
+        string? url = null;
+        var jobs = MakeJobs(req =>
+        {
+            if (req.Method == System.Net.Http.HttpMethod.Get && req.RequestUri!.AbsolutePath.EndsWith("/" + JobId))
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonApi("{\"data\":" + JobResource() + "}"),
+                });
+            url = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":[],\"meta\":{\"page_size\":50}}"),
+            });
+        });
+        var job = await jobs.GetAsync(JobId);
+        await job.ListRunsAsync();
+        Assert.Contains("filter%5Bjob%5D=" + JobId, url!);
+        Assert.DoesNotContain("filter%5Benvironment%5D", url!);
+    }
+
+    [Fact]
+    public async Task Job_ListRunsAsync_WithoutClient_Throws()
+    {
+        var job = BuildClientlessJob();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => job.ListRunsAsync());
+    }
+
+    // ----------------------------------------------------------------------
     // Error mapping
     // ----------------------------------------------------------------------
 
@@ -384,12 +908,12 @@ public class JobsClientTests
     [Fact]
     public async Task Get_MinimalConfiguration_DefaultsApplied()
     {
-        // No configuration block, no version → defaults flow through.
+        // No configuration block, no environments, no version → defaults flow through.
         var job = await MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = JsonApi(
                 "{\"data\":{\"id\":\"" + JobId + "\",\"type\":\"job\",\"attributes\":{"
-                + "\"name\":\"x\",\"schedule\":\"now\",\"enabled\":true,\"type\":\"http\","
+                + "\"name\":\"x\",\"schedule\":\"now\",\"enabled\":false,\"type\":\"http\","
                 + "\"concurrency_policy\":\"ALLOW\"}}}"),
         })).GetAsync(JobId);
         Assert.Equal(string.Empty, job.Configuration.Url);
@@ -397,6 +921,9 @@ public class JobsClientTests
         Assert.Equal(HttpMethod.Post, job.Configuration.Method);
         Assert.True(job.Configuration.TlsVerify);
         Assert.Null(job.Version);
+        Assert.Empty(job.Environments);
+        Assert.Null(job.Recurring);
+        Assert.False(job.Enabled);
     }
 
     [Theory]
@@ -494,14 +1021,17 @@ public class JobsClientTests
     // ----------------------------------------------------------------------
 
     [Fact]
-    public void Job_ToString_IncludesIdNameEnabled()
+    public void Job_ToString_IncludesIdNameEnabledEnvironments()
     {
         var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
-        var job = jobs.New(JobId, name: "n", schedule: "now", configuration: Cfg());
+        var job = jobs.New(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        job.SetEnabled(true, environment: "production");
+        job.SetEnabled(false, environment: "development");
         var s = job.ToString();
         Assert.Contains("Id=my-job", s);
         Assert.Contains("Name=n", s);
-        Assert.Contains("Enabled=True", s);
+        // Only enabled environments appear, ordinal-sorted.
+        Assert.Contains("EnabledIn=[production]", s);
     }
 
     [Fact]
@@ -529,7 +1059,7 @@ public class JobsClientTests
     }
 
     /// <summary>Construct a <see cref="Job"/> with no bound client, for the
-    /// SaveAsync / DeleteAsync guard branches.</summary>
+    /// SaveAsync / DeleteAsync / TriggerAsync / ListRunsAsync guard branches.</summary>
     private static Job BuildClientlessJob() =>
         (Job)System.Activator.CreateInstance(
             typeof(Job),
@@ -543,7 +1073,9 @@ public class JobsClientTests
                 "now",          // schedule
                 new HttpConfig { Url = "u" },
                 null,           // description
-                true,           // enabled
+                null,           // environments
+                false,          // enabled
+                null,           // recurring
                 "http",         // type
                 "ALLOW",        // concurrencyPolicy
                 null,           // nextRunAt
@@ -553,4 +1085,24 @@ public class JobsClientTests
                 null,           // version
             },
             culture: null)!;
+
+    /// <summary>Construct a <see cref="Run"/> with no runs-client backref, for the
+    /// RerunAsync / CancelAsync guard branches. Goes through the real
+    /// <c>RunFromResource</c> parse path with <c>runs: null</c>.</summary>
+    private static Run BuildClientlessRun()
+    {
+        var resource = new GenJobs.RunResource
+        {
+            Id = RunId,
+            Type = "run",
+            Attributes = new GenJobs.Run
+            {
+                Job = JobId,
+                Environment = "production",
+                Trigger = GenJobs.RunTrigger.MANUAL,
+                Status = GenJobs.RunStatus.SUCCEEDED,
+            },
+        };
+        return JobsClient.RunFromResource(resource, runs: null);
+    }
 }
