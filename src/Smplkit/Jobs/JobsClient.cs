@@ -10,8 +10,16 @@
 //
 // A Job is an active record: build it with JobsClient.New, set fields, and
 // call SaveAsync() (create when new, full-replace update when it already
-// exists) or DeleteAsync(). Runs are read-only views; run actions live on
-// jobs.Runs.
+// exists) or DeleteAsync(). Runs are read-only views with rerun/cancel actions;
+// run history and run actions also live on jobs.Runs.
+//
+// Environment scoping: a job carries a per-environment `environments` map
+// (enablement + optional configuration override per environment); the base
+// `enabled` is a read-only server-derived roll-up the SDK never writes. A
+// one-off job is born in a single environment named via the
+// X-Smplkit-Environment header on create; a manual run executes in the
+// environment named on the trigger; run reads accept a filter[environment]
+// scope. The client's configured environment defaults all three.
 //
 // Every call delegates HTTP to the auto-generated Smplkit.Internal.Generated.Jobs
 // client; this wrapper only shapes models and raises SDK exceptions.
@@ -26,12 +34,21 @@ namespace Smplkit.Jobs;
 public sealed class RunsClient
 {
     private readonly GenJobs.JobsClient _gen;
+    private readonly string? _environment;
 
-    internal RunsClient(GenJobs.JobsClient gen) => _gen = gen;
+    internal RunsClient(GenJobs.JobsClient gen, string? environment = null)
+    {
+        _gen = gen;
+        _environment = environment;
+    }
 
     /// <summary>List past runs, most recent first (cursor paginated).</summary>
     /// <param name="job">Return only runs of the job with this id. <c>null</c>
     /// lists runs across all jobs in the account.</param>
+    /// <param name="environments">Restrict to runs stamped with any of these
+    /// environment keys. <c>null</c> (or empty) falls back to the client's
+    /// configured environment (if any); with none, covers every environment you
+    /// can access.</param>
     /// <param name="pageSize">Maximum number of runs to return in this page.
     /// <c>null</c> uses the server default.</param>
     /// <param name="after">Opaque cursor from a previous page; returns the runs
@@ -39,12 +56,21 @@ public sealed class RunsClient
     /// <param name="ct">Optional cancellation token.</param>
     /// <returns>The runs in this page, as a list of <see cref="Run"/>.</returns>
     public async Task<IReadOnlyList<Run>> ListAsync(
-        string? job = null, int? pageSize = null, string? after = null, CancellationToken ct = default)
+        string? job = null,
+        IEnumerable<string>? environments = null,
+        int? pageSize = null,
+        string? after = null,
+        CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.List_runsAsync(filterjob: job, pagesize: pageSize, pageafter: after, cancellationToken: ct)).ConfigureAwait(false);
+            () => _gen.List_runsAsync(
+                filterjob: job,
+                filterenvironment: Helpers.ResolveEnvironmentFilter(environments, _environment),
+                pagesize: pageSize,
+                pageafter: after,
+                cancellationToken: ct)).ConfigureAwait(false);
         return (resp.Data ?? new List<GenJobs.RunResource>())
-            .Select(JobsClient.RunFromResource).ToList();
+            .Select(r => JobsClient.RunFromResource(r, this)).ToList();
     }
 
     /// <summary>Fetch a single run by its id.</summary>
@@ -55,7 +81,7 @@ public sealed class RunsClient
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
             () => _gen.Get_runAsync(Guid.Parse(runId), ct)).ConfigureAwait(false);
-        return JobsClient.RunFromResource(resp.Data);
+        return JobsClient.RunFromResource(resp.Data, this);
     }
 
     /// <summary>Cancel a run that has not finished yet.</summary>
@@ -66,7 +92,7 @@ public sealed class RunsClient
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
             () => _gen.Cancel_runAsync(Guid.Parse(runId), ct)).ConfigureAwait(false);
-        return JobsClient.RunFromResource(resp.Data);
+        return JobsClient.RunFromResource(resp.Data, this);
     }
 
     /// <summary>Start a new run that repeats a previous one.</summary>
@@ -77,7 +103,7 @@ public sealed class RunsClient
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
             () => _gen.Rerun_runAsync(Guid.Parse(runId), ct)).ConfigureAwait(false);
-        return JobsClient.RunFromResource(resp.Data);
+        return JobsClient.RunFromResource(resp.Data, this);
     }
 }
 
@@ -97,6 +123,7 @@ public sealed class JobsClient : IDisposable
 {
     private readonly GenJobs.JobsClient _gen;
     private readonly HttpClient? _ownedHttpClient;
+    private readonly string? _environment;
 
     /// <summary>Run history and run actions.</summary>
     public RunsClient Runs { get; }
@@ -110,19 +137,26 @@ public sealed class JobsClient : IDisposable
     /// <param name="scheme">URL scheme (default <c>https</c>).</param>
     /// <param name="debug">Enable SDK debug logging.</param>
     /// <param name="extraHeaders">Extra headers attached to every request.</param>
+    /// <param name="environment">Default environment for environment-scoped
+    /// operations — the environment a one-off job created through this client is
+    /// born in, the default a manual run executes in, and the default scope for
+    /// <see cref="RunsClient.ListAsync"/>. <c>null</c> leaves these unset (the
+    /// credential's permitted environment is implied where unambiguous).</param>
     public JobsClient(
         string? apiKey = null,
         string? profile = null,
         string? baseDomain = null,
         string? scheme = null,
         bool? debug = null,
-        IReadOnlyDictionary<string, string>? extraHeaders = null)
+        IReadOnlyDictionary<string, string>? extraHeaders = null,
+        string? environment = null)
     {
         // Reuse the account-global config resolver (jobs is never
-        // environment-scoped) and the shared per-service URL helper, so a
-        // standalone jobs client resolves credentials/base-domain from
-        // ~/.smplkit / env vars / constructor args exactly like the top-level
-        // clients do.
+        // environment-scoped on the transport — env scoping rides the
+        // X-Smplkit-Environment header / filter[environment]) and the shared
+        // per-service URL helper, so a standalone jobs client resolves
+        // credentials/base-domain from ~/.smplkit / env vars / constructor args
+        // exactly like the top-level clients do.
         var resolved = ConfigResolver.ResolveAccountGlobal(new SmplClientOptions
         {
             ApiKey = apiKey,
@@ -140,19 +174,23 @@ public sealed class JobsClient : IDisposable
             ExtraHeaders = extraHeaders is null ? null : new Dictionary<string, string>(extraHeaders),
         });
         _gen = clients.Jobs;
-        Runs = new RunsClient(_gen);
+        _environment = environment;
+        Runs = new RunsClient(_gen, environment);
     }
 
     /// <summary>
     /// Internal — wired by a top-level client so the jobs surface shares one
     /// connection pool. The borrowed generated client is owned by the parent;
-    /// this instance must not tear it down.
+    /// this instance must not tear it down. <paramref name="environment"/> is the
+    /// SDK's configured runtime environment, which defaults the one-off birth /
+    /// manual-run / run-filter scoping just like the standalone constructor.
     /// </summary>
-    internal JobsClient(GenJobs.JobsClient gen)
+    internal JobsClient(GenJobs.JobsClient gen, string? environment = null)
     {
         _gen = gen;
         _ownedHttpClient = null;
-        Runs = new RunsClient(_gen);
+        _environment = environment;
+        Runs = new RunsClient(_gen, environment);
     }
 
     /// <summary>
@@ -168,11 +206,17 @@ public sealed class JobsClient : IDisposable
     /// datetime or <c>"now"</c> job disables itself after it fires.</param>
     /// <param name="configuration">The HTTP request the job sends each time it fires.</param>
     /// <param name="description">Free-text description for the job. Defaults to none.</param>
-    /// <param name="enabled">Whether the job schedules runs. Set to <c>false</c> to
-    /// pause it without deleting. Defaults to <c>true</c>.</param>
+    /// <param name="environments">Per-environment overrides for a recurring job,
+    /// keyed by environment key — each a <see cref="JobEnvironment"/> setting
+    /// <c>Enabled</c> and an optional configuration override. A recurring job fires
+    /// only in environments enabled here. Ignored for a one-off job, which is born
+    /// in <paramref name="environment"/>.</param>
     /// <param name="concurrencyPolicy">How overlapping runs are handled. <c>"ALLOW"</c>
     /// (the default and only value today) permits a new run to start while a previous
     /// one is still in flight.</param>
+    /// <param name="environment">For a one-off job (<c>"now"</c> / datetime schedule),
+    /// the environment it is born in. Defaults to the client's configured environment.
+    /// Ignored for a recurring job.</param>
     /// <returns>An unsaved <see cref="Job"/> bound to this client.</returns>
     public Job New(
         string id,
@@ -180,23 +224,26 @@ public sealed class JobsClient : IDisposable
         string schedule,
         HttpConfig configuration,
         string? description = null,
-        bool enabled = true,
-        string concurrencyPolicy = "ALLOW")
+        IDictionary<string, JobEnvironment>? environments = null,
+        string concurrencyPolicy = "ALLOW",
+        string? environment = null)
     {
-        return new Job(
+        var job = new Job(
             this,
             id: id,
             name: name,
             schedule: schedule,
             configuration: configuration,
             description: description,
-            enabled: enabled,
+            environments: environments,
             concurrencyPolicy: concurrencyPolicy);
+        job.BirthEnvironment = environment ?? _environment;
+        return job;
     }
 
     /// <summary>List jobs in the account.</summary>
-    /// <param name="enabled">Return only jobs with this enabled state. <c>null</c>
-    /// lists both enabled and paused jobs.</param>
+    /// <param name="enabled">Return only jobs with this enabled state (enabled in
+    /// at least one environment). <c>null</c> lists both enabled and paused jobs.</param>
     /// <param name="recurring">Return only recurring (<c>true</c>) or only one-off
     /// (<c>false</c>) jobs. <c>null</c> lists both.</param>
     /// <param name="pageNumber">1-based page to return. <c>null</c> returns the first page.</param>
@@ -238,13 +285,17 @@ public sealed class JobsClient : IDisposable
     /// runs; it does not alter the job's schedule. To read or act on existing
     /// runs, use <see cref="Runs"/>.</para></summary>
     /// <param name="id">Identifier of the job to run.</param>
+    /// <param name="environment">Environment the manual run executes in. Defaults
+    /// to the client's configured environment; when the job is enabled in exactly
+    /// one environment that environment is used, and a single-environment
+    /// credential implies it.</param>
     /// <param name="ct">Optional cancellation token.</param>
     /// <returns>The <see cref="Run"/> that was started, with <see cref="Run.Trigger"/> set to <c>MANUAL</c>.</returns>
-    public async Task<Run> RunAsync(string id, CancellationToken ct = default)
+    public async Task<Run> RunAsync(string id, string? environment = null, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.Run_job_nowAsync(id, ct)).ConfigureAwait(false);
-        return RunFromResource(resp.Data);
+            () => _gen.Run_job_nowAsync(id, x_Smplkit_Environment: environment ?? _environment, cancellationToken: ct)).ConfigureAwait(false);
+        return RunFromResource(resp.Data, Runs);
     }
 
     /// <summary>Report current-period usage against the account's plan allotments.</summary>
@@ -271,8 +322,11 @@ public sealed class JobsClient : IDisposable
                 Attributes = BuildJobAttributes(job),
             },
         };
+        // A one-off job is born in its birth environment (explicit New(environment:)
+        // or the client default); recurring jobs ignore the header and route via
+        // their environments map.
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.Create_jobAsync(body, ct)).ConfigureAwait(false);
+            () => _gen.Create_jobAsync(body, x_Smplkit_Environment: job.BirthEnvironment, cancellationToken: ct)).ConfigureAwait(false);
         return FromResource(resp.Data);
     }
 
@@ -288,8 +342,10 @@ public sealed class JobsClient : IDisposable
                 Attributes = BuildJobAttributes(job),
             },
         };
+        // Updates carry the client's configured environment (if any); a recurring
+        // job ignores it and routes via its environments map.
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.Update_jobAsync(job.Id, body, ct)).ConfigureAwait(false);
+            () => _gen.Update_jobAsync(job.Id, body, x_Smplkit_Environment: _environment, cancellationToken: ct)).ConfigureAwait(false);
         return FromResource(resp.Data);
     }
 
@@ -312,16 +368,30 @@ public sealed class JobsClient : IDisposable
 
     private static GenJobs.Job BuildJobAttributes(Job src)
     {
-        return new GenJobs.Job
+        var attrs = new GenJobs.Job
         {
             Name = src.Name,
             Description = src.Description,
-            Enabled = src.Enabled,
             Type = src.Type,
             Schedule = src.Schedule,
             Configuration = ToGenConfiguration(src.Configuration),
             Concurrency_policy = src.ConcurrencyPolicy,
         };
+        // The base `enabled` is a read-only server-derived roll-up; never send it.
+        // Enablement travels entirely through the per-environment overrides. The
+        // generated `Enabled` is left null and omitted by the jobs serializer
+        // (DefaultIgnoreCondition.WhenWritingNull — see JobsClientSerialization).
+        if (src.Environments.Count > 0)
+        {
+            attrs.Environments = src.Environments.ToDictionary(
+                kv => kv.Key,
+                kv => new GenJobs.JobEnvironment
+                {
+                    Enabled = kv.Value.Enabled,
+                    Configuration = kv.Value.Configuration is { } cfg ? ToGenConfiguration(cfg) : null,
+                });
+        }
+        return attrs;
     }
 
     private static GenJobs.JobHttpConfiguration ToGenConfiguration(HttpConfig src)
@@ -364,7 +434,9 @@ public sealed class JobsClient : IDisposable
             schedule: a.Schedule ?? string.Empty,
             configuration: ConfigFromGen(a.Configuration),
             description: a.Description,
-            enabled: a.Enabled,
+            environments: EnvironmentsFromGen(a.Environments),
+            enabled: a.Enabled ?? false,
+            recurring: a.Recurring,
             type: a.Type ?? "http",
             concurrencyPolicy: a.Concurrency_policy ?? "ALLOW",
             nextRunAt: a.Next_run_at,
@@ -372,6 +444,22 @@ public sealed class JobsClient : IDisposable
             updatedAt: a.Updated_at,
             deletedAt: a.Deleted_at,
             version: a.Version);
+    }
+
+    private static IDictionary<string, JobEnvironment> EnvironmentsFromGen(
+        IDictionary<string, GenJobs.JobEnvironment>? src)
+    {
+        var result = new Dictionary<string, JobEnvironment>();
+        if (src == null) return result;
+        foreach (var (key, env) in src)
+        {
+            result[key] = new JobEnvironment
+            {
+                Enabled = env.Enabled,
+                Configuration = env.Configuration is { } cfg ? ConfigFromGen(cfg) : null,
+            };
+        }
+        return result;
     }
 
     private static HttpConfig ConfigFromGen(GenJobs.JobHttpConfiguration? src)
@@ -396,14 +484,16 @@ public sealed class JobsClient : IDisposable
         return cfg;
     }
 
-    internal static Run RunFromResource(GenJobs.RunResource r)
+    internal static Run RunFromResource(GenJobs.RunResource r, RunsClient? runs = null)
     {
         var a = r.Attributes;
         return new Run(
             id: r.Id ?? string.Empty,
             job: a.Job ?? string.Empty,
+            environment: a.Environment ?? string.Empty,
             trigger: a.Trigger.ToString(),
             status: a.Status.ToString(),
+            runs: runs,
             jobVersion: a.Job_version,
             rerunOf: a.Rerun_of?.ToString(),
             scheduledFor: a.Scheduled_for,

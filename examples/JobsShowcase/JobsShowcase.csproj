@@ -9,5 +9,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Smplkit/Smplkit.csproj" />
+    <ProjectReference Include="../Setup/Setup.csproj" />
   </ItemGroup>
 </Project>

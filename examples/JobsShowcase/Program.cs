@@ -10,87 +10,118 @@
 //     dotnet run --project examples/JobsShowcase
 
 using System.Diagnostics;
-using Smplkit;
 using Smplkit.Errors;
+using Smplkit.Examples.Setup;
 using Smplkit.Jobs;
 using HttpMethod = Smplkit.Jobs.HttpMethod;
 
-// create the client
-using var client = new SmplClient(new SmplClientOptions { Service = "showcase-service" });
-var jobId = $"showcase-mgmt-{Guid.NewGuid().ToString("N")[..8]}";
+const string RecurringJobId = "showcase-recurring";
+const string OneoffJobId = "showcase-oneoff";
 
+// standalone jobs client
+using var jobs = new JobsClient();
+await JobsSetup.SetupShowcaseAsync(jobs);
 try
 {
-    // create a job
-    var job = client.Jobs.New(
-        jobId,
+    // create a recurring job, enabled in production with a development override
+    var job = jobs.New(
+        RecurringJobId,
         name: "Nightly cache warm",
         description: "Warms the product cache every night at 02:00 UTC.",
-        schedule: "0 2 * * *", // 5-field cron, UTC
-        enabled: false,
+        schedule: "0 2 * * *",
         configuration: new HttpConfig
         {
             Method = HttpMethod.Post,
-            Url = "https://api.example.com/cache/warm",
+            Url = "https://httpbin.org/post",
             Headers = new List<HttpHeader> { new("Authorization", "Bearer s3cr3t") },
             Body = "{\"scope\": \"all\"}",
             Timeout = 30,
         });
+    job.SetConfiguration(
+        new HttpConfig
+        {
+            Method = HttpMethod.Post,
+            Url = "https://development.example.com/cache/warm",
+            Headers = new List<HttpHeader> { new("Authorization", "Bearer development-s3cr3t") },
+            Body = "{\"scope\": \"all\"}",
+        },
+        environment: "development");
+    job.SetEnabled(false, environment: "development");
+    job.SetEnabled(true, environment: "production");
     await job.SaveAsync();
     Debug.Assert(job.Version == 1);
-    Console.WriteLine($"Created job {job.Id} (v{job.Version})");
+    Debug.Assert(job.IsEnabled(environment: "development") == false);
+    Debug.Assert(job.IsEnabled(environment: "production") == true);
+    Console.WriteLine($"Created recurring job {job.Id} (v{job.Version})");
 
     // get a job
-    var fetched = await client.Jobs.GetAsync(jobId);
-    Debug.Assert(fetched.Configuration.Url == "https://api.example.com/cache/warm");
-    Console.WriteLine($"Fetched job {jobId}");
+    var fetched = await jobs.GetAsync(RecurringJobId);
+    Debug.Assert(fetched.IsEnabled(environment: "development") == false);
+    Debug.Assert(fetched.IsEnabled(environment: "production") == true);
+    Debug.Assert(fetched.GetConfiguration(environment: "development").Url == "https://development.example.com/cache/warm");
+    Console.WriteLine($"Fetched job {RecurringJobId}");
 
     // list jobs
-    var jobs = await client.Jobs.ListAsync(enabled: false);
-    Debug.Assert(jobs.Any(j => j.Id == jobId));
-    Console.WriteLine($"Found job {jobId} and in the listing");
+    var listing = await jobs.ListAsync();
+    Debug.Assert(listing.Any(j => j.Id == RecurringJobId));
+    Console.WriteLine($"Found job {RecurringJobId} in the listing");
 
-    // update a job
+    // update a job (the schedule is environment-agnostic)
     job.Name = "Nightly cache warm (v2)";
-    job.Schedule = "30 2 * * *";
-    job.Enabled = true;
+    job.SetSchedule("30 2 * * *");
+    job.SetEnabled(true, environment: "development");
     await job.SaveAsync();
-    Debug.Assert(job.Version == 2 && job.Enabled == true);
-    Console.WriteLine($"Updated job to v{job.Version}: schedule={job.Schedule}");
+    Debug.Assert(job.Version == 2 && job.IsEnabled(environment: "development") == true);
+    Console.WriteLine($"Updated job to v{job.Version}: now enabled in production and development");
 
-    // trigger an immediate run (a MANUAL run)
-    var run = await client.Jobs.RunAsync(jobId);
-    Debug.Assert(run.Trigger == "MANUAL" && run.Job == jobId);
-    Console.WriteLine($"Triggered run {run.Id} (trigger={run.Trigger}, status={run.Status})");
+    // trigger an immediate run
+    var run = await job.TriggerAsync(environment: "production");
+    Debug.Assert(run.Trigger == "MANUAL" && run.Environment == "production");
+    Console.WriteLine($"Triggered run {run.Id} (trigger={run.Trigger}, env={run.Environment})");
 
-    // read run history for this job, and fetch a single run
-    var runs = await client.Jobs.Runs.ListAsync(job: jobId);
+    // get this job's runs
+    var runs = await job.ListRunsAsync(environment: "production");
     Debug.Assert(runs.Any(r => r.Id == run.Id));
-    var got = await client.Jobs.Runs.GetAsync(run.Id);
-    Debug.Assert(got.Id == run.Id);
-    Console.WriteLine($"Listed {runs.Count} run(s); fetched run {got.Id} (status={got.Status})");
+    Console.WriteLine($"Listed {runs.Count} production run(s)");
 
-    // re-run from a prior run, then cancel it while it's still pending
-    var rerun = await client.Jobs.Runs.RerunAsync(run.Id);
-    Debug.Assert(rerun.Trigger == "RERUN" && rerun.RerunOf == run.Id);
-    var canceled = await client.Jobs.Runs.CancelAsync(rerun.Id);
-    Debug.Assert(canceled.Status == "CANCELED");
-    Console.WriteLine($"Re-ran ({rerun.Id}) then canceled it -> {canceled.Status}");
+    // get a run
+    run = await jobs.Runs.GetAsync(run.Id);
+    Debug.Assert(run.Environment == "production");
+    Console.WriteLine($"Fetched run {run.Id} (env={run.Environment})");
+
+    // re-run a prior run (inherits its environment)
+    var rerun = await run.RerunAsync();
+    Debug.Assert(rerun.Trigger == "RERUN" && rerun.Environment == run.Environment);
+    Console.WriteLine($"Re-ran {run.Id} -> {rerun.Id} (env={rerun.Environment})");
+
+    // cancel a run (best-effort: a finished run can no longer be canceled)
+    try
+    {
+        var canceled = await rerun.CancelAsync();
+        Console.WriteLine($"Canceled run {canceled.Id} -> {canceled.Status}");
+    }
+    catch (ConflictException)
+    {
+        Console.WriteLine($"Run {rerun.Id} already finished before it could be canceled");
+    }
+
+    // create a one-off job, born in a single environment
+    var oneoff = jobs.New(
+        OneoffJobId,
+        name: "One-shot reindex",
+        schedule: "now",
+        configuration: new HttpConfig { Method = HttpMethod.Post, Url = "https://httpbin.org/post" },
+        environment: "development");
+    await oneoff.SaveAsync();
+    Debug.Assert(oneoff.Version == 1 && oneoff.IsEnabled(environment: "development") == true);
+    Console.WriteLine($"Created one-off job {oneoff.Id} born in development");
 
     // delete a job
     await job.DeleteAsync();
-    Debug.Assert(!(await client.Jobs.ListAsync()).Any(j => j.Id == jobId));
-    Console.WriteLine($"Deleted job {jobId} — management showcase complete.");
+    Debug.Assert(!(await jobs.ListAsync()).Any(j => j.Id == RecurringJobId));
+    Console.WriteLine($"Deleted job {RecurringJobId} — jobs showcase complete.");
 }
 finally
 {
-    // tear-down: never leave the showcase job behind, even on failure
-    try
-    {
-        await client.Jobs.DeleteAsync(jobId);
-    }
-    catch (NotFoundException)
-    {
-        // already gone
-    }
+    await JobsSetup.CleanupShowcaseAsync(jobs);
 }
