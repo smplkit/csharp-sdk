@@ -95,12 +95,24 @@ public sealed class JobEnvironment
     /// <summary>Whether the job fires in this environment. Defaults to <c>false</c>.</summary>
     public bool Enabled { get; set; }
 
+    /// <summary>Optional per-environment schedule override — a 5-field cron
+    /// expression evaluated in UTC (e.g. <c>"0 3 * * *"</c>) that varies the cadence
+    /// for this environment only. <c>null</c> (the default) inherits the job's base
+    /// <see cref="Job.Schedule"/>. Allowed only on a recurring (cron) job; it cannot
+    /// turn a one-off job recurring or vice-versa.</summary>
+    public string? Schedule { get; set; }
+
     /// <summary>Optional per-environment request configuration that fully replaces
     /// the job's base <see cref="Job.Configuration"/> for this environment.
     /// <c>null</c> (the default) inherits the base configuration. As with the base
     /// configuration, header values are returned in plaintext on reads, so a
     /// get-mutate-put round-trip preserves them without re-entering secrets.</summary>
     public HttpConfig? Configuration { get; set; }
+
+    /// <summary>Read-only. The next scheduled fire time in this environment.
+    /// <c>null</c> when the environment is not enabled, or once a one-off run has
+    /// fired. Server-derived; the SDK never sends it.</summary>
+    public DateTimeOffset? NextRunAt { get; internal set; }
 }
 
 /// <summary>A job definition. Mutate fields, then call <see cref="SaveAsync"/>.</summary>
@@ -125,9 +137,9 @@ public sealed class Job
     public IDictionary<string, JobEnvironment> Environments { get; set; }
     /// <summary>Read-only roll-up: <c>true</c> when the job is enabled in at least
     /// one environment. Enablement is per-environment — set it with
-    /// <see cref="SetEnabled"/> / <see cref="Environments"/>, not here. The server
-    /// derives this from the environment map and the SDK never writes it.</summary>
-    public bool Enabled { get; internal set; }
+    /// <see cref="SetEnabled"/> / <see cref="Environments"/>, not here. Derived from
+    /// the environment map; the SDK never writes it.</summary>
+    public bool Enabled => Environments.Values.Any(e => e.Enabled);
     /// <summary>Read-only. <c>true</c> for a recurring (cron) schedule, <c>false</c>
     /// for a one-off (datetime / <c>"now"</c>) schedule. Derived server-side from
     /// <see cref="Schedule"/>; <c>null</c> on an unsaved instance.</summary>
@@ -146,8 +158,6 @@ public sealed class Job
     public HttpConfig Configuration { get; set; }
     /// <summary>How overlapping runs are handled. <c>"ALLOW"</c> (the only value) permits them.</summary>
     public string ConcurrencyPolicy { get; set; }
-    /// <summary>The next scheduled fire time. <c>null</c> once a one-off job has fired.</summary>
-    public DateTimeOffset? NextRunAt { get; internal set; }
     /// <summary>When the job was created. <c>null</c> for an unsaved instance.</summary>
     public DateTimeOffset? CreatedAt { get; internal set; }
     /// <summary>When the job was last modified.</summary>
@@ -171,11 +181,9 @@ public sealed class Job
         HttpConfig configuration,
         string? description = null,
         IDictionary<string, JobEnvironment>? environments = null,
-        bool enabled = false,
         bool? recurring = null,
         string type = "http",
         string concurrencyPolicy = "ALLOW",
-        DateTimeOffset? nextRunAt = null,
         DateTimeOffset? createdAt = null,
         DateTimeOffset? updatedAt = null,
         DateTimeOffset? deletedAt = null,
@@ -188,11 +196,9 @@ public sealed class Job
         Configuration = configuration;
         Description = description;
         Environments = environments ?? new Dictionary<string, JobEnvironment>();
-        Enabled = enabled;
         Recurring = recurring;
         Type = type;
         ConcurrencyPolicy = concurrencyPolicy;
-        NextRunAt = nextRunAt;
         CreatedAt = createdAt;
         UpdatedAt = updatedAt;
         DeletedAt = deletedAt;
@@ -317,14 +323,25 @@ public sealed class Job
         return Configuration;
     }
 
-    /// <summary>Set the job's schedule (in memory).
+    /// <summary>Set the job's schedule in memory — base
+    /// (<paramref name="environment"/> omitted) or per-environment. Call
+    /// <see cref="SaveAsync"/> to persist.
     ///
-    /// <para>The schedule is <b>environment-agnostic</b> — a job has a single cron
-    /// / datetime / <c>"now"</c> schedule shared across every environment it runs
-    /// in (each enabled environment fires on the same cadence). There is no
-    /// per-environment schedule, so this setter takes no environment.</para></summary>
+    /// <para>The base schedule is the cron / datetime / <c>"now"</c> schedule every
+    /// environment inherits. A per-environment override is a 5-field cron expression
+    /// (UTC) that varies the cadence for that environment only; it is allowed only on
+    /// a recurring (cron) job and cannot turn a one-off job recurring or
+    /// vice-versa.</para></summary>
     /// <param name="schedule">The new schedule.</param>
-    public void SetSchedule(string schedule) => Schedule = schedule;
+    /// <param name="environment">Environment key to scope the change to. Omit to set
+    /// the base schedule that all environments inherit.</param>
+    public void SetSchedule(string schedule, string? environment = null)
+    {
+        if (environment is null)
+            Schedule = schedule;
+        else
+            EnvironmentOverride(environment).Schedule = schedule;
+    }
 
     /// <summary>Copy every server-authoritative field from <paramref name="other"/> onto self.</summary>
     internal void Apply(Job other)
@@ -332,14 +349,13 @@ public sealed class Job
         Id = other.Id;
         Name = other.Name;
         Description = other.Description;
+        // Enabled is a derived roll-up over Environments (no field to copy).
         Environments = other.Environments;
-        Enabled = other.Enabled;
         Recurring = other.Recurring;
         Type = other.Type;
         Schedule = other.Schedule;
         Configuration = other.Configuration;
         ConcurrencyPolicy = other.ConcurrencyPolicy;
-        NextRunAt = other.NextRunAt;
         CreatedAt = other.CreatedAt;
         UpdatedAt = other.UpdatedAt;
         DeletedAt = other.DeletedAt;
