@@ -38,11 +38,14 @@ namespace Smplkit.Internal.Generated.Jobs
         /// Create a job for this account.
         /// <br/>
         /// <br/>The caller supplies the job's id as `data.id`. Ids are unique within an
-        /// <br/>account and immutable. A recurring job supplies `environments` to choose
-        /// <br/>where it runs and begins scheduling immediately in each enabled
+        /// <br/>account and immutable. The job's kind follows from its `schedule`: omit the
+        /// <br/>schedule for a permanent **manual** job (triggered on demand), give a cron
+        /// <br/>expression for a **recurring** job, or a datetime / `now` for a **one-off**
+        /// <br/>job. A recurring or manual job supplies `environments` to choose where it
+        /// <br/>runs; a recurring job begins scheduling immediately in each enabled
         /// <br/>environment. A one-off job is created in the environment named by the
         /// <br/>`X-Smplkit-Environment` header (implied when the credential is scoped to a
-        /// <br/>single environment).
+        /// <br/>single environment); a `now` one-off enqueues its single run immediately.
         /// </remarks>
         /// <param name="x_Smplkit_Environment">The environment to operate in. Names the single environment a one-off job is born in (or a manual run executes in). Optional when the credential is scoped to a single environment (which is then implied); required when the credential can reach several environments and the choice is otherwise ambiguous. Ignored for a recurring job, whose environments come from its `environments` map.</param>
         /// <returns>Successful Response</returns>
@@ -57,12 +60,18 @@ namespace Smplkit.Internal.Generated.Jobs
         /// List this account's jobs.
         /// <br/>
         /// <br/>Default sort is `name` ascending. Sort by `name`, `created_at`, or
-        /// <br/>`updated_at`, ascending or descending (prefix `-` for descending). Filter
-        /// <br/>with `filter[recurring]` and `filter[name]` (case-insensitive substring
-        /// <br/>match on the name); filters compose with AND. Each job reports its
-        /// <br/>per-environment enablement and `next_run_at` inside its `environments` map;
-        /// <br/>a scoped caller sees that map narrowed to the environments it may access.
+        /// <br/>`updated_at`, ascending or descending (prefix `-` for descending). By
+        /// <br/>default the list omits transient one-off jobs (request `filter[kind]=one_off`
+        /// <br/>to see them). Filter with `filter[kind]` (`recurring` / `manual` /
+        /// <br/>`one_off`), `filter[scheduled]` (jobs with an upcoming fire in some
+        /// <br/>environment — the feed for an upcoming-runs view, which includes one-offs),
+        /// <br/>and `filter[name]` (case-insensitive substring); filters compose with AND.
+        /// <br/>Each job reports its per-environment enablement and `next_run_at` inside its
+        /// <br/>`environments` map; a scoped caller sees that map narrowed to the
+        /// <br/>environments it may access.
         /// </remarks>
+        /// <param name="filterkind">Restrict to a single job kind: `recurring`, `manual`, or `one_off`. By default one-off jobs are omitted (they are transient and short-lived); request `filter[kind]=one_off` to list them.</param>
+        /// <param name="filterscheduled">When `true`, list only jobs that have an upcoming fire in at least one environment (a recurring job's next occurrence, or a pending future one-off) — the feed for an upcoming-runs view; this includes one-off jobs. When `false`, list only jobs with no upcoming fire.</param>
         /// <param name="filtername">Case-insensitive substring match on the job `name` (matches when the name contains the given text).</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
@@ -70,7 +79,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<JobListResponse> List_jobsAsync(bool? filterrecurring = null, string? filtername = null, Sort? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<JobListResponse> List_jobsAsync(string? filterkind = null, bool? filterscheduled = null, string? filtername = null, Sort? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -90,11 +99,13 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <remarks>
         /// Replace an existing job. Every writable field is overwritten.
         /// <br/>
-        /// <br/>Set enablement per environment via the `environments` map (a recurring
-        /// <br/>job), or by recreating a one-off job in the desired environment. Each
-        /// <br/>environment may carry its own cron `schedule` override. Editing an
-        /// <br/>environment's effective schedule recomputes its next fire time; an edit that
-        /// <br/>leaves an environment's schedule unchanged preserves its existing cadence.
+        /// <br/>The job's kind is re-derived from the new `schedule` (omit it for a manual
+        /// <br/>job). Set enablement per environment via the `environments` map (a recurring
+        /// <br/>or manual job), or by recreating a one-off job in the desired environment.
+        /// <br/>Each environment may carry its own cron `schedule` override (recurring jobs
+        /// <br/>only). Editing a recurring environment's effective schedule recomputes its
+        /// <br/>next fire time; an edit that leaves it unchanged preserves the existing
+        /// <br/>cadence.
         /// </remarks>
         /// <param name="x_Smplkit_Environment">The environment to operate in. Names the single environment a one-off job is born in (or a manual run executes in). Optional when the credential is scoped to a single environment (which is then implied); required when the credential can reach several environments and the choice is otherwise ambiguous. Ignored for a recurring job, whose environments come from its `environments` map.</param>
         /// <returns>Successful Response</returns>
@@ -117,15 +128,19 @@ namespace Smplkit.Internal.Generated.Jobs
         /// Run Job Now
         /// </summary>
         /// <remarks>
-        /// Trigger one immediate run of the job (a `MANUAL` run).
+        /// Trigger one immediate run of the job in a specified environment (a
+        /// <br/>`MANUAL` run).
         /// <br/>
-        /// <br/>The job's schedule and enabled state are untouched. The run executes in the
-        /// <br/>environment named by the `X-Smplkit-Environment` header; when the job is
-        /// <br/>enabled in exactly one environment that environment is used, and a
-        /// <br/>single-environment credential implies it. The run executes the job's
-        /// <br/>effective configuration for that environment. It is enqueued and executed
-        /// <br/>by the worker; if the account is over its run allotment the run will fail
-        /// <br/>with reason `QUOTA_EXCEEDED` rather than being rejected here.
+        /// <br/>This is the primary execution path for a manual job and is also usable ad
+        /// <br/>hoc for a recurring job ("run now"). The job's schedule and enabled state are
+        /// <br/>untouched. The run executes in the environment named by the
+        /// <br/>`X-Smplkit-Environment` header; when the job is enabled in exactly one
+        /// <br/>environment that environment is used, and a single-environment credential
+        /// <br/>implies it. The environment must be one the job is **enabled** in (409
+        /// <br/>otherwise). The run executes the job's effective configuration for that
+        /// <br/>environment. It is enqueued and executed by the worker; if the account is
+        /// <br/>over its run allotment the run will fail with reason `QUOTA_EXCEEDED` rather
+        /// <br/>than being rejected here.
         /// </remarks>
         /// <param name="x_Smplkit_Environment">The environment to operate in. Names the single environment a one-off job is born in (or a manual run executes in). Optional when the credential is scoped to a single environment (which is then implied); required when the credential can reach several environments and the choice is otherwise ambiguous. Ignored for a recurring job, whose environments come from its `environments` map.</param>
         /// <returns>Successful Response</returns>
@@ -216,8 +231,8 @@ namespace Smplkit.Internal.Generated.Jobs
         /// Report this account's current-period usage against its plan allotments.
         /// <br/>
         /// <br/>`runs_used` is the number of runs metered so far this calendar month;
-        /// <br/>`active_jobs` is the number of recurring (scheduled) jobs, which is what the
-        /// <br/>plan's job limit bounds.
+        /// <br/>`active_jobs` is the number of permanent jobs (recurring + manual), which is
+        /// <br/>what the plan's job limit bounds (one-off jobs do not count).
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -281,11 +296,14 @@ namespace Smplkit.Internal.Generated.Jobs
         /// Create a job for this account.
         /// <br/>
         /// <br/>The caller supplies the job's id as `data.id`. Ids are unique within an
-        /// <br/>account and immutable. A recurring job supplies `environments` to choose
-        /// <br/>where it runs and begins scheduling immediately in each enabled
+        /// <br/>account and immutable. The job's kind follows from its `schedule`: omit the
+        /// <br/>schedule for a permanent **manual** job (triggered on demand), give a cron
+        /// <br/>expression for a **recurring** job, or a datetime / `now` for a **one-off**
+        /// <br/>job. A recurring or manual job supplies `environments` to choose where it
+        /// <br/>runs; a recurring job begins scheduling immediately in each enabled
         /// <br/>environment. A one-off job is created in the environment named by the
         /// <br/>`X-Smplkit-Environment` header (implied when the credential is scoped to a
-        /// <br/>single environment).
+        /// <br/>single environment); a `now` one-off enqueues its single run immediately.
         /// </remarks>
         /// <param name="x_Smplkit_Environment">The environment to operate in. Names the single environment a one-off job is born in (or a manual run executes in). Optional when the credential is scoped to a single environment (which is then implied); required when the credential can reach several environments and the choice is otherwise ambiguous. Ignored for a recurring job, whose environments come from its `environments` map.</param>
         /// <returns>Successful Response</returns>
@@ -376,12 +394,18 @@ namespace Smplkit.Internal.Generated.Jobs
         /// List this account's jobs.
         /// <br/>
         /// <br/>Default sort is `name` ascending. Sort by `name`, `created_at`, or
-        /// <br/>`updated_at`, ascending or descending (prefix `-` for descending). Filter
-        /// <br/>with `filter[recurring]` and `filter[name]` (case-insensitive substring
-        /// <br/>match on the name); filters compose with AND. Each job reports its
-        /// <br/>per-environment enablement and `next_run_at` inside its `environments` map;
-        /// <br/>a scoped caller sees that map narrowed to the environments it may access.
+        /// <br/>`updated_at`, ascending or descending (prefix `-` for descending). By
+        /// <br/>default the list omits transient one-off jobs (request `filter[kind]=one_off`
+        /// <br/>to see them). Filter with `filter[kind]` (`recurring` / `manual` /
+        /// <br/>`one_off`), `filter[scheduled]` (jobs with an upcoming fire in some
+        /// <br/>environment — the feed for an upcoming-runs view, which includes one-offs),
+        /// <br/>and `filter[name]` (case-insensitive substring); filters compose with AND.
+        /// <br/>Each job reports its per-environment enablement and `next_run_at` inside its
+        /// <br/>`environments` map; a scoped caller sees that map narrowed to the
+        /// <br/>environments it may access.
         /// </remarks>
+        /// <param name="filterkind">Restrict to a single job kind: `recurring`, `manual`, or `one_off`. By default one-off jobs are omitted (they are transient and short-lived); request `filter[kind]=one_off` to list them.</param>
+        /// <param name="filterscheduled">When `true`, list only jobs that have an upcoming fire in at least one environment (a recurring job's next occurrence, or a pending future one-off) — the feed for an upcoming-runs view; this includes one-off jobs. When `false`, list only jobs with no upcoming fire.</param>
         /// <param name="filtername">Case-insensitive substring match on the job `name` (matches when the name contains the given text).</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
         /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
@@ -389,7 +413,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<JobListResponse> List_jobsAsync(bool? filterrecurring = null, string? filtername = null, Sort? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<JobListResponse> List_jobsAsync(string? filterkind = null, bool? filterscheduled = null, string? filtername = null, Sort? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -405,9 +429,13 @@ namespace Smplkit.Internal.Generated.Jobs
                     // Operation Path: "api/v1/jobs"
                     urlBuilder_.Append("api/v1/jobs");
                     urlBuilder_.Append('?');
-                    if (filterrecurring != null)
+                    if (filterkind != null)
                     {
-                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[recurring]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterrecurring, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[kind]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterkind, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filterscheduled != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[scheduled]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterscheduled, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     if (filtername != null)
                     {
@@ -571,11 +599,13 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <remarks>
         /// Replace an existing job. Every writable field is overwritten.
         /// <br/>
-        /// <br/>Set enablement per environment via the `environments` map (a recurring
-        /// <br/>job), or by recreating a one-off job in the desired environment. Each
-        /// <br/>environment may carry its own cron `schedule` override. Editing an
-        /// <br/>environment's effective schedule recomputes its next fire time; an edit that
-        /// <br/>leaves an environment's schedule unchanged preserves its existing cadence.
+        /// <br/>The job's kind is re-derived from the new `schedule` (omit it for a manual
+        /// <br/>job). Set enablement per environment via the `environments` map (a recurring
+        /// <br/>or manual job), or by recreating a one-off job in the desired environment.
+        /// <br/>Each environment may carry its own cron `schedule` override (recurring jobs
+        /// <br/>only). Editing a recurring environment's effective schedule recomputes its
+        /// <br/>next fire time; an edit that leaves it unchanged preserves the existing
+        /// <br/>cadence.
         /// </remarks>
         /// <param name="x_Smplkit_Environment">The environment to operate in. Names the single environment a one-off job is born in (or a manual run executes in). Optional when the credential is scoped to a single environment (which is then implied); required when the credential can reach several environments and the choice is otherwise ambiguous. Ignored for a recurring job, whose environments come from its `environments` map.</param>
         /// <returns>Successful Response</returns>
@@ -742,15 +772,19 @@ namespace Smplkit.Internal.Generated.Jobs
         /// Run Job Now
         /// </summary>
         /// <remarks>
-        /// Trigger one immediate run of the job (a `MANUAL` run).
+        /// Trigger one immediate run of the job in a specified environment (a
+        /// <br/>`MANUAL` run).
         /// <br/>
-        /// <br/>The job's schedule and enabled state are untouched. The run executes in the
-        /// <br/>environment named by the `X-Smplkit-Environment` header; when the job is
-        /// <br/>enabled in exactly one environment that environment is used, and a
-        /// <br/>single-environment credential implies it. The run executes the job's
-        /// <br/>effective configuration for that environment. It is enqueued and executed
-        /// <br/>by the worker; if the account is over its run allotment the run will fail
-        /// <br/>with reason `QUOTA_EXCEEDED` rather than being rejected here.
+        /// <br/>This is the primary execution path for a manual job and is also usable ad
+        /// <br/>hoc for a recurring job ("run now"). The job's schedule and enabled state are
+        /// <br/>untouched. The run executes in the environment named by the
+        /// <br/>`X-Smplkit-Environment` header; when the job is enabled in exactly one
+        /// <br/>environment that environment is used, and a single-environment credential
+        /// <br/>implies it. The environment must be one the job is **enabled** in (409
+        /// <br/>otherwise). The run executes the job's effective configuration for that
+        /// <br/>environment. It is enqueued and executed by the worker; if the account is
+        /// <br/>over its run allotment the run will fail with reason `QUOTA_EXCEEDED` rather
+        /// <br/>than being rejected here.
         /// </remarks>
         /// <param name="x_Smplkit_Environment">The environment to operate in. Names the single environment a one-off job is born in (or a manual run executes in). Optional when the credential is scoped to a single environment (which is then implied); required when the credential can reach several environments and the choice is otherwise ambiguous. Ignored for a recurring job, whose environments come from its `environments` map.</param>
         /// <returns>Successful Response</returns>
@@ -1238,8 +1272,8 @@ namespace Smplkit.Internal.Generated.Jobs
         /// Report this account's current-period usage against its plan allotments.
         /// <br/>
         /// <br/>`runs_used` is the number of runs metered so far this calendar month;
-        /// <br/>`active_jobs` is the number of recurring (scheduled) jobs, which is what the
-        /// <br/>plan's job limit bounds.
+        /// <br/>`active_jobs` is the number of permanent jobs (recurring + manual), which is
+        /// <br/>what the plan's job limit bounds (one-off jobs do not count).
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1483,16 +1517,19 @@ namespace Smplkit.Internal.Generated.Jobs
     }
 
     /// <summary>
-    /// A scheduled unit of work: an HTTP request run on a schedule.
+    /// A unit of work: an HTTP request, run on a schedule or triggered on demand.
     /// <br/>
     /// <br/>The job is the definition; each time it fires the service records a run
     /// <br/>capturing the request, response, timing, and outcome. A job runs per
-    /// <br/>environment: set `environments[&lt;env&gt;].enabled` to schedule runs there, and
-    /// <br/>optionally give that environment its own `schedule` or `configuration`. A
-    /// <br/>recurring (cron) job may be enabled in several environments at once and
-    /// <br/>fires once per enabled environment, each on its own next-fire schedule; a
-    /// <br/>one-off (`now` or future datetime) job runs a single time in the environment
-    /// <br/>it was created in.
+    /// <br/>environment: set `environments[&lt;env&gt;].enabled` to enable it there, and
+    /// <br/>optionally give that environment its own `schedule` or `configuration`.
+    /// <br/>
+    /// <br/>A job's `kind` follows from its `schedule`: a **recurring** (cron) job may
+    /// <br/>be enabled in several environments at once and fires once per enabled
+    /// <br/>environment, each on its own next-fire schedule; a **manual** job (no
+    /// <br/>schedule) is permanent and never auto-fires — it runs only when triggered;
+    /// <br/>a **one-off** (`now` or a future datetime) job runs a single time in the
+    /// <br/>environment it was created in and is then spent.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Job
@@ -1517,10 +1554,10 @@ namespace Smplkit.Internal.Generated.Jobs
         public string Type { get; set; } = "http";
 
         /// <summary>
-        /// The base schedule every environment inherits unless it overrides it. One of: an ISO-8601 datetime (a one-off run at that instant), a 5-field cron expression evaluated in **UTC** (recurring), or the literal `now` (run once, as soon as possible). A datetime or `now` job disables itself after it fires.
+        /// The base schedule every environment inherits unless it overrides it, and the field that determines the job's `kind`. Omit it (or send `null`) to create a permanent **manual** job that never auto-fires and runs only when triggered. Provide a 5-field cron expression evaluated in **UTC** for a **recurring** job, an ISO-8601 datetime for a **one-off** run at that instant, or the literal `now` for a one-off run as soon as possible. A datetime or `now` job disables itself after it fires.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("schedule")]
-        public string Schedule { get; set; } = default!;
+        public string? Schedule { get; set; } = default!;
 
         /// <summary>
         /// The HTTP request to perform, including method, url, headers, body, and timeout.
@@ -1529,7 +1566,7 @@ namespace Smplkit.Internal.Generated.Jobs
         public JobHttpConfiguration Configuration { get; set; } = new JobHttpConfiguration();
 
         /// <summary>
-        /// Per-environment overrides keyed by environment key (e.g. `production`, `staging`). Each entry sets `enabled` (whether the job schedules runs in that environment), an optional `schedule` override (a cron expression for recurring jobs; omit to inherit the base `schedule`), and an optional `configuration` override (omit to inherit the base `configuration`); it also reports the read-only `next_run_at` for that environment. A job with no entry for an environment is disabled there. For a recurring job, supply this map to choose where and how it runs. For a one-off job, the environment it is created in is recorded here automatically — name it with the `X-Smplkit-Environment` header. Every referenced environment must exist for the account.
+        /// Per-environment overrides keyed by environment key (e.g. `production`, `staging`). Each entry sets `enabled` (whether the job is enabled — scheduled, for a recurring job, or triggerable, for a manual job — in that environment), an optional `schedule` override (a cron expression for recurring jobs; omit to inherit the base `schedule`), and an optional `configuration` override (omit to inherit the base `configuration`); it also reports the read-only `next_run_at` for that environment. A job with no entry for an environment is disabled there. For a recurring or manual job, supply this map to choose where it runs. For a one-off job, the environment it is created in is recorded here automatically — name it with the `X-Smplkit-Environment` header. Every referenced environment must exist for the account.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("environments")]
         public System.Collections.Generic.IDictionary<string, JobEnvironment> Environments { get; set; } = default!;
@@ -1541,10 +1578,11 @@ namespace Smplkit.Internal.Generated.Jobs
         public string Concurrency_policy { get; set; } = "ALLOW";
 
         /// <summary>
-        /// Whether the job runs on a repeating schedule. `true` for a cron schedule; `false` for a one-off datetime or `now` schedule, which runs a single time. Derived from the base `schedule`.
+        /// How the job runs, derived from its base `schedule`: `recurring` for a cron schedule (fires on a repeating cadence), `manual` for no schedule (never auto-fires; runs only when triggered), or `one_off` for a `now` or datetime schedule (runs a single time, then is spent).
         /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("recurring")]
-        public bool? Recurring { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("kind")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<JobKind>))]
+        public JobKind? Kind { get; set; } = default!;
 
         /// <summary>
         /// When the job was created.
@@ -1646,7 +1684,7 @@ namespace Smplkit.Internal.Generated.Jobs
         public bool Enabled { get; set; } = false;
 
         /// <summary>
-        /// Per-environment schedule override. Omit to inherit the job's base `schedule`. When present, it must be a 5-field cron expression evaluated in **UTC** (e.g. `0 3 * * *`), and is only allowed on a recurring (cron) job — it varies the cadence within that environment, it cannot turn a one-off job recurring or vice-versa.
+        /// Per-environment schedule override. Omit to inherit the job's base `schedule`. When present, it must be a 5-field cron expression evaluated in **UTC** (e.g. `0 3 * * *`), and is only allowed on a recurring (cron) job — it varies the cadence within that environment. It cannot appear on a manual or one-off job, and cannot change a job's kind.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("schedule")]
         public string? Schedule { get; set; } = default!;
@@ -2165,13 +2203,13 @@ namespace Smplkit.Internal.Generated.Jobs
         public int Runs_included { get; set; } = default!;
 
         /// <summary>
-        /// Number of recurring (scheduled) jobs.
+        /// Number of permanent jobs (recurring and manual) counted against the plan's job limit.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("active_jobs")]
         public int Active_jobs { get; set; } = default!;
 
         /// <summary>
-        /// Maximum recurring jobs the plan allows (`-1` means unlimited).
+        /// Maximum permanent jobs the plan allows (`-1` means unlimited).
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("active_jobs_limit")]
         public int Active_jobs_limit { get; set; } = default!;
@@ -2310,6 +2348,21 @@ namespace Smplkit.Internal.Generated.Jobs
 
         [System.Runtime.Serialization.EnumMember(Value = @"-total_duration_ms")]
         Minustotal_duration_ms = 13,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum JobKind
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"recurring")]
+        Recurring = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"manual")]
+        Manual = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"one_off")]
+        One_off = 2,
 
     }
 
