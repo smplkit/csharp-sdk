@@ -246,16 +246,18 @@ public sealed class JobsClient : IDisposable
     /// at least one environment). <c>null</c> lists both enabled and paused jobs.</param>
     /// <param name="recurring">Return only recurring (<c>true</c>) or only one-off
     /// (<c>false</c>) jobs. <c>null</c> lists both.</param>
+    /// <param name="name">Return only jobs whose name contains this text
+    /// (case-insensitive). <c>null</c> lists all.</param>
     /// <param name="pageNumber">1-based page to return. <c>null</c> returns the first page.</param>
     /// <param name="pageSize">Maximum number of jobs to return in this page.
     /// <c>null</c> uses the server default.</param>
     /// <param name="ct">Optional cancellation token.</param>
     /// <returns>The jobs in this page, as a list of <see cref="Job"/>.</returns>
     public async Task<IReadOnlyList<Job>> ListAsync(
-        bool? enabled = null, bool? recurring = null, int? pageNumber = null, int? pageSize = null, CancellationToken ct = default)
+        bool? enabled = null, bool? recurring = null, string? name = null, int? pageNumber = null, int? pageSize = null, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.List_jobsAsync(filterenabled: enabled, filterrecurring: recurring, pagenumber: pageNumber, pagesize: pageSize, cancellationToken: ct)).ConfigureAwait(false);
+            () => _gen.List_jobsAsync(filterenabled: enabled, filterrecurring: recurring, filtername: name, pagenumber: pageNumber, pagesize: pageSize, cancellationToken: ct)).ConfigureAwait(false);
         return (resp.Data ?? new List<GenJobs.JobResource>())
             .Select(FromResource).ToList();
     }
