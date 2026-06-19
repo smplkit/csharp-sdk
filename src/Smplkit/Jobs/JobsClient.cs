@@ -8,9 +8,10 @@
 // * client.Jobs.* on SmplClient
 // * directly — new JobsClient(apiKey: ...) — for callers that only need jobs.
 //
-// A Job is an active record: build it with JobsClient.New, set fields, and
-// call SaveAsync() (create when new, full-replace update when it already
-// exists) or DeleteAsync(). Runs are read-only views with rerun/cancel actions;
+// A Job is an active record: build it with JobsClient.NewRecurringJob /
+// NewManualJob / Schedule, set fields, and call SaveAsync() (create when new,
+// full-replace update when it already exists) or DeleteAsync(). Runs are
+// read-only views with rerun/cancel actions;
 // run history and run actions also live on jobs.Runs.
 //
 // Environment scoping: a job carries a per-environment `environments` map
@@ -193,40 +194,17 @@ public sealed class JobsClient : IDisposable
         Runs = new RunsClient(_gen, environment);
     }
 
-    /// <summary>
-    /// Return an unsaved <see cref="Job"/>. Call <see cref="Job.SaveAsync"/> to create it.
-    /// </summary>
-    /// <param name="id">Caller-supplied unique identifier for the job. Unique within
-    /// the account and immutable; the service returns 409 if another live job already
-    /// uses this id.</param>
-    /// <param name="name">Human-readable name for the job.</param>
-    /// <param name="schedule">When the job runs. One of: a 5-field cron expression
-    /// evaluated in UTC (recurring), an ISO-8601 datetime (a one-off run at that
-    /// instant), or the literal <c>"now"</c> (run once, as soon as possible). A
-    /// datetime or <c>"now"</c> job disables itself after it fires.</param>
-    /// <param name="configuration">The HTTP request the job sends each time it fires.</param>
-    /// <param name="description">Free-text description for the job. Defaults to none.</param>
-    /// <param name="environments">Per-environment overrides for a recurring job,
-    /// keyed by environment key — each a <see cref="JobEnvironment"/> setting
-    /// <c>Enabled</c> and an optional configuration override. A recurring job fires
-    /// only in environments enabled here. Ignored for a one-off job, which is born
-    /// in <paramref name="environment"/>.</param>
-    /// <param name="concurrencyPolicy">How overlapping runs are handled. <c>"ALLOW"</c>
-    /// (the default and only value today) permits a new run to start while a previous
-    /// one is still in flight.</param>
-    /// <param name="environment">For a one-off job (<c>"now"</c> / datetime schedule),
-    /// the environment it is born in. Defaults to the client's configured environment.
-    /// Ignored for a recurring job.</param>
-    /// <returns>An unsaved <see cref="Job"/> bound to this client.</returns>
-    public Job New(
+    /// <summary>Build an unsaved <see cref="Job"/> bound to this client and record
+    /// its birth environment. Shared by the public factory methods.</summary>
+    private Job NewJob(
         string id,
         string name,
-        string schedule,
+        string? schedule,
         HttpConfig configuration,
-        string? description = null,
-        IDictionary<string, JobEnvironment>? environments = null,
-        string concurrencyPolicy = "ALLOW",
-        string? environment = null)
+        string? description,
+        IDictionary<string, JobEnvironment>? environments,
+        string concurrencyPolicy,
+        string? environment)
     {
         var job = new Job(
             this,
@@ -241,9 +219,105 @@ public sealed class JobsClient : IDisposable
         return job;
     }
 
+    /// <summary>
+    /// Return an unsaved recurring <see cref="Job"/>. Call <see cref="Job.SaveAsync"/> to create it.
+    /// </summary>
+    /// <param name="id">Caller-supplied unique identifier for the job. Unique within
+    /// the account and immutable; the service returns 409 if another live job already
+    /// uses this id.</param>
+    /// <param name="name">Human-readable name for the job.</param>
+    /// <param name="schedule">The base cadence — a 5-field cron expression evaluated
+    /// in UTC (e.g. <c>"0 2 * * *"</c>) — that every environment inherits unless it
+    /// sets its own override.</param>
+    /// <param name="configuration">The HTTP request the job sends each time it fires.</param>
+    /// <param name="description">Free-text description for the job. Defaults to none.</param>
+    /// <param name="environments">Per-environment overrides keyed by environment key —
+    /// each a <see cref="JobEnvironment"/> setting <c>Enabled</c> and optional
+    /// schedule / configuration overrides. The job is scheduled only in environments
+    /// enabled here.</param>
+    /// <param name="concurrencyPolicy">How overlapping runs are handled. <c>"ALLOW"</c>
+    /// (the default and only value today) permits a new run to start while a previous
+    /// one is still in flight.</param>
+    /// <returns>An unsaved recurring <see cref="Job"/> bound to this client.</returns>
+    public Job NewRecurringJob(
+        string id,
+        string name,
+        string schedule,
+        HttpConfig configuration,
+        string? description = null,
+        IDictionary<string, JobEnvironment>? environments = null,
+        string concurrencyPolicy = "ALLOW")
+        => NewJob(id, name, schedule, configuration, description, environments, concurrencyPolicy, environment: null);
+
+    /// <summary>
+    /// Return an unsaved manual <see cref="Job"/>. Call <see cref="Job.SaveAsync"/> to create it.
+    ///
+    /// <para>A manual job has no schedule — it never auto-fires and runs only when
+    /// triggered via <see cref="RunAsync"/> / <see cref="Job.TriggerAsync"/>.</para>
+    /// </summary>
+    /// <param name="id">Caller-supplied unique identifier for the job. Unique within
+    /// the account and immutable; the service returns 409 if another live job already
+    /// uses this id.</param>
+    /// <param name="name">Human-readable name for the job.</param>
+    /// <param name="configuration">The HTTP request the job sends each time it runs.</param>
+    /// <param name="description">Free-text description for the job. Defaults to none.</param>
+    /// <param name="environments">Per-environment overrides keyed by environment key —
+    /// each a <see cref="JobEnvironment"/> setting <c>Enabled</c> and an optional
+    /// configuration override. The job is triggerable only in environments enabled
+    /// here.</param>
+    /// <param name="concurrencyPolicy">How overlapping runs are handled. <c>"ALLOW"</c>
+    /// (the default and only value today) permits a new run to start while a previous
+    /// one is still in flight.</param>
+    /// <returns>An unsaved manual <see cref="Job"/> bound to this client.</returns>
+    public Job NewManualJob(
+        string id,
+        string name,
+        HttpConfig configuration,
+        string? description = null,
+        IDictionary<string, JobEnvironment>? environments = null,
+        string concurrencyPolicy = "ALLOW")
+        => NewJob(id, name, schedule: null, configuration, description, environments, concurrencyPolicy, environment: null);
+
+    /// <summary>
+    /// Return an unsaved one-off <see cref="Job"/>. Call <see cref="Job.SaveAsync"/> to create it.
+    ///
+    /// <para>A one-off job runs a single time at <paramref name="schedule"/> and is
+    /// then spent.</para>
+    /// </summary>
+    /// <param name="id">Caller-supplied unique identifier for the job. Unique within
+    /// the account and immutable; the service returns 409 if another live job already
+    /// uses this id.</param>
+    /// <param name="name">Human-readable name for the job.</param>
+    /// <param name="schedule">The instant the single run fires.</param>
+    /// <param name="configuration">The HTTP request the job sends when it runs.</param>
+    /// <param name="description">Free-text description for the job. Defaults to none.</param>
+    /// <param name="concurrencyPolicy">How overlapping runs are handled. <c>"ALLOW"</c>
+    /// (the default and only value today) permits a new run to start while a previous
+    /// one is still in flight.</param>
+    /// <param name="environment">The environment the job is born in. Defaults to the
+    /// client's configured environment.</param>
+    /// <returns>An unsaved one-off <see cref="Job"/> bound to this client.</returns>
+    public Job Schedule(
+        string id,
+        string name,
+        DateTimeOffset schedule,
+        HttpConfig configuration,
+        string? description = null,
+        string concurrencyPolicy = "ALLOW",
+        string? environment = null)
+        => NewJob(
+            id, name,
+            schedule.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
+            configuration, description, environments: null, concurrencyPolicy, environment);
+
     /// <summary>List jobs in the account.</summary>
-    /// <param name="recurring">Return only recurring (<c>true</c>) or only one-off
-    /// (<c>false</c>) jobs. <c>null</c> lists both.</param>
+    /// <param name="kind">Return only jobs of this <see cref="JobKind"/>. <c>null</c>
+    /// lists recurring and manual jobs; one-off jobs are omitted unless you pass
+    /// <see cref="JobKind.OneOff"/>.</param>
+    /// <param name="scheduled">Return only jobs that have an upcoming fire in some
+    /// environment (<c>true</c>) or none (<c>false</c>) — the feed for an
+    /// upcoming-runs view, which includes one-offs. <c>null</c> does not filter on
+    /// scheduling.</param>
     /// <param name="name">Return only jobs whose name contains this text
     /// (case-insensitive). <c>null</c> lists all.</param>
     /// <param name="pageNumber">1-based page to return. <c>null</c> returns the first page.</param>
@@ -252,10 +326,10 @@ public sealed class JobsClient : IDisposable
     /// <param name="ct">Optional cancellation token.</param>
     /// <returns>The jobs in this page, as a list of <see cref="Job"/>.</returns>
     public async Task<IReadOnlyList<Job>> ListAsync(
-        bool? recurring = null, string? name = null, int? pageNumber = null, int? pageSize = null, CancellationToken ct = default)
+        JobKind? kind = null, bool? scheduled = null, string? name = null, int? pageNumber = null, int? pageSize = null, CancellationToken ct = default)
     {
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.List_jobsAsync(filterrecurring: recurring, filtername: name, pagenumber: pageNumber, pagesize: pageSize, cancellationToken: ct)).ConfigureAwait(false);
+            () => _gen.List_jobsAsync(filterkind: kind?.ToWireValue(), filterscheduled: scheduled, filtername: name, pagenumber: pageNumber, pagesize: pageSize, cancellationToken: ct)).ConfigureAwait(false);
         return (resp.Data ?? new List<GenJobs.JobResource>())
             .Select(FromResource).ToList();
     }
@@ -288,7 +362,7 @@ public sealed class JobsClient : IDisposable
     /// <param name="environment">Environment the manual run executes in. Defaults
     /// to the client's configured environment; when the job is enabled in exactly
     /// one environment that environment is used, and a single-environment
-    /// credential implies it.</param>
+    /// credential implies it. The job must be enabled in the chosen environment.</param>
     /// <param name="ct">Optional cancellation token.</param>
     /// <returns>The <see cref="Run"/> that was started, with <see cref="Run.Trigger"/> set to <c>MANUAL</c>.</returns>
     public async Task<Run> RunAsync(string id, string? environment = null, CancellationToken ct = default)
@@ -433,16 +507,17 @@ public sealed class JobsClient : IDisposable
         var a = r.Attributes;
         // The base `enabled` is no longer a wire attribute; the wrapper derives it
         // as a roll-up over the per-environment map (see Job.Enabled). NextRunAt is
-        // now per-environment (JobEnvironment.NextRunAt), not a top-level field.
+        // now per-environment (JobEnvironment.NextRunAt), not a top-level field. A
+        // manual job has no schedule, so Schedule stays null rather than "".
         return new Job(
             this,
             id: r.Id ?? string.Empty,
             name: a.Name ?? string.Empty,
-            schedule: a.Schedule ?? string.Empty,
+            schedule: a.Schedule,
             configuration: ConfigFromGen(a.Configuration),
             description: a.Description,
             environments: EnvironmentsFromGen(a.Environments),
-            recurring: a.Recurring,
+            kind: KindFromGen(a.Kind),
             type: a.Type ?? "http",
             concurrencyPolicy: a.Concurrency_policy ?? "ALLOW",
             createdAt: a.Created_at,
@@ -450,6 +525,16 @@ public sealed class JobsClient : IDisposable
             deletedAt: a.Deleted_at,
             version: a.Version);
     }
+
+    // The base `kind` is a read-only, server-derived enum; map the generated value
+    // to the wrapper's JobKind (null when the server omits it, e.g. unsaved jobs).
+    private static JobKind? KindFromGen(GenJobs.JobKind? kind) => kind switch
+    {
+        GenJobs.JobKind.Recurring => JobKind.Recurring,
+        GenJobs.JobKind.Manual => JobKind.Manual,
+        GenJobs.JobKind.One_off => JobKind.OneOff,
+        _ => null,
+    };
 
     private static IDictionary<string, JobEnvironment> EnvironmentsFromGen(
         IDictionary<string, GenJobs.JobEnvironment>? src)
