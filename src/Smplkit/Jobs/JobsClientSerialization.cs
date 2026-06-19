@@ -8,7 +8,7 @@ namespace Smplkit.Internal.Generated.Jobs;
 /// properties when serializing request bodies.
 /// </summary>
 /// <remarks>
-/// <para>The base <c>enabled</c> and <c>recurring</c> attributes (and the
+/// <para>The base <c>enabled</c> and <c>kind</c> attributes (and the
 /// server-managed timestamps / version) are read-only roll-ups the jobs service
 /// derives. The canonical SDKs never write the read-only enablement roll-up;
 /// leaving it out of the write body — rather than sending <c>"enabled": null</c>

@@ -7,7 +7,7 @@ namespace Smplkit.Examples.Setup;
 
 public static class JobsSetup
 {
-    private static readonly string[] DemoJobIds = { "showcase-recurring", "showcase-oneoff" };
+    private static readonly string[] DemoJobIds = { "showcase-recurring", "showcase-manual", "showcase-oneoff" };
 
     public static async Task SetupShowcaseAsync(JobsClient jobs)
     {

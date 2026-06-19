@@ -41,6 +41,42 @@ public static class HttpMethodExtensions
     };
 }
 
+/// <summary>How a job runs, derived from its schedule (read-only).</summary>
+public enum JobKind
+{
+    /// <summary>A cron schedule — fires on a repeating cadence.</summary>
+    Recurring,
+    /// <summary>No schedule — never auto-fires; runs only when triggered.</summary>
+    Manual,
+    /// <summary>A <c>now</c> or datetime schedule — runs a single time, then is spent.</summary>
+    OneOff,
+}
+
+/// <summary>Wire-value conversion for <see cref="JobKind"/>.</summary>
+public static class JobKindExtensions
+{
+    /// <summary>Returns the wire slug — e.g. <c>"one_off"</c>.</summary>
+    public static string ToWireValue(this JobKind kind) => kind switch
+    {
+        JobKind.Recurring => "recurring",
+        JobKind.Manual => "manual",
+        JobKind.OneOff => "one_off",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind)),
+    };
+}
+
+/// <summary>Known values of <see cref="Run.Trigger"/> — what started a run (read-only).</summary>
+/// <remarks><see cref="Run.Trigger"/> is a raw string; compare it against these constants.</remarks>
+public static class RunTrigger
+{
+    /// <summary>A run-now / trigger call started it on demand.</summary>
+    public const string Manual = "MANUAL";
+    /// <summary>It repeats an earlier run.</summary>
+    public const string Rerun = "RERUN";
+    /// <summary>The job's schedule fired.</summary>
+    public const string Schedule = "SCHEDULE";
+}
+
 /// <summary>A single name/value HTTP header on the request a job performs.</summary>
 /// <param name="Name">Header name (e.g. <c>"Authorization"</c>, <c>"Content-Type"</c>).</param>
 /// <param name="Value">Header value. Returned in plaintext on reads, so a
@@ -83,16 +119,17 @@ public sealed class HttpConfig
 }
 
 /// <summary>
-/// Per-environment enablement and optional configuration override for a job.
+/// Per-environment enablement, schedule, and configuration override for a job.
 ///
-/// <para>A recurring job fires in a given environment only when that environment
-/// has an entry in <see cref="Job.Environments"/> with <see cref="Enabled"/> set
-/// to <c>true</c>; an environment with no entry (or <see cref="Enabled"/> =
-/// <c>false</c>) does not fire there.</para>
+/// <para>A job runs in a given environment only when that environment has an entry
+/// in <see cref="Job.Environments"/> with <see cref="Enabled"/> set to <c>true</c>
+/// (scheduled there for a recurring job, triggerable there for a manual one); an
+/// environment with no entry (or <see cref="Enabled"/> = <c>false</c>) is disabled
+/// there.</para>
 /// </summary>
 public sealed class JobEnvironment
 {
-    /// <summary>Whether the job fires in this environment. Defaults to <c>false</c>.</summary>
+    /// <summary>Whether the job is enabled in this environment. Defaults to <c>false</c>.</summary>
     public bool Enabled { get; set; }
 
     /// <summary>Optional per-environment schedule override — a 5-field cron
@@ -127,7 +164,7 @@ public sealed class Job
     /// <summary>Free-text description. <c>null</c> when unset.</summary>
     public string? Description { get; set; }
     /// <summary>Per-environment overrides keyed by environment key (e.g.
-    /// <c>"production"</c>, <c>"development"</c>). A recurring job fires in an
+    /// <c>"production"</c>, <c>"development"</c>). A job is enabled in an
     /// environment only when <c>Environments[env].Enabled</c> is <c>true</c>; each
     /// entry may carry an optional <see cref="HttpConfig"/> override that replaces
     /// the base <see cref="Configuration"/> for that environment (omit it to
@@ -140,18 +177,21 @@ public sealed class Job
     /// <see cref="SetEnabled"/> / <see cref="Environments"/>, not here. Derived from
     /// the environment map; the SDK never writes it.</summary>
     public bool Enabled => Environments.Values.Any(e => e.Enabled);
-    /// <summary>Read-only. <c>true</c> for a recurring (cron) schedule, <c>false</c>
-    /// for a one-off (datetime / <c>"now"</c>) schedule. Derived server-side from
-    /// <see cref="Schedule"/>; <c>null</c> on an unsaved instance.</summary>
-    public bool? Recurring { get; internal set; }
+    /// <summary>Read-only server-derived kind (see <see cref="JobKind"/>): recurring
+    /// for a cron schedule, manual for no schedule, or one-off for a datetime /
+    /// <c>"now"</c> schedule. Derived server-side from <see cref="Schedule"/>;
+    /// <c>null</c> on an unsaved instance. Query it with <see cref="IsRecurring"/> /
+    /// <see cref="IsManual"/> / <see cref="IsOneOff"/>.</summary>
+    public JobKind? Kind { get; internal set; }
     /// <summary>Job type. Only <c>"http"</c> is supported today.</summary>
     public string Type { get; set; }
-    /// <summary>When the job runs: an ISO-8601 datetime (a one-off run), a 5-field
-    /// cron expression evaluated in UTC (recurring), or the literal <c>"now"</c>
-    /// (run once, as soon as possible). A datetime or <c>"now"</c> job disables
-    /// itself after it fires. The schedule is environment-agnostic — set it with
+    /// <summary>The base schedule every environment inherits unless it overrides it:
+    /// a 5-field cron expression evaluated in UTC (recurring), an ISO-8601 datetime
+    /// (a one-off run at that instant), or the literal <c>"now"</c> (run once, as
+    /// soon as possible). <c>null</c> for a manual job, which never auto-fires. A
+    /// datetime or <c>"now"</c> job disables itself after it fires. Set it with
     /// <see cref="SetSchedule"/>.</summary>
-    public string Schedule { get; set; }
+    public string? Schedule { get; set; }
     /// <summary>The base HTTP request to perform when the job fires. A
     /// per-environment override in <see cref="Environments"/> replaces this for
     /// that environment.</summary>
@@ -177,11 +217,11 @@ public sealed class Job
         JobsClient? client,
         string id,
         string name,
-        string schedule,
+        string? schedule,
         HttpConfig configuration,
         string? description = null,
         IDictionary<string, JobEnvironment>? environments = null,
-        bool? recurring = null,
+        JobKind? kind = null,
         string type = "http",
         string concurrencyPolicy = "ALLOW",
         DateTimeOffset? createdAt = null,
@@ -196,7 +236,7 @@ public sealed class Job
         Configuration = configuration;
         Description = description;
         Environments = environments ?? new Dictionary<string, JobEnvironment>();
-        Recurring = recurring;
+        Kind = kind;
         Type = type;
         ConcurrencyPolicy = concurrencyPolicy;
         CreatedAt = createdAt;
@@ -204,6 +244,15 @@ public sealed class Job
         DeletedAt = deletedAt;
         Version = version;
     }
+
+    /// <summary>Whether this is a recurring (cron-scheduled) job.</summary>
+    public bool IsRecurring() => Kind == JobKind.Recurring;
+
+    /// <summary>Whether this is a manual job — no schedule; runs only when triggered.</summary>
+    public bool IsManual() => Kind == JobKind.Manual;
+
+    /// <summary>Whether this is a one-off job — a single <c>"now"</c> / datetime run.</summary>
+    public bool IsOneOff() => Kind == JobKind.OneOff;
 
     /// <summary>Create this job, or full-replace it if it already exists.</summary>
     public async Task SaveAsync(CancellationToken ct = default)
@@ -351,7 +400,7 @@ public sealed class Job
         Description = other.Description;
         // Enabled is a derived roll-up over Environments (no field to copy).
         Environments = other.Environments;
-        Recurring = other.Recurring;
+        Kind = other.Kind;
         Type = other.Type;
         Schedule = other.Schedule;
         Configuration = other.Configuration;
@@ -388,7 +437,8 @@ public sealed class Run
     public string Environment { get; }
     /// <summary>The job's version at the time the run executed.</summary>
     public int? JobVersion { get; }
-    /// <summary>Why the run exists: <c>SCHEDULE</c>, <c>MANUAL</c> (run now), or <c>RERUN</c>.</summary>
+    /// <summary>Why the run exists: <c>SCHEDULE</c>, <c>MANUAL</c> (run now), or
+    /// <c>RERUN</c>. A raw string; compare it against the <see cref="RunTrigger"/> constants.</summary>
     public string Trigger { get; }
     /// <summary>The source run's id; set only when <see cref="Trigger"/> is <c>RERUN</c>.</summary>
     public string? RerunOf { get; }

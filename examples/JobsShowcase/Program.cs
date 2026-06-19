@@ -16,6 +16,7 @@ using Smplkit.Jobs;
 using HttpMethod = Smplkit.Jobs.HttpMethod;
 
 const string RecurringJobId = "showcase-recurring";
+const string ManualJobId = "showcase-manual";
 const string OneoffJobId = "showcase-oneoff";
 
 // standalone jobs client
@@ -23,8 +24,9 @@ using var jobs = new JobsClient();
 await JobsSetup.SetupShowcaseAsync(jobs);
 try
 {
-    // create a recurring job, enabled in production with a development override
-    var job = jobs.New(
+    // create a recurring job: a base schedule and configuration every
+    // environment inherits, with per-environment overrides
+    var job = jobs.NewRecurringJob(
         RecurringJobId,
         name: "Nightly cache warm",
         description: "Warms the product cache every night at 02:00 UTC.",
@@ -37,6 +39,9 @@ try
             Body = "{\"scope\": \"all\"}",
             Timeout = 30,
         });
+    job.SetEnabled(true, environment: "production");
+    job.SetEnabled(true, environment: "development");
+    job.SetSchedule("0 */6 * * *", environment: "development");
     job.SetConfiguration(
         new HttpConfig
         {
@@ -46,33 +51,28 @@ try
             Body = "{\"scope\": \"all\"}",
         },
         environment: "development");
-    job.SetEnabled(false, environment: "development");
-    job.SetEnabled(true, environment: "production");
     await job.SaveAsync();
-    Debug.Assert(job.Version == 1);
-    Debug.Assert(job.IsEnabled(environment: "development") == false);
+    Debug.Assert(job.IsRecurring() == true);
     Debug.Assert(job.IsEnabled(environment: "production") == true);
+    Debug.Assert(job.GetConfiguration(environment: "development").Url == "https://development.example.com/cache/warm");
     Console.WriteLine($"Created recurring job {job.Id} (v{job.Version})");
 
     // get a job
     var fetched = await jobs.GetAsync(RecurringJobId);
-    Debug.Assert(fetched.IsEnabled(environment: "development") == false);
-    Debug.Assert(fetched.IsEnabled(environment: "production") == true);
-    Debug.Assert(fetched.GetConfiguration(environment: "development").Url == "https://development.example.com/cache/warm");
+    Debug.Assert(fetched.Environments["development"].Schedule == "0 */6 * * *");
     Console.WriteLine($"Fetched job {RecurringJobId}");
 
-    // list jobs
-    var listing = await jobs.ListAsync();
+    // list jobs, filtered to recurring jobs
+    var listing = await jobs.ListAsync(kind: JobKind.Recurring);
     Debug.Assert(listing.Any(j => j.Id == RecurringJobId));
     Console.WriteLine($"Found job {RecurringJobId} in the listing");
 
-    // update a job (the schedule is environment-agnostic)
+    // update a job
     job.Name = "Nightly cache warm (v2)";
-    job.SetSchedule("30 2 * * *");
-    job.SetEnabled(true, environment: "development");
+    job.SetSchedule("30 2 * * *", environment: "production");
     await job.SaveAsync();
-    Debug.Assert(job.Version == 2 && job.IsEnabled(environment: "development") == true);
-    Console.WriteLine($"Updated job to v{job.Version}: now enabled in production and development");
+    Debug.Assert(job.Version == 2);
+    Console.WriteLine($"Updated job to v{job.Version}");
 
     // trigger an immediate run
     var run = await job.TriggerAsync(environment: "production");
@@ -105,16 +105,31 @@ try
         Console.WriteLine($"Run {rerun.Id} already finished before it could be canceled");
     }
 
-    // create a one-off job, born in a single environment
-    var oneoff = jobs.New(
+    // create a manual job (no schedule, runs only when triggered)
+    var manual = jobs.NewManualJob(
+        ManualJobId,
+        name: "On-demand reindex",
+        configuration: new HttpConfig { Method = HttpMethod.Post, Url = "https://httpbin.org/post" });
+    manual.SetEnabled(true, environment: "production");
+    await manual.SaveAsync();
+    Debug.Assert(manual.IsManual() == true);
+    var manualRun = await manual.TriggerAsync(environment: "production");
+    Debug.Assert(manualRun.Trigger == RunTrigger.Manual);
+    Console.WriteLine($"Created manual job {manual.Id} and triggered it on demand");
+
+    // schedule a one-off job to run tomorrow
+    var tomorrow = DateTimeOffset.Now.AddDays(1);
+    var oneoff = jobs.Schedule(
         OneoffJobId,
         name: "One-shot reindex",
-        schedule: "now",
+        schedule: tomorrow,
         configuration: new HttpConfig { Method = HttpMethod.Post, Url = "https://httpbin.org/post" },
         environment: "development");
     await oneoff.SaveAsync();
-    Debug.Assert(oneoff.Version == 1 && oneoff.IsEnabled(environment: "development") == true);
-    Console.WriteLine($"Created one-off job {oneoff.Id} born in development");
+    Debug.Assert(oneoff.IsOneOff() == true);
+    Debug.Assert(oneoff.IsEnabled(environment: "development") == true);
+    Debug.Assert(oneoff.Environments["development"].NextRunAt != null);
+    Console.WriteLine($"Created one-off job {oneoff.Id} to run in development");
 
     // delete a job
     await job.DeleteAsync();

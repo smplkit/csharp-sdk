@@ -16,7 +16,8 @@ namespace Smplkit.Tests.Jobs;
 ///
 /// <para>Stubs the jobs service via <see cref="MockHttpMessageHandler"/>; no real
 /// network. Coverage on the wrapper must reach 100% to satisfy the SDK CI gate.
-/// Exercises the active-record API: <c>mgmt.Jobs.New(...)</c> → mutate →
+/// Exercises the active-record API: <c>mgmt.Jobs.NewRecurringJob(...)</c> /
+/// <c>NewManualJob(...)</c> / <c>Schedule(...)</c> → mutate →
 /// <c>SaveAsync</c> / <c>DeleteAsync</c>, plus per-environment enablement /
 /// configuration overrides, the environment header on create/update/run, the
 /// <c>filter[environment]</c> resolution on run reads, run history, run
@@ -58,11 +59,12 @@ public class JobsClientTests
 
     private static string JobResource(
         string id = JobId, string name = "My Job", int version = 1,
-        bool recurring = true, bool created = true, string environmentsJson = "{}")
+        string kind = "recurring", bool created = true, string environmentsJson = "{}")
     {
         // The top-level `enabled` and `next_run_at` attributes were removed from the
         // wire: enablement is a derived roll-up over `environments`, and the next
-        // fire time is now per-environment (environments[<env>].next_run_at).
+        // fire time is now per-environment (environments[<env>].next_run_at). The
+        // server-derived `kind` (recurring / manual / one_off) replaces `recurring`.
         var ts = created ? "\"2026-06-04T00:00:00Z\"" : "null";
         return "{\"id\":\"" + id + "\",\"type\":\"job\",\"attributes\":{"
             + "\"name\":\"" + name + "\",\"description\":\"does a thing\","
@@ -74,7 +76,7 @@ public class JobsClientTests
             + "\"tls_verify\":true,\"ca_cert\":null},"
             + "\"environments\":" + environmentsJson + ","
             + "\"concurrency_policy\":\"ALLOW\","
-            + "\"recurring\":" + (recurring ? "true" : "false") + ","
+            + "\"kind\":\"" + kind + "\","
             + "\"created_at\":" + ts + ",\"updated_at\":" + ts + ",\"deleted_at\":null,"
             + "\"version\":" + version + "}}";
     }
@@ -117,7 +119,7 @@ public class JobsClientTests
     {
         var calls = 0;
         var jobs = MakeJobs(_ => { calls++; return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)); });
-        var job = jobs.New(JobId, name: "My Job", schedule: "0 * * * *", configuration: Cfg());
+        var job = jobs.NewRecurringJob(JobId, name: "My Job", schedule: "0 * * * *", configuration: Cfg());
         Assert.Equal(JobId, job.Id);
         Assert.Null(job.CreatedAt);
         Assert.False(job.Enabled);
@@ -129,7 +131,7 @@ public class JobsClientTests
     public void New_WithEnvironmentsDictionary_SeedsMap()
     {
         var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
-        var job = jobs.New(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg(),
+        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg(),
             environments: new Dictionary<string, JobEnvironment>
             {
                 ["production"] = new JobEnvironment { Enabled = true },
@@ -159,7 +161,7 @@ public class JobsClientTests
             };
         });
 
-        var job = jobs.New(JobId, name: "My Job", schedule: "0 * * * *", configuration: Cfg(), description: "d");
+        var job = jobs.NewRecurringJob(JobId, name: "My Job", schedule: "0 * * * *", configuration: Cfg(), description: "d");
         Assert.Null(job.CreatedAt);
         await job.SaveAsync();
         Assert.Equal("POST", capturedMethods[0]);
@@ -226,7 +228,8 @@ public class JobsClientTests
         Assert.Equal(30, job.Configuration.Timeout);
         Assert.Single(job.Configuration.Headers);
         Assert.Equal("X-Api-Key", job.Configuration.Headers[0].Name);
-        Assert.True(job.Recurring);
+        Assert.Equal(JobKind.Recurring, job.Kind);
+        Assert.True(job.IsRecurring());
     }
 
     [Fact]
@@ -242,11 +245,12 @@ public class JobsClientTests
                     + "],\"meta\":{\"pagination\":{\"page\":1,\"size\":50}}}"),
             });
         });
-        var rows = await jobs.ListAsync(recurring: true, name: "health", pageNumber: 1, pageSize: 10);
+        var rows = await jobs.ListAsync(kind: JobKind.Manual, scheduled: true, name: "health", pageNumber: 1, pageSize: 10);
         Assert.Equal(2, rows.Count);
-        // filter[enabled] was removed from the list endpoint.
-        Assert.DoesNotContain("filter%5Benabled%5D", url!);
-        Assert.Contains("filter%5Brecurring%5D=true", url!);
+        // The dropped recurring filter is never emitted; JobKind serializes to its slug.
+        Assert.DoesNotContain("filter%5Brecurring%5D", url!);
+        Assert.Contains("filter%5Bkind%5D=manual", url!);
+        Assert.Contains("filter%5Bscheduled%5D=true", url!);
         Assert.Contains("filter%5Bname%5D=health", url!);
         Assert.Contains("page%5Bnumber%5D=1", url!);
         Assert.Contains("page%5Bsize%5D=10", url!);
@@ -313,7 +317,7 @@ public class JobsClientTests
     public void SetEnabled_PerEnvironment_RollupDerivedFromEnvironmentMap()
     {
         var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
-        var job = jobs.New(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
         // Roll-up (no arg) is a derived value over the environment map: false until
         // at least one environment is enabled.
         Assert.False(job.IsEnabled());
@@ -339,7 +343,7 @@ public class JobsClientTests
     public void SetConfiguration_BaseAndPerEnvironment_GetConfigurationResolves()
     {
         var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
-        var job = jobs.New(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
 
         var baseCfg = new HttpConfig { Url = "https://base.example.com" };
         job.SetConfiguration(baseCfg);
@@ -359,7 +363,7 @@ public class JobsClientTests
     public void EnvironmentOverride_Reused_PreservesOtherField()
     {
         var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
-        var job = jobs.New(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
 
         // Configuration first, then enablement — the same override entry is reused
         // (the EnvironmentOverride get-existing path) so the configuration survives.
@@ -374,7 +378,7 @@ public class JobsClientTests
     public void SetSchedule_Base_ReplacesBaseSchedule()
     {
         var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
-        var job = jobs.New(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
         job.SetSchedule("30 2 * * *");
         Assert.Equal("30 2 * * *", job.Schedule);
         Assert.Empty(job.Environments);
@@ -384,7 +388,7 @@ public class JobsClientTests
     public void SetSchedule_PerEnvironment_SetsOverrideAndPreservesBase()
     {
         var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
-        var job = jobs.New(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
         job.SetSchedule("0 3 * * *", environment: "production");
         // Base schedule is untouched; the override lands on the environment entry.
         Assert.Equal("0 * * * *", job.Schedule);
@@ -397,7 +401,7 @@ public class JobsClientTests
     public void SetSchedule_PerEnvironment_ReusesExistingOverride()
     {
         var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
-        var job = jobs.New(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
         // Enable first, then schedule — the same override entry is reused so the
         // enablement survives.
         job.SetEnabled(true, environment: "production");
@@ -457,7 +461,7 @@ public class JobsClientTests
                 Content = JsonApi("{\"data\":" + JobResource() + "}"),
             };
         });
-        var job = jobs.New(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg(), description: "d");
+        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg(), description: "d");
         job.SetConfiguration(new HttpConfig { Url = "https://dev.example.com/hook" }, environment: "development");
         job.SetEnabled(false, environment: "development");
         job.SetEnabled(true, environment: "production");
@@ -468,7 +472,7 @@ public class JobsClientTests
         var attrs = doc.RootElement.GetProperty("data").GetProperty("attributes");
         // Base read-only roll-ups are never written.
         Assert.False(attrs.TryGetProperty("enabled", out _));
-        Assert.False(attrs.TryGetProperty("recurring", out _));
+        Assert.False(attrs.TryGetProperty("kind", out _));
         Assert.False(attrs.TryGetProperty("version", out _));
         // environments map is emitted; each entry carries its own enabled flag.
         var envs = attrs.GetProperty("environments");
@@ -498,13 +502,15 @@ public class JobsClientTests
                 Content = JsonApi("{\"data\":" + JobResource() + "}"),
             };
         });
-        var job = jobs.New(JobId, name: "n", schedule: "now", configuration: Cfg());
+        var job = jobs.NewManualJob(JobId, name: "n", configuration: Cfg());
         await job.SaveAsync();
 
         using var doc = JsonDocument.Parse(capturedBody!);
         var attrs = doc.RootElement.GetProperty("data").GetProperty("attributes");
         Assert.False(attrs.TryGetProperty("enabled", out _));
         Assert.False(attrs.TryGetProperty("environments", out _));
+        // A manual job has no schedule — the null base schedule is omitted on the wire.
+        Assert.False(attrs.TryGetProperty("schedule", out _));
     }
 
     // ----------------------------------------------------------------------
@@ -512,20 +518,28 @@ public class JobsClientTests
     // ----------------------------------------------------------------------
 
     [Fact]
-    public async Task Create_SendsBirthEnvironmentHeader_FromNewArgument()
+    public async Task Schedule_OneOff_SerializesDatetimeAndBirthEnvironment()
     {
         string? header = null;
-        var jobs = MakeJobs(req =>
+        string? capturedBody = null;
+        var jobs = MakeJobs(async req =>
         {
             header = req.Headers.TryGetValues("X-Smplkit-Environment", out var v) ? v.First() : null;
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)
+            capturedBody = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.Created)
             {
-                Content = JsonApi("{\"data\":" + JobResource() + "}"),
-            });
+                Content = JsonApi("{\"data\":" + JobResource("showcase-oneoff", kind: "one_off") + "}"),
+            };
         });
-        var job = jobs.New("showcase-oneoff", name: "n", schedule: "now", configuration: Cfg(), environment: "development");
+        var when = new DateTimeOffset(2030, 1, 1, 12, 30, 0, TimeSpan.Zero);
+        var job = jobs.Schedule("showcase-oneoff", name: "n", schedule: when, configuration: Cfg(), environment: "development");
         await job.SaveAsync();
-        Assert.Equal("development", header);
+        Assert.Equal("development", header);  // birth environment
+        // The datetime is serialized to its ISO-8601 round-trip string on the wire.
+        using var doc = JsonDocument.Parse(capturedBody!);
+        Assert.Equal(
+            when.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
+            doc.RootElement.GetProperty("data").GetProperty("attributes").GetProperty("schedule").GetString());
     }
 
     [Fact]
@@ -540,7 +554,7 @@ public class JobsClientTests
                 Content = JsonApi("{\"data\":" + JobResource() + "}"),
             });
         }, environment: "production");
-        var job = jobs.New(JobId, name: "n", schedule: "now", configuration: Cfg());
+        var job = jobs.Schedule(JobId, name: "n", schedule: new DateTimeOffset(2030, 1, 1, 12, 30, 0, TimeSpan.Zero), configuration: Cfg());
         await job.SaveAsync();
         Assert.Equal("production", header);
     }
@@ -557,7 +571,7 @@ public class JobsClientTests
                 Content = JsonApi("{\"data\":" + JobResource() + "}"),
             });
         });
-        var job = jobs.New(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
         await job.SaveAsync();
         Assert.False(hasHeader);
     }
@@ -956,7 +970,7 @@ public class JobsClientTests
         {
             Content = JsonApi("{\"errors\":[{\"detail\":\"dup\"}]}"),
         }));
-        var job = jobs.New("dup", name: "D", schedule: "now", configuration: Cfg());
+        var job = jobs.NewManualJob("dup", name: "D", configuration: Cfg());
         await Assert.ThrowsAsync<ConflictException>(() => job.SaveAsync());
     }
 
@@ -981,7 +995,10 @@ public class JobsClientTests
         Assert.True(job.Configuration.TlsVerify);
         Assert.Null(job.Version);
         Assert.Empty(job.Environments);
-        Assert.Null(job.Recurring);
+        Assert.Null(job.Kind);
+        Assert.False(job.IsRecurring());
+        Assert.False(job.IsManual());
+        Assert.False(job.IsOneOff());
         Assert.False(job.Enabled);
     }
 
@@ -1004,7 +1021,7 @@ public class JobsClientTests
         });
         var cfg = Cfg();
         cfg.Method = method;
-        var job = jobs.New(JobId, name: "n", schedule: "now", configuration: cfg);
+        var job = jobs.NewManualJob(JobId, name: "n", configuration: cfg);
         await job.SaveAsync();
         Assert.Contains($"\"method\":\"{wire}\"", capturedBody!);
     }
@@ -1015,7 +1032,7 @@ public class JobsClientTests
         var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
         var cfg = Cfg();
         cfg.Method = (HttpMethod)999;
-        var job = jobs.New(JobId, name: "n", schedule: "now", configuration: cfg);
+        var job = jobs.NewManualJob(JobId, name: "n", configuration: cfg);
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => job.SaveAsync());
     }
 
@@ -1054,6 +1071,48 @@ public class JobsClientTests
         Assert.Equal(HttpMethod.Post, HttpMethodExtensions.FromWireValue(null!));
     }
 
+    [Theory]
+    [InlineData("recurring", true, false, false)]
+    [InlineData("manual", false, true, false)]
+    [InlineData("one_off", false, false, true)]
+    public async Task Get_ParsesKind_PredicatesReflectIt(string kind, bool isRecurring, bool isManual, bool isOneOff)
+    {
+        var job = await MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi("{\"data\":" + JobResource(kind: kind) + "}"),
+        })).GetAsync(JobId);
+        Assert.Equal(isRecurring, job.IsRecurring());
+        Assert.Equal(isManual, job.IsManual());
+        Assert.Equal(isOneOff, job.IsOneOff());
+    }
+
+    [Theory]
+    [InlineData(JobKind.Recurring, "recurring")]
+    [InlineData(JobKind.Manual, "manual")]
+    [InlineData(JobKind.OneOff, "one_off")]
+    public void JobKindExtensions_ToWireValue(JobKind kind, string wire)
+    {
+        Assert.Equal(wire, kind.ToWireValue());
+    }
+
+    [Fact]
+    public void JobKindExtensions_ToWireValue_OutOfRangeThrows()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => ((JobKind)999).ToWireValue());
+    }
+
+    [Fact]
+    public async Task Run_Trigger_MatchesRunTriggerConstants()
+    {
+        // Trigger is a raw string, equal to the RunTrigger constant and the raw value.
+        var run = await MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi("{\"data\":" + RunResource(trigger: "SCHEDULE") + "}"),
+        })).Runs.GetAsync(RunId);
+        Assert.Equal(RunTrigger.Schedule, run.Trigger);
+        Assert.Equal("SCHEDULE", run.Trigger);
+    }
+
     [Fact]
     public async Task SaveAsync_SendsTlsVerifyAndCaCert_OnWire()
     {
@@ -1069,7 +1128,7 @@ public class JobsClientTests
         var cfg = Cfg();
         cfg.TlsVerify = false;
         cfg.CaCert = "-----BEGIN CERTIFICATE-----\nfoo\n-----END CERTIFICATE-----";
-        var job = jobs.New(JobId, name: "n", schedule: "now", configuration: cfg);
+        var job = jobs.NewManualJob(JobId, name: "n", configuration: cfg);
         await job.SaveAsync();
         Assert.Contains("\"tls_verify\":false", capturedBody);
         Assert.Contains("\"ca_cert\":\"-----BEGIN CERTIFICATE-----", capturedBody);
@@ -1083,7 +1142,7 @@ public class JobsClientTests
     public void Job_ToString_IncludesIdNameEnabledEnvironments()
     {
         var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
-        var job = jobs.New(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
         job.SetEnabled(true, environment: "production");
         job.SetEnabled(false, environment: "development");
         var s = job.ToString();
@@ -1133,7 +1192,7 @@ public class JobsClientTests
                 new HttpConfig { Url = "u" },
                 null,           // description
                 null,           // environments
-                null,           // recurring
+                null,           // kind
                 "http",         // type
                 "ALLOW",        // concurrencyPolicy
                 null,           // createdAt
