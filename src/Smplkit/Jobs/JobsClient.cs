@@ -50,6 +50,14 @@ public sealed class RunsClient
     /// environment keys. <c>null</c> (or empty) falls back to the client's
     /// configured environment (if any); with none, covers every environment you
     /// can access.</param>
+    /// <param name="triggers">Restrict to runs started by any of these triggers (the
+    /// <see cref="RunTrigger"/> constants) — e.g. <c>[RunTrigger.Retry]</c> for
+    /// automatic retries — serialized as a comma-joined <c>filter[trigger]</c>.
+    /// <c>null</c> (or empty) covers every trigger.</param>
+    /// <param name="lastRunOnly">When <c>true</c>, collapse the result to the last
+    /// completed (succeeded / failed / canceled) run per job-and-environment;
+    /// in-flight runs are excluded. The other filters apply first, then the collapse.
+    /// Defaults to <c>false</c>; the query parameter is sent only when <c>true</c>.</param>
     /// <param name="pageSize">Maximum number of runs to return in this page.
     /// <c>null</c> uses the server default.</param>
     /// <param name="after">Opaque cursor from a previous page; returns the runs
@@ -59,14 +67,22 @@ public sealed class RunsClient
     public async Task<IReadOnlyList<Run>> ListAsync(
         string? job = null,
         IEnumerable<string>? environments = null,
+        IEnumerable<string>? triggers = null,
+        bool lastRunOnly = false,
         int? pageSize = null,
         string? after = null,
         CancellationToken ct = default)
     {
+        var triggerFilter = triggers is null ? null : string.Join(",", triggers);
+        if (triggerFilter is { Length: 0 }) triggerFilter = null;
         var resp = await ApiExceptionMapper.ExecuteAsync(
             () => _gen.List_runsAsync(
                 filterjob: job,
                 filterenvironment: Helpers.ResolveEnvironmentFilter(environments, _environment),
+                filtertrigger: triggerFilter,
+                // The generated default would emit last_run_only=false on every call;
+                // send the parameter only when explicitly requested.
+                last_run_only: lastRunOnly ? true : (bool?)null,
                 pagesize: pageSize,
                 pageafter: after,
                 cancellationToken: ct)).ConfigureAwait(false);
@@ -108,6 +124,205 @@ public sealed class RunsClient
     }
 }
 
+/// <summary>Manage reusable retry policies (<c>jobs.RetryPolicies</c>).</summary>
+/// <remarks>
+/// <para>Reached as <c>client.Jobs.RetryPolicies</c>. A <see cref="RetryPolicy"/> is
+/// an active record: build one with <see cref="New"/>, set fields, and call
+/// <see cref="RetryPolicy.SaveAsync"/>; then reference it from a job's retry policy
+/// (see <see cref="JobsClient.NewRecurringJob"/> and
+/// <see cref="Job.SetRetryPolicy(RetryPolicy, string)"/>). Retry policies are
+/// account-global — never environment-scoped.</para>
+/// </remarks>
+public sealed class RetryPoliciesClient
+{
+    private readonly GenJobs.JobsClient _gen;
+
+    internal RetryPoliciesClient(GenJobs.JobsClient gen)
+    {
+        _gen = gen;
+    }
+
+    /// <summary>Return an unsaved <see cref="RetryPolicy"/>. Call
+    /// <see cref="RetryPolicy.SaveAsync"/> to create it.</summary>
+    /// <param name="id">Caller-supplied unique identifier for the policy. Unique
+    /// within the account and immutable; the service returns 409 if another live
+    /// policy already uses this id.</param>
+    /// <param name="name">Human-readable name for the policy.</param>
+    /// <param name="maxRetries">How many times a failed run is retried after the
+    /// initial attempt — <c>3</c> means up to 4 attempts total. <c>0</c> disables
+    /// retries. Maximum 10.</param>
+    /// <param name="backoff">How the wait between retries grows (see <see cref="Backoff"/>).</param>
+    /// <param name="delaySeconds">The wait before a retry, in seconds — the constant
+    /// wait for <see cref="Backoff.Fixed"/>, or the base that doubles each retry for
+    /// <see cref="Backoff.Exponential"/>.</param>
+    /// <param name="maxDelaySeconds">Ceiling on the wait between retries, for
+    /// <see cref="Backoff.Exponential"/> backoff only. <c>null</c> (the default)
+    /// leaves it uncapped; omit it for <see cref="Backoff.Fixed"/> backoff.</param>
+    /// <param name="retryOn">Which failures to retry (see <see cref="RetryOn"/>).
+    /// <c>null</c> (the default) retries nothing.</param>
+    /// <returns>An unsaved <see cref="RetryPolicy"/> bound to this client.</returns>
+    public RetryPolicy New(
+        string id,
+        string name,
+        int maxRetries,
+        Backoff backoff,
+        int delaySeconds,
+        int? maxDelaySeconds = null,
+        RetryOn? retryOn = null)
+        => new RetryPolicy(this, id, name, maxRetries, backoff, delaySeconds, maxDelaySeconds, retryOn);
+
+    /// <summary>List retry policies in the account.</summary>
+    /// <param name="name">Return only policies whose name contains this text
+    /// (case-insensitive). <c>null</c> lists all.</param>
+    /// <param name="pageNumber">1-based page to return. <c>null</c> returns the first page.</param>
+    /// <param name="pageSize">Maximum number of policies to return in this page.
+    /// <c>null</c> uses the server default.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    /// <returns>The policies in this page, as a list of <see cref="RetryPolicy"/>.</returns>
+    public async Task<IReadOnlyList<RetryPolicy>> ListAsync(
+        string? name = null, int? pageNumber = null, int? pageSize = null, CancellationToken ct = default)
+    {
+        var resp = await ApiExceptionMapper.ExecuteAsync(
+            () => _gen.List_retry_policiesAsync(
+                filtername: name, pagenumber: pageNumber, pagesize: pageSize, cancellationToken: ct)).ConfigureAwait(false);
+        return (resp.Data ?? new List<GenJobs.RetryPolicyResource>())
+            .Select(RetryPolicyFromResource).ToList();
+    }
+
+    /// <summary>Fetch a single retry policy by its id. The returned instance is bound
+    /// to this client so <see cref="RetryPolicy.SaveAsync"/> /
+    /// <see cref="RetryPolicy.DeleteAsync"/> work.</summary>
+    /// <param name="id">Identifier of the policy to fetch.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    /// <returns>The matching <see cref="RetryPolicy"/>.</returns>
+    public async Task<RetryPolicy> GetAsync(string id, CancellationToken ct = default)
+    {
+        var resp = await ApiExceptionMapper.ExecuteAsync(
+            () => _gen.Get_retry_policyAsync(id, ct)).ConfigureAwait(false);
+        return RetryPolicyFromResource(resp.Data);
+    }
+
+    /// <summary>Delete a retry policy by its id. Prefer
+    /// <see cref="RetryPolicy.DeleteAsync"/> when you already have a
+    /// <see cref="RetryPolicy"/> instance.</summary>
+    /// <param name="id">Identifier of the policy to delete.</param>
+    /// <param name="ct">Optional cancellation token.</param>
+    public Task DeleteAsync(string id, CancellationToken ct = default)
+        => ApiExceptionMapper.ExecuteAsync(() => _gen.Delete_retry_policyAsync(id, ct));
+
+    /// <summary>POST a new policy. Called by <see cref="RetryPolicy.SaveAsync"/>; not for direct use.</summary>
+    internal async Task<RetryPolicy> CreateAsync(RetryPolicy policy, CancellationToken ct)
+    {
+        var body = new GenJobs.RetryPolicyCreateRequest
+        {
+            Data = new GenJobs.RetryPolicyCreateResource
+            {
+                Id = policy.Id,
+                Type = "retry_policy",
+                Attributes = BuildRetryPolicyAttributes(policy),
+            },
+        };
+        var resp = await ApiExceptionMapper.ExecuteAsync(
+            () => _gen.Create_retry_policyAsync(body, ct)).ConfigureAwait(false);
+        return RetryPolicyFromResource(resp.Data);
+    }
+
+    /// <summary>Full-replace PUT. Called by <see cref="RetryPolicy.SaveAsync"/>; not for direct use.</summary>
+    internal async Task<RetryPolicy> UpdateAsync(RetryPolicy policy, CancellationToken ct)
+    {
+        var body = new GenJobs.RetryPolicyRequest
+        {
+            Data = new GenJobs.RetryPolicyResource
+            {
+                Id = policy.Id,
+                Type = "retry_policy",
+                Attributes = BuildRetryPolicyAttributes(policy),
+            },
+        };
+        var resp = await ApiExceptionMapper.ExecuteAsync(
+            () => _gen.Update_retry_policyAsync(policy.Id, body, ct)).ConfigureAwait(false);
+        return RetryPolicyFromResource(resp.Data);
+    }
+
+    // ------------------------------------------------------------------
+    // Wire <-> wrapper conversions
+    // ------------------------------------------------------------------
+
+    private static GenJobs.RetryPolicy BuildRetryPolicyAttributes(RetryPolicy src)
+    {
+        var attrs = new GenJobs.RetryPolicy
+        {
+            Name = src.Name,
+            Max_retries = src.MaxRetries,
+            Backoff = ToGenBackoff(src.Backoff),
+            Delay_seconds = src.DelaySeconds,
+            // Only valid with exponential backoff; the RetryPolicy converter omits it
+            // on the wire when null.
+            Max_delay_seconds = src.MaxDelaySeconds,
+            Retry_on = ToGenRetryOn(src.RetryOn),
+        };
+        return attrs;
+    }
+
+    private static GenJobs.RetryOn ToGenRetryOn(RetryOn src) => new GenJobs.RetryOn
+    {
+        Statuses = new List<int>(src.Statuses),
+        Reasons = src.Reasons.Select(ToGenReason).ToList(),
+    };
+
+    private static GenJobs.RetryPolicyBackoff ToGenBackoff(Backoff backoff) => backoff switch
+    {
+        Backoff.Fixed => GenJobs.RetryPolicyBackoff.Fixed,
+        _ => GenJobs.RetryPolicyBackoff.Exponential,
+    };
+
+    private static GenJobs.Reasons ToGenReason(RetryReason reason) => reason switch
+    {
+        RetryReason.ConnectionError => GenJobs.Reasons.CONNECTION_ERROR,
+        RetryReason.NonSuccessStatus => GenJobs.Reasons.NON_SUCCESS_STATUS,
+        _ => GenJobs.Reasons.TIMEOUT,
+    };
+
+    private RetryPolicy RetryPolicyFromResource(GenJobs.RetryPolicyResource r)
+    {
+        var a = r.Attributes;
+        return new RetryPolicy(
+            this,
+            id: r.Id ?? string.Empty,
+            name: a.Name ?? string.Empty,
+            maxRetries: a.Max_retries,
+            backoff: FromGenBackoff(a.Backoff),
+            delaySeconds: a.Delay_seconds,
+            maxDelaySeconds: a.Max_delay_seconds,
+            retryOn: FromGenRetryOn(a.Retry_on),
+            createdAt: a.Created_at,
+            updatedAt: a.Updated_at,
+            deletedAt: a.Deleted_at,
+            version: a.Version);
+    }
+
+    // Reads the retry_on parsed by RetryPolicyJsonConverter, which always populates a
+    // non-null RetryOn with non-null statuses / reasons lists.
+    private static RetryOn FromGenRetryOn(GenJobs.RetryOn src) => new RetryOn
+    {
+        Statuses = new List<int>(src.Statuses),
+        Reasons = src.Reasons.Select(FromGenReason).ToList(),
+    };
+
+    private static Backoff FromGenBackoff(GenJobs.RetryPolicyBackoff backoff) => backoff switch
+    {
+        GenJobs.RetryPolicyBackoff.Fixed => Backoff.Fixed,
+        _ => Backoff.Exponential,
+    };
+
+    private static RetryReason FromGenReason(GenJobs.Reasons reason) => reason switch
+    {
+        GenJobs.Reasons.CONNECTION_ERROR => RetryReason.ConnectionError,
+        GenJobs.Reasons.NON_SUCCESS_STATUS => RetryReason.NonSuccessStatus,
+        _ => RetryReason.Timeout,
+    };
+}
+
 /// <summary>
 /// Smpl Jobs client.
 /// </summary>
@@ -128,6 +343,9 @@ public sealed class JobsClient : IDisposable
 
     /// <summary>Run history and run actions.</summary>
     public RunsClient Runs { get; }
+
+    /// <summary>Reusable retry policies (account-global).</summary>
+    public RetryPoliciesClient RetryPolicies { get; }
 
     /// <summary>
     /// Initializes a new <see cref="JobsClient"/>.
@@ -177,6 +395,7 @@ public sealed class JobsClient : IDisposable
         _gen = clients.Jobs;
         _environment = environment;
         Runs = new RunsClient(_gen, environment);
+        RetryPolicies = new RetryPoliciesClient(_gen);
     }
 
     /// <summary>
@@ -192,6 +411,7 @@ public sealed class JobsClient : IDisposable
         _ownedHttpClient = null;
         _environment = environment;
         Runs = new RunsClient(_gen, environment);
+        RetryPolicies = new RetryPoliciesClient(_gen);
     }
 
     /// <summary>Build an unsaved <see cref="Job"/> bound to this client and record
@@ -204,7 +424,9 @@ public sealed class JobsClient : IDisposable
         string? description,
         IDictionary<string, JobEnvironment>? environments,
         string concurrencyPolicy,
-        string? environment)
+        string? environment,
+        string? timezone = null,
+        string? retryPolicy = null)
     {
         var job = new Job(
             this,
@@ -214,7 +436,9 @@ public sealed class JobsClient : IDisposable
             configuration: configuration,
             description: description,
             environments: environments,
-            concurrencyPolicy: concurrencyPolicy);
+            concurrencyPolicy: concurrencyPolicy,
+            timezone: timezone,
+            retryPolicy: retryPolicy);
         job.BirthEnvironment = environment ?? _environment;
         return job;
     }
@@ -227,10 +451,17 @@ public sealed class JobsClient : IDisposable
     /// uses this id.</param>
     /// <param name="name">Human-readable name for the job.</param>
     /// <param name="schedule">The base cadence — a 5-field cron expression evaluated
-    /// in UTC (e.g. <c>"0 2 * * *"</c>) — that every environment inherits unless it
-    /// sets its own override.</param>
+    /// in the job's <paramref name="timezone"/> (UTC by default), e.g.
+    /// <c>"0 2 * * *"</c> — that every environment inherits unless it sets its own
+    /// override.</param>
     /// <param name="configuration">The HTTP request the job sends each time it fires.</param>
     /// <param name="description">Free-text description for the job. Defaults to none.</param>
+    /// <param name="timezone">Base IANA timezone the cron <paramref name="schedule"/>
+    /// is evaluated in (e.g. <c>"America/New_York"</c>), DST-aware. <c>null</c> (the
+    /// default) means UTC. Every environment inherits it unless it overrides it.</param>
+    /// <param name="retryPolicy">Base retry policy for failed runs — the id of a
+    /// <see cref="RetryPolicy"/>, overridable per environment. <c>null</c> (the
+    /// default) uses the built-in <c>Default</c> policy, which never retries.</param>
     /// <param name="environments">Per-environment overrides keyed by environment key —
     /// each a <see cref="JobEnvironment"/> setting <c>Enabled</c> and optional
     /// schedule / configuration overrides. The job is scheduled only in environments
@@ -245,9 +476,12 @@ public sealed class JobsClient : IDisposable
         string schedule,
         HttpConfig configuration,
         string? description = null,
+        string? timezone = null,
+        string? retryPolicy = null,
         IDictionary<string, JobEnvironment>? environments = null,
         string concurrencyPolicy = "ALLOW")
-        => NewJob(id, name, schedule, configuration, description, environments, concurrencyPolicy, environment: null);
+        => NewJob(id, name, schedule, configuration, description, environments, concurrencyPolicy,
+            environment: null, timezone: timezone, retryPolicy: retryPolicy);
 
     /// <summary>
     /// Return an unsaved manual <see cref="Job"/>. Call <see cref="Job.SaveAsync"/> to create it.
@@ -268,6 +502,9 @@ public sealed class JobsClient : IDisposable
     /// <param name="concurrencyPolicy">How overlapping runs are handled. <c>"ALLOW"</c>
     /// (the default and only value today) permits a new run to start while a previous
     /// one is still in flight.</param>
+    /// <param name="retryPolicy">Retry policy for failed runs — the id of a
+    /// <see cref="RetryPolicy"/>, overridable per environment. <c>null</c> (the
+    /// default) uses the built-in <c>Default</c> policy, which never retries.</param>
     /// <returns>An unsaved manual <see cref="Job"/> bound to this client.</returns>
     public Job NewManualJob(
         string id,
@@ -275,8 +512,10 @@ public sealed class JobsClient : IDisposable
         HttpConfig configuration,
         string? description = null,
         IDictionary<string, JobEnvironment>? environments = null,
-        string concurrencyPolicy = "ALLOW")
-        => NewJob(id, name, schedule: null, configuration, description, environments, concurrencyPolicy, environment: null);
+        string concurrencyPolicy = "ALLOW",
+        string? retryPolicy = null)
+        => NewJob(id, name, schedule: null, configuration, description, environments, concurrencyPolicy,
+            environment: null, retryPolicy: retryPolicy);
 
     /// <summary>
     /// Return an unsaved one-off <see cref="Job"/>. Call <see cref="Job.SaveAsync"/> to create it.
@@ -294,6 +533,9 @@ public sealed class JobsClient : IDisposable
     /// <param name="concurrencyPolicy">How overlapping runs are handled. <c>"ALLOW"</c>
     /// (the default and only value today) permits a new run to start while a previous
     /// one is still in flight.</param>
+    /// <param name="retryPolicy">Retry policy for failed runs — the id of a
+    /// <see cref="RetryPolicy"/>. <c>null</c> (the default) uses the built-in
+    /// <c>Default</c> policy, which never retries.</param>
     /// <param name="environment">The environment the job is born in. Defaults to the
     /// client's configured environment.</param>
     /// <returns>An unsaved one-off <see cref="Job"/> bound to this client.</returns>
@@ -304,11 +546,13 @@ public sealed class JobsClient : IDisposable
         HttpConfig configuration,
         string? description = null,
         string concurrencyPolicy = "ALLOW",
+        string? retryPolicy = null,
         string? environment = null)
         => NewJob(
             id, name,
             schedule.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
-            configuration, description, environments: null, concurrencyPolicy, environment);
+            configuration, description, environments: null, concurrencyPolicy, environment,
+            retryPolicy: retryPolicy);
 
     /// <summary>List jobs in the account.</summary>
     /// <param name="kind">Return only jobs of this <see cref="JobKind"/>. <c>null</c>
@@ -452,6 +696,10 @@ public sealed class JobsClient : IDisposable
             // only when set (omitted by the jobs serializer when null, leaving the
             // server default of UTC).
             Timezone = src.Timezone,
+            // Base retry-policy id; sent only when set (omitted by the jobs serializer
+            // when null, leaving the server default `Default` policy, which never
+            // retries).
+            Retry_policy = src.RetryPolicy,
             Configuration = ToGenConfiguration(src.Configuration),
             Concurrency_policy = src.ConcurrencyPolicy,
         };
@@ -472,6 +720,10 @@ public sealed class JobsClient : IDisposable
                     // Per-environment timezone override; sent only when set (omitted
                     // by the jobs serializer when null, inheriting the base timezone).
                     Timezone = kv.Value.Timezone,
+                    // Per-environment retry-policy override; sent only when set
+                    // (omitted by the jobs serializer when null, inheriting the base
+                    // retry policy).
+                    Retry_policy = kv.Value.RetryPolicy,
                     Configuration = kv.Value.Configuration is { } cfg ? ToGenConfiguration(cfg) : null,
                     // Next_run_at is read-only/server-derived; never sent.
                 });
@@ -528,6 +780,7 @@ public sealed class JobsClient : IDisposable
             type: a.Type ?? "http",
             concurrencyPolicy: a.Concurrency_policy ?? "ALLOW",
             timezone: a.Timezone,
+            retryPolicy: a.Retry_policy,
             createdAt: a.Created_at,
             updatedAt: a.Updated_at,
             deletedAt: a.Deleted_at,
@@ -556,6 +809,7 @@ public sealed class JobsClient : IDisposable
                 Enabled = env.Enabled,
                 Schedule = env.Schedule,
                 Timezone = env.Timezone,
+                RetryPolicy = env.Retry_policy,
                 Configuration = env.Configuration is { } cfg ? ConfigFromGen(cfg) : null,
                 NextRunAt = env.Next_run_at,
             };
@@ -588,6 +842,9 @@ public sealed class JobsClient : IDisposable
     internal static Run RunFromResource(GenJobs.RunResource r, RunsClient? runs = null)
     {
         var a = r.Attributes;
+        // The retry-chain position is present only on RETRY runs; the generated
+        // model leaves it null otherwise.
+        var retry = a.Retry is { } gr ? new RunRetry(gr.Of.ToString(), gr.Attempt) : null;
         return new Run(
             id: r.Id ?? string.Empty,
             job: a.Job ?? string.Empty,
@@ -597,6 +854,7 @@ public sealed class JobsClient : IDisposable
             runs: runs,
             jobVersion: a.Job_version,
             rerunOf: a.Rerun_of?.ToString(),
+            retry: retry,
             scheduledFor: a.Scheduled_for,
             startedAt: a.Started_at,
             finishedAt: a.Finished_at,

@@ -85,12 +85,12 @@ public class JobsClientTests
 
     private static string RunResource(
         string id = RunId, string status = "SUCCEEDED", string trigger = "SCHEDULE",
-        string? rerunOf = null, string environment = "production")
+        string? rerunOf = null, string environment = "production", string retry = "null")
     {
         var ro = rerunOf is null ? "null" : "\"" + rerunOf + "\"";
         return "{\"id\":\"" + id + "\",\"type\":\"run\",\"attributes\":{"
             + "\"job\":\"" + JobId + "\",\"job_version\":1,\"environment\":\"" + environment + "\","
-            + "\"trigger\":\"" + trigger + "\",\"rerun_of\":" + ro + ","
+            + "\"trigger\":\"" + trigger + "\",\"rerun_of\":" + ro + ",\"retry\":" + retry + ","
             + "\"scheduled_for\":\"2026-06-05T00:00:00Z\",\"status\":\"" + status + "\","
             + "\"started_at\":\"2026-06-05T00:00:00.1Z\",\"finished_at\":\"2026-06-05T00:00:00.4Z\","
             + "\"pending_duration_ms\":100,\"run_duration_ms\":300,\"total_duration_ms\":400,"
@@ -103,6 +103,24 @@ public class JobsClientTests
         "{\"data\":{\"id\":\"current\",\"type\":\"usage\",\"attributes\":{"
         + "\"period\":\"2026-06\",\"runs_used\":12,\"runs_included\":3000,"
         + "\"active_jobs\":2,\"active_jobs_limit\":10}}}";
+
+    private const string RetryPolicyId = "showcase-retry";
+
+    private static string RetryPolicyJson(
+        string id = RetryPolicyId, string name = "Retry on server errors",
+        int maxRetries = 5, string backoff = "exponential", int delaySeconds = 2,
+        string maxDelaySeconds = "60", string statuses = "[429,503]",
+        string reasons = "[\"TIMEOUT\"]", string createdAt = "\"2026-06-04T00:00:00Z\"",
+        string updatedAt = "\"2026-06-04T00:00:00Z\"", string deletedAt = "null", int version = 1)
+    {
+        return "{\"id\":\"" + id + "\",\"type\":\"retry_policy\",\"attributes\":{"
+            + "\"name\":\"" + name + "\",\"max_retries\":" + maxRetries + ","
+            + "\"backoff\":\"" + backoff + "\",\"delay_seconds\":" + delaySeconds + ","
+            + "\"max_delay_seconds\":" + maxDelaySeconds + ","
+            + "\"retry_on\":{\"statuses\":" + statuses + ",\"reasons\":" + reasons + "},"
+            + "\"created_at\":" + createdAt + ",\"updated_at\":" + updatedAt
+            + ",\"deleted_at\":" + deletedAt + ",\"version\":" + version + "}}";
+    }
 
     private static HttpConfig Cfg() => new()
     {
@@ -1227,6 +1245,550 @@ public class JobsClientTests
         Assert.Contains("12/3000", s);
     }
 
+    // ----------------------------------------------------------------------
+    // Retry policies — active record (New + SaveAsync create/update), CRUD
+    // ----------------------------------------------------------------------
+
+    [Fact]
+    public void RetryPolicies_New_ReturnsUnsavedPolicy_NoNetwork()
+    {
+        var calls = 0;
+        var jobs = MakeJobs(_ => { calls++; return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)); });
+        var policy = jobs.RetryPolicies.New(
+            RetryPolicyId, name: "Retry on server errors", maxRetries: 5,
+            backoff: Backoff.Exponential, delaySeconds: 2, maxDelaySeconds: 60,
+            retryOn: new RetryOn { Statuses = new List<int> { 429, 503 }, Reasons = new List<RetryReason> { RetryReason.Timeout } });
+        Assert.Equal(RetryPolicyId, policy.Id);
+        Assert.Null(policy.CreatedAt);
+        Assert.Equal(Backoff.Exponential, policy.Backoff);
+        Assert.Equal(60, policy.MaxDelaySeconds);
+        Assert.Equal(new[] { 429, 503 }, policy.RetryOn.Statuses);
+        Assert.Equal(0, calls);
+    }
+
+    [Fact]
+    public async Task RetryPolicy_SaveAsync_CreatesThenUpdates_AndShapesWireBody()
+    {
+        var capturedMethods = new List<string>();
+        string? createBody = null;
+        var jobs = MakeJobs(async req =>
+        {
+            capturedMethods.Add(req.Method.Method);
+            if (req.Method == System.Net.Http.HttpMethod.Post)
+            {
+                createBody = await req.Content!.ReadAsStringAsync();
+                return new HttpResponseMessage(HttpStatusCode.Created)
+                {
+                    Content = JsonApi("{\"data\":" + RetryPolicyJson(version: 1) + "}"),
+                };
+            }
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":" + RetryPolicyJson(name: "Renamed", version: 2) + "}"),
+            };
+        });
+
+        var policy = jobs.RetryPolicies.New(
+            RetryPolicyId, name: "Retry on server errors", maxRetries: 5,
+            backoff: Backoff.Exponential, delaySeconds: 2, maxDelaySeconds: 60,
+            retryOn: new RetryOn { Statuses = new List<int> { 429, 503 }, Reasons = new List<RetryReason> { RetryReason.Timeout } });
+        Assert.Null(policy.CreatedAt);
+        await policy.SaveAsync();
+        Assert.Equal("POST", capturedMethods[0]);
+        Assert.NotNull(policy.CreatedAt);
+        Assert.Equal(1, policy.Version);
+
+        // Wire body: lowercase backoff slug, reasons as string values, max_delay sent,
+        // and the server-managed read-only fields omitted.
+        using var doc = JsonDocument.Parse(createBody!);
+        var attrs = doc.RootElement.GetProperty("data").GetProperty("attributes");
+        Assert.Equal("exponential", attrs.GetProperty("backoff").GetString());
+        Assert.Equal(5, attrs.GetProperty("max_retries").GetInt32());
+        Assert.Equal(2, attrs.GetProperty("delay_seconds").GetInt32());
+        Assert.Equal(60, attrs.GetProperty("max_delay_seconds").GetInt32());
+        var retryOn = attrs.GetProperty("retry_on");
+        Assert.Equal(429, retryOn.GetProperty("statuses")[0].GetInt32());
+        Assert.Equal("TIMEOUT", retryOn.GetProperty("reasons")[0].GetString());
+        Assert.False(attrs.TryGetProperty("created_at", out _));
+        Assert.False(attrs.TryGetProperty("version", out _));
+        Assert.Equal("retry_policy", doc.RootElement.GetProperty("data").GetProperty("type").GetString());
+        Assert.Equal(RetryPolicyId, doc.RootElement.GetProperty("data").GetProperty("id").GetString());
+
+        // Parsed back from the response: backoff, reasons, max_delay round-trip.
+        Assert.Equal(Backoff.Exponential, policy.Backoff);
+        Assert.Equal(60, policy.MaxDelaySeconds);
+        Assert.Equal(RetryReason.Timeout, policy.RetryOn.Reasons[0]);
+
+        // Second save → full-replace PUT.
+        policy.Name = "Renamed";
+        await policy.SaveAsync();
+        Assert.Equal("PUT", capturedMethods[1]);
+        Assert.Equal(2, policy.Version);
+        Assert.Equal("Renamed", policy.Name);
+    }
+
+    [Fact]
+    public async Task RetryPolicy_Create_FixedBackoff_NoMaxDelay_EmptyRetryOn()
+    {
+        string? body = null;
+        var jobs = MakeJobs(async req =>
+        {
+            body = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = JsonApi("{\"data\":" + RetryPolicyJson(
+                    backoff: "fixed", maxDelaySeconds: "null", statuses: "[]", reasons: "[]") + "}"),
+            };
+        });
+        // New without retryOn → defaults to an empty RetryOn.
+        var policy = jobs.RetryPolicies.New("p", name: "n", maxRetries: 0, backoff: Backoff.Fixed, delaySeconds: 1);
+        Assert.Empty(policy.RetryOn.Statuses);
+        Assert.Empty(policy.RetryOn.Reasons);
+        await policy.SaveAsync();
+
+        using var doc = JsonDocument.Parse(body!);
+        var attrs = doc.RootElement.GetProperty("data").GetProperty("attributes");
+        Assert.Equal("fixed", attrs.GetProperty("backoff").GetString());
+        // max_delay_seconds omitted when unset.
+        Assert.False(attrs.TryGetProperty("max_delay_seconds", out _));
+        Assert.Empty(attrs.GetProperty("retry_on").GetProperty("statuses").EnumerateArray());
+        Assert.Empty(attrs.GetProperty("retry_on").GetProperty("reasons").EnumerateArray());
+        // Parsed back: fixed backoff, no max_delay.
+        Assert.Equal(Backoff.Fixed, policy.Backoff);
+        Assert.Null(policy.MaxDelaySeconds);
+    }
+
+    [Fact]
+    public async Task RetryPolicy_Create_AllReasons_RoundTrip()
+    {
+        string? body = null;
+        var jobs = MakeJobs(async req =>
+        {
+            body = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = JsonApi("{\"data\":" + RetryPolicyJson(
+                    reasons: "[\"CONNECTION_ERROR\",\"NON_SUCCESS_STATUS\",\"TIMEOUT\"]") + "}"),
+            };
+        });
+        var policy = jobs.RetryPolicies.New(
+            "p", name: "n", maxRetries: 3, backoff: Backoff.Exponential, delaySeconds: 1,
+            retryOn: new RetryOn
+            {
+                Reasons = new List<RetryReason>
+                {
+                    RetryReason.ConnectionError, RetryReason.NonSuccessStatus, RetryReason.Timeout,
+                },
+            });
+        await policy.SaveAsync();
+
+        using var doc = JsonDocument.Parse(body!);
+        var wireReasons = doc.RootElement.GetProperty("data").GetProperty("attributes")
+            .GetProperty("retry_on").GetProperty("reasons").EnumerateArray().Select(e => e.GetString()).ToList();
+        Assert.Equal(new[] { "CONNECTION_ERROR", "NON_SUCCESS_STATUS", "TIMEOUT" }, wireReasons);
+        // Parsed back: all three reasons map to wrapper enum values.
+        Assert.Equal(
+            new[] { RetryReason.ConnectionError, RetryReason.NonSuccessStatus, RetryReason.Timeout },
+            policy.RetryOn.Reasons);
+    }
+
+    [Fact]
+    public async Task RetryPolicies_List_ReturnsRows_AndSendsFilters()
+    {
+        string? url = null;
+        var rows = await MakeJobs(req =>
+        {
+            url = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":[" + RetryPolicyJson("a") + "," + RetryPolicyJson("b")
+                    + "],\"meta\":{\"pagination\":{\"page\":1,\"size\":50}}}"),
+            });
+        }).RetryPolicies.ListAsync(name: "server", pageNumber: 1, pageSize: 10);
+        Assert.Equal(2, rows.Count);
+        Assert.Contains("filter%5Bname%5D=server", url!);
+        Assert.Contains("page%5Bnumber%5D=1", url!);
+        Assert.Contains("page%5Bsize%5D=10", url!);
+    }
+
+    [Fact]
+    public async Task RetryPolicies_List_DefaultArgs_NoFilters()
+    {
+        var rows = await MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi("{\"data\":[],\"meta\":{\"pagination\":{\"page\":1,\"size\":1000}}}"),
+        })).RetryPolicies.ListAsync();
+        Assert.Empty(rows);
+    }
+
+    [Fact]
+    public async Task RetryPolicies_Get_ReturnsClientBoundInstance()
+    {
+        var policy = await MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi("{\"data\":" + RetryPolicyJson() + "}"),
+        })).RetryPolicies.GetAsync(RetryPolicyId);
+        Assert.Equal(RetryPolicyId, policy.Id);
+        Assert.Equal("Retry on server errors", policy.Name);
+        Assert.Equal(5, policy.MaxRetries);
+        Assert.Equal(Backoff.Exponential, policy.Backoff);
+        Assert.Equal(2, policy.DelaySeconds);
+        Assert.Equal(60, policy.MaxDelaySeconds);
+        Assert.Equal(new[] { 429, 503 }, policy.RetryOn.Statuses);
+        Assert.Equal(new[] { RetryReason.Timeout }, policy.RetryOn.Reasons);
+        Assert.NotNull(policy.CreatedAt);
+        Assert.NotNull(policy.UpdatedAt);
+        Assert.Equal(1, policy.Version);
+    }
+
+    [Fact]
+    public async Task RetryPolicies_Get_ParsesDeletedAtAndFixedBackoff()
+    {
+        // A soft-deleted policy fixture exercises the converter's deleted_at read path
+        // and the fixed-backoff parse arm.
+        var policy = await MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi("{\"data\":" + RetryPolicyJson(
+                backoff: "fixed", maxDelaySeconds: "null", deletedAt: "\"2026-06-10T00:00:00Z\"") + "}"),
+        })).RetryPolicies.GetAsync(RetryPolicyId);
+        Assert.Equal(Backoff.Fixed, policy.Backoff);
+        Assert.Null(policy.MaxDelaySeconds);
+        Assert.NotNull(policy.DeletedAt);
+    }
+
+    [Fact]
+    public async Task RetryPolicies_Delete_ById()
+    {
+        string? method = null;
+        await MakeJobs(req =>
+        {
+            method = req.Method.Method;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
+        }).RetryPolicies.DeleteAsync(RetryPolicyId);
+        Assert.Equal("DELETE", method);
+    }
+
+    [Fact]
+    public async Task RetryPolicy_DeleteAsync_OnInstance()
+    {
+        string? method = null;
+        var jobs = MakeJobs(req =>
+        {
+            if (req.Method == System.Net.Http.HttpMethod.Get)
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonApi("{\"data\":" + RetryPolicyJson() + "}"),
+                });
+            method = req.Method.Method;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
+        });
+        var policy = await jobs.RetryPolicies.GetAsync(RetryPolicyId);
+        await policy.DeleteAsync();
+        Assert.Equal("DELETE", method);
+    }
+
+    [Fact]
+    public async Task RetryPolicy_SaveAsync_WithoutClient_Throws()
+    {
+        var policy = new RetryPolicy(null, "p", "n", 1, Backoff.Fixed, 1);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => policy.SaveAsync());
+    }
+
+    [Fact]
+    public async Task RetryPolicy_DeleteAsync_WithoutClient_Throws()
+    {
+        var policy = new RetryPolicy(null, "p", "n", 1, Backoff.Fixed, 1);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => policy.DeleteAsync());
+    }
+
+    [Fact]
+    public void RetryPolicy_ToString_IncludesIdNameMaxRetries()
+    {
+        var policy = new RetryPolicy(null, "showcase-retry", "Retry on server errors", 5, Backoff.Exponential, 2);
+        var s = policy.ToString();
+        Assert.Contains("RetryPolicy(", s);
+        Assert.Contains("Id=showcase-retry", s);
+        Assert.Contains("MaxRetries=5", s);
+    }
+
+    [Fact]
+    public void RetryOn_DefaultsToEmpty()
+    {
+        var retryOn = new RetryOn();
+        Assert.Empty(retryOn.Statuses);
+        Assert.Empty(retryOn.Reasons);
+    }
+
+    // ----------------------------------------------------------------------
+    // Job retry policy (base + per-environment) and SetSchedule timezone
+    // ----------------------------------------------------------------------
+
+    [Fact]
+    public void SetRetryPolicy_Object_SetsBase()
+    {
+        var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var policy = jobs.RetryPolicies.New("rp", name: "n", maxRetries: 1, backoff: Backoff.Fixed, delaySeconds: 1);
+        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        job.SetRetryPolicy(policy);
+        Assert.Equal("rp", job.RetryPolicy);
+        Assert.Empty(job.Environments);
+    }
+
+    [Fact]
+    public void SetRetryPolicy_Id_PerEnvironment_ReusesExistingOverride()
+    {
+        var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        // Enable first, then set the per-env policy — the same override entry is reused.
+        job.SetEnabled(true, environment: "production");
+        job.SetRetryPolicy("retry-prod", environment: "production");
+        Assert.Null(job.RetryPolicy);
+        Assert.True(job.Environments["production"].Enabled);
+        Assert.Equal("retry-prod", job.Environments["production"].RetryPolicy);
+    }
+
+    [Fact]
+    public async Task NewRecurringJob_WithTimezoneAndRetryPolicy_OnWire()
+    {
+        string? body = null;
+        var jobs = MakeJobs(async req =>
+        {
+            body = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = JsonApi("{\"data\":" + JobResource() + "}"),
+            };
+        });
+        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 2 * * *", configuration: Cfg(),
+            timezone: "America/New_York", retryPolicy: "base-retry");
+        Assert.Equal("America/New_York", job.Timezone);
+        Assert.Equal("base-retry", job.RetryPolicy);
+        await job.SaveAsync();
+
+        using var doc = JsonDocument.Parse(body!);
+        var attrs = doc.RootElement.GetProperty("data").GetProperty("attributes");
+        Assert.Equal("America/New_York", attrs.GetProperty("timezone").GetString());
+        Assert.Equal("base-retry", attrs.GetProperty("retry_policy").GetString());
+    }
+
+    [Fact]
+    public async Task NewManualJob_WithRetryPolicy_OnWire()
+    {
+        string? body = null;
+        var jobs = MakeJobs(async req =>
+        {
+            body = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = JsonApi("{\"data\":" + JobResource(kind: "manual") + "}"),
+            };
+        });
+        var job = jobs.NewManualJob(JobId, name: "n", configuration: Cfg(), retryPolicy: "manual-retry");
+        await job.SaveAsync();
+        using var doc = JsonDocument.Parse(body!);
+        Assert.Equal("manual-retry",
+            doc.RootElement.GetProperty("data").GetProperty("attributes").GetProperty("retry_policy").GetString());
+    }
+
+    [Fact]
+    public async Task Schedule_OneOff_WithRetryPolicy_OnWire()
+    {
+        string? body = null;
+        var jobs = MakeJobs(async req =>
+        {
+            body = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = JsonApi("{\"data\":" + JobResource(kind: "one_off") + "}"),
+            };
+        });
+        var job = jobs.Schedule(JobId, name: "n", schedule: new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            configuration: Cfg(), retryPolicy: "oneoff-retry");
+        await job.SaveAsync();
+        using var doc = JsonDocument.Parse(body!);
+        Assert.Equal("oneoff-retry",
+            doc.RootElement.GetProperty("data").GetProperty("attributes").GetProperty("retry_policy").GetString());
+    }
+
+    [Fact]
+    public async Task SaveAsync_PerEnvRetryPolicy_OnWire()
+    {
+        string? body = null;
+        var jobs = MakeJobs(async req =>
+        {
+            body = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = JsonApi("{\"data\":" + JobResource() + "}"),
+            };
+        });
+        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        job.SetEnabled(true, environment: "production");
+        job.SetRetryPolicy("prod-retry", environment: "production");
+        await job.SaveAsync();
+
+        using var doc = JsonDocument.Parse(body!);
+        var prod = doc.RootElement.GetProperty("data").GetProperty("attributes")
+            .GetProperty("environments").GetProperty("production");
+        Assert.Equal("prod-retry", prod.GetProperty("retry_policy").GetString());
+        // Base retry_policy omitted when unset.
+        Assert.False(doc.RootElement.GetProperty("data").GetProperty("attributes")
+            .TryGetProperty("retry_policy", out _));
+    }
+
+    [Fact]
+    public async Task Get_ParsesRetryPolicy_BaseAndPerEnvironment()
+    {
+        const string envs =
+            "{\"production\":{\"enabled\":true,\"retry_policy\":\"prod-retry\"},"
+            + "\"development\":{\"enabled\":false}}";
+        var job = await MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi("{\"data\":" + JobResourceWithRetryPolicy("base-retry", envs) + "}"),
+        })).GetAsync(JobId);
+        Assert.Equal("base-retry", job.RetryPolicy);
+        Assert.Equal("prod-retry", job.Environments["production"].RetryPolicy);
+        Assert.Null(job.Environments["development"].RetryPolicy);
+    }
+
+    [Fact]
+    public void SetSchedule_WithTimezone_Base_SetsBoth()
+    {
+        var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        job.SetSchedule("30 2 * * *", timezone: "America/Los_Angeles");
+        Assert.Equal("30 2 * * *", job.Schedule);
+        Assert.Equal("America/Los_Angeles", job.Timezone);
+    }
+
+    [Fact]
+    public void SetSchedule_WithTimezone_PerEnvironment_SetsBoth()
+    {
+        var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        job.SetSchedule("0 */6 * * *", timezone: "America/New_York", environment: "development");
+        Assert.Equal("0 * * * *", job.Schedule);  // base untouched
+        Assert.Null(job.Timezone);                 // base timezone untouched
+        Assert.Equal("0 */6 * * *", job.Environments["development"].Schedule);
+        Assert.Equal("America/New_York", job.Environments["development"].Timezone);
+    }
+
+    // ----------------------------------------------------------------------
+    // Run retry chain + run-list trigger / last_run_only filters
+    // ----------------------------------------------------------------------
+
+    [Fact]
+    public async Task Run_ParsesRetry_OnRetryTrigger()
+    {
+        const string origin = "2c3d4e5f-0000-4a1b-9c3d-bbbbbbbbbbbb";
+        var run = await MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi("{\"data\":" + RunResource(
+                trigger: "RETRY", retry: "{\"of\":\"" + origin + "\",\"attempt\":2}") + "}"),
+        })).Runs.GetAsync(RunId);
+        Assert.Equal(RunTrigger.Retry, run.Trigger);
+        Assert.NotNull(run.Retry);
+        Assert.Equal(origin, run.Retry!.Of);
+        Assert.Equal(2, run.Retry.Attempt);
+    }
+
+    [Fact]
+    public async Task Run_Retry_NullWhenAbsent()
+    {
+        var run = await MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi("{\"data\":" + RunResource() + "}"),
+        })).Runs.GetAsync(RunId);
+        Assert.Null(run.Retry);
+    }
+
+    [Fact]
+    public async Task Runs_List_SendsTriggerFilterAndLastRunOnly()
+    {
+        string? url = null;
+        await MakeJobs(req =>
+        {
+            url = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":[],\"meta\":{\"page_size\":50}}"),
+            });
+        }).Runs.ListAsync(triggers: new[] { RunTrigger.Retry, RunTrigger.Schedule }, lastRunOnly: true);
+        Assert.Contains("filter%5Btrigger%5D=RETRY%2CSCHEDULE", url!);
+        Assert.Contains("last_run_only=true", url!);
+    }
+
+    [Fact]
+    public async Task Runs_List_EmptyTriggers_OmitsTriggerFilter()
+    {
+        string? url = null;
+        await MakeJobs(req =>
+        {
+            url = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":[],\"meta\":{\"page_size\":50}}"),
+            });
+        }).Runs.ListAsync(triggers: Array.Empty<string>());
+        Assert.DoesNotContain("filter%5Btrigger%5D", url!);
+    }
+
+    [Fact]
+    public async Task Runs_List_DefaultArgs_OmitTriggerAndLastRunOnly()
+    {
+        string? url = null;
+        await MakeJobs(req =>
+        {
+            url = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":[],\"meta\":{\"page_size\":50}}"),
+            });
+        }).Runs.ListAsync();
+        Assert.DoesNotContain("filter%5Btrigger%5D", url!);
+        Assert.DoesNotContain("last_run_only", url!);
+    }
+
+    [Fact]
+    public async Task Job_ListRunsAsync_ForwardsTriggersAndLastRunOnly()
+    {
+        string? url = null;
+        var jobs = MakeJobs(req =>
+        {
+            if (req.Method == System.Net.Http.HttpMethod.Get && req.RequestUri!.AbsolutePath.EndsWith("/" + JobId))
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonApi("{\"data\":" + JobResource() + "}"),
+                });
+            url = req.RequestUri!.ToString();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonApi("{\"data\":[],\"meta\":{\"page_size\":50}}"),
+            });
+        });
+        var job = await jobs.GetAsync(JobId);
+        await job.ListRunsAsync(environment: "production", triggers: new[] { RunTrigger.Retry }, lastRunOnly: true);
+        Assert.Contains("filter%5Bjob%5D=" + JobId, url!);
+        Assert.Contains("filter%5Benvironment%5D=production", url!);
+        Assert.Contains("filter%5Btrigger%5D=RETRY", url!);
+        Assert.Contains("last_run_only=true", url!);
+    }
+
+    /// <summary>A job resource carrying a base + per-environment <c>retry_policy</c>.</summary>
+    private static string JobResourceWithRetryPolicy(string baseRetryPolicy, string environmentsJson)
+    {
+        return "{\"id\":\"" + JobId + "\",\"type\":\"job\",\"attributes\":{"
+            + "\"name\":\"My Job\",\"description\":\"does a thing\",\"type\":\"http\","
+            + "\"schedule\":\"0 * * * *\",\"retry_policy\":\"" + baseRetryPolicy + "\","
+            + "\"configuration\":{\"method\":\"POST\",\"url\":\"https://api.example.com/hook\","
+            + "\"headers\":[],\"body\":null,\"success_status\":\"2xx\",\"timeout\":30,"
+            + "\"tls_verify\":true,\"ca_cert\":null},"
+            + "\"environments\":" + environmentsJson + ","
+            + "\"concurrency_policy\":\"ALLOW\",\"kind\":\"recurring\","
+            + "\"created_at\":\"2026-06-04T00:00:00Z\",\"updated_at\":\"2026-06-04T00:00:00Z\","
+            + "\"deleted_at\":null,\"version\":1}}";
+    }
+
     /// <summary>Construct a <see cref="Job"/> with no bound client, for the
     /// SaveAsync / DeleteAsync / TriggerAsync / ListRunsAsync guard branches.</summary>
     private static Job BuildClientlessJob() =>
@@ -1247,6 +1809,7 @@ public class JobsClientTests
                 "http",         // type
                 "ALLOW",        // concurrencyPolicy
                 null,           // timezone
+                null,           // retryPolicy
                 null,           // createdAt
                 null,           // updatedAt
                 null,           // deletedAt

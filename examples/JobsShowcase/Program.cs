@@ -18,18 +18,35 @@ using HttpMethod = Smplkit.Jobs.HttpMethod;
 const string RecurringJobId = "showcase-recurring";
 const string ManualJobId = "showcase-manual";
 const string OneoffJobId = "showcase-oneoff";
+const string RetryPolicyId = "showcase-retry";
 
 // standalone jobs client
 using var jobs = new JobsClient();
 await JobsSetup.SetupShowcaseAsync(jobs);
 try
 {
-    // create a recurring job: a base schedule and configuration every
-    // environment inherits, with per-environment overrides
+    // create a retry policy
+    var retryPolicy = jobs.RetryPolicies.New(
+        RetryPolicyId,
+        name: "Retry on server errors",
+        maxRetries: 5,
+        backoff: Backoff.Exponential,
+        delaySeconds: 2,
+        maxDelaySeconds: 60,
+        retryOn: new RetryOn
+        {
+            Statuses = new List<int> { 429, 503 },
+            Reasons = new List<RetryReason> { RetryReason.Timeout },
+        });
+    await retryPolicy.SaveAsync();
+    Debug.Assert((await jobs.RetryPolicies.ListAsync()).Any(p => p.Id == RetryPolicyId));
+    Console.WriteLine($"Created retry policy '{retryPolicy.Id}'");
+
+    // create a recurring job
     var job = jobs.NewRecurringJob(
         RecurringJobId,
         name: "Nightly cache warm",
-        description: "Warms the product cache every night at 02:00 UTC.",
+        description: "Warms the product cache nightly.",
         schedule: "0 2 * * *",
         configuration: new HttpConfig
         {
@@ -39,9 +56,9 @@ try
             Body = "{\"scope\": \"all\"}",
             Timeout = 30,
         });
-    job.SetEnabled(true, environment: "production");
     job.SetEnabled(true, environment: "development");
-    job.SetSchedule("0 */6 * * *", environment: "development");
+    job.SetEnabled(true, environment: "production");
+    job.SetSchedule("0 */6 * * *", timezone: "America/New_York", environment: "development");
     job.SetConfiguration(
         new HttpConfig
         {
@@ -52,24 +69,27 @@ try
         },
         environment: "development");
     await job.SaveAsync();
-    Debug.Assert(job.IsRecurring() == true);
-    Debug.Assert(job.IsEnabled(environment: "production") == true);
+    Debug.Assert(job.IsRecurring());
+    Debug.Assert(job.IsEnabled(environment: "development"));
+    Debug.Assert(job.IsEnabled(environment: "production"));
+    Debug.Assert(job.Environments["development"].Timezone == "America/New_York");
     Debug.Assert(job.GetConfiguration(environment: "development").Url == "https://development.example.com/cache/warm");
-    Console.WriteLine($"Created recurring job {job.Id} (v{job.Version})");
+    Console.WriteLine($"Created recurring job '{job.Id}' (v{job.Version})");
 
     // get a job
     var fetched = await jobs.GetAsync(RecurringJobId);
     Debug.Assert(fetched.Environments["development"].Schedule == "0 */6 * * *");
-    Console.WriteLine($"Fetched job {RecurringJobId}");
+    Console.WriteLine($"Fetched job '{RecurringJobId}'");
 
     // list jobs, filtered to recurring jobs
     var listing = await jobs.ListAsync(kind: JobKind.Recurring);
     Debug.Assert(listing.Any(j => j.Id == RecurringJobId));
-    Console.WriteLine($"Found job {RecurringJobId} in the listing");
+    Console.WriteLine($"Found job '{RecurringJobId}' in the listing");
 
     // update a job
     job.Name = "Nightly cache warm (v2)";
-    job.SetSchedule("30 2 * * *", environment: "production");
+    job.SetRetryPolicy(retryPolicy, environment: "production");
+    job.SetSchedule("30 2 * * *", timezone: "America/Los_Angeles", environment: "production");
     await job.SaveAsync();
     Debug.Assert(job.Version == 2);
     Console.WriteLine($"Updated job to v{job.Version}");
@@ -83,6 +103,10 @@ try
     var runs = await job.ListRunsAsync(environment: "production");
     Debug.Assert(runs.Any(r => r.Id == run.Id));
     Console.WriteLine($"Listed {runs.Count} production run(s)");
+
+    // get the last completed run in production
+    var recent = await job.ListRunsAsync(environment: "production", lastRunOnly: true);
+    Console.WriteLine($"Last completed production run(s): {recent.Count}");
 
     // get a run
     run = await jobs.Runs.GetAsync(run.Id);
@@ -112,10 +136,10 @@ try
         configuration: new HttpConfig { Method = HttpMethod.Post, Url = "https://httpbin.org/post" });
     manual.SetEnabled(true, environment: "production");
     await manual.SaveAsync();
-    Debug.Assert(manual.IsManual() == true);
+    Debug.Assert(manual.IsManual());
     var manualRun = await manual.TriggerAsync(environment: "production");
     Debug.Assert(manualRun.Trigger == RunTrigger.Manual);
-    Console.WriteLine($"Created manual job {manual.Id} and triggered it on demand");
+    Console.WriteLine($"Created manual job '{manual.Id}' and triggered it on demand");
 
     // schedule a one-off job to run tomorrow
     var tomorrow = DateTimeOffset.Now.AddDays(1);
@@ -126,15 +150,18 @@ try
         configuration: new HttpConfig { Method = HttpMethod.Post, Url = "https://httpbin.org/post" },
         environment: "development");
     await oneoff.SaveAsync();
-    Debug.Assert(oneoff.IsOneOff() == true);
-    Debug.Assert(oneoff.IsEnabled(environment: "development") == true);
+    Debug.Assert(oneoff.IsOneOff());
+    Debug.Assert(oneoff.IsEnabled(environment: "development"));
     Debug.Assert(oneoff.Environments["development"].NextRunAt != null);
-    Console.WriteLine($"Created one-off job {oneoff.Id} to run in development");
+    Console.WriteLine($"Created one-off job '{oneoff.Id}' to run in development");
 
     // delete a job
     await job.DeleteAsync();
     Debug.Assert(!(await jobs.ListAsync()).Any(j => j.Id == RecurringJobId));
-    Console.WriteLine($"Deleted job {RecurringJobId} — jobs showcase complete.");
+
+    // delete the retry policy
+    await retryPolicy.DeleteAsync();
+    Console.WriteLine($"Deleted job '{RecurringJobId}' and retry policy — jobs showcase complete.");
 }
 finally
 {

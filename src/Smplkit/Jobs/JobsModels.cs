@@ -73,8 +73,31 @@ public static class RunTrigger
     public const string Manual = "MANUAL";
     /// <summary>It repeats an earlier run.</summary>
     public const string Rerun = "RERUN";
+    /// <summary>An automatic retry of a failed run, per the job's retry policy.</summary>
+    public const string Retry = "RETRY";
     /// <summary>The job's schedule fired.</summary>
     public const string Schedule = "SCHEDULE";
+}
+
+/// <summary>How the wait between retries grows (a retry policy's backoff strategy).</summary>
+public enum Backoff
+{
+    /// <summary>Double the wait each retry — <c>DelaySeconds</c>, then <c>2×</c>,
+    /// <c>4×</c>, … — capped at <c>MaxDelaySeconds</c>.</summary>
+    Exponential,
+    /// <summary>Wait a constant <c>DelaySeconds</c> before every retry.</summary>
+    Fixed,
+}
+
+/// <summary>A failure category a <see cref="RetryPolicy"/> can retry on.</summary>
+public enum RetryReason
+{
+    /// <summary>The endpoint could not be reached.</summary>
+    ConnectionError,
+    /// <summary>Any non-success response, regardless of <see cref="RetryOn.Statuses"/>.</summary>
+    NonSuccessStatus,
+    /// <summary>The run did not complete in time.</summary>
+    Timeout,
 }
 
 /// <summary>A single name/value HTTP header on the request a job performs.</summary>
@@ -119,6 +142,32 @@ public sealed class HttpConfig
 }
 
 /// <summary>
+/// Which failures a <see cref="RetryPolicy"/> retries.
+/// </summary>
+/// <remarks>An empty <see cref="RetryOn"/> (both lists empty) retries nothing.</remarks>
+public sealed class RetryOn
+{
+    /// <summary>Response status codes to retry when a run fails because the response
+    /// did not match the job's success status (e.g. <c>[429, 503]</c> for rate-limit
+    /// and unavailable). Each is a 3-digit HTTP code. Empty (the default) matches no
+    /// status.</summary>
+    public IList<int> Statuses { get; set; } = new List<int>();
+
+    /// <summary>Failure categories to retry (see <see cref="RetryReason"/>). Empty
+    /// (the default) matches no reason.</summary>
+    public IList<RetryReason> Reasons { get; set; } = new List<RetryReason>();
+}
+
+/// <summary>
+/// Where a <c>RETRY</c> run sits in its retry chain (read-only).
+/// </summary>
+/// <param name="Of">Id of the chain's original run — the first attempt that failed
+/// and started the chain.</param>
+/// <param name="Attempt">Which retry this run is — <c>1</c> for the first retry,
+/// <c>2</c> for the second, and so on.</param>
+public sealed record RunRetry(string Of, int Attempt);
+
+/// <summary>
 /// Per-environment enablement, schedule, and configuration override for a job.
 ///
 /// <para>A job runs in a given environment only when that environment has an entry
@@ -147,6 +196,12 @@ public sealed class JobEnvironment
     /// base schedule (it need not also override <see cref="Schedule"/>). Sent on
     /// writes only when non-<c>null</c>.</summary>
     public string? Timezone { get; set; }
+
+    /// <summary>Optional per-environment retry-policy override — the id of a
+    /// <see cref="RetryPolicy"/> (or <c>"Default"</c>). <c>null</c> (the default)
+    /// inherits the job's base <see cref="Job.RetryPolicy"/>. Sent on writes only
+    /// when non-<c>null</c>.</summary>
+    public string? RetryPolicy { get; set; }
 
     /// <summary>Optional per-environment request configuration that fully replaces
     /// the job's base <see cref="Job.Configuration"/> for this environment.
@@ -209,6 +264,14 @@ public sealed class Job
     /// (cron) job — <c>null</c> for a manual or one-off job. Set it with
     /// <see cref="SetTimezone"/>. Sent on writes only when non-<c>null</c>.</summary>
     public string? Timezone { get; set; }
+    /// <summary>The base retry policy for failed runs — the id of a
+    /// <see cref="RetryPolicy"/> (or the built-in <c>"Default"</c>, which never
+    /// retries), overridable per environment via
+    /// <see cref="JobEnvironment.RetryPolicy"/>. <c>null</c> (the default, omitted on
+    /// the wire) uses the server default <c>Default</c> policy. Set it with
+    /// <see cref="SetRetryPolicy(RetryPolicy, string)"/> or
+    /// <see cref="SetRetryPolicy(string, string)"/>.</summary>
+    public string? RetryPolicy { get; set; }
     /// <summary>The base HTTP request to perform when the job fires. A
     /// per-environment override in <see cref="Environments"/> replaces this for
     /// that environment.</summary>
@@ -242,6 +305,7 @@ public sealed class Job
         string type = "http",
         string concurrencyPolicy = "ALLOW",
         string? timezone = null,
+        string? retryPolicy = null,
         DateTimeOffset? createdAt = null,
         DateTimeOffset? updatedAt = null,
         DateTimeOffset? deletedAt = null,
@@ -252,6 +316,7 @@ public sealed class Job
         Name = name;
         Schedule = schedule;
         Timezone = timezone;
+        RetryPolicy = retryPolicy;
         Configuration = configuration;
         Description = description;
         Environments = environments ?? new Dictionary<string, JobEnvironment>();
@@ -308,18 +373,30 @@ public sealed class Job
     /// <summary>List this job's run history, most recent first.</summary>
     /// <param name="environment">Restrict to runs stamped with this environment.
     /// <c>null</c> covers every environment you can access.</param>
+    /// <param name="triggers">Restrict to runs started by any of these triggers (the
+    /// <see cref="RunTrigger"/> constants) — e.g. <c>[RunTrigger.Retry]</c> for
+    /// automatic retries. <c>null</c> (or empty) covers every trigger.</param>
+    /// <param name="lastRunOnly">When <c>true</c>, return only the last completed run
+    /// per environment (in-flight runs excluded). Defaults to <c>false</c>.</param>
     /// <param name="pageSize">Maximum number of runs to return in this page.</param>
     /// <param name="after">Opaque cursor from a previous page.</param>
     /// <param name="ct">Optional cancellation token.</param>
     /// <returns>The runs in this page, as a list of <see cref="Run"/>.</returns>
     public Task<IReadOnlyList<Run>> ListRunsAsync(
-        string? environment = null, int? pageSize = null, string? after = null, CancellationToken ct = default)
+        string? environment = null,
+        IEnumerable<string>? triggers = null,
+        bool lastRunOnly = false,
+        int? pageSize = null,
+        string? after = null,
+        CancellationToken ct = default)
     {
         if (_client is null)
             throw new InvalidOperationException("Job was constructed without a client; cannot list runs");
         return _client.Runs.ListAsync(
             job: Id,
             environments: environment is null ? null : new[] { environment },
+            triggers: triggers,
+            lastRunOnly: lastRunOnly,
             pageSize: pageSize,
             after: after,
             ct: ct);
@@ -399,16 +476,26 @@ public sealed class Job
     /// environment inherits. A per-environment override is a 5-field cron expression
     /// (UTC) that varies the cadence for that environment only; it is allowed only on
     /// a recurring (cron) job and cannot turn a one-off job recurring or
-    /// vice-versa.</para></summary>
+    /// vice-versa.</para>
+    ///
+    /// <para>Because the timezone is an integral part of a cron cadence, a
+    /// <paramref name="timezone"/> may be supplied alongside the schedule; when given
+    /// it sets the same scope's timezone too (equivalent to a follow-up
+    /// <see cref="SetTimezone"/>). Omit it to leave the timezone untouched. For a
+    /// timezone-only change, use <see cref="SetTimezone"/>.</para></summary>
     /// <param name="schedule">The new schedule.</param>
+    /// <param name="timezone">Optional IANA zone key (e.g. <c>"America/New_York"</c>)
+    /// to set for the same scope. Omit to leave the timezone unchanged.</param>
     /// <param name="environment">Environment key to scope the change to. Omit to set
     /// the base schedule that all environments inherit.</param>
-    public void SetSchedule(string schedule, string? environment = null)
+    public void SetSchedule(string schedule, string? timezone = null, string? environment = null)
     {
         if (environment is null)
             Schedule = schedule;
         else
             EnvironmentOverride(environment).Schedule = schedule;
+        if (timezone is not null)
+            SetTimezone(timezone, environment);
     }
 
     /// <summary>Set the IANA timezone the cron schedule is evaluated in, in memory —
@@ -431,6 +518,42 @@ public sealed class Job
             EnvironmentOverride(environment).Timezone = timezone;
     }
 
+    /// <summary>Set the retry policy for failed runs, in memory — base
+    /// (<paramref name="environment"/> omitted) or per-environment. Call
+    /// <see cref="SaveAsync"/> to persist.
+    ///
+    /// <para>The base policy is the one every environment inherits unless it sets its
+    /// own. A per-environment override applies to that environment only, creating the
+    /// override entry if it doesn't exist yet (preserving any already-set
+    /// <c>Enabled</c> / <c>Schedule</c> / <c>Timezone</c> / <c>Configuration</c> on
+    /// it).</para></summary>
+    /// <param name="retryPolicy">The <see cref="RetryPolicy"/> whose id is applied.</param>
+    /// <param name="environment">Environment key to scope the change to. Omit to set
+    /// the base policy that all environments inherit.</param>
+    public void SetRetryPolicy(RetryPolicy retryPolicy, string? environment = null)
+        => SetRetryPolicy(retryPolicy.Id, environment);
+
+    /// <summary>Set the retry policy for failed runs, in memory — base
+    /// (<paramref name="environment"/> omitted) or per-environment. Call
+    /// <see cref="SaveAsync"/> to persist.
+    ///
+    /// <para>The base policy is the one every environment inherits unless it sets its
+    /// own. A per-environment override applies to that environment only, creating the
+    /// override entry if it doesn't exist yet (preserving any already-set
+    /// <c>Enabled</c> / <c>Schedule</c> / <c>Timezone</c> / <c>Configuration</c> on
+    /// it).</para></summary>
+    /// <param name="retryPolicyId">The id of a <see cref="RetryPolicy"/>, or the
+    /// built-in <c>"Default"</c> (never-retry) policy.</param>
+    /// <param name="environment">Environment key to scope the change to. Omit to set
+    /// the base policy that all environments inherit.</param>
+    public void SetRetryPolicy(string retryPolicyId, string? environment = null)
+    {
+        if (environment is null)
+            RetryPolicy = retryPolicyId;
+        else
+            EnvironmentOverride(environment).RetryPolicy = retryPolicyId;
+    }
+
     /// <summary>Copy every server-authoritative field from <paramref name="other"/> onto self.</summary>
     internal void Apply(Job other)
     {
@@ -443,6 +566,7 @@ public sealed class Job
         Type = other.Type;
         Schedule = other.Schedule;
         Timezone = other.Timezone;
+        RetryPolicy = other.RetryPolicy;
         Configuration = other.Configuration;
         ConcurrencyPolicy = other.ConcurrencyPolicy;
         CreatedAt = other.CreatedAt;
@@ -477,11 +601,15 @@ public sealed class Run
     public string Environment { get; }
     /// <summary>The job's version at the time the run executed.</summary>
     public int? JobVersion { get; }
-    /// <summary>Why the run exists: <c>SCHEDULE</c>, <c>MANUAL</c> (run now), or
-    /// <c>RERUN</c>. A raw string; compare it against the <see cref="RunTrigger"/> constants.</summary>
+    /// <summary>Why the run exists: <c>SCHEDULE</c>, <c>MANUAL</c> (run now),
+    /// <c>RERUN</c>, or <c>RETRY</c> (an automatic retry of a failed run). A raw
+    /// string; compare it against the <see cref="RunTrigger"/> constants.</summary>
     public string Trigger { get; }
     /// <summary>The source run's id; set only when <see cref="Trigger"/> is <c>RERUN</c>.</summary>
     public string? RerunOf { get; }
+    /// <summary>The run's position in its retry chain; populated only when
+    /// <see cref="Trigger"/> is <c>RETRY</c>, otherwise <c>null</c>.</summary>
+    public RunRetry? Retry { get; }
     /// <summary>The intended fire time for a scheduled run; <c>null</c> for manual / rerun runs.</summary>
     public DateTimeOffset? ScheduledFor { get; }
     /// <summary>Lifecycle state of the run.</summary>
@@ -517,6 +645,7 @@ public sealed class Run
         RunsClient? runs = null,
         int? jobVersion = null,
         string? rerunOf = null,
+        RunRetry? retry = null,
         DateTimeOffset? scheduledFor = null,
         DateTimeOffset? startedAt = null,
         DateTimeOffset? finishedAt = null,
@@ -537,6 +666,7 @@ public sealed class Run
         Status = status;
         JobVersion = jobVersion;
         RerunOf = rerunOf;
+        Retry = retry;
         ScheduledFor = scheduledFor;
         StartedAt = startedAt;
         FinishedAt = finishedAt;
@@ -599,4 +729,112 @@ public sealed class Usage
 
     /// <inheritdoc/>
     public override string ToString() => $"Usage(Period={Period}, RunsUsed={RunsUsed}/{RunsIncluded})";
+}
+
+/// <summary>
+/// A named, reusable retry policy. Mutate fields, then call <see cref="SaveAsync"/>.
+/// </summary>
+/// <remarks>Retry policies are account-global — never environment-scoped. Reference
+/// one from a job's retry policy via
+/// <see cref="Job.SetRetryPolicy(RetryPolicy, string)"/> or
+/// <see cref="JobsClient.NewRecurringJob"/>.</remarks>
+public sealed class RetryPolicy
+{
+    private readonly RetryPoliciesClient? _client;
+
+    /// <summary>Caller-supplied unique identifier for the policy (the resource
+    /// <c>id</c>). Unique within the account and immutable.</summary>
+    public string Id { get; internal set; }
+    /// <summary>Human-readable name for the policy.</summary>
+    public string Name { get; set; }
+    /// <summary>How many times a failed run is retried after the initial attempt —
+    /// <c>3</c> means up to 4 attempts total. <c>0</c> disables retries. Maximum 10.</summary>
+    public int MaxRetries { get; set; }
+    /// <summary>How the wait between retries grows (see <see cref="Backoff"/>).</summary>
+    public Backoff Backoff { get; set; }
+    /// <summary>The wait before a retry, in seconds — the constant wait for
+    /// <see cref="Backoff.Fixed"/>, or the base that doubles each retry for
+    /// <see cref="Backoff.Exponential"/>.</summary>
+    public int DelaySeconds { get; set; }
+    /// <summary>Ceiling on the wait between retries, for <see cref="Backoff.Exponential"/>
+    /// backoff only. <c>null</c> (the default) leaves it uncapped; omit it for
+    /// <see cref="Backoff.Fixed"/> backoff. Sent on writes only when set.</summary>
+    public int? MaxDelaySeconds { get; set; }
+    /// <summary>Which failures to retry (see <see cref="RetryOn"/>). Defaults to an
+    /// empty <see cref="RetryOn"/>, which retries nothing.</summary>
+    public RetryOn RetryOn { get; set; } = new RetryOn();
+    /// <summary>When the policy was created. <c>null</c> for an unsaved instance.</summary>
+    public DateTimeOffset? CreatedAt { get; internal set; }
+    /// <summary>When the policy was last modified.</summary>
+    public DateTimeOffset? UpdatedAt { get; internal set; }
+    /// <summary>When the policy was deleted; <c>null</c> for live policies.</summary>
+    public DateTimeOffset? DeletedAt { get; internal set; }
+    /// <summary>Monotonic version counter; bumped on every server-side write.</summary>
+    public int? Version { get; internal set; }
+
+    internal RetryPolicy(
+        RetryPoliciesClient? client,
+        string id,
+        string name,
+        int maxRetries,
+        Backoff backoff,
+        int delaySeconds,
+        int? maxDelaySeconds = null,
+        RetryOn? retryOn = null,
+        DateTimeOffset? createdAt = null,
+        DateTimeOffset? updatedAt = null,
+        DateTimeOffset? deletedAt = null,
+        int? version = null)
+    {
+        _client = client;
+        Id = id;
+        Name = name;
+        MaxRetries = maxRetries;
+        Backoff = backoff;
+        DelaySeconds = delaySeconds;
+        MaxDelaySeconds = maxDelaySeconds;
+        RetryOn = retryOn ?? new RetryOn();
+        CreatedAt = createdAt;
+        UpdatedAt = updatedAt;
+        DeletedAt = deletedAt;
+        Version = version;
+    }
+
+    /// <summary>Create this policy, or full-replace it if it already exists.</summary>
+    public async Task SaveAsync(CancellationToken ct = default)
+    {
+        if (_client is null)
+            throw new InvalidOperationException("RetryPolicy was constructed without a client; cannot save");
+        var other = CreatedAt is null
+            ? await _client.CreateAsync(this, ct).ConfigureAwait(false)
+            : await _client.UpdateAsync(this, ct).ConfigureAwait(false);
+        Apply(other);
+    }
+
+    /// <summary>Delete this policy.</summary>
+    public Task DeleteAsync(CancellationToken ct = default)
+    {
+        if (_client is null)
+            throw new InvalidOperationException("RetryPolicy was constructed without a client; cannot delete");
+        return _client.DeleteAsync(Id, ct);
+    }
+
+    /// <summary>Copy every server-authoritative field from <paramref name="other"/> onto self.</summary>
+    internal void Apply(RetryPolicy other)
+    {
+        Id = other.Id;
+        Name = other.Name;
+        MaxRetries = other.MaxRetries;
+        Backoff = other.Backoff;
+        DelaySeconds = other.DelaySeconds;
+        MaxDelaySeconds = other.MaxDelaySeconds;
+        RetryOn = other.RetryOn;
+        CreatedAt = other.CreatedAt;
+        UpdatedAt = other.UpdatedAt;
+        DeletedAt = other.DeletedAt;
+        Version = other.Version;
+    }
+
+    /// <inheritdoc/>
+    public override string ToString() => $"RetryPolicy(Id={Id}, Name={Name}, MaxRetries={MaxRetries})";
 }
