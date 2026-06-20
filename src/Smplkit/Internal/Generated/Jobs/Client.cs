@@ -1554,10 +1554,16 @@ namespace Smplkit.Internal.Generated.Jobs
         public string Type { get; set; } = "http";
 
         /// <summary>
-        /// The base schedule every environment inherits unless it overrides it, and the field that determines the job's `kind`. Omit it (or send `null`) to create a permanent **manual** job that never auto-fires and runs only when triggered. Provide a 5-field cron expression evaluated in **UTC** for a **recurring** job, an ISO-8601 datetime for a **one-off** run at that instant, or the literal `now` for a one-off run as soon as possible. A datetime or `now` job disables itself after it fires.
+        /// The base schedule every environment inherits unless it overrides it, and the field that determines the job's `kind`. Omit it (or send `null`) to create a permanent **manual** job that never auto-fires and runs only when triggered. Provide a 5-field cron expression evaluated in the job's `timezone` (UTC by default) for a **recurring** job, an ISO-8601 datetime for a **one-off** run at that instant, or the literal `now` for a one-off run as soon as possible. A datetime or `now` job disables itself after it fires.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("schedule")]
         public string? Schedule { get; set; } = default!;
+
+        /// <summary>
+        /// IANA timezone the cron `schedule` is evaluated in (e.g. `America/New_York`); null or omitted means UTC. The base every environment inherits unless it sets its own `timezone`. The cron fires on this zone's wall clock (DST-aware) while `next_run_at` is still reported as a UTC instant. Only valid on a recurring (cron) job — it cannot be set on a manual or one-off job.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("timezone")]
+        public string? Timezone { get; set; } = default!;
 
         /// <summary>
         /// The HTTP request to perform, including method, url, headers, body, and timeout.
@@ -1566,7 +1572,7 @@ namespace Smplkit.Internal.Generated.Jobs
         public JobHttpConfiguration Configuration { get; set; } = new JobHttpConfiguration();
 
         /// <summary>
-        /// Per-environment overrides keyed by environment key (e.g. `production`, `staging`). Each entry sets `enabled` (whether the job is enabled — scheduled, for a recurring job, or triggerable, for a manual job — in that environment), an optional `schedule` override (a cron expression for recurring jobs; omit to inherit the base `schedule`), and an optional `configuration` override (omit to inherit the base `configuration`); it also reports the read-only `next_run_at` for that environment. A job with no entry for an environment is disabled there. For a recurring or manual job, supply this map to choose where it runs. For a one-off job, the environment it is created in is recorded here automatically — name it with the `X-Smplkit-Environment` header. Every referenced environment must exist for the account.
+        /// Per-environment overrides keyed by environment key (e.g. `production`, `staging`). Each entry sets `enabled` (whether the job is enabled — scheduled, for a recurring job, or triggerable, for a manual job — in that environment), an optional `schedule` override (a cron expression for recurring jobs; omit to inherit the base `schedule`), an optional `timezone` override (an IANA zone for recurring jobs; omit to inherit the base `timezone`, else UTC), and an optional `configuration` override (omit to inherit the base `configuration`); it also reports the read-only `next_run_at` for that environment. A job with no entry for an environment is disabled there. For a recurring or manual job, supply this map to choose where it runs. For a one-off job, the environment it is created in is recorded here automatically — name it with the `X-Smplkit-Environment` header. Every referenced environment must exist for the account.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("environments")]
         public System.Collections.Generic.IDictionary<string, JobEnvironment> Environments { get; set; } = default!;
@@ -1684,10 +1690,16 @@ namespace Smplkit.Internal.Generated.Jobs
         public bool Enabled { get; set; } = false;
 
         /// <summary>
-        /// Per-environment schedule override. Omit to inherit the job's base `schedule`. When present, it must be a 5-field cron expression evaluated in **UTC** (e.g. `0 3 * * *`), and is only allowed on a recurring (cron) job — it varies the cadence within that environment. It cannot appear on a manual or one-off job, and cannot change a job's kind.
+        /// Per-environment schedule override. Omit to inherit the job's base `schedule`. When present, it must be a 5-field cron expression (e.g. `0 3 * * *`), evaluated in this environment's effective `timezone` (the per-environment override, else the base, else UTC), and is only allowed on a recurring (cron) job — it varies the cadence within that environment. It cannot appear on a manual or one-off job, and cannot change a job's kind.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("schedule")]
         public string? Schedule { get; set; } = default!;
+
+        /// <summary>
+        /// Per-environment timezone override for evaluating this environment's cron `schedule`. Omit to inherit the base `timezone` (else UTC). When present, it must be a valid IANA timezone key (e.g. `America/New_York`). Only valid on a recurring (cron) job; it may be set on an environment that inherits the base schedule (it need not also override `schedule`).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("timezone")]
+        public string? Timezone { get; set; } = default!;
 
         /// <summary>
         /// Per-environment HTTP request override. Omit to inherit the job's base `configuration`. When present, it fully replaces the base configuration for runs in this environment.
