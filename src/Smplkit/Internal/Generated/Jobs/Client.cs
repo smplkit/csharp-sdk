@@ -149,6 +149,84 @@ namespace Smplkit.Internal.Generated.Jobs
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
+        /// Create Retry Policy
+        /// </summary>
+        /// <remarks>
+        /// Create a retry policy for this account.
+        /// <br/>
+        /// <br/>The caller supplies the policy's id as `data.id`. Ids are unique within an
+        /// <br/>account and immutable. `Default` is reserved for the built-in policy and
+        /// <br/>cannot be created.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<RetryPolicyResponse> Create_retry_policyAsync(RetryPolicyCreateRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// List Retry Policies
+        /// </summary>
+        /// <remarks>
+        /// List this account's retry policies.
+        /// <br/>
+        /// <br/>Default sort is `name` ascending. Sort by `name`, `created_at`, or
+        /// <br/>`updated_at` (prefix `-` for descending). The built-in `Default` policy is
+        /// <br/>not included here — it always exists and is retrievable at
+        /// <br/>`/retry-policies/Default`.
+        /// </remarks>
+        /// <param name="filtername">Case-insensitive substring match on the policy `name` (matches when the name contains the given text).</param>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<RetryPolicyListResponse> List_retry_policiesAsync(string? filtername = null, Anonymous? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Get Retry Policy
+        /// </summary>
+        /// <remarks>
+        /// Retrieve a single retry policy by its id.
+        /// <br/>
+        /// <br/>`Default` returns the built-in do-not-retry policy.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<RetryPolicyResponse> Get_retry_policyAsync(string policy_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Update Retry Policy
+        /// </summary>
+        /// <remarks>
+        /// Replace an existing retry policy. Every writable field is overwritten.
+        /// <br/>
+        /// <br/>The built-in `Default` policy cannot be modified.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<RetryPolicyResponse> Update_retry_policyAsync(string policy_id, RetryPolicyRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Delete Retry Policy
+        /// </summary>
+        /// <remarks>
+        /// Delete a retry policy.
+        /// <br/>
+        /// <br/>The built-in `Default` policy cannot be deleted (`403`). A policy still
+        /// <br/>referenced by any job — at the base level or in a per-environment override —
+        /// <br/>cannot be deleted (`409`); the error lists the referencing job ids under
+        /// <br/>`meta.referencing_jobs` so they can be reassigned to `Default` first.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task Delete_retry_policyAsync(string policy_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
         /// List Runs
         /// </summary>
         /// <remarks>
@@ -166,6 +244,8 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <br/>
         /// <br/>- `filter[job]={id}` — a single job's run history.
         /// <br/>- `filter[status]` — one state or a comma-separated list (any-of).
+        /// <br/>- `filter[trigger]` — one trigger (`SCHEDULE`, `MANUAL`, `RERUN`, `RETRY`)
+        /// <br/>  or a comma-separated list of them (any-of).
         /// <br/>- `filter[environment]` — one environment key or a comma-separated list
         /// <br/>  (any-of); omitted covers every environment you can access.
         /// <br/>- `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
@@ -182,6 +262,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// </remarks>
         /// <param name="filterstatus">Restrict to runs in the given lifecycle state. One of `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`, `CANCELED`, or a comma-separated list of them to match any (e.g. `SUCCEEDED,FAILED`).</param>
         /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results cover every environment you can access.</param>
+        /// <param name="filtertrigger">Restrict to runs with the given trigger. One of `SCHEDULE`, `MANUAL`, `RERUN`, `RETRY`, or a comma-separated list of them to match any (e.g. `SCHEDULE,RETRY` to see a job's automatic runs).</param>
         /// <param name="filtercreated_at">Restrict to runs whose `created_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
         /// <param name="filterstarted_at">Restrict to runs whose `started_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
         /// <param name="filterfinished_at">Restrict to runs whose `finished_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
@@ -191,7 +272,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `finished_at`, `-finished_at`, `job`, `-job`, `scheduled_for`, `-scheduled_for`, `started_at`, `-started_at`, `status`, `-status`, `total_duration_ms`, `-total_duration_ms`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<RunListResponse> List_runsAsync(string? filterjob = null, string? filterstatus = null, string? filterenvironment = null, string? filtercreated_at = null, string? filterstarted_at = null, string? filterfinished_at = null, string? filterscheduled_for = null, bool? last_run_only = null, int? pagesize = null, string? pageafter = null, Anonymous? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<RunListResponse> List_runsAsync(string? filterjob = null, string? filterstatus = null, string? filterenvironment = null, string? filtertrigger = null, string? filtercreated_at = null, string? filterstarted_at = null, string? filterfinished_at = null, string? filterscheduled_for = null, bool? last_run_only = null, int? pagesize = null, string? pageafter = null, Anonymous2? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -877,6 +958,456 @@ namespace Smplkit.Internal.Generated.Jobs
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
+        /// Create Retry Policy
+        /// </summary>
+        /// <remarks>
+        /// Create a retry policy for this account.
+        /// <br/>
+        /// <br/>The caller supplies the policy's id as `data.id`. Ids are unique within an
+        /// <br/>account and immutable. `Default` is reserved for the built-in policy and
+        /// <br/>cannot be created.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<RetryPolicyResponse> Create_retry_policyAsync(RetryPolicyCreateRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        {
+            if (body == null)
+                throw new System.ArgumentNullException("body");
+
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/vnd.api+json");
+                    request_.Content = content_;
+                    request_.Method = new System.Net.Http.HttpMethod("POST");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
+                    // Operation Path: "api/v1/retry-policies"
+                    urlBuilder_.Append("api/v1/retry-policies");
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 201)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RetryPolicyResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// List Retry Policies
+        /// </summary>
+        /// <remarks>
+        /// List this account's retry policies.
+        /// <br/>
+        /// <br/>Default sort is `name` ascending. Sort by `name`, `created_at`, or
+        /// <br/>`updated_at` (prefix `-` for descending). The built-in `Default` policy is
+        /// <br/>not included here — it always exists and is retrievable at
+        /// <br/>`/retry-policies/Default`.
+        /// </remarks>
+        /// <param name="filtername">Case-insensitive substring match on the policy `name` (matches when the name contains the given text).</param>
+        /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
+        /// <param name="pagenumber">1-based page number to return. Optional; defaults to `1` when omitted. Must be `&gt;= 1` — requests with a smaller value are rejected with a 400 error.</param>
+        /// <param name="pagesize">Number of items per page. Optional; defaults to `1000` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
+        /// <param name="metatotal">When `true`, the response's `meta.pagination` block includes `total` (the total number of matching items across all pages) and `total_pages`. Computing these requires an extra `COUNT` query, so omit (or pass `false`) when the totals are not needed. Defaults to `false`.</param>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<RetryPolicyListResponse> List_retry_policiesAsync(string? filtername = null, Anonymous? sort = null, int? pagenumber = null, int? pagesize = null, bool? metatotal = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        {
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    request_.Method = new System.Net.Http.HttpMethod("GET");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
+                    // Operation Path: "api/v1/retry-policies"
+                    urlBuilder_.Append("api/v1/retry-policies");
+                    urlBuilder_.Append('?');
+                    if (filtername != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[name]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtername, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (sort != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("sort")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(sort, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagenumber != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[number]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagenumber, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (pagesize != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("page[size]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(pagesize, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (metatotal != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("meta[total]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(metatotal, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    urlBuilder_.Length--;
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RetryPolicyListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Get Retry Policy
+        /// </summary>
+        /// <remarks>
+        /// Retrieve a single retry policy by its id.
+        /// <br/>
+        /// <br/>`Default` returns the built-in do-not-retry policy.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<RetryPolicyResponse> Get_retry_policyAsync(string policy_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        {
+            if (policy_id == null)
+                throw new System.ArgumentNullException("policy_id");
+
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    request_.Method = new System.Net.Http.HttpMethod("GET");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
+                    // Operation Path: "api/v1/retry-policies/{policy_id}"
+                    urlBuilder_.Append("api/v1/retry-policies/");
+                    urlBuilder_.Append(System.Uri.EscapeDataString(ConvertToString(policy_id, System.Globalization.CultureInfo.InvariantCulture)));
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RetryPolicyResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Update Retry Policy
+        /// </summary>
+        /// <remarks>
+        /// Replace an existing retry policy. Every writable field is overwritten.
+        /// <br/>
+        /// <br/>The built-in `Default` policy cannot be modified.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<RetryPolicyResponse> Update_retry_policyAsync(string policy_id, RetryPolicyRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        {
+            if (policy_id == null)
+                throw new System.ArgumentNullException("policy_id");
+
+            if (body == null)
+                throw new System.ArgumentNullException("body");
+
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/vnd.api+json");
+                    request_.Content = content_;
+                    request_.Method = new System.Net.Http.HttpMethod("PUT");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
+                    // Operation Path: "api/v1/retry-policies/{policy_id}"
+                    urlBuilder_.Append("api/v1/retry-policies/");
+                    urlBuilder_.Append(System.Uri.EscapeDataString(ConvertToString(policy_id, System.Globalization.CultureInfo.InvariantCulture)));
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RetryPolicyResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Delete Retry Policy
+        /// </summary>
+        /// <remarks>
+        /// Delete a retry policy.
+        /// <br/>
+        /// <br/>The built-in `Default` policy cannot be deleted (`403`). A policy still
+        /// <br/>referenced by any job — at the base level or in a per-environment override —
+        /// <br/>cannot be deleted (`409`); the error lists the referencing job ids under
+        /// <br/>`meta.referencing_jobs` so they can be reassigned to `Default` first.
+        /// </remarks>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task Delete_retry_policyAsync(string policy_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        {
+            if (policy_id == null)
+                throw new System.ArgumentNullException("policy_id");
+
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    request_.Method = new System.Net.Http.HttpMethod("DELETE");
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
+                    // Operation Path: "api/v1/retry-policies/{policy_id}"
+                    urlBuilder_.Append("api/v1/retry-policies/");
+                    urlBuilder_.Append(System.Uri.EscapeDataString(ConvertToString(policy_id, System.Globalization.CultureInfo.InvariantCulture)));
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 204)
+                        {
+                            return;
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
         /// List Runs
         /// </summary>
         /// <remarks>
@@ -894,6 +1425,8 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <br/>
         /// <br/>- `filter[job]={id}` — a single job's run history.
         /// <br/>- `filter[status]` — one state or a comma-separated list (any-of).
+        /// <br/>- `filter[trigger]` — one trigger (`SCHEDULE`, `MANUAL`, `RERUN`, `RETRY`)
+        /// <br/>  or a comma-separated list of them (any-of).
         /// <br/>- `filter[environment]` — one environment key or a comma-separated list
         /// <br/>  (any-of); omitted covers every environment you can access.
         /// <br/>- `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
@@ -910,6 +1443,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// </remarks>
         /// <param name="filterstatus">Restrict to runs in the given lifecycle state. One of `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`, `CANCELED`, or a comma-separated list of them to match any (e.g. `SUCCEEDED,FAILED`).</param>
         /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results cover every environment you can access.</param>
+        /// <param name="filtertrigger">Restrict to runs with the given trigger. One of `SCHEDULE`, `MANUAL`, `RERUN`, `RETRY`, or a comma-separated list of them to match any (e.g. `SCHEDULE,RETRY` to see a job's automatic runs).</param>
         /// <param name="filtercreated_at">Restrict to runs whose `created_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
         /// <param name="filterstarted_at">Restrict to runs whose `started_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
         /// <param name="filterfinished_at">Restrict to runs whose `finished_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
@@ -919,7 +1453,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `finished_at`, `-finished_at`, `job`, `-job`, `scheduled_for`, `-scheduled_for`, `started_at`, `-started_at`, `status`, `-status`, `total_duration_ms`, `-total_duration_ms`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<RunListResponse> List_runsAsync(string? filterjob = null, string? filterstatus = null, string? filterenvironment = null, string? filtercreated_at = null, string? filterstarted_at = null, string? filterfinished_at = null, string? filterscheduled_for = null, bool? last_run_only = null, int? pagesize = null, string? pageafter = null, Anonymous? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<RunListResponse> List_runsAsync(string? filterjob = null, string? filterstatus = null, string? filterenvironment = null, string? filtertrigger = null, string? filtercreated_at = null, string? filterstarted_at = null, string? filterfinished_at = null, string? filterscheduled_for = null, bool? last_run_only = null, int? pagesize = null, string? pageafter = null, Anonymous2? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -946,6 +1480,10 @@ namespace Smplkit.Internal.Generated.Jobs
                     if (filterenvironment != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[environment]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterenvironment, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filtertrigger != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[trigger]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtertrigger, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     if (filtercreated_at != null)
                     {
@@ -1606,6 +2144,12 @@ namespace Smplkit.Internal.Generated.Jobs
         public string Concurrency_policy { get; set; } = "ALLOW";
 
         /// <summary>
+        /// The base retry policy for failed runs — the `id` of a retry policy (or the built-in `Default`), overridable per environment. Omit (or send `null`) to use `Default`, which never retries — so a job that sets nothing behaves exactly as before retries existed.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("retry_policy")]
+        public string? Retry_policy { get; set; } = default!;
+
+        /// <summary>
         /// How the job runs, derived from its base `schedule`: `recurring` for a cron schedule (fires on a repeating cadence), `manual` for no schedule (never auto-fires; runs only when triggered), or `one_off` for a `now` or datetime schedule (runs a single time, then is spent).
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("kind")]
@@ -1728,6 +2272,12 @@ namespace Smplkit.Internal.Generated.Jobs
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("configuration")]
         public JobHttpConfiguration? Configuration { get; set; } = default!;
+
+        /// <summary>
+        /// Per-environment retry-policy override — the `id` of a retry policy (or `Default`). Omit to inherit the job's base `retry_policy`. When present, runs in this environment retry according to this policy instead of the base.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("retry_policy")]
+        public string? Retry_policy { get; set; } = default!;
 
         /// <summary>
         /// The next scheduled fire time in this environment. `null` when the environment is not enabled, or once a one-off run has fired.
@@ -1969,6 +2519,257 @@ namespace Smplkit.Internal.Generated.Jobs
     }
 
     /// <summary>
+    /// Which failures a policy retries. An empty policy (both lists empty or
+    /// <br/>absent) retries nothing.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RetryOn
+    {
+
+        /// <summary>
+        /// Response status codes that should be retried when a run fails because the response did not match the job's success status (for example `[429, 503]` to retry on rate-limit and unavailable). Each is a 3-digit HTTP status code. Empty matches no status.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("statuses")]
+        public System.Collections.Generic.List<int> Statuses { get; set; } = default!;
+
+        /// <summary>
+        /// Failure reasons that should be retried: `TIMEOUT` (the run did not complete in time), `CONNECTION_ERROR` (the endpoint could not be reached), or `NON_SUCCESS_STATUS` (any non-success response, regardless of `statuses`). Empty matches no reason.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("reasons")]
+        // TODO(system.text.json): Add ItemConverterType with enum converter when supported
+        public System.Collections.Generic.List<Reasons> Reasons { get; set; } = default!;
+
+    }
+
+    /// <summary>
+    /// A named, reusable automatic-retry policy.
+    /// <br/>
+    /// <br/>A policy decides whether and how a failed run is retried. Reference it from
+    /// <br/>a job's `retry_policy` (and optionally override it per environment). A job
+    /// <br/>that references nothing uses the built-in `Default` policy, which never
+    /// <br/>retries.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RetryPolicy
+    {
+
+        /// <summary>
+        /// Human-readable name for the policy.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string Name { get; set; } = default!;
+
+        /// <summary>
+        /// How many times a failed run is retried, after the initial attempt — so `max_retries` of 3 means up to 4 attempts in total. `0` disables retries. Maximum 10.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("max_retries")]
+        public int Max_retries { get; set; } = default!;
+
+        /// <summary>
+        /// How the wait between retries grows. `fixed` waits `delay_seconds` before every retry. `exponential` doubles the wait each time — `delay_seconds`, then `2×`, `4×`, … — capped at `max_delay_seconds`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("backoff")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<RetryPolicyBackoff>))]
+        public RetryPolicyBackoff Backoff { get; set; } = default!;
+
+        /// <summary>
+        /// The wait before a retry, in seconds. For `fixed` backoff it is the constant wait before every retry; for `exponential` it is the base wait that doubles each retry.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("delay_seconds")]
+        public int Delay_seconds { get; set; } = default!;
+
+        /// <summary>
+        /// The ceiling on the wait between retries, in seconds, for `exponential` backoff — once the doubling reaches it, every subsequent retry waits this long. Only valid with `exponential` backoff; omit it for `fixed`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("max_delay_seconds")]
+        public int? Max_delay_seconds { get; set; } = default!;
+
+        /// <summary>
+        /// Which failures are retried. A run is retried only when its failure matches this set; an empty set retries nothing. Some failures are never retried regardless of this value.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("retry_on")]
+        public RetryOn Retry_on { get; set; } = default!;
+
+        /// <summary>
+        /// When the policy was created.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("created_at")]
+        public System.DateTimeOffset? Created_at { get; set; } = default!;
+
+        /// <summary>
+        /// When the policy was last modified.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("updated_at")]
+        public System.DateTimeOffset? Updated_at { get; set; } = default!;
+
+        /// <summary>
+        /// When the policy was deleted. `null` for active policies.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("deleted_at")]
+        public System.DateTimeOffset? Deleted_at { get; set; } = default!;
+
+        /// <summary>
+        /// Monotonic counter incremented on every update, starting at 1.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("version")]
+        public int? Version { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API request envelope for creating a retry policy (caller-supplied `data.id`).
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RetryPolicyCreateRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public RetryPolicyCreateResource Data { get; set; } = new RetryPolicyCreateResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API resource envelope for creating a retry policy (id required).
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RetryPolicyCreateResource
+    {
+
+        /// <summary>
+        /// Client-supplied resource id.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string Id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        public string Type { get; set; } = "retry_policy";
+
+        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
+        public RetryPolicy Attributes { get; set; } = new RetryPolicy();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API collection response for retry policies.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RetryPolicyListResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public System.Collections.Generic.List<RetryPolicyResource> Data { get; set; } = new System.Collections.Generic.List<RetryPolicyResource>();
+
+        [System.Text.Json.Serialization.JsonPropertyName("meta")]
+        public ListMeta Meta { get; set; } = new ListMeta();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API request envelope for updating a retry policy.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RetryPolicyRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public RetryPolicyResource Data { get; set; } = new RetryPolicyResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API resource envelope for a retry policy. The caller supplies `id` on create.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RetryPolicyResource
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string? Id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        public string Type { get; set; } = "retry_policy";
+
+        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
+        public RetryPolicy Attributes { get; set; } = new RetryPolicy();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API single-resource response for a retry policy.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RetryPolicyResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public RetryPolicyResource Data { get; set; } = new RetryPolicyResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
     /// One occurrence of a job executing.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -1994,7 +2795,7 @@ namespace Smplkit.Internal.Generated.Jobs
         public string Environment { get; set; } = default!;
 
         /// <summary>
-        /// Why the run exists: `SCHEDULE`, `MANUAL` (Run now), or `RERUN`.
+        /// Why the run exists: `SCHEDULE`, `MANUAL` (Run now), `RERUN`, or `RETRY` (an automatic retry of a failed run).
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("trigger")]
         [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<RunTrigger>))]
@@ -2005,6 +2806,12 @@ namespace Smplkit.Internal.Generated.Jobs
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("rerun_of")]
         public System.Guid? Rerun_of { get; set; } = default!;
+
+        /// <summary>
+        /// Retry-chain position, present only when `trigger` is `RETRY`: the id of the original run the chain retries (`of`) and this run's `attempt` number.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("retry")]
+        public RunRetry? Retry { get; set; } = default!;
 
         /// <summary>
         /// The intended fire time for a scheduled run; `null` for manual / rerun runs.
@@ -2113,7 +2920,7 @@ namespace Smplkit.Internal.Generated.Jobs
     }
 
     /// <summary>
-    /// Cursor-pagination meta for the runs list (ADR-014 high-cardinality exception).
+    /// Cursor-pagination meta for the runs list.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class RunListMeta
@@ -2199,6 +3006,36 @@ namespace Smplkit.Internal.Generated.Jobs
 
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public RunResource Data { get; set; } = new RunResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Where a `RETRY` run sits in its retry chain.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RunRetry
+    {
+
+        /// <summary>
+        /// The id of the chain's original run — the first attempt that failed and started the chain.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("of")]
+        public System.Guid Of { get; set; } = default!;
+
+        /// <summary>
+        /// Which retry this run is: `1` for the first retry, `2` for the second, and so on.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("attempt")]
+        public int Attempt { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -2335,10 +3172,37 @@ namespace Smplkit.Internal.Generated.Jobs
     }
 
     /// <summary>
-    /// Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `finished_at`, `-finished_at`, `job`, `-job`, `scheduled_for`, `-scheduled_for`, `started_at`, `-started_at`, `status`, `-status`, `total_duration_ms`, `-total_duration_ms`.
+    /// Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `name`, `-name`, `updated_at`, `-updated_at`.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public enum Anonymous
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
+        Created_at = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-created_at")]
+        Minuscreated_at = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"name")]
+        Name = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-name")]
+        Minusname = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"updated_at")]
+        Updated_at = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"-updated_at")]
+        Minusupdated_at = 5,
+
+    }
+
+    /// <summary>
+    /// Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `finished_at`, `-finished_at`, `job`, `-job`, `scheduled_for`, `-scheduled_for`, `started_at`, `-started_at`, `status`, `-status`, `total_duration_ms`, `-total_duration_ms`.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Anonymous2
     {
 
         [System.Runtime.Serialization.EnumMember(Value = @"created_at")]
@@ -2422,6 +3286,33 @@ namespace Smplkit.Internal.Generated.Jobs
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Reasons
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"TIMEOUT")]
+        TIMEOUT = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"CONNECTION_ERROR")]
+        CONNECTION_ERROR = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"NON_SUCCESS_STATUS")]
+        NON_SUCCESS_STATUS = 2,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum RetryPolicyBackoff
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"fixed")]
+        Fixed = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"exponential")]
+        Exponential = 1,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public enum RunTrigger
     {
 
@@ -2433,6 +3324,9 @@ namespace Smplkit.Internal.Generated.Jobs
 
         [System.Runtime.Serialization.EnumMember(Value = @"RERUN")]
         RERUN = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"RETRY")]
+        RETRY = 3,
 
     }
 
