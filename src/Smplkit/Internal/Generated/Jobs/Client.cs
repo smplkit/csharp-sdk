@@ -171,6 +171,14 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <br/>- `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
         /// <br/>  `filter[scheduled_for]` — half-open `[start,end)` date ranges (see each
         /// <br/>  parameter for the interval syntax).
+        /// <br/>
+        /// <br/>Set `last_run_only=true` to collapse the result to the last completed run
+        /// <br/>for each job-and-environment combination. "Completed" means a terminal state
+        /// <br/>— succeeded, failed, or canceled; in-flight runs (pending or running) are
+        /// <br/>not included, so a job that is mid-run still surfaces its previous completed
+        /// <br/>result and a combination with no completed run yet returns nothing. The
+        /// <br/>filters above still apply, evaluated before the collapse, so each row is the
+        /// <br/>most recent completed run in its group that also satisfies them.
         /// </remarks>
         /// <param name="filterstatus">Restrict to runs in the given lifecycle state. One of `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`, `CANCELED`, or a comma-separated list of them to match any (e.g. `SUCCEEDED,FAILED`).</param>
         /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results cover every environment you can access.</param>
@@ -178,11 +186,12 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <param name="filterstarted_at">Restrict to runs whose `started_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
         /// <param name="filterfinished_at">Restrict to runs whose `finished_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
         /// <param name="filterscheduled_for">Restrict to runs whose `scheduled_for` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
+        /// <param name="last_run_only">Return only the last completed run for each job-and-environment combination. "Completed" means a terminal state — succeeded, failed, or canceled; runs still in flight (pending or running) are not included, so a job that is currently running still shows its previous completed result. The other filters and date ranges apply first, then the results collapse, so each row is the most recent completed run in its group that also matches them. Defaults to `false`.</param>
         /// <param name="pagesize">Number of runs per page. Optional; defaults to `50` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `finished_at`, `-finished_at`, `job`, `-job`, `scheduled_for`, `-scheduled_for`, `started_at`, `-started_at`, `status`, `-status`, `total_duration_ms`, `-total_duration_ms`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<RunListResponse> List_runsAsync(string? filterjob = null, string? filterstatus = null, string? filterenvironment = null, string? filtercreated_at = null, string? filterstarted_at = null, string? filterfinished_at = null, string? filterscheduled_for = null, int? pagesize = null, string? pageafter = null, Anonymous? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<RunListResponse> List_runsAsync(string? filterjob = null, string? filterstatus = null, string? filterenvironment = null, string? filtercreated_at = null, string? filterstarted_at = null, string? filterfinished_at = null, string? filterscheduled_for = null, bool? last_run_only = null, int? pagesize = null, string? pageafter = null, Anonymous? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -890,6 +899,14 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <br/>- `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
         /// <br/>  `filter[scheduled_for]` — half-open `[start,end)` date ranges (see each
         /// <br/>  parameter for the interval syntax).
+        /// <br/>
+        /// <br/>Set `last_run_only=true` to collapse the result to the last completed run
+        /// <br/>for each job-and-environment combination. "Completed" means a terminal state
+        /// <br/>— succeeded, failed, or canceled; in-flight runs (pending or running) are
+        /// <br/>not included, so a job that is mid-run still surfaces its previous completed
+        /// <br/>result and a combination with no completed run yet returns nothing. The
+        /// <br/>filters above still apply, evaluated before the collapse, so each row is the
+        /// <br/>most recent completed run in its group that also satisfies them.
         /// </remarks>
         /// <param name="filterstatus">Restrict to runs in the given lifecycle state. One of `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`, `CANCELED`, or a comma-separated list of them to match any (e.g. `SUCCEEDED,FAILED`).</param>
         /// <param name="filterenvironment">Comma-separated list of environment keys to scope results to (e.g. `production,staging`). When omitted, results cover every environment you can access.</param>
@@ -897,11 +914,12 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <param name="filterstarted_at">Restrict to runs whose `started_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
         /// <param name="filterfinished_at">Restrict to runs whose `finished_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
         /// <param name="filterscheduled_for">Restrict to runs whose `scheduled_for` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,2026-06-08T00:00:00Z)` selects the first week of June; `[2026-06-01T00:00:00Z,*)` is everything from then onward.</param>
+        /// <param name="last_run_only">Return only the last completed run for each job-and-environment combination. "Completed" means a terminal state — succeeded, failed, or canceled; runs still in flight (pending or running) are not included, so a job that is currently running still shows its previous completed result. The other filters and date ranges apply first, then the results collapse, so each row is the most recent completed run in its group that also matches them. Defaults to `false`.</param>
         /// <param name="pagesize">Number of runs per page. Optional; defaults to `50` when omitted. Must be between `1` and `1000` inclusive — requests outside that range are rejected with a 400 error.</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `finished_at`, `-finished_at`, `job`, `-job`, `scheduled_for`, `-scheduled_for`, `started_at`, `-started_at`, `status`, `-status`, `total_duration_ms`, `-total_duration_ms`.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<RunListResponse> List_runsAsync(string? filterjob = null, string? filterstatus = null, string? filterenvironment = null, string? filtercreated_at = null, string? filterstarted_at = null, string? filterfinished_at = null, string? filterscheduled_for = null, int? pagesize = null, string? pageafter = null, Anonymous? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<RunListResponse> List_runsAsync(string? filterjob = null, string? filterstatus = null, string? filterenvironment = null, string? filtercreated_at = null, string? filterstarted_at = null, string? filterfinished_at = null, string? filterscheduled_for = null, bool? last_run_only = null, int? pagesize = null, string? pageafter = null, Anonymous? sort = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -944,6 +962,10 @@ namespace Smplkit.Internal.Generated.Jobs
                     if (filterscheduled_for != null)
                     {
                         urlBuilder_.Append(System.Uri.EscapeDataString("filter[scheduled_for]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterscheduled_for, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (last_run_only != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("last_run_only")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(last_run_only, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     if (pagesize != null)
                     {
