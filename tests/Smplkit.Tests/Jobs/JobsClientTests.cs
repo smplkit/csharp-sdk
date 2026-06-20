@@ -33,6 +33,7 @@ public class JobsClientTests
     // per-environment configuration override (and no schedule / next_run_at).
     private const string EnvsJson =
         "{\"production\":{\"enabled\":true,\"schedule\":\"0 3 * * *\","
+        + "\"timezone\":\"Europe/London\","
         + "\"next_run_at\":\"2026-06-19T03:00:00Z\"},"
         + "\"development\":{\"enabled\":false,\"configuration\":{\"method\":\"POST\","
         + "\"url\":\"https://dev.example.com/hook\",\"headers\":[],\"body\":null,"
@@ -70,6 +71,7 @@ public class JobsClientTests
             + "\"name\":\"" + name + "\",\"description\":\"does a thing\","
             + "\"type\":\"http\","
             + "\"schedule\":\"0 * * * *\","
+            + "\"timezone\":\"America/New_York\","
             + "\"configuration\":{\"method\":\"POST\",\"url\":\"https://api.example.com/hook\","
             + "\"headers\":[{\"name\":\"X-Api-Key\",\"value\":\"secret\"}],"
             + "\"body\":\"{}\",\"success_status\":\"2xx\",\"timeout\":30,"
@@ -411,6 +413,43 @@ public class JobsClientTests
     }
 
     [Fact]
+    public void SetTimezone_Base_ReplacesBaseTimezone()
+    {
+        var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        job.SetTimezone("America/New_York");
+        Assert.Equal("America/New_York", job.Timezone);
+        Assert.Empty(job.Environments);
+    }
+
+    [Fact]
+    public void SetTimezone_PerEnvironment_SetsOverrideAndPreservesBase()
+    {
+        var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        job.SetTimezone("America/Chicago");
+        job.SetTimezone("Europe/London", environment: "production");
+        // Base timezone is untouched; the override lands on the environment entry.
+        Assert.Equal("America/Chicago", job.Timezone);
+        Assert.Equal("Europe/London", job.Environments["production"].Timezone);
+        // The override entry is created on demand, defaulting disabled.
+        Assert.False(job.Environments["production"].Enabled);
+    }
+
+    [Fact]
+    public void SetTimezone_PerEnvironment_ReusesExistingOverride()
+    {
+        var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        // Set a per-env schedule first, then a timezone — the same override entry is
+        // reused so the existing schedule survives.
+        job.SetSchedule("0 3 * * *", environment: "production");
+        job.SetTimezone("Europe/London", environment: "production");
+        Assert.Equal("0 3 * * *", job.Environments["production"].Schedule);
+        Assert.Equal("Europe/London", job.Environments["production"].Timezone);
+    }
+
+    [Fact]
     public async Task Get_ParsesEnvironments_WithAndWithoutOverride()
     {
         var job = await MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
@@ -429,6 +468,9 @@ public class JobsClientTests
         Assert.Null(job.Environments["production"].Configuration);
         Assert.Equal("https://api.example.com/hook", job.GetConfiguration(environment: "production").Url);
         Assert.Equal("0 3 * * *", job.Environments["production"].Schedule);
+        // Base + per-environment timezone decode from the wire.
+        Assert.Equal("America/New_York", job.Timezone);
+        Assert.Equal("Europe/London", job.Environments["production"].Timezone);
         Assert.Equal(
             DateTimeOffset.Parse("2026-06-19T03:00:00Z", System.Globalization.CultureInfo.InvariantCulture),
             job.Environments["production"].NextRunAt);
@@ -438,6 +480,7 @@ public class JobsClientTests
         Assert.NotNull(job.Environments["development"].Configuration);
         Assert.Equal("https://dev.example.com/hook", job.GetConfiguration(environment: "development").Url);
         Assert.Null(job.Environments["development"].Schedule);
+        Assert.Null(job.Environments["development"].Timezone);
         Assert.Null(job.Environments["development"].NextRunAt);
 
         // base + unknown environment fall back to the base configuration.
@@ -466,6 +509,8 @@ public class JobsClientTests
         job.SetEnabled(false, environment: "development");
         job.SetEnabled(true, environment: "production");
         job.SetSchedule("0 3 * * *", environment: "production");
+        job.SetTimezone("America/New_York");                     // base timezone
+        job.SetTimezone("Europe/London", environment: "production"); // per-env override
         await job.SaveAsync();
 
         using var doc = JsonDocument.Parse(capturedBody!);
@@ -474,6 +519,8 @@ public class JobsClientTests
         Assert.False(attrs.TryGetProperty("enabled", out _));
         Assert.False(attrs.TryGetProperty("kind", out _));
         Assert.False(attrs.TryGetProperty("version", out _));
+        // The base timezone is sent when set.
+        Assert.Equal("America/New_York", attrs.GetProperty("timezone").GetString());
         // environments map is emitted; each entry carries its own enabled flag.
         var envs = attrs.GetProperty("environments");
         Assert.True(envs.GetProperty("production").GetProperty("enabled").GetBoolean());
@@ -486,6 +533,10 @@ public class JobsClientTests
         // override) and the read-only next_run_at are omitted on every entry.
         Assert.Equal("0 3 * * *", envs.GetProperty("production").GetProperty("schedule").GetString());
         Assert.False(envs.GetProperty("development").TryGetProperty("schedule", out _));
+        // A per-environment timezone override is sent when set; development (no
+        // override) omits it.
+        Assert.Equal("Europe/London", envs.GetProperty("production").GetProperty("timezone").GetString());
+        Assert.False(envs.GetProperty("development").TryGetProperty("timezone", out _));
         Assert.False(envs.GetProperty("production").TryGetProperty("next_run_at", out _));
         Assert.False(envs.GetProperty("development").TryGetProperty("next_run_at", out _));
     }
@@ -1195,6 +1246,7 @@ public class JobsClientTests
                 null,           // kind
                 "http",         // type
                 "ALLOW",        // concurrencyPolicy
+                null,           // timezone
                 null,           // createdAt
                 null,           // updatedAt
                 null,           // deletedAt

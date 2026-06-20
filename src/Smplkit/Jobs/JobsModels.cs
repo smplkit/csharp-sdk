@@ -139,6 +139,15 @@ public sealed class JobEnvironment
     /// turn a one-off job recurring or vice-versa.</summary>
     public string? Schedule { get; set; }
 
+    /// <summary>Optional per-environment IANA timezone override for evaluating this
+    /// environment's cron <see cref="Schedule"/> (recurring jobs only).
+    /// <c>null</c> (the default) inherits the job's base <see cref="Job.Timezone"/>,
+    /// else UTC. When set, it must be a valid IANA zone key (e.g.
+    /// <c>"America/New_York"</c>); it may be set on an environment that inherits the
+    /// base schedule (it need not also override <see cref="Schedule"/>). Sent on
+    /// writes only when non-<c>null</c>.</summary>
+    public string? Timezone { get; set; }
+
     /// <summary>Optional per-environment request configuration that fully replaces
     /// the job's base <see cref="Job.Configuration"/> for this environment.
     /// <c>null</c> (the default) inherits the base configuration. As with the base
@@ -192,6 +201,14 @@ public sealed class Job
     /// datetime or <c>"now"</c> job disables itself after it fires. Set it with
     /// <see cref="SetSchedule"/>.</summary>
     public string? Schedule { get; set; }
+    /// <summary>The base IANA timezone the cron <see cref="Schedule"/> is evaluated in
+    /// (e.g. <c>"America/New_York"</c>); <c>null</c> means UTC. The base every
+    /// environment inherits unless it sets its own <see cref="JobEnvironment.Timezone"/>.
+    /// The cron fires on this zone's wall clock (DST-aware) while the per-environment
+    /// next-run time is still reported as a UTC instant. Only valid on a recurring
+    /// (cron) job — <c>null</c> for a manual or one-off job. Set it with
+    /// <see cref="SetTimezone"/>. Sent on writes only when non-<c>null</c>.</summary>
+    public string? Timezone { get; set; }
     /// <summary>The base HTTP request to perform when the job fires. A
     /// per-environment override in <see cref="Environments"/> replaces this for
     /// that environment.</summary>
@@ -224,6 +241,7 @@ public sealed class Job
         JobKind? kind = null,
         string type = "http",
         string concurrencyPolicy = "ALLOW",
+        string? timezone = null,
         DateTimeOffset? createdAt = null,
         DateTimeOffset? updatedAt = null,
         DateTimeOffset? deletedAt = null,
@@ -233,6 +251,7 @@ public sealed class Job
         Id = id;
         Name = name;
         Schedule = schedule;
+        Timezone = timezone;
         Configuration = configuration;
         Description = description;
         Environments = environments ?? new Dictionary<string, JobEnvironment>();
@@ -392,6 +411,26 @@ public sealed class Job
             EnvironmentOverride(environment).Schedule = schedule;
     }
 
+    /// <summary>Set the IANA timezone the cron schedule is evaluated in, in memory —
+    /// base (<paramref name="environment"/> omitted) or per-environment. Call
+    /// <see cref="SaveAsync"/> to persist.
+    ///
+    /// <para>The base timezone is the zone every environment inherits unless it sets
+    /// its own. A per-environment override applies to that environment only; it may
+    /// be set even when the environment inherits the base schedule (it need not also
+    /// override <see cref="SetSchedule"/>). A timezone is only valid on a recurring
+    /// (cron) job.</para></summary>
+    /// <param name="timezone">The IANA zone key (e.g. <c>"America/New_York"</c>).</param>
+    /// <param name="environment">Environment key to scope the change to. Omit to set
+    /// the base timezone that all environments inherit.</param>
+    public void SetTimezone(string timezone, string? environment = null)
+    {
+        if (environment is null)
+            Timezone = timezone;
+        else
+            EnvironmentOverride(environment).Timezone = timezone;
+    }
+
     /// <summary>Copy every server-authoritative field from <paramref name="other"/> onto self.</summary>
     internal void Apply(Job other)
     {
@@ -403,6 +442,7 @@ public sealed class Job
         Kind = other.Kind;
         Type = other.Type;
         Schedule = other.Schedule;
+        Timezone = other.Timezone;
         Configuration = other.Configuration;
         ConcurrencyPolicy = other.ConcurrencyPolicy;
         CreatedAt = other.CreatedAt;

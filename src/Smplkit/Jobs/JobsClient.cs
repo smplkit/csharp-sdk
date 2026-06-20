@@ -448,6 +448,10 @@ public sealed class JobsClient : IDisposable
             Description = src.Description,
             Type = src.Type,
             Schedule = src.Schedule,
+            // Base IANA timezone for the cron schedule (recurring jobs only); sent
+            // only when set (omitted by the jobs serializer when null, leaving the
+            // server default of UTC).
+            Timezone = src.Timezone,
             Configuration = ToGenConfiguration(src.Configuration),
             Concurrency_policy = src.ConcurrencyPolicy,
         };
@@ -465,6 +469,9 @@ public sealed class JobsClient : IDisposable
                     // Per-environment cron override; sent only when set (omitted by
                     // the jobs serializer when null, inheriting the base schedule).
                     Schedule = kv.Value.Schedule,
+                    // Per-environment timezone override; sent only when set (omitted
+                    // by the jobs serializer when null, inheriting the base timezone).
+                    Timezone = kv.Value.Timezone,
                     Configuration = kv.Value.Configuration is { } cfg ? ToGenConfiguration(cfg) : null,
                     // Next_run_at is read-only/server-derived; never sent.
                 });
@@ -520,6 +527,7 @@ public sealed class JobsClient : IDisposable
             kind: KindFromGen(a.Kind),
             type: a.Type ?? "http",
             concurrencyPolicy: a.Concurrency_policy ?? "ALLOW",
+            timezone: a.Timezone,
             createdAt: a.Created_at,
             updatedAt: a.Updated_at,
             deletedAt: a.Deleted_at,
@@ -547,6 +555,7 @@ public sealed class JobsClient : IDisposable
             {
                 Enabled = env.Enabled,
                 Schedule = env.Schedule,
+                Timezone = env.Timezone,
                 Configuration = env.Configuration is { } cfg ? ConfigFromGen(cfg) : null,
                 NextRunAt = env.Next_run_at,
             };
