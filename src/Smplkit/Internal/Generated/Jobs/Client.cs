@@ -292,9 +292,12 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <remarks>
         /// Cancel a pending or running run.
         /// <br/>
-        /// <br/>Returns `409` if the run is already in a terminal state. Canceling a
-        /// <br/>running run stops us tracking it, but the HTTP request may already be in
-        /// <br/>flight — cancel means "stop tracking," not "guaranteed it didn't happen."
+        /// <br/>Returns `404` if the run does not exist and `409` if it is already in a
+        /// <br/>terminal state. Canceling a running run stops us tracking it, but the HTTP
+        /// <br/>request may already be in flight — cancel means "stop tracking," not
+        /// <br/>"guaranteed it didn't happen." A run that has already started running still
+        /// <br/>counts toward your monthly run allowance even if you cancel it; a run
+        /// <br/>canceled while it is still pending does not count.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -307,7 +310,8 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <remarks>
         /// Spawn a new run from a prior run, using the job's current configuration.
         /// <br/>
-        /// <br/>Returns `409` if the run's parent job has been deleted.
+        /// <br/>Returns `404` if the run does not exist and `409` if the run's parent job
+        /// <br/>has been deleted.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1659,9 +1663,12 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <remarks>
         /// Cancel a pending or running run.
         /// <br/>
-        /// <br/>Returns `409` if the run is already in a terminal state. Canceling a
-        /// <br/>running run stops us tracking it, but the HTTP request may already be in
-        /// <br/>flight — cancel means "stop tracking," not "guaranteed it didn't happen."
+        /// <br/>Returns `404` if the run does not exist and `409` if it is already in a
+        /// <br/>terminal state. Canceling a running run stops us tracking it, but the HTTP
+        /// <br/>request may already be in flight — cancel means "stop tracking," not
+        /// <br/>"guaranteed it didn't happen." A run that has already started running still
+        /// <br/>counts toward your monthly run allowance even if you cancel it; a run
+        /// <br/>canceled while it is still pending does not count.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1720,6 +1727,26 @@ namespace Smplkit.Internal.Generated.Jobs
                             return objectResponse_.Object;
                         }
                         else
+                        if (status_ == 404)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new ApiException<ErrorResponse>("Run not found.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 409)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new ApiException<ErrorResponse>("The run is already in a terminal state (succeeded, failed, or canceled) and cannot be canceled.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
                         {
                             var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
                             throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
@@ -1746,7 +1773,8 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <remarks>
         /// Spawn a new run from a prior run, using the job's current configuration.
         /// <br/>
-        /// <br/>Returns `409` if the run's parent job has been deleted.
+        /// <br/>Returns `404` if the run does not exist and `409` if the run's parent job
+        /// <br/>has been deleted.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1803,6 +1831,26 @@ namespace Smplkit.Internal.Generated.Jobs
                                 throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
                             return objectResponse_.Object;
+                        }
+                        else
+                        if (status_ == 404)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new ApiException<ErrorResponse>("Run not found.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 409)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new ApiException<ErrorResponse>("The run\'s parent job has been deleted, so there is no current configuration to run.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         {
@@ -2038,6 +2086,57 @@ namespace Smplkit.Internal.Generated.Jobs
             var result = System.Convert.ToString(value, cultureInfo);
             return result == null ? "" : result;
         }
+    }
+
+    /// <summary>
+    /// Single JSON:API error object.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Error
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        public string Status { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("title")]
+        public string Title { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("detail")]
+        public string? Detail { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("source")]
+        public object? Source { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API error response envelope.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ErrorResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("errors")]
+        public System.Collections.Generic.List<Error> Errors { get; set; } = new System.Collections.Generic.List<Error>();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
     }
 
     /// <summary>
