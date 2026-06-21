@@ -158,8 +158,17 @@ public sealed class RetryPoliciesClient
     /// <param name="maxDelaySeconds">Ceiling on the wait between retries, for
     /// <see cref="Backoff.Exponential"/> backoff only. <c>null</c> (the default)
     /// leaves it uncapped; omit it for <see cref="Backoff.Fixed"/> backoff.</param>
-    /// <param name="retryOn">Which failures to retry (see <see cref="RetryOn"/>).
-    /// <c>null</c> (the default) retries nothing.</param>
+    /// <param name="retryOnTimeout">Retry a run that timed out. Defaults to
+    /// <c>false</c>.</param>
+    /// <param name="retryOnConnectionError">Retry a run whose destination could not be
+    /// reached (DNS, connection refused, TLS, or transport error). Defaults to
+    /// <c>false</c>.</param>
+    /// <param name="retryStatuses">Allowlist of response status patterns to retry on a
+    /// non-success response — each an exact 3-digit code (<c>"429"</c>) or a status class
+    /// (<c>"5xx"</c>). <c>null</c> (the default) retries no status.</param>
+    /// <param name="retryStatusesExcept">Patterns subtracted from
+    /// <paramref name="retryStatuses"/> (<c>except</c> wins on overlap). <c>null</c> (the
+    /// default) subtracts nothing.</param>
     /// <returns>An unsaved <see cref="RetryPolicy"/> bound to this client.</returns>
     public RetryPolicy New(
         string id,
@@ -168,8 +177,13 @@ public sealed class RetryPoliciesClient
         Backoff backoff,
         int delaySeconds,
         int? maxDelaySeconds = null,
-        RetryOn? retryOn = null)
-        => new RetryPolicy(this, id, name, maxRetries, backoff, delaySeconds, maxDelaySeconds, retryOn);
+        bool retryOnTimeout = false,
+        bool retryOnConnectionError = false,
+        IList<string>? retryStatuses = null,
+        IList<string>? retryStatusesExcept = null)
+        => new RetryPolicy(
+            this, id, name, maxRetries, backoff, delaySeconds, maxDelaySeconds,
+            retryOnTimeout, retryOnConnectionError, retryStatuses, retryStatusesExcept);
 
     /// <summary>List retry policies in the account.</summary>
     /// <param name="name">Return only policies whose name contains this text
@@ -259,28 +273,18 @@ public sealed class RetryPoliciesClient
             // Only valid with exponential backoff; the RetryPolicy converter omits it
             // on the wire when null.
             Max_delay_seconds = src.MaxDelaySeconds,
-            Retry_on = ToGenRetryOn(src.RetryOn),
+            Retry_on_timeout = src.RetryOnTimeout,
+            Retry_on_connection_error = src.RetryOnConnectionError,
+            Retry_statuses = new List<string>(src.RetryStatuses),
+            Retry_statuses_except = new List<string>(src.RetryStatusesExcept),
         };
         return attrs;
     }
-
-    private static GenJobs.RetryOn ToGenRetryOn(RetryOn src) => new GenJobs.RetryOn
-    {
-        Statuses = new List<int>(src.Statuses),
-        Reasons = src.Reasons.Select(ToGenReason).ToList(),
-    };
 
     private static GenJobs.RetryPolicyBackoff ToGenBackoff(Backoff backoff) => backoff switch
     {
         Backoff.Fixed => GenJobs.RetryPolicyBackoff.Fixed,
         _ => GenJobs.RetryPolicyBackoff.Exponential,
-    };
-
-    private static GenJobs.Reasons ToGenReason(RetryReason reason) => reason switch
-    {
-        RetryReason.ConnectionError => GenJobs.Reasons.CONNECTION_ERROR,
-        RetryReason.NonSuccessStatus => GenJobs.Reasons.NON_SUCCESS_STATUS,
-        _ => GenJobs.Reasons.TIMEOUT,
     };
 
     private RetryPolicy RetryPolicyFromResource(GenJobs.RetryPolicyResource r)
@@ -294,32 +298,21 @@ public sealed class RetryPoliciesClient
             backoff: FromGenBackoff(a.Backoff),
             delaySeconds: a.Delay_seconds,
             maxDelaySeconds: a.Max_delay_seconds,
-            retryOn: FromGenRetryOn(a.Retry_on),
+            retryOnTimeout: a.Retry_on_timeout,
+            retryOnConnectionError: a.Retry_on_connection_error,
+            // The RetryPolicyJsonConverter always populates these lists (never null).
+            retryStatuses: new List<string>(a.Retry_statuses ?? new List<string>()),
+            retryStatusesExcept: new List<string>(a.Retry_statuses_except ?? new List<string>()),
             createdAt: a.Created_at,
             updatedAt: a.Updated_at,
             deletedAt: a.Deleted_at,
             version: a.Version);
     }
 
-    // Reads the retry_on parsed by RetryPolicyJsonConverter, which always populates a
-    // non-null RetryOn with non-null statuses / reasons lists.
-    private static RetryOn FromGenRetryOn(GenJobs.RetryOn src) => new RetryOn
-    {
-        Statuses = new List<int>(src.Statuses),
-        Reasons = src.Reasons.Select(FromGenReason).ToList(),
-    };
-
     private static Backoff FromGenBackoff(GenJobs.RetryPolicyBackoff backoff) => backoff switch
     {
         GenJobs.RetryPolicyBackoff.Fixed => Backoff.Fixed,
         _ => Backoff.Exponential,
-    };
-
-    private static RetryReason FromGenReason(GenJobs.Reasons reason) => reason switch
-    {
-        GenJobs.Reasons.CONNECTION_ERROR => RetryReason.ConnectionError,
-        GenJobs.Reasons.NON_SUCCESS_STATUS => RetryReason.NonSuccessStatus,
-        _ => RetryReason.Timeout,
     };
 }
 

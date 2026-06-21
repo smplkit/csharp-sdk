@@ -109,15 +109,19 @@ public class JobsClientTests
     private static string RetryPolicyJson(
         string id = RetryPolicyId, string name = "Retry on server errors",
         int maxRetries = 5, string backoff = "exponential", int delaySeconds = 2,
-        string maxDelaySeconds = "60", string statuses = "[429,503]",
-        string reasons = "[\"TIMEOUT\"]", string createdAt = "\"2026-06-04T00:00:00Z\"",
+        string maxDelaySeconds = "60", string retryOnTimeout = "true",
+        string retryOnConnectionError = "true", string retryStatuses = "[\"429\",\"5xx\"]",
+        string retryStatusesExcept = "[\"501\"]", string createdAt = "\"2026-06-04T00:00:00Z\"",
         string updatedAt = "\"2026-06-04T00:00:00Z\"", string deletedAt = "null", int version = 1)
     {
         return "{\"id\":\"" + id + "\",\"type\":\"retry_policy\",\"attributes\":{"
             + "\"name\":\"" + name + "\",\"max_retries\":" + maxRetries + ","
             + "\"backoff\":\"" + backoff + "\",\"delay_seconds\":" + delaySeconds + ","
             + "\"max_delay_seconds\":" + maxDelaySeconds + ","
-            + "\"retry_on\":{\"statuses\":" + statuses + ",\"reasons\":" + reasons + "},"
+            + "\"retry_on_timeout\":" + retryOnTimeout + ","
+            + "\"retry_on_connection_error\":" + retryOnConnectionError + ","
+            + "\"retry_statuses\":" + retryStatuses + ","
+            + "\"retry_statuses_except\":" + retryStatusesExcept + ","
             + "\"created_at\":" + createdAt + ",\"updated_at\":" + updatedAt
             + ",\"deleted_at\":" + deletedAt + ",\"version\":" + version + "}}";
     }
@@ -1257,12 +1261,17 @@ public class JobsClientTests
         var policy = jobs.RetryPolicies.New(
             RetryPolicyId, name: "Retry on server errors", maxRetries: 5,
             backoff: Backoff.Exponential, delaySeconds: 2, maxDelaySeconds: 60,
-            retryOn: new RetryOn { Statuses = new List<int> { 429, 503 }, Reasons = new List<RetryReason> { RetryReason.Timeout } });
+            retryOnTimeout: true, retryOnConnectionError: true,
+            retryStatuses: new List<string> { "429", "5xx" },
+            retryStatusesExcept: new List<string> { "501" });
         Assert.Equal(RetryPolicyId, policy.Id);
         Assert.Null(policy.CreatedAt);
         Assert.Equal(Backoff.Exponential, policy.Backoff);
         Assert.Equal(60, policy.MaxDelaySeconds);
-        Assert.Equal(new[] { 429, 503 }, policy.RetryOn.Statuses);
+        Assert.True(policy.RetryOnTimeout);
+        Assert.True(policy.RetryOnConnectionError);
+        Assert.Equal(new[] { "429", "5xx" }, policy.RetryStatuses);
+        Assert.Equal(new[] { "501" }, policy.RetryStatusesExcept);
         Assert.Equal(0, calls);
     }
 
@@ -1291,33 +1300,43 @@ public class JobsClientTests
         var policy = jobs.RetryPolicies.New(
             RetryPolicyId, name: "Retry on server errors", maxRetries: 5,
             backoff: Backoff.Exponential, delaySeconds: 2, maxDelaySeconds: 60,
-            retryOn: new RetryOn { Statuses = new List<int> { 429, 503 }, Reasons = new List<RetryReason> { RetryReason.Timeout } });
+            retryOnTimeout: true, retryOnConnectionError: true,
+            retryStatuses: new List<string> { "429", "5xx" },
+            retryStatusesExcept: new List<string> { "501" });
         Assert.Null(policy.CreatedAt);
         await policy.SaveAsync();
         Assert.Equal("POST", capturedMethods[0]);
         Assert.NotNull(policy.CreatedAt);
         Assert.Equal(1, policy.Version);
 
-        // Wire body: lowercase backoff slug, reasons as string values, max_delay sent,
-        // and the server-managed read-only fields omitted.
+        // Wire body: lowercase backoff slug, the four discrete match fields, max_delay
+        // sent, and the server-managed read-only fields omitted.
         using var doc = JsonDocument.Parse(createBody!);
         var attrs = doc.RootElement.GetProperty("data").GetProperty("attributes");
         Assert.Equal("exponential", attrs.GetProperty("backoff").GetString());
         Assert.Equal(5, attrs.GetProperty("max_retries").GetInt32());
         Assert.Equal(2, attrs.GetProperty("delay_seconds").GetInt32());
         Assert.Equal(60, attrs.GetProperty("max_delay_seconds").GetInt32());
-        var retryOn = attrs.GetProperty("retry_on");
-        Assert.Equal(429, retryOn.GetProperty("statuses")[0].GetInt32());
-        Assert.Equal("TIMEOUT", retryOn.GetProperty("reasons")[0].GetString());
+        Assert.True(attrs.GetProperty("retry_on_timeout").GetBoolean());
+        Assert.True(attrs.GetProperty("retry_on_connection_error").GetBoolean());
+        Assert.Equal(
+            new[] { "429", "5xx" },
+            attrs.GetProperty("retry_statuses").EnumerateArray().Select(e => e.GetString()).ToArray());
+        Assert.Equal(
+            new[] { "501" },
+            attrs.GetProperty("retry_statuses_except").EnumerateArray().Select(e => e.GetString()).ToArray());
         Assert.False(attrs.TryGetProperty("created_at", out _));
         Assert.False(attrs.TryGetProperty("version", out _));
         Assert.Equal("retry_policy", doc.RootElement.GetProperty("data").GetProperty("type").GetString());
         Assert.Equal(RetryPolicyId, doc.RootElement.GetProperty("data").GetProperty("id").GetString());
 
-        // Parsed back from the response: backoff, reasons, max_delay round-trip.
+        // Parsed back from the response: backoff, match fields, max_delay round-trip.
         Assert.Equal(Backoff.Exponential, policy.Backoff);
         Assert.Equal(60, policy.MaxDelaySeconds);
-        Assert.Equal(RetryReason.Timeout, policy.RetryOn.Reasons[0]);
+        Assert.True(policy.RetryOnTimeout);
+        Assert.True(policy.RetryOnConnectionError);
+        Assert.Equal(new[] { "429", "5xx" }, policy.RetryStatuses);
+        Assert.Equal(new[] { "501" }, policy.RetryStatusesExcept);
 
         // Second save → full-replace PUT.
         policy.Name = "Renamed";
@@ -1328,7 +1347,7 @@ public class JobsClientTests
     }
 
     [Fact]
-    public async Task RetryPolicy_Create_FixedBackoff_NoMaxDelay_EmptyRetryOn()
+    public async Task RetryPolicy_Create_FixedBackoff_NoMaxDelay_EmptyMatchFields()
     {
         string? body = null;
         var jobs = MakeJobs(async req =>
@@ -1337,13 +1356,16 @@ public class JobsClientTests
             return new HttpResponseMessage(HttpStatusCode.Created)
             {
                 Content = JsonApi("{\"data\":" + RetryPolicyJson(
-                    backoff: "fixed", maxDelaySeconds: "null", statuses: "[]", reasons: "[]") + "}"),
+                    backoff: "fixed", maxDelaySeconds: "null", retryOnTimeout: "false",
+                    retryOnConnectionError: "false", retryStatuses: "[]", retryStatusesExcept: "[]") + "}"),
             };
         });
-        // New without retryOn → defaults to an empty RetryOn.
+        // New without the match args → bools default false and lists default empty.
         var policy = jobs.RetryPolicies.New("p", name: "n", maxRetries: 0, backoff: Backoff.Fixed, delaySeconds: 1);
-        Assert.Empty(policy.RetryOn.Statuses);
-        Assert.Empty(policy.RetryOn.Reasons);
+        Assert.False(policy.RetryOnTimeout);
+        Assert.False(policy.RetryOnConnectionError);
+        Assert.Empty(policy.RetryStatuses);
+        Assert.Empty(policy.RetryStatusesExcept);
         await policy.SaveAsync();
 
         using var doc = JsonDocument.Parse(body!);
@@ -1351,15 +1373,17 @@ public class JobsClientTests
         Assert.Equal("fixed", attrs.GetProperty("backoff").GetString());
         // max_delay_seconds omitted when unset.
         Assert.False(attrs.TryGetProperty("max_delay_seconds", out _));
-        Assert.Empty(attrs.GetProperty("retry_on").GetProperty("statuses").EnumerateArray());
-        Assert.Empty(attrs.GetProperty("retry_on").GetProperty("reasons").EnumerateArray());
+        Assert.False(attrs.GetProperty("retry_on_timeout").GetBoolean());
+        Assert.False(attrs.GetProperty("retry_on_connection_error").GetBoolean());
+        Assert.Empty(attrs.GetProperty("retry_statuses").EnumerateArray());
+        Assert.Empty(attrs.GetProperty("retry_statuses_except").EnumerateArray());
         // Parsed back: fixed backoff, no max_delay.
         Assert.Equal(Backoff.Fixed, policy.Backoff);
         Assert.Null(policy.MaxDelaySeconds);
     }
 
     [Fact]
-    public async Task RetryPolicy_Create_AllReasons_RoundTrip()
+    public async Task RetryPolicy_Create_AllMatchFields_RoundTrip()
     {
         string? body = null;
         var jobs = MakeJobs(async req =>
@@ -1368,28 +1392,28 @@ public class JobsClientTests
             return new HttpResponseMessage(HttpStatusCode.Created)
             {
                 Content = JsonApi("{\"data\":" + RetryPolicyJson(
-                    reasons: "[\"CONNECTION_ERROR\",\"NON_SUCCESS_STATUS\",\"TIMEOUT\"]") + "}"),
+                    retryStatuses: "[\"1xx\",\"2xx\",\"3xx\",\"4xx\",\"5xx\"]",
+                    retryStatusesExcept: "[\"404\",\"501\"]") + "}"),
             };
         });
         var policy = jobs.RetryPolicies.New(
             "p", name: "n", maxRetries: 3, backoff: Backoff.Exponential, delaySeconds: 1,
-            retryOn: new RetryOn
-            {
-                Reasons = new List<RetryReason>
-                {
-                    RetryReason.ConnectionError, RetryReason.NonSuccessStatus, RetryReason.Timeout,
-                },
-            });
+            retryOnTimeout: true, retryOnConnectionError: true,
+            retryStatuses: new List<string> { "1xx", "2xx", "3xx", "4xx", "5xx" },
+            retryStatusesExcept: new List<string> { "404", "501" });
         await policy.SaveAsync();
 
         using var doc = JsonDocument.Parse(body!);
-        var wireReasons = doc.RootElement.GetProperty("data").GetProperty("attributes")
-            .GetProperty("retry_on").GetProperty("reasons").EnumerateArray().Select(e => e.GetString()).ToList();
-        Assert.Equal(new[] { "CONNECTION_ERROR", "NON_SUCCESS_STATUS", "TIMEOUT" }, wireReasons);
-        // Parsed back: all three reasons map to wrapper enum values.
-        Assert.Equal(
-            new[] { RetryReason.ConnectionError, RetryReason.NonSuccessStatus, RetryReason.Timeout },
-            policy.RetryOn.Reasons);
+        var attrs = doc.RootElement.GetProperty("data").GetProperty("attributes");
+        var wireStatuses = attrs.GetProperty("retry_statuses").EnumerateArray().Select(e => e.GetString()).ToList();
+        var wireExcept = attrs.GetProperty("retry_statuses_except").EnumerateArray().Select(e => e.GetString()).ToList();
+        Assert.Equal(new[] { "1xx", "2xx", "3xx", "4xx", "5xx" }, wireStatuses);
+        Assert.Equal(new[] { "404", "501" }, wireExcept);
+        // Parsed back: all match fields round-trip onto the wrapper.
+        Assert.True(policy.RetryOnTimeout);
+        Assert.True(policy.RetryOnConnectionError);
+        Assert.Equal(new[] { "1xx", "2xx", "3xx", "4xx", "5xx" }, policy.RetryStatuses);
+        Assert.Equal(new[] { "404", "501" }, policy.RetryStatusesExcept);
     }
 
     [Fact]
@@ -1434,8 +1458,10 @@ public class JobsClientTests
         Assert.Equal(Backoff.Exponential, policy.Backoff);
         Assert.Equal(2, policy.DelaySeconds);
         Assert.Equal(60, policy.MaxDelaySeconds);
-        Assert.Equal(new[] { 429, 503 }, policy.RetryOn.Statuses);
-        Assert.Equal(new[] { RetryReason.Timeout }, policy.RetryOn.Reasons);
+        Assert.True(policy.RetryOnTimeout);
+        Assert.True(policy.RetryOnConnectionError);
+        Assert.Equal(new[] { "429", "5xx" }, policy.RetryStatuses);
+        Assert.Equal(new[] { "501" }, policy.RetryStatusesExcept);
         Assert.NotNull(policy.CreatedAt);
         Assert.NotNull(policy.UpdatedAt);
         Assert.Equal(1, policy.Version);
@@ -1512,11 +1538,32 @@ public class JobsClientTests
     }
 
     [Fact]
-    public void RetryOn_DefaultsToEmpty()
+    public void RetryPolicy_MatchFields_DefaultToFalseAndEmpty()
     {
-        var retryOn = new RetryOn();
-        Assert.Empty(retryOn.Statuses);
-        Assert.Empty(retryOn.Reasons);
+        var policy = new RetryPolicy(null, "p", "n", 1, Backoff.Fixed, 1);
+        Assert.False(policy.RetryOnTimeout);
+        Assert.False(policy.RetryOnConnectionError);
+        Assert.Empty(policy.RetryStatuses);
+        Assert.Empty(policy.RetryStatusesExcept);
+    }
+
+    [Fact]
+    public async Task RetryPolicies_Get_ToleratesAbsentMatchFields()
+    {
+        // A response that omits the retry_* attributes entirely exercises the
+        // converter's defaulting (bools false, lists empty) read path.
+        var attrs = "{\"name\":\"n\",\"max_retries\":1,\"backoff\":\"fixed\","
+            + "\"delay_seconds\":1,\"max_delay_seconds\":null,"
+            + "\"created_at\":\"2026-06-04T00:00:00Z\",\"updated_at\":\"2026-06-04T00:00:00Z\","
+            + "\"deleted_at\":null,\"version\":1}";
+        var policy = await MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi("{\"data\":{\"id\":\"p\",\"type\":\"retry_policy\",\"attributes\":" + attrs + "}}"),
+        })).RetryPolicies.GetAsync("p");
+        Assert.False(policy.RetryOnTimeout);
+        Assert.False(policy.RetryOnConnectionError);
+        Assert.Empty(policy.RetryStatuses);
+        Assert.Empty(policy.RetryStatusesExcept);
     }
 
     // ----------------------------------------------------------------------

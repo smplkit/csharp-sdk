@@ -33,11 +33,10 @@ try
         backoff: Backoff.Exponential,
         delaySeconds: 2,
         maxDelaySeconds: 60,
-        retryOn: new RetryOn
-        {
-            Statuses = new List<int> { 429, 503 },
-            Reasons = new List<RetryReason> { RetryReason.Timeout },
-        });
+        retryOnTimeout: true,
+        retryOnConnectionError: true,
+        retryStatuses: new List<string> { "429", "5xx" },
+        retryStatusesExcept: new List<string> { "501" });
     await retryPolicy.SaveAsync();
     Debug.Assert((await jobs.RetryPolicies.ListAsync()).Any(p => p.Id == RetryPolicyId));
     Console.WriteLine($"Created retry policy '{retryPolicy.Id}'");
