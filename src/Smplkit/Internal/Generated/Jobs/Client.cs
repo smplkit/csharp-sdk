@@ -2618,29 +2618,6 @@ namespace Smplkit.Internal.Generated.Jobs
     }
 
     /// <summary>
-    /// Which failures a policy retries. An empty policy (both lists empty or
-    /// <br/>absent) retries nothing.
-    /// </summary>
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class RetryOn
-    {
-
-        /// <summary>
-        /// Response status codes that should be retried when a run fails because the response did not match the job's success status (for example `[429, 503]` to retry on rate-limit and unavailable). Each is a 3-digit HTTP status code. Empty matches no status.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("statuses")]
-        public System.Collections.Generic.List<int> Statuses { get; set; } = default!;
-
-        /// <summary>
-        /// Failure reasons that should be retried: `TIMEOUT` (the run did not complete in time), `CONNECTION_ERROR` (the endpoint could not be reached), or `NON_SUCCESS_STATUS` (any non-success response, regardless of `statuses`). Empty matches no reason.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("reasons")]
-        // TODO(system.text.json): Add ItemConverterType with enum converter when supported
-        public System.Collections.Generic.List<Reasons> Reasons { get; set; } = default!;
-
-    }
-
-    /// <summary>
     /// A named, reusable automatic-retry policy.
     /// <br/>
     /// <br/>A policy decides whether and how a failed run is retried. Reference it from
@@ -2684,10 +2661,28 @@ namespace Smplkit.Internal.Generated.Jobs
         public int? Max_delay_seconds { get; set; } = default!;
 
         /// <summary>
-        /// Which failures are retried. A run is retried only when its failure matches this set; an empty set retries nothing. Some failures are never retried regardless of this value.
+        /// Retry a run that failed because the request did not complete within the job's timeout. Defaults to `false` (timeouts are not retried).
         /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("retry_on")]
-        public RetryOn Retry_on { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("retry_on_timeout")]
+        public bool Retry_on_timeout { get; set; } = false;
+
+        /// <summary>
+        /// Retry a run that failed because the destination could not be reached (DNS, connection refused, TLS, or transport error). Defaults to `false` (connection errors are not retried).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("retry_on_connection_error")]
+        public bool Retry_on_connection_error { get; set; } = false;
+
+        /// <summary>
+        /// Allowlist of response status patterns to retry when a run fails because the response did not match the job's success status. Each element is either an exact 3-digit HTTP code (e.g. `429`) or a status class (`1xx`, `2xx`, `3xx`, `4xx`, `5xx`) — for example `["429", "5xx"]` to retry on rate-limit and any server error. Empty (the default) matches no status, so nothing is retried on a non-success response.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("retry_statuses")]
+        public System.Collections.Generic.List<string> Retry_statuses { get; set; } = default!;
+
+        /// <summary>
+        /// Subtractions from `retry_statuses`, using the same exact-code or class syntax. A status that matches both lists is not retried — `except` wins on overlap — so `retry_statuses` of `["5xx"]` with `retry_statuses_except` of `["501"]` retries every server error except `501`. An element that does not overlap `retry_statuses` is allowed and simply has no effect. Empty (the default) subtracts nothing.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("retry_statuses_except")]
+        public System.Collections.Generic.List<string> Retry_statuses_except { get; set; } = default!;
 
         /// <summary>
         /// When the policy was created.
@@ -3381,21 +3376,6 @@ namespace Smplkit.Internal.Generated.Jobs
 
         [System.Runtime.Serialization.EnumMember(Value = @"DELETE")]
         DELETE = 4,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum Reasons
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"TIMEOUT")]
-        TIMEOUT = 0,
-
-        [System.Runtime.Serialization.EnumMember(Value = @"CONNECTION_ERROR")]
-        CONNECTION_ERROR = 1,
-
-        [System.Runtime.Serialization.EnumMember(Value = @"NON_SUCCESS_STATUS")]
-        NON_SUCCESS_STATUS = 2,
 
     }
 

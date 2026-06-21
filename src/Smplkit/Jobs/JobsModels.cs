@@ -89,17 +89,6 @@ public enum Backoff
     Fixed,
 }
 
-/// <summary>A failure category a <see cref="RetryPolicy"/> can retry on.</summary>
-public enum RetryReason
-{
-    /// <summary>The endpoint could not be reached.</summary>
-    ConnectionError,
-    /// <summary>Any non-success response, regardless of <see cref="RetryOn.Statuses"/>.</summary>
-    NonSuccessStatus,
-    /// <summary>The run did not complete in time.</summary>
-    Timeout,
-}
-
 /// <summary>A single name/value HTTP header on the request a job performs.</summary>
 /// <param name="Name">Header name (e.g. <c>"Authorization"</c>, <c>"Content-Type"</c>).</param>
 /// <param name="Value">Header value. Returned in plaintext on reads, so a
@@ -139,23 +128,6 @@ public sealed class HttpConfig
     /// the system CA store. Ignored when <see cref="TlsVerify"/> is <c>false</c>.
     /// <c>null</c> (the default) means "use system CAs only".</summary>
     public string? CaCert { get; set; }
-}
-
-/// <summary>
-/// Which failures a <see cref="RetryPolicy"/> retries.
-/// </summary>
-/// <remarks>An empty <see cref="RetryOn"/> (both lists empty) retries nothing.</remarks>
-public sealed class RetryOn
-{
-    /// <summary>Response status codes to retry when a run fails because the response
-    /// did not match the job's success status (e.g. <c>[429, 503]</c> for rate-limit
-    /// and unavailable). Each is a 3-digit HTTP code. Empty (the default) matches no
-    /// status.</summary>
-    public IList<int> Statuses { get; set; } = new List<int>();
-
-    /// <summary>Failure categories to retry (see <see cref="RetryReason"/>). Empty
-    /// (the default) matches no reason.</summary>
-    public IList<RetryReason> Reasons { get; set; } = new List<RetryReason>();
 }
 
 /// <summary>
@@ -760,9 +732,27 @@ public sealed class RetryPolicy
     /// backoff only. <c>null</c> (the default) leaves it uncapped; omit it for
     /// <see cref="Backoff.Fixed"/> backoff. Sent on writes only when set.</summary>
     public int? MaxDelaySeconds { get; set; }
-    /// <summary>Which failures to retry (see <see cref="RetryOn"/>). Defaults to an
-    /// empty <see cref="RetryOn"/>, which retries nothing.</summary>
-    public RetryOn RetryOn { get; set; } = new RetryOn();
+    /// <summary>Retry a run that failed because the request did not complete within
+    /// the job's timeout. Defaults to <c>false</c> (timeouts are not retried).</summary>
+    public bool RetryOnTimeout { get; set; }
+    /// <summary>Retry a run that failed because the destination could not be reached
+    /// (DNS, connection refused, TLS, or transport error). Defaults to <c>false</c>
+    /// (connection errors are not retried).</summary>
+    public bool RetryOnConnectionError { get; set; }
+    /// <summary>Allowlist of response status patterns to retry when a run fails because
+    /// the response did not match the job's success status. Each element is either an
+    /// exact 3-digit HTTP code (e.g. <c>"429"</c>) or a status class (<c>"1xx"</c>,
+    /// <c>"2xx"</c>, <c>"3xx"</c>, <c>"4xx"</c>, <c>"5xx"</c>) — for example
+    /// <c>["429", "5xx"]</c> to retry on rate-limit and any server error. Empty (the
+    /// default) matches no status, so nothing is retried on a non-success response.</summary>
+    public IList<string> RetryStatuses { get; set; } = new List<string>();
+    /// <summary>Subtractions from <see cref="RetryStatuses"/>, using the same exact-code
+    /// or class syntax. A status that matches both lists is not retried — <c>except</c>
+    /// wins on overlap — so <see cref="RetryStatuses"/> of <c>["5xx"]</c> with
+    /// <c>["501"]</c> here retries every server error except <c>501</c>. An element that
+    /// does not overlap <see cref="RetryStatuses"/> is allowed and simply has no effect.
+    /// Empty (the default) subtracts nothing.</summary>
+    public IList<string> RetryStatusesExcept { get; set; } = new List<string>();
     /// <summary>When the policy was created. <c>null</c> for an unsaved instance.</summary>
     public DateTimeOffset? CreatedAt { get; internal set; }
     /// <summary>When the policy was last modified.</summary>
@@ -780,7 +770,10 @@ public sealed class RetryPolicy
         Backoff backoff,
         int delaySeconds,
         int? maxDelaySeconds = null,
-        RetryOn? retryOn = null,
+        bool retryOnTimeout = false,
+        bool retryOnConnectionError = false,
+        IList<string>? retryStatuses = null,
+        IList<string>? retryStatusesExcept = null,
         DateTimeOffset? createdAt = null,
         DateTimeOffset? updatedAt = null,
         DateTimeOffset? deletedAt = null,
@@ -793,7 +786,10 @@ public sealed class RetryPolicy
         Backoff = backoff;
         DelaySeconds = delaySeconds;
         MaxDelaySeconds = maxDelaySeconds;
-        RetryOn = retryOn ?? new RetryOn();
+        RetryOnTimeout = retryOnTimeout;
+        RetryOnConnectionError = retryOnConnectionError;
+        RetryStatuses = retryStatuses ?? new List<string>();
+        RetryStatusesExcept = retryStatusesExcept ?? new List<string>();
         CreatedAt = createdAt;
         UpdatedAt = updatedAt;
         DeletedAt = deletedAt;
@@ -828,7 +824,10 @@ public sealed class RetryPolicy
         Backoff = other.Backoff;
         DelaySeconds = other.DelaySeconds;
         MaxDelaySeconds = other.MaxDelaySeconds;
-        RetryOn = other.RetryOn;
+        RetryOnTimeout = other.RetryOnTimeout;
+        RetryOnConnectionError = other.RetryOnConnectionError;
+        RetryStatuses = other.RetryStatuses;
+        RetryStatusesExcept = other.RetryStatusesExcept;
         CreatedAt = other.CreatedAt;
         UpdatedAt = other.UpdatedAt;
         DeletedAt = other.DeletedAt;
