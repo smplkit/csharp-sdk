@@ -3613,7 +3613,7 @@ namespace Smplkit.Internal.Generated.Audit
         public ForwarderType Forwarder_type { get; set; } = default!;
 
         /// <summary>
-        /// Always false. Enablement is per-environment: a forwarder delivers in an environment only when `environments[&lt;env&gt;].enabled` is true. The base value is pinned false and cannot be set.
+        /// Always false. Enablement is per-environment: a forwarder delivers in an environment only when that environment's entry in `environments` sets `enabled` to true. The base value is pinned false and cannot be set.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("enabled")]
         public bool Enabled { get; set; } = false;
@@ -3643,16 +3643,16 @@ namespace Smplkit.Internal.Generated.Audit
         public object? Transform { get; set; } = default!;
 
         /// <summary>
-        /// Base delivery configuration template. Shape is discriminated by ``forwarder_type``; today all destination types use ``HttpConfiguration``. Branded vendor types (everything except `http`) constrain the configuration against a per-vendor template — see `GET /api/v1/forwarder_types` for the URL pattern, fixed headers, and customer-supplied placeholders for each type. A per-environment override in `environments` replaces this template for that environment.
+        /// Base delivery configuration template. Shape is discriminated by ``forwarder_type``; today all destination types use ``HttpConfiguration``. Branded vendor types (everything except `http`) constrain the configuration against a per-vendor template — see `GET /api/v1/forwarder_types` for the URL pattern, fixed headers, and customer-supplied placeholders for each type. A per-environment entry in `environments` overrides individual fields of this template for that environment; fields it omits are inherited from here.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("configuration")]
         public HttpConfiguration Configuration { get; set; } = new HttpConfiguration();
 
         /// <summary>
-        /// Per-environment overrides keyed by environment key (e.g. `production`, `staging`). Each entry sets `enabled` (whether the forwarder delivers in that environment) and an optional `configuration` override (omit to inherit the base `configuration`). A forwarder with no entry for an environment is disabled there. Every referenced environment must exist and be managed for the account.
+        /// Per-environment overrides keyed by environment key (e.g. `production`, `staging`). Each entry is a sparse map of only the fields that differ in that environment: `enabled` (whether the forwarder delivers there) plus any of `url`, `method`, `success_status`, `tls_verify`, `ca_cert`, and individual headers as `headers.&lt;name&gt;` (e.g. `headers.Authorization`). Fields you omit are inherited from the base `configuration`; an entry never needs to repeat the whole configuration. A forwarder with no entry for an environment is disabled there. Every referenced environment must exist and be managed for the account.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("environments")]
-        public System.Collections.Generic.IDictionary<string, ForwarderEnvironment> Environments { get; set; } = default!;
+        public System.Collections.Generic.IDictionary<string, object> Environments { get; set; } = default!;
 
         /// <summary>
         /// When the forwarder was created.
@@ -3936,36 +3936,6 @@ namespace Smplkit.Internal.Generated.Audit
 
         [System.Text.Json.Serialization.JsonPropertyName("data")]
         public ForwarderDeliveryResource Data { get; set; } = new ForwarderDeliveryResource();
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    /// <summary>
-    /// Per-environment override for a forwarder's enablement and configuration.
-    /// </summary>
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class ForwarderEnvironment
-    {
-
-        /// <summary>
-        /// Whether the forwarder delivers events in this environment. A forwarder is enabled in an environment only via this field — the base `enabled` is always false.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("enabled")]
-        public bool Enabled { get; set; } = false;
-
-        /// <summary>
-        /// Per-environment delivery configuration override. Omit to inherit the forwarder's base `configuration`. When present, it fully replaces the base configuration for this environment and is validated against the same per-vendor template.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("configuration")]
-        public HttpConfiguration? Configuration { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
