@@ -3945,9 +3945,10 @@ namespace Smplkit.Internal.Generated.Audit
     /// <summary>
     /// HTTP request a forwarder makes to deliver an event.
     /// <br/>
-    /// <br/>Identical to the shared HTTP configuration except that ``headers`` is a
-    /// <br/>name→value object so an individual header can be overridden per environment
-    /// <br/>by its name.
+    /// <br/>The shared HTTP configuration, unchanged — including the name→value
+    /// <br/>``headers`` object whose entries can be overridden per environment by name.
+    /// <br/>It exists as a distinct subclass only so the spec exposes a
+    /// <br/>forwarder-specific schema name; it adds no fields of its own.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ForwarderHttpConfiguration
@@ -3967,7 +3968,7 @@ namespace Smplkit.Internal.Generated.Audit
         public string Url { get; set; } = default!;
 
         /// <summary>
-        /// HTTP headers attached to each delivery, as a name→value object (e.g. `{"DD-API-KEY": "s3cr3t"}`). A header is overridden in a specific environment by its name via a `headers.&lt;name&gt;` entry in that environment's overrides; header names match case-insensitively.
+        /// HTTP headers attached to each request, as a name→value object (e.g. `{"Authorization": "Bearer s3cr3t"}`). Override an individual header in a specific environment by its name via a `headers.&lt;name&gt;` entry in that environment's overrides; header names match case-insensitively.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("headers")]
         public System.Collections.Generic.IDictionary<string, string> Headers { get; set; } = default!;
