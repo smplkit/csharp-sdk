@@ -28,16 +28,17 @@ public class JobsClientTests
     private const string JobId = "my-job";
     private const string RunId = "8f2b1c4a-0000-4a1b-9c3d-1e2f3a4b5c6d";
 
-    // environments map fixture: production enabled with NO config override but a
-    // per-environment schedule override + a next_run_at; development disabled WITH a
-    // per-environment configuration override (and no schedule / next_run_at).
+    // environments map fixture (ADR-056 flat overlay): production enabled with NO
+    // request-leaf override but per-environment schedule / timezone overrides + a
+    // next_run_at; development disabled WITH flat url + header-leaf overrides (and no
+    // schedule / next_run_at). The header leaf `headers.X-Env` exercises the
+    // first-dot parse.
     private const string EnvsJson =
         "{\"production\":{\"enabled\":true,\"schedule\":\"0 3 * * *\","
         + "\"timezone\":\"Europe/London\","
         + "\"next_run_at\":\"2026-06-19T03:00:00Z\"},"
-        + "\"development\":{\"enabled\":false,\"configuration\":{\"method\":\"POST\","
-        + "\"url\":\"https://dev.example.com/hook\",\"headers\":[],\"body\":null,"
-        + "\"success_status\":\"2xx\",\"timeout\":30,\"tls_verify\":true,\"ca_cert\":null}}}";
+        + "\"development\":{\"enabled\":false,\"url\":\"https://dev.example.com/hook\","
+        + "\"headers.X-Env\":\"dev\"}}";
 
     private static (GenJobs.JobsClient gen, MockHttpMessageHandler mock) MakeGen(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> handler)
@@ -73,7 +74,7 @@ public class JobsClientTests
             + "\"schedule\":\"0 * * * *\","
             + "\"timezone\":\"America/New_York\","
             + "\"configuration\":{\"method\":\"POST\",\"url\":\"https://api.example.com/hook\","
-            + "\"headers\":[{\"name\":\"X-Api-Key\",\"value\":\"secret\"}],"
+            + "\"headers\":{\"X-Api-Key\":\"secret\"},"
             + "\"body\":\"{}\",\"success_status\":\"2xx\",\"timeout\":30,"
             + "\"tls_verify\":true,\"ca_cert\":null},"
             + "\"environments\":" + environmentsJson + ","
@@ -130,7 +131,7 @@ public class JobsClientTests
     {
         Url = "https://api.example.com/hook",
         Method = HttpMethod.Post,
-        Headers = new List<HttpHeader> { new("X-Api-Key", "secret") },
+        Headers = new Dictionary<string, string> { ["X-Api-Key"] = "secret" },
         Body = "{}",
     };
 
@@ -160,7 +161,7 @@ public class JobsClientTests
             {
                 ["production"] = new JobEnvironment { Enabled = true },
             });
-        Assert.True(job.IsEnabled(environment: "production"));
+        Assert.True(job.Environment("production").Enabled);
     }
 
     [Fact]
@@ -192,6 +193,8 @@ public class JobsClientTests
         // Body + timeout reach the wire (the two fields jobs add over a forwarder).
         Assert.Contains("\"body\":\"{}\"", capturedBody);
         Assert.Contains("\"timeout\":30", capturedBody);
+        // Base headers travel as a name→value object (ADR-056), not an array.
+        Assert.Contains("\"headers\":{\"X-Api-Key\":\"secret\"}", capturedBody);
         Assert.NotNull(job.CreatedAt);
         Assert.Equal(1, job.Version);
 
@@ -251,7 +254,7 @@ public class JobsClientTests
         Assert.Equal("{}", job.Configuration.Body);
         Assert.Equal(30, job.Configuration.Timeout);
         Assert.Single(job.Configuration.Headers);
-        Assert.Equal("X-Api-Key", job.Configuration.Headers[0].Name);
+        Assert.Equal("secret", job.Configuration.GetHeader("X-Api-Key"));
         Assert.Equal(JobKind.Recurring, job.Kind);
         Assert.True(job.IsRecurring());
     }
@@ -338,135 +341,100 @@ public class JobsClientTests
     // ----------------------------------------------------------------------
 
     [Fact]
-    public void SetEnabled_PerEnvironment_RollupDerivedFromEnvironmentMap()
+    public void Environment_Enabled_RollupDerivedFromEnvironmentMap()
     {
         var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
         var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
-        // Roll-up (no arg) is a derived value over the environment map: false until
-        // at least one environment is enabled.
-        Assert.False(job.IsEnabled());
+        // Roll-up is a derived value over the environment map: false until at least
+        // one environment is enabled.
         Assert.False(job.Enabled);
 
-        job.SetEnabled(true, environment: "production");
-        job.SetEnabled(false, environment: "development");
-        Assert.True(job.IsEnabled(environment: "production"));
-        Assert.False(job.IsEnabled(environment: "development"));
-        // Absent environment → not enabled.
-        Assert.False(job.IsEnabled(environment: "staging"));
+        job.Environment("production").Enabled = true;
+        job.Environment("development").Enabled = false;
+        Assert.True(job.Environment("production").Enabled);
+        Assert.False(job.Environment("development").Enabled);
         // Roll-up is now true (production is enabled) — derived, not server-only.
-        Assert.True(job.IsEnabled());
         Assert.True(job.Enabled);
 
         // Disable the only enabled environment → roll-up flips back to false.
-        job.SetEnabled(false, environment: "production");
-        Assert.False(job.IsEnabled());
+        job.Environment("production").Enabled = false;
         Assert.False(job.Enabled);
     }
 
     [Fact]
-    public void SetConfiguration_BaseAndPerEnvironment_GetConfigurationResolves()
+    public void Environment_Accessor_LazilyCreatesAndReturnsSameInstance()
     {
         var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
         var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        Assert.Empty(job.Environments);
 
+        var prod = job.Environment("production");
+        // First access creates and inserts an empty (disabled) override...
+        Assert.False(prod.Enabled);
+        Assert.Single(job.Environments);
+        // ...and repeated access returns the same stored instance.
+        Assert.Same(prod, job.Environment("production"));
+        Assert.Same(prod, job.Environments["production"]);
+    }
+
+    [Fact]
+    public void Environment_RequestLeafOverrides_ArePureOverrides_BaseUntouched()
+    {
+        var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
         var baseCfg = new HttpConfig { Url = "https://base.example.com" };
-        job.SetConfiguration(baseCfg);
+        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: baseCfg);
+
+        var prod = job.Environment("production");
+        // Pure override: a leaf the environment does not set reads null (NOT the base).
+        Assert.Null(prod.Url);
+        Assert.Null(prod.Method);
+        Assert.Null(prod.Timeout);
+        Assert.Null(prod.Body);
+        Assert.Null(prod.SuccessStatus);
+        Assert.Null(prod.TlsVerify);
+        Assert.Null(prod.CaCert);
+        Assert.Null(prod.GetHeader("X-Api-Key"));
+
+        prod.Url = "https://prod.example.com";
+        prod.Method = HttpMethod.Put;
+        prod.Timeout = 60;
+        prod.SetHeader("Authorization", "Bearer prod");
+        Assert.Equal("https://prod.example.com", job.Environment("production").Url);
+        Assert.Equal("Bearer prod", job.Environment("production").GetHeader("Authorization"));
+        // The base configuration is untouched by the per-environment override.
         Assert.Same(baseCfg, job.Configuration);
-        Assert.Same(baseCfg, job.GetConfiguration());
-
-        var devCfg = new HttpConfig { Url = "https://dev.example.com" };
-        job.SetConfiguration(devCfg, environment: "development");
-        Assert.Same(devCfg, job.GetConfiguration(environment: "development"));
-        // An environment override entry is created on demand, defaulting disabled.
-        Assert.False(job.Environments["development"].Enabled);
-        // Environment without an override falls back to the base configuration.
-        Assert.Same(baseCfg, job.GetConfiguration(environment: "production"));
+        Assert.Equal("https://base.example.com", job.Configuration.Url);
     }
 
     [Fact]
-    public void EnvironmentOverride_Reused_PreservesOtherField()
+    public void BaseFields_SetByDirectAssignment_LeaveEnvironmentsEmpty()
     {
         var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
         var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
-
-        // Configuration first, then enablement — the same override entry is reused
-        // (the EnvironmentOverride get-existing path) so the configuration survives.
-        var devCfg = new HttpConfig { Url = "https://dev.example.com" };
-        job.SetConfiguration(devCfg, environment: "development");
-        job.SetEnabled(true, environment: "development");
-        Assert.True(job.Environments["development"].Enabled);
-        Assert.Same(devCfg, job.Environments["development"].Configuration);
-    }
-
-    [Fact]
-    public void SetSchedule_Base_ReplacesBaseSchedule()
-    {
-        var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
-        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
-        job.SetSchedule("30 2 * * *");
+        job.Schedule = "30 2 * * *";
+        job.Timezone = "America/New_York";
+        job.Configuration.SetHeader("X-Trace", "on");
         Assert.Equal("30 2 * * *", job.Schedule);
-        Assert.Empty(job.Environments);
-    }
-
-    [Fact]
-    public void SetSchedule_PerEnvironment_SetsOverrideAndPreservesBase()
-    {
-        var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
-        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
-        job.SetSchedule("0 3 * * *", environment: "production");
-        // Base schedule is untouched; the override lands on the environment entry.
-        Assert.Equal("0 * * * *", job.Schedule);
-        Assert.Equal("0 3 * * *", job.Environments["production"].Schedule);
-        // The override entry is created on demand, defaulting disabled.
-        Assert.False(job.Environments["production"].Enabled);
-    }
-
-    [Fact]
-    public void SetSchedule_PerEnvironment_ReusesExistingOverride()
-    {
-        var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
-        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
-        // Enable first, then schedule — the same override entry is reused so the
-        // enablement survives.
-        job.SetEnabled(true, environment: "production");
-        job.SetSchedule("0 3 * * *", environment: "production");
-        Assert.True(job.Environments["production"].Enabled);
-        Assert.Equal("0 3 * * *", job.Environments["production"].Schedule);
-    }
-
-    [Fact]
-    public void SetTimezone_Base_ReplacesBaseTimezone()
-    {
-        var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
-        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
-        job.SetTimezone("America/New_York");
         Assert.Equal("America/New_York", job.Timezone);
+        Assert.Equal("on", job.Configuration.GetHeader("X-Trace"));
         Assert.Empty(job.Environments);
     }
 
     [Fact]
-    public void SetTimezone_PerEnvironment_SetsOverrideAndPreservesBase()
+    public void Environment_ScheduleAndTimezone_PerEnvironment_PreserveBaseAndReuseOverride()
     {
         var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
         var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
-        job.SetTimezone("America/Chicago");
-        job.SetTimezone("Europe/London", environment: "production");
-        // Base timezone is untouched; the override lands on the environment entry.
-        Assert.Equal("America/Chicago", job.Timezone);
-        Assert.Equal("Europe/London", job.Environments["production"].Timezone);
-        // The override entry is created on demand, defaulting disabled.
-        Assert.False(job.Environments["production"].Enabled);
-    }
+        job.Timezone = "America/Chicago";
 
-    [Fact]
-    public void SetTimezone_PerEnvironment_ReusesExistingOverride()
-    {
-        var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
-        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
-        // Set a per-env schedule first, then a timezone — the same override entry is
-        // reused so the existing schedule survives.
-        job.SetSchedule("0 3 * * *", environment: "production");
-        job.SetTimezone("Europe/London", environment: "production");
+        // Enable first, then add schedule + timezone overrides — the same override
+        // entry is reused so the enablement survives, and the base is untouched.
+        job.Environment("production").Enabled = true;
+        job.Environment("production").Schedule = "0 3 * * *";
+        job.Environment("production").Timezone = "Europe/London";
+        Assert.Equal("0 * * * *", job.Schedule);          // base schedule untouched
+        Assert.Equal("America/Chicago", job.Timezone);    // base timezone untouched
+        Assert.True(job.Environments["production"].Enabled);
         Assert.Equal("0 3 * * *", job.Environments["production"].Schedule);
         Assert.Equal("Europe/London", job.Environments["production"].Timezone);
     }
@@ -480,15 +448,15 @@ public class JobsClientTests
         })).GetAsync(JobId);
 
         // Roll-up + per-environment enablement.
-        Assert.True(job.IsEnabled());
-        Assert.True(job.IsEnabled(environment: "production"));
-        Assert.False(job.IsEnabled(environment: "development"));
+        Assert.True(job.Enabled);
+        Assert.True(job.Environments["production"].Enabled);
+        Assert.False(job.Environments["development"].Enabled);
 
-        // production: no config override → inherits base configuration, but it
-        // carries a per-environment schedule override and a server-derived
-        // next_run_at that the wrapper surfaces read-only.
-        Assert.Null(job.Environments["production"].Configuration);
-        Assert.Equal("https://api.example.com/hook", job.GetConfiguration(environment: "production").Url);
+        // production: no request-leaf override → those leaves read null (pure
+        // override, NOT merged from base), but it carries per-environment schedule /
+        // timezone overrides and a server-derived next_run_at surfaced read-only.
+        Assert.Null(job.Environments["production"].Url);
+        Assert.Null(job.Environments["production"].Method);
         Assert.Equal("0 3 * * *", job.Environments["production"].Schedule);
         // Base + per-environment timezone decode from the wire.
         Assert.Equal("America/New_York", job.Timezone);
@@ -497,17 +465,107 @@ public class JobsClientTests
             DateTimeOffset.Parse("2026-06-19T03:00:00Z", System.Globalization.CultureInfo.InvariantCulture),
             job.Environments["production"].NextRunAt);
 
-        // development: per-environment config override present, no schedule override,
-        // and next_run_at omitted (the environment is disabled).
-        Assert.NotNull(job.Environments["development"].Configuration);
-        Assert.Equal("https://dev.example.com/hook", job.GetConfiguration(environment: "development").Url);
+        // development: flat url + header-leaf overrides, no schedule override, and
+        // next_run_at omitted (the environment is disabled). The base config is
+        // read from the base definition, unaffected by the per-env overrides.
+        Assert.Equal("https://dev.example.com/hook", job.Environments["development"].Url);
+        Assert.Equal("dev", job.Environments["development"].GetHeader("X-Env"));
         Assert.Null(job.Environments["development"].Schedule);
         Assert.Null(job.Environments["development"].Timezone);
         Assert.Null(job.Environments["development"].NextRunAt);
+        Assert.Equal("https://api.example.com/hook", job.Configuration.Url);
+    }
 
-        // base + unknown environment fall back to the base configuration.
-        Assert.Equal("https://api.example.com/hook", job.GetConfiguration().Url);
-        Assert.Equal("https://api.example.com/hook", job.GetConfiguration(environment: "staging").Url);
+    [Fact]
+    public async Task SaveAsync_BuildBody_AllEnvironmentRequestLeaves_FlatOverlay()
+    {
+        string? capturedBody = null;
+        var jobs = MakeJobs(async req =>
+        {
+            capturedBody = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = JsonApi("{\"data\":" + JobResource() + "}"),
+            };
+        });
+        var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
+        var prod = job.Environment("production");
+        prod.Enabled = true;
+        prod.Url = "https://prod.example.com/hook";
+        prod.Method = HttpMethod.Put;
+        prod.Timeout = 90;
+        prod.Body = "{\"warm\":true}";
+        prod.SuccessStatus = "200";
+        prod.TlsVerify = false;
+        prod.CaCert = "-----BEGIN CERTIFICATE-----\nx\n-----END CERTIFICATE-----";
+        prod.SetHeader("Authorization", "Bearer prod");
+        prod.SetHeader("X-Foo.Bar", "v");   // dotted header name survives the wire
+        await job.SaveAsync();
+
+        using var doc = JsonDocument.Parse(capturedBody!);
+        var p = doc.RootElement.GetProperty("data").GetProperty("attributes")
+            .GetProperty("environments").GetProperty("production");
+        // Each overridden request leaf travels as a flat top-level key.
+        Assert.True(p.GetProperty("enabled").GetBoolean());
+        Assert.Equal("https://prod.example.com/hook", p.GetProperty("url").GetString());
+        Assert.Equal("PUT", p.GetProperty("method").GetString());
+        Assert.Equal(90, p.GetProperty("timeout").GetInt32());
+        Assert.Equal("{\"warm\":true}", p.GetProperty("body").GetString());
+        Assert.Equal("200", p.GetProperty("success_status").GetString());
+        Assert.False(p.GetProperty("tls_verify").GetBoolean());
+        Assert.Contains("BEGIN CERTIFICATE", p.GetProperty("ca_cert").GetString());
+        Assert.Equal("Bearer prod", p.GetProperty("headers.Authorization").GetString());
+        // Each header is a `headers.<name>` leaf, keyed on the FIRST dot so a dotted
+        // header name survives.
+        Assert.Equal("v", p.GetProperty("headers.X-Foo.Bar").GetString());
+        // It is a flat overlay — never a nested `configuration` object.
+        Assert.False(p.TryGetProperty("configuration", out _));
+    }
+
+    [Fact]
+    public async Task Get_ParsesAllEnvironmentRequestLeaves_FirstDotHeaders_IgnoresUnknown()
+    {
+        const string envs =
+            "{\"production\":{\"enabled\":true,\"url\":\"https://p\",\"method\":\"PUT\","
+            + "\"timeout\":9,\"body\":\"b\",\"success_status\":\"200\",\"tls_verify\":false,"
+            + "\"ca_cert\":\"CA\",\"headers.Authorization\":\"Bearer x\","
+            + "\"headers.X-Foo.Bar\":\"v\",\"next_run_at\":null,"
+            + "\"unknown_leaf\":\"ignored\",\"also.dotted\":\"ignored\"}}";
+        var job = await MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi("{\"data\":" + JobResource(environmentsJson: envs) + "}"),
+        })).GetAsync(JobId);
+        var prod = job.Environments["production"];
+        Assert.True(prod.Enabled);
+        Assert.Equal("https://p", prod.Url);
+        Assert.Equal(HttpMethod.Put, prod.Method);
+        Assert.Equal(9, prod.Timeout);
+        Assert.Equal("b", prod.Body);
+        Assert.Equal("200", prod.SuccessStatus);
+        Assert.False(prod.TlsVerify);
+        Assert.Equal("CA", prod.CaCert);
+        Assert.Equal("Bearer x", prod.GetHeader("Authorization"));
+        // First-dot split preserves the dotted header name.
+        Assert.Equal("v", prod.GetHeader("X-Foo.Bar"));
+        // next_run_at present-but-null stays null; unknown / dotted-non-header leaves
+        // are ignored for forward compatibility.
+        Assert.Null(prod.NextRunAt);
+    }
+
+    [Fact]
+    public async Task Get_EnvironmentNonObjectOrNullValue_YieldsEmptyOverride()
+    {
+        // Forward-compat: a JSON null and a non-object env value both parse to an
+        // empty (disabled, all-null) override rather than throwing.
+        const string envs = "{\"production\":null,\"staging\":\"not-an-object\"}";
+        var job = await MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi("{\"data\":" + JobResource(environmentsJson: envs) + "}"),
+        })).GetAsync(JobId);
+        Assert.False(job.Environments["production"].Enabled);
+        Assert.Null(job.Environments["production"].Url);
+        Assert.False(job.Environments["staging"].Enabled);
+        Assert.Empty(job.Environments["staging"].Headers);
     }
 
     // ----------------------------------------------------------------------
@@ -527,12 +585,15 @@ public class JobsClientTests
             };
         });
         var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg(), description: "d");
-        job.SetConfiguration(new HttpConfig { Url = "https://dev.example.com/hook" }, environment: "development");
-        job.SetEnabled(false, environment: "development");
-        job.SetEnabled(true, environment: "production");
-        job.SetSchedule("0 3 * * *", environment: "production");
-        job.SetTimezone("America/New_York");                     // base timezone
-        job.SetTimezone("Europe/London", environment: "production"); // per-env override
+        // development: flat url + header-leaf overrides, disabled.
+        job.Environment("development").Url = "https://dev.example.com/hook";
+        job.Environment("development").SetHeader("X-Env", "dev");
+        job.Environment("development").Enabled = false;
+        // production: enabled + per-env schedule/timezone overrides.
+        job.Environment("production").Enabled = true;
+        job.Environment("production").Schedule = "0 3 * * *";
+        job.Timezone = "America/New_York";                          // base timezone
+        job.Environment("production").Timezone = "Europe/London";   // per-env override
         await job.SaveAsync();
 
         using var doc = JsonDocument.Parse(capturedBody!);
@@ -543,14 +604,18 @@ public class JobsClientTests
         Assert.False(attrs.TryGetProperty("version", out _));
         // The base timezone is sent when set.
         Assert.Equal("America/New_York", attrs.GetProperty("timezone").GetString());
-        // environments map is emitted; each entry carries its own enabled flag.
+        // environments map is emitted as a flat sparse overlay; each entry carries
+        // its own enabled flag.
         var envs = attrs.GetProperty("environments");
         Assert.True(envs.GetProperty("production").GetProperty("enabled").GetBoolean());
         Assert.False(envs.GetProperty("development").GetProperty("enabled").GetBoolean());
-        // production has no config override (inherits base); development does.
-        Assert.False(envs.GetProperty("production").TryGetProperty("configuration", out _));
+        // production overrides no request leaf (url absent); development overrides the
+        // flat `url` leaf and the `headers.X-Env` leaf (NOT a nested configuration).
+        Assert.False(envs.GetProperty("production").TryGetProperty("url", out _));
+        Assert.False(envs.GetProperty("development").TryGetProperty("configuration", out _));
         Assert.Equal("https://dev.example.com/hook",
-            envs.GetProperty("development").GetProperty("configuration").GetProperty("url").GetString());
+            envs.GetProperty("development").GetProperty("url").GetString());
+        Assert.Equal("dev", envs.GetProperty("development").GetProperty("headers.X-Env").GetString());
         // A per-environment schedule override is sent when set; development (no
         // override) and the read-only next_run_at are omitted on every entry.
         Assert.Equal("0 3 * * *", envs.GetProperty("production").GetProperty("schedule").GetString());
@@ -1216,8 +1281,8 @@ public class JobsClientTests
     {
         var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
         var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
-        job.SetEnabled(true, environment: "production");
-        job.SetEnabled(false, environment: "development");
+        job.Environment("production").Enabled = true;
+        job.Environment("development").Enabled = false;
         var s = job.ToString();
         Assert.Contains("Id=my-job", s);
         Assert.Contains("Name=n", s);
@@ -1571,27 +1636,36 @@ public class JobsClientTests
     // ----------------------------------------------------------------------
 
     [Fact]
-    public void SetRetryPolicy_Object_SetsBase()
+    public void RetryPolicy_Base_AcceptsObjectOrId()
     {
         var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
         var policy = jobs.RetryPolicies.New("rp", name: "n", maxRetries: 1, backoff: Backoff.Fixed, delaySeconds: 1);
         var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
-        job.SetRetryPolicy(policy);
+        // Assigning a RetryPolicy object coerces to its id (implicit conversion).
+        job.RetryPolicy = policy;
         Assert.Equal("rp", job.RetryPolicy);
+        // Assigning a bare id string works too.
+        job.RetryPolicy = "Default";
+        Assert.Equal("Default", job.RetryPolicy);
         Assert.Empty(job.Environments);
     }
 
     [Fact]
-    public void SetRetryPolicy_Id_PerEnvironment_ReusesExistingOverride()
+    public void RetryPolicy_PerEnvironment_AcceptsObjectOrId()
     {
         var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var policy = jobs.RetryPolicies.New("retry-prod", name: "n", maxRetries: 1, backoff: Backoff.Fixed, delaySeconds: 1);
         var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
-        // Enable first, then set the per-env policy — the same override entry is reused.
-        job.SetEnabled(true, environment: "production");
-        job.SetRetryPolicy("retry-prod", environment: "production");
+        // Enable first, then set the per-env policy via a RetryPolicy object — the
+        // same override entry is reused so the enablement survives.
+        job.Environment("production").Enabled = true;
+        job.Environment("production").RetryPolicy = policy;
         Assert.Null(job.RetryPolicy);
         Assert.True(job.Environments["production"].Enabled);
         Assert.Equal("retry-prod", job.Environments["production"].RetryPolicy);
+        // A bare id string is also accepted.
+        job.Environment("development").RetryPolicy = "retry-dev";
+        Assert.Equal("retry-dev", job.Environments["development"].RetryPolicy);
     }
 
     [Fact]
@@ -1670,8 +1744,8 @@ public class JobsClientTests
             };
         });
         var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
-        job.SetEnabled(true, environment: "production");
-        job.SetRetryPolicy("prod-retry", environment: "production");
+        job.Environment("production").Enabled = true;
+        job.Environment("production").RetryPolicy = "prod-retry";
         await job.SaveAsync();
 
         using var doc = JsonDocument.Parse(body!);
@@ -1699,21 +1773,23 @@ public class JobsClientTests
     }
 
     [Fact]
-    public void SetSchedule_WithTimezone_Base_SetsBoth()
+    public void Schedule_And_Timezone_Base_SetByDirectAssignment()
     {
         var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
         var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
-        job.SetSchedule("30 2 * * *", timezone: "America/Los_Angeles");
+        job.Schedule = "30 2 * * *";
+        job.Timezone = "America/Los_Angeles";
         Assert.Equal("30 2 * * *", job.Schedule);
         Assert.Equal("America/Los_Angeles", job.Timezone);
     }
 
     [Fact]
-    public void SetSchedule_WithTimezone_PerEnvironment_SetsBoth()
+    public void Schedule_And_Timezone_PerEnvironment_PreserveBase()
     {
         var jobs = MakeJobs(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
         var job = jobs.NewRecurringJob(JobId, name: "n", schedule: "0 * * * *", configuration: Cfg());
-        job.SetSchedule("0 */6 * * *", timezone: "America/New_York", environment: "development");
+        job.Environment("development").Schedule = "0 */6 * * *";
+        job.Environment("development").Timezone = "America/New_York";
         Assert.Equal("0 * * * *", job.Schedule);  // base untouched
         Assert.Null(job.Timezone);                 // base timezone untouched
         Assert.Equal("0 */6 * * *", job.Environments["development"].Schedule);
@@ -1828,7 +1904,7 @@ public class JobsClientTests
             + "\"name\":\"My Job\",\"description\":\"does a thing\",\"type\":\"http\","
             + "\"schedule\":\"0 * * * *\",\"retry_policy\":\"" + baseRetryPolicy + "\","
             + "\"configuration\":{\"method\":\"POST\",\"url\":\"https://api.example.com/hook\","
-            + "\"headers\":[],\"body\":null,\"success_status\":\"2xx\",\"timeout\":30,"
+            + "\"headers\":{},\"body\":null,\"success_status\":\"2xx\",\"timeout\":30,"
             + "\"tls_verify\":true,\"ca_cert\":null},"
             + "\"environments\":" + environmentsJson + ","
             + "\"concurrency_policy\":\"ALLOW\",\"kind\":\"recurring\","

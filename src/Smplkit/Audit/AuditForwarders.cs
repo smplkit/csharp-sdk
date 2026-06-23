@@ -207,11 +207,7 @@ public sealed class ForwardersClient
         {
             attrs.Environments = src.Environments.ToDictionary(
                 kv => kv.Key,
-                kv => new GenAudit.ForwarderEnvironment
-                {
-                    Enabled = kv.Value.Enabled,
-                    Configuration = kv.Value.Configuration is { } cfg ? ToGenHttpConfiguration(cfg) : null,
-                });
+                kv => (object)EnvironmentToOverlay(kv.Value));
         }
         if (src.Description is not null) attrs.Description = src.Description;
         // Additive opt-in; only put it on the wire when enabled so the default
@@ -253,31 +249,46 @@ public sealed class ForwardersClient
         return new GenAudit.ForwarderRequest { Data = r };
     }
 
-    private static GenAudit.HttpConfiguration ToGenHttpConfiguration(HttpConfiguration src)
+    private static GenAudit.ForwarderHttpConfiguration ToGenHttpConfiguration(HttpConfiguration src)
     {
-        var headers = new List<GenAudit.HttpHeader>(src.Headers.Count);
-        foreach (var h in src.Headers)
-            headers.Add(new GenAudit.HttpHeader { Name = h.Name, Value = h.Value });
-
-        return new GenAudit.HttpConfiguration
+        return new GenAudit.ForwarderHttpConfiguration
         {
             Method = ToGenHttpMethod(src.Method),
             Url = src.Url,
-            Headers = headers,
+            // Headers travel as a name→value object (ADR-056).
+            Headers = new Dictionary<string, string>(src.Headers),
             Success_status = src.SuccessStatus,
             Tls_verify = src.TlsVerify,
             Ca_cert = src.CaCert,
         };
     }
 
-    private static GenAudit.HttpConfigurationMethod ToGenHttpMethod(Smplkit.Audit.HttpMethod method) =>
+    // ADR-056: an environment is a flat, sparse leaf-path overlay — `enabled` plus
+    // only the leaves this environment overrides, with each header as a
+    // `headers.<name>` entry. Unset leaves are omitted (the server resolves
+    // base ⊕ overrides on delivery). Forwarders are event-driven, so there is no
+    // schedule / timezone / retry-policy leaf.
+    private static Dictionary<string, object> EnvironmentToOverlay(ForwarderEnvironment env)
+    {
+        var overlay = new Dictionary<string, object> { ["enabled"] = env.Enabled };
+        if (env.Url is { } url) overlay["url"] = url;
+        if (env.Method is { } method) overlay["method"] = method.ToWireValue();
+        if (env.SuccessStatus is { } successStatus) overlay["success_status"] = successStatus;
+        if (env.TlsVerify is { } tlsVerify) overlay["tls_verify"] = tlsVerify;
+        if (env.CaCert is { } caCert) overlay["ca_cert"] = caCert;
+        foreach (var (name, value) in env.Headers)
+            overlay[$"headers.{name}"] = value;
+        return overlay;
+    }
+
+    private static GenAudit.ForwarderHttpConfigurationMethod ToGenHttpMethod(Smplkit.Audit.HttpMethod method) =>
         method switch
         {
-            Smplkit.Audit.HttpMethod.Delete => GenAudit.HttpConfigurationMethod.DELETE,
-            Smplkit.Audit.HttpMethod.Get => GenAudit.HttpConfigurationMethod.GET,
-            Smplkit.Audit.HttpMethod.Patch => GenAudit.HttpConfigurationMethod.PATCH,
-            Smplkit.Audit.HttpMethod.Post => GenAudit.HttpConfigurationMethod.POST,
-            Smplkit.Audit.HttpMethod.Put => GenAudit.HttpConfigurationMethod.PUT,
+            Smplkit.Audit.HttpMethod.Delete => GenAudit.ForwarderHttpConfigurationMethod.DELETE,
+            Smplkit.Audit.HttpMethod.Get => GenAudit.ForwarderHttpConfigurationMethod.GET,
+            Smplkit.Audit.HttpMethod.Patch => GenAudit.ForwarderHttpConfigurationMethod.PATCH,
+            Smplkit.Audit.HttpMethod.Post => GenAudit.ForwarderHttpConfigurationMethod.POST,
+            Smplkit.Audit.HttpMethod.Put => GenAudit.ForwarderHttpConfigurationMethod.PUT,
             _ => throw new ArgumentOutOfRangeException(nameof(method)),
         };
 
@@ -289,9 +300,9 @@ public sealed class ForwardersClient
             name: a.Name ?? string.Empty,
             forwarderType: FromGenForwarderType(a.Forwarder_type),
             configuration: HttpFromGen(a.Configuration),
-            // The base `enabled` is server-pinned false; round-trip whatever the
-            // server returned (always false) without assuming a default of true.
-            enabled: a.Enabled,
+            // The forwarder has no base `enabled` on the wire (ADR-056); the wrapper
+            // derives it as a roll-up over the per-environment map (see
+            // Forwarder.Enabled).
             environments: EnvironmentsFromGen(a.Environments),
             description: a.Description,
             forwardSmplkitEvents: a.Forward_smplkit_events,
@@ -338,22 +349,52 @@ public sealed class ForwardersClient
         };
 
     private static IDictionary<string, ForwarderEnvironment> EnvironmentsFromGen(
-        IDictionary<string, GenAudit.ForwarderEnvironment>? src)
+        IDictionary<string, object>? src)
     {
         var result = new Dictionary<string, ForwarderEnvironment>();
         if (src == null) return result;
-        foreach (var (key, env) in src)
-        {
-            result[key] = new ForwarderEnvironment
-            {
-                Enabled = env.Enabled,
-                Configuration = env.Configuration is { } cfg ? HttpFromGen(cfg) : null,
-            };
-        }
+        foreach (var (key, raw) in src)
+            result[key] = EnvironmentFromOverlay(raw);
         return result;
     }
 
-    private static HttpConfiguration HttpFromGen(GenAudit.HttpConfiguration? src)
+    // Parse the flat leaf-path overlay the server returns (ADR-056). The generated
+    // client deserializes each environment value as a System.Text.Json.JsonElement
+    // object. Header leaves arrive as `headers.<name>`, parsed on the FIRST dot so a
+    // dotted header name like `X-Foo.Bar` is preserved; unknown leaves are ignored
+    // for forward compatibility.
+    private static ForwarderEnvironment EnvironmentFromOverlay(object? raw)
+    {
+        var env = new ForwarderEnvironment();
+        if (raw is not System.Text.Json.JsonElement el
+            || el.ValueKind != System.Text.Json.JsonValueKind.Object)
+        {
+            return env;
+        }
+        foreach (var prop in el.EnumerateObject())
+        {
+            var name = prop.Name;
+            var dot = name.IndexOf('.');
+            if (dot >= 0)
+            {
+                if (name.AsSpan(0, dot).SequenceEqual("headers") && dot + 1 < name.Length)
+                    env.Headers[name[(dot + 1)..]] = prop.Value.GetString() ?? string.Empty;
+                continue;
+            }
+            switch (name)
+            {
+                case "enabled": env.Enabled = prop.Value.GetBoolean(); break;
+                case "url": env.Url = prop.Value.GetString(); break;
+                case "method": env.Method = HttpMethodExtensions.FromWireValue(prop.Value.GetString()!); break;
+                case "success_status": env.SuccessStatus = prop.Value.GetString(); break;
+                case "tls_verify": env.TlsVerify = prop.Value.GetBoolean(); break;
+                case "ca_cert": env.CaCert = prop.Value.GetString(); break;
+            }
+        }
+        return env;
+    }
+
+    private static HttpConfiguration HttpFromGen(GenAudit.ForwarderHttpConfiguration? src)
     {
         if (src == null) return new HttpConfiguration { Url = string.Empty };
         var out_ = new HttpConfiguration
@@ -364,12 +405,9 @@ public sealed class ForwardersClient
             TlsVerify = src.Tls_verify,
             CaCert = src.Ca_cert,
         };
+        // Headers arrive as a name→value object (ADR-056).
         if (src.Headers != null)
-        {
-            out_.Headers = src.Headers
-                .Select(h => new HttpHeader(h.Name ?? string.Empty, h.Value ?? string.Empty))
-                .ToList();
-        }
+            out_.Headers = new Dictionary<string, string>(src.Headers);
         return out_;
     }
 

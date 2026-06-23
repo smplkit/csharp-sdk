@@ -3613,12 +3613,6 @@ namespace Smplkit.Internal.Generated.Audit
         public ForwarderType Forwarder_type { get; set; } = default!;
 
         /// <summary>
-        /// Always false. Enablement is per-environment: a forwarder delivers in an environment only when `environments[&lt;env&gt;].enabled` is true. The base value is pinned false and cannot be set.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("enabled")]
-        public bool Enabled { get; set; } = false;
-
-        /// <summary>
         /// When true, this forwarder also receives platform change events that smplkit records about your own resources (flag, configuration, and similar changes). Each such event is delivered through every environment this forwarder is enabled in, using that environment's resolved configuration. Defaults to false — platform change events are not forwarded unless you opt in. Independent of the per-environment `enabled` settings, since platform change events are not tied to a deployment environment.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("forward_smplkit_events")]
@@ -3643,16 +3637,16 @@ namespace Smplkit.Internal.Generated.Audit
         public object? Transform { get; set; } = default!;
 
         /// <summary>
-        /// Base delivery configuration template. Shape is discriminated by ``forwarder_type``; today all destination types use ``HttpConfiguration``. Branded vendor types (everything except `http`) constrain the configuration against a per-vendor template — see `GET /api/v1/forwarder_types` for the URL pattern, fixed headers, and customer-supplied placeholders for each type. A per-environment override in `environments` replaces this template for that environment.
+        /// Base delivery configuration template. Shape is discriminated by ``forwarder_type``; today all destination types deliver over HTTP. Branded vendor types (everything except `http`) constrain the configuration against a per-vendor template — see `GET /api/v1/forwarder_types` for the URL pattern, fixed headers, and customer-supplied placeholders for each type. A per-environment entry in `environments` overrides individual fields of this template for that environment; fields it omits are inherited from here.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("configuration")]
-        public HttpConfiguration Configuration { get; set; } = new HttpConfiguration();
+        public ForwarderHttpConfiguration Configuration { get; set; } = new ForwarderHttpConfiguration();
 
         /// <summary>
-        /// Per-environment overrides keyed by environment key (e.g. `production`, `staging`). Each entry sets `enabled` (whether the forwarder delivers in that environment) and an optional `configuration` override (omit to inherit the base `configuration`). A forwarder with no entry for an environment is disabled there. Every referenced environment must exist and be managed for the account.
+        /// Per-environment overrides keyed by environment key (e.g. `production`, `staging`). Each entry is a sparse map of only the fields that differ in that environment: `enabled` (whether the forwarder delivers there) plus any of `url`, `method`, `success_status`, `tls_verify`, `ca_cert`, and individual headers as `headers.&lt;name&gt;` (e.g. `headers.Authorization`). Fields you omit are inherited from the base `configuration`; an entry never needs to repeat the whole configuration. A forwarder with no entry for an environment is disabled there. Every referenced environment must exist and be managed for the account.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("environments")]
-        public System.Collections.Generic.IDictionary<string, ForwarderEnvironment> Environments { get; set; } = default!;
+        public System.Collections.Generic.IDictionary<string, object> Environments { get; set; } = default!;
 
         /// <summary>
         /// When the forwarder was created.
@@ -3949,32 +3943,52 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     /// <summary>
-    /// Per-environment override for a forwarder's enablement and configuration.
+    /// HTTP request a forwarder makes to deliver an event.
+    /// <br/>
+    /// <br/>Identical to the shared HTTP configuration except that ``headers`` is a
+    /// <br/>name→value object so an individual header can be overridden per environment
+    /// <br/>by its name.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class ForwarderEnvironment
+    public partial class ForwarderHttpConfiguration
     {
 
         /// <summary>
-        /// Whether the forwarder delivers events in this environment. A forwarder is enabled in an environment only via this field — the base `enabled` is always false.
+        /// HTTP method used when delivering the request.
         /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("enabled")]
-        public bool Enabled { get; set; } = false;
+        [System.Text.Json.Serialization.JsonPropertyName("method")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ForwarderHttpConfigurationMethod>))]
+        public ForwarderHttpConfigurationMethod Method { get; set; } = Smplkit.Internal.Generated.Audit.ForwarderHttpConfigurationMethod.POST;
 
         /// <summary>
-        /// Per-environment delivery configuration override. Omit to inherit the forwarder's base `configuration`. When present, it fully replaces the base configuration for this environment and is validated against the same per-vendor template.
+        /// Destination URL. Must be an absolute `http://` or `https://` URL with a hostname (e.g. `https://siem.example.com/in`).
         /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("configuration")]
-        public HttpConfiguration? Configuration { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonPropertyName("url")]
+        public string Url { get; set; } = default!;
 
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+        /// <summary>
+        /// HTTP headers attached to each delivery, as a name→value object (e.g. `{"DD-API-KEY": "s3cr3t"}`). A header is overridden in a specific environment by its name via a `headers.&lt;name&gt;` entry in that environment's overrides; header names match case-insensitively.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("headers")]
+        public System.Collections.Generic.IDictionary<string, string> Headers { get; set; } = default!;
 
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
+        /// <summary>
+        /// HTTP response status that indicates success. Either a specific status code (e.g. `200`, `204`) or a status class (`1xx`, `2xx`, `3xx`, `4xx`, `5xx`).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("success_status")]
+        public string Success_status { get; set; } = "2xx";
+
+        /// <summary>
+        /// Whether to verify the destination server's TLS certificate against trusted certificate authorities. Defaults to `true` and should be left on for any production destination. Set to `false` only for development or short-lived testing against a destination that presents an untrusted certificate (e.g. a Splunk Cloud trial stack on `:8088` serving its default self-signed certificate). When `false`, deliveries proceed without certificate verification — they are vulnerable to man-in-the-middle attacks. For long-lived self-signed setups, pin the issuing CA via `ca_cert` instead of disabling verification entirely.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("tls_verify")]
+        public bool Tls_verify { get; set; } = true;
+
+        /// <summary>
+        /// Optional PEM-encoded certificate (or bundle) used to verify the destination server's TLS certificate, in addition to the system trust store. Use this to pin a private or self-signed CA (e.g. Splunk's default `SplunkCommonCA`) without disabling verification entirely via `tls_verify`. Must contain one or more `-----BEGIN CERTIFICATE-----` blocks. Ignored when `tls_verify` is `false`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("ca_cert")]
+        public string? Ca_cert { get; set; } = default!;
 
     }
 
@@ -4355,94 +4369,6 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     /// <summary>
-    /// HTTP request configuration for delivering a payload to a destination.
-    /// <br/>
-    /// <br/>The shared base shape for any product that posts to a customer-supplied
-    /// <br/>HTTP destination. Smpl Audit forwarders use it directly; Smpl Jobs
-    /// <br/>extends it (adding ``body`` and ``timeout``). When other transports land
-    /// <br/>(``FTP``, ``SQS``, …) their own configuration schemas will join this one
-    /// <br/>as members of a discriminated union under a ``configuration`` field.
-    /// </summary>
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class HttpConfiguration
-    {
-
-        /// <summary>
-        /// HTTP method used when delivering the request.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("method")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<HttpConfigurationMethod>))]
-        public HttpConfigurationMethod Method { get; set; } = Smplkit.Internal.Generated.Audit.HttpConfigurationMethod.POST;
-
-        /// <summary>
-        /// Destination URL. Must be an absolute `http://` or `https://` URL with a hostname (e.g. `https://siem.example.com/in`).
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("url")]
-        public string Url { get; set; } = default!;
-
-        /// <summary>
-        /// HTTP headers attached to each request.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("headers")]
-        public System.Collections.Generic.List<HttpHeader> Headers { get; set; } = default!;
-
-        /// <summary>
-        /// HTTP response status that indicates success. Either a specific status code (e.g. `200`, `204`) or a status class (`1xx`, `2xx`, `3xx`, `4xx`, `5xx`).
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("success_status")]
-        public string Success_status { get; set; } = "2xx";
-
-        /// <summary>
-        /// Whether to verify the destination server's TLS certificate against trusted certificate authorities. Defaults to `true` and should be left on for any production destination. Set to `false` only for development or short-lived testing against a destination that presents an untrusted certificate (e.g. a Splunk Cloud trial stack on `:8088` serving its default self-signed certificate). When `false`, deliveries proceed without certificate verification — they are vulnerable to man-in-the-middle attacks. For long-lived self-signed setups, pin the issuing CA via `ca_cert` instead of disabling verification entirely.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("tls_verify")]
-        public bool Tls_verify { get; set; } = true;
-
-        /// <summary>
-        /// Optional PEM-encoded certificate (or bundle) used to verify the destination server's TLS certificate, in addition to the system trust store. Use this to pin a private or self-signed CA (e.g. Splunk's default `SplunkCommonCA`) without disabling verification entirely via `tls_verify`. Must contain one or more `-----BEGIN CERTIFICATE-----` blocks. Ignored when `tls_verify` is `false`.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("ca_cert")]
-        public string? Ca_cert { get; set; } = default!;
-
-    }
-
-    /// <summary>
-    /// A single HTTP header attached to an outbound request.
-    /// <br/>
-    /// <br/>Header values are encrypted at the application layer before
-    /// <br/>persistence regardless of header name; the wire representation here
-    /// <br/>is always plaintext on both the request and the response, so a
-    /// <br/>`GET → mutate → PUT` round-trip preserves header values without
-    /// <br/>requiring the customer to re-enter secrets.
-    /// </summary>
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class HttpHeader
-    {
-
-        /// <summary>
-        /// Header name.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("name")]
-        public string Name { get; set; } = default!;
-
-        /// <summary>
-        /// Header value. Stored encrypted at rest; returned as plaintext on `GET`.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("value")]
-        public string Value { get; set; } = default!;
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    /// <summary>
     /// Top-level ``meta`` block included on every JSON:API list response.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -4687,10 +4613,10 @@ namespace Smplkit.Internal.Generated.Audit
         public string Url { get; set; } = default!;
 
         /// <summary>
-        /// HTTP headers attached to the test request.
+        /// HTTP headers attached to the test request, as a name→value object (e.g. `{"Authorization": "Bearer s3cr3t"}`).
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("headers")]
-        public System.Collections.Generic.List<HttpHeader> Headers { get; set; } = default!;
+        public System.Collections.Generic.IDictionary<string, string> Headers { get; set; } = default!;
 
         /// <summary>
         /// HTTP response status that indicates success. Either a specific status code (e.g. `200`, `204`) or a status class (`1xx`, `2xx`, `3xx`, `4xx`, `5xx`).
@@ -5001,7 +4927,7 @@ namespace Smplkit.Internal.Generated.Audit
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum HttpConfigurationMethod
+    public enum ForwarderHttpConfigurationMethod
     {
 
         [System.Runtime.Serialization.EnumMember(Value = @"GET")]

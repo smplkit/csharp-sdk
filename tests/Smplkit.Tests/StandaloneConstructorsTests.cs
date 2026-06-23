@@ -251,40 +251,34 @@ public class StandaloneConstructorsTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public void Forwarder_SetConfiguration_Base_And_PerEnvironment()
+    public void Forwarder_BaseConfiguration_SetByDirectAssignment()
     {
         var fwd = MakeForwarder();
 
         var baseCfg = new AuditHttpConfiguration { Url = "https://base" };
-        fwd.SetConfiguration(baseCfg);
+        fwd.Configuration = baseCfg;
         Assert.Same(baseCfg, fwd.Configuration);
-
-        var prodCfg = new AuditHttpConfiguration { Url = "https://prod" };
-        fwd.SetConfiguration(prodCfg, environment: "production");
-        Assert.Same(prodCfg, fwd.Environments["production"].Configuration);
-        // The override entry is created on demand.
-        Assert.False(fwd.Environments["production"].Enabled);
     }
 
     [Fact]
-    public void Forwarder_SetEnabled_Base_And_PerEnvironment_PreservesOtherField()
+    public void Forwarder_Environment_PerEnvironmentLeafOverrides_PureOverride()
     {
         var fwd = MakeForwarder();
 
-        // Per-environment configuration first, then enablement — the override is
-        // reused so the configuration survives (EnvironmentOverride get path).
-        var cfg = new AuditHttpConfiguration { Url = "https://prod" };
-        fwd.SetConfiguration(cfg, environment: "production");
-        fwd.SetEnabled(true, environment: "production");
+        // Per-environment url first, then enablement — the same override entry is
+        // reused so the url survives (the Environment get-existing path).
+        fwd.Environment("production").Url = "https://prod";
+        fwd.Environment("production").Enabled = true;
         Assert.True(fwd.Environments["production"].Enabled);
-        Assert.Same(cfg, fwd.Environments["production"].Configuration);
+        Assert.Equal("https://prod", fwd.Environments["production"].Url);
+        // Pure override: a leaf the environment does not set reads null (no base merge).
+        Assert.Null(fwd.Environments["production"].Method);
 
-        // Base enablement (server-pinned false, but the setter still assigns).
-        fwd.SetEnabled(true);
+        // Enablement drives the derived roll-up.
         Assert.True(fwd.Enabled);
 
-        // New environment via SetEnabled alone creates the override.
-        fwd.SetEnabled(true, environment: "staging");
+        // A new environment via the accessor creates the override on demand.
+        fwd.Environment("staging").Enabled = true;
         Assert.True(fwd.Environments["staging"].Enabled);
     }
 
