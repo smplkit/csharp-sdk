@@ -2308,9 +2308,9 @@ namespace Smplkit.Internal.Generated.Jobs
     /// <summary>
     /// HTTP request a job performs when it fires.
     /// <br/>
-    /// <br/>Extends the shared forwarder configuration with the two fields a scheduled
-    /// <br/>job needs beyond a forwarder, and represents headers as a name→value object
-    /// <br/>so an individual header can be overridden per environment by its name.
+    /// <br/>Extends the shared HTTP configuration with the two fields a scheduled job
+    /// <br/>needs beyond a forwarder (``body`` and ``timeout``); everything else,
+    /// <br/>including the shared name→value ``headers`` object, is inherited unchanged.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class JobHttpConfiguration
@@ -2330,7 +2330,7 @@ namespace Smplkit.Internal.Generated.Jobs
         public string Url { get; set; } = default!;
 
         /// <summary>
-        /// HTTP headers sent on each request, as a name→value object (e.g. `{"Authorization": "Bearer s3cr3t"}`). A header is overridden per environment by its name via a `headers.&lt;name&gt;` entry in that environment's overrides; header names match case-insensitively.
+        /// HTTP headers attached to each request, as a name→value object (e.g. `{"Authorization": "Bearer s3cr3t"}`). Override an individual header in a specific environment by its name via a `headers.&lt;name&gt;` entry in that environment's overrides; header names match case-insensitively.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("headers")]
         public System.Collections.Generic.IDictionary<string, string> Headers { get; set; } = default!;
