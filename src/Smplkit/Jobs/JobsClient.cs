@@ -129,9 +129,9 @@ public sealed class RunsClient
 /// <para>Reached as <c>client.Jobs.RetryPolicies</c>. A <see cref="RetryPolicy"/> is
 /// an active record: build one with <see cref="New"/>, set fields, and call
 /// <see cref="RetryPolicy.SaveAsync"/>; then reference it from a job's retry policy
-/// (see <see cref="JobsClient.NewRecurringJob"/> and
-/// <see cref="Job.SetRetryPolicy(RetryPolicy, string)"/>). Retry policies are
-/// account-global — never environment-scoped.</para>
+/// (see <see cref="JobsClient.NewRecurringJob"/>, or assign it to
+/// <see cref="Job.RetryPolicy"/> / <see cref="JobEnvironment.RetryPolicy"/>). Retry
+/// policies are account-global — never environment-scoped.</para>
 /// </remarks>
 public sealed class RetryPoliciesClient
 {
@@ -704,37 +704,41 @@ public sealed class JobsClient : IDisposable
         {
             attrs.Environments = src.Environments.ToDictionary(
                 kv => kv.Key,
-                kv => new GenJobs.JobEnvironment
-                {
-                    Enabled = kv.Value.Enabled,
-                    // Per-environment cron override; sent only when set (omitted by
-                    // the jobs serializer when null, inheriting the base schedule).
-                    Schedule = kv.Value.Schedule,
-                    // Per-environment timezone override; sent only when set (omitted
-                    // by the jobs serializer when null, inheriting the base timezone).
-                    Timezone = kv.Value.Timezone,
-                    // Per-environment retry-policy override; sent only when set
-                    // (omitted by the jobs serializer when null, inheriting the base
-                    // retry policy).
-                    Retry_policy = kv.Value.RetryPolicy,
-                    Configuration = kv.Value.Configuration is { } cfg ? ToGenConfiguration(cfg) : null,
-                    // Next_run_at is read-only/server-derived; never sent.
-                });
+                kv => (object)EnvironmentToOverlay(kv.Value));
         }
         return attrs;
     }
 
+    // ADR-056: an environment is a flat, sparse leaf-path overlay — `enabled` plus
+    // only the leaves this environment overrides, with each header as a
+    // `headers.<name>` entry. Unset leaves are omitted (the server resolves
+    // base ⊕ overrides); the read-only `next_run_at` is never sent.
+    private static Dictionary<string, object> EnvironmentToOverlay(JobEnvironment env)
+    {
+        var overlay = new Dictionary<string, object> { ["enabled"] = env.Enabled };
+        if (env.Schedule is { } schedule) overlay["schedule"] = schedule;
+        if (env.Timezone is { } timezone) overlay["timezone"] = timezone;
+        if (env.RetryPolicy is { } retryPolicy) overlay["retry_policy"] = retryPolicy;
+        if (env.Url is { } url) overlay["url"] = url;
+        if (env.Method is { } method) overlay["method"] = method.ToWireValue();
+        if (env.Timeout is { } timeout) overlay["timeout"] = timeout;
+        if (env.Body is { } body) overlay["body"] = body;
+        if (env.SuccessStatus is { } successStatus) overlay["success_status"] = successStatus;
+        if (env.TlsVerify is { } tlsVerify) overlay["tls_verify"] = tlsVerify;
+        if (env.CaCert is { } caCert) overlay["ca_cert"] = caCert;
+        foreach (var (name, value) in env.Headers)
+            overlay[$"headers.{name}"] = value;
+        return overlay;
+    }
+
     private static GenJobs.JobHttpConfiguration ToGenConfiguration(HttpConfig src)
     {
-        var headers = new List<GenJobs.HttpHeader>(src.Headers.Count);
-        foreach (var h in src.Headers)
-            headers.Add(new GenJobs.HttpHeader { Name = h.Name, Value = h.Value });
-
         return new GenJobs.JobHttpConfiguration
         {
             Method = ToGenHttpMethod(src.Method),
             Url = src.Url,
-            Headers = headers,
+            // Headers travel as a name→value object (ADR-056).
+            Headers = new Dictionary<string, string>(src.Headers),
             Body = src.Body,
             Success_status = src.SuccessStatus,
             Timeout = src.Timeout,
@@ -791,23 +795,58 @@ public sealed class JobsClient : IDisposable
     };
 
     private static IDictionary<string, JobEnvironment> EnvironmentsFromGen(
-        IDictionary<string, GenJobs.JobEnvironment>? src)
+        IDictionary<string, object>? src)
     {
         var result = new Dictionary<string, JobEnvironment>();
         if (src == null) return result;
-        foreach (var (key, env) in src)
-        {
-            result[key] = new JobEnvironment
-            {
-                Enabled = env.Enabled,
-                Schedule = env.Schedule,
-                Timezone = env.Timezone,
-                RetryPolicy = env.Retry_policy,
-                Configuration = env.Configuration is { } cfg ? ConfigFromGen(cfg) : null,
-                NextRunAt = env.Next_run_at,
-            };
-        }
+        foreach (var (key, raw) in src)
+            result[key] = EnvironmentFromOverlay(raw);
         return result;
+    }
+
+    // Parse the flat leaf-path overlay the server returns (ADR-056). The generated
+    // client deserializes each environment value as a System.Text.Json.JsonElement
+    // object. Header leaves arrive as `headers.<name>`, parsed on the FIRST dot so a
+    // dotted header name like `X-Foo.Bar` is preserved; the read-only `next_run_at`
+    // is stripped; unknown leaves are ignored for forward compatibility.
+    private static JobEnvironment EnvironmentFromOverlay(object? raw)
+    {
+        var env = new JobEnvironment();
+        if (raw is not System.Text.Json.JsonElement el
+            || el.ValueKind != System.Text.Json.JsonValueKind.Object)
+        {
+            return env;
+        }
+        foreach (var prop in el.EnumerateObject())
+        {
+            var name = prop.Name;
+            var dot = name.IndexOf('.');
+            if (dot >= 0)
+            {
+                if (name.AsSpan(0, dot).SequenceEqual("headers") && dot + 1 < name.Length)
+                    env.Headers[name[(dot + 1)..]] = prop.Value.GetString() ?? string.Empty;
+                continue;
+            }
+            switch (name)
+            {
+                case "enabled": env.Enabled = prop.Value.GetBoolean(); break;
+                case "schedule": env.Schedule = prop.Value.GetString(); break;
+                case "timezone": env.Timezone = prop.Value.GetString(); break;
+                case "retry_policy": env.RetryPolicy = prop.Value.GetString(); break;
+                case "url": env.Url = prop.Value.GetString(); break;
+                case "method": env.Method = HttpMethodExtensions.FromWireValue(prop.Value.GetString()!); break;
+                case "timeout": env.Timeout = prop.Value.GetInt32(); break;
+                case "body": env.Body = prop.Value.GetString(); break;
+                case "success_status": env.SuccessStatus = prop.Value.GetString(); break;
+                case "tls_verify": env.TlsVerify = prop.Value.GetBoolean(); break;
+                case "ca_cert": env.CaCert = prop.Value.GetString(); break;
+                case "next_run_at":
+                    if (prop.Value.ValueKind != System.Text.Json.JsonValueKind.Null)
+                        env.NextRunAt = prop.Value.GetDateTimeOffset();
+                    break;
+            }
+        }
+        return env;
     }
 
     private static HttpConfig ConfigFromGen(GenJobs.JobHttpConfiguration? src)
@@ -823,12 +862,9 @@ public sealed class JobsClient : IDisposable
             TlsVerify = src.Tls_verify,
             CaCert = src.Ca_cert,
         };
+        // Headers arrive as a name→value object (ADR-056).
         if (src.Headers != null)
-        {
-            cfg.Headers = src.Headers
-                .Select(h => new HttpHeader(h.Name ?? string.Empty, h.Value ?? string.Empty))
-                .ToList();
-        }
+            cfg.Headers = new Dictionary<string, string>(src.Headers);
         return cfg;
     }
 

@@ -328,33 +328,67 @@ public static class TransformTypeExtensions
     };
 }
 
-/// <summary>A single name/value HTTP header on a forwarder destination.</summary>
-/// <param name="Name">Header name (e.g. <c>"Authorization"</c>, <c>"DD-API-KEY"</c>).</param>
-/// <param name="Value">Header value. Returned in plaintext on reads, so a
-/// get-mutate-put round-trip preserves it without re-entering secrets.</param>
-public sealed record HttpHeader(string Name, string Value);
-
 /// <summary>
-/// Per-environment enablement and optional configuration override for a forwarder.
+/// A forwarder's sparse per-environment override (ADR-056) — the single place to
+/// read or set what a forwarder overrides in one environment.
 ///
-/// <para>A forwarder delivers events in a given environment only when that
-/// environment has an entry in <see cref="Forwarder.Environments"/> with
-/// <see cref="Enabled"/> set to <c>true</c>. An environment with no entry (or
+/// <para>Reached via <see cref="Forwarder.Environment"/>. A forwarder delivers
+/// events in a given environment only when that environment's override has
+/// <see cref="Enabled"/> set to <c>true</c>. An environment with no override (or
 /// <see cref="Enabled"/> = <c>false</c>) receives no deliveries.</para>
+///
+/// <para>Every other leaf is a <em>pure override</em>: reading it returns this
+/// environment's override, or <c>null</c> when it does not override that leaf — the
+/// SDK never merges in the base value (the server resolves base ⊕ overrides on
+/// delivery). To read a base value, read <see cref="Forwarder.Configuration"/>. Only
+/// the leaves you set are sent on save.</para>
 /// </summary>
 public sealed class ForwarderEnvironment
 {
     /// <summary>Whether the forwarder delivers events in this environment.
-    /// Defaults to <c>false</c>.</summary>
+    /// Defaults to <c>false</c>. Always sent on save.</summary>
     public bool Enabled { get; set; }
 
-    /// <summary>Optional per-environment destination configuration that fully
-    /// replaces the forwarder's base <see cref="Forwarder.Configuration"/> for
-    /// this environment. <c>null</c> (the default) inherits the base
-    /// configuration. As with the base configuration, header values are
-    /// returned in plaintext on reads, so a get-mutate-put round-trip preserves
-    /// them without re-entering secrets.</summary>
-    public HttpConfiguration? Configuration { get; set; }
+    /// <summary>Per-environment destination-URL override. <c>null</c> (the default,
+    /// not merged from base) leaves the base <see cref="HttpConfiguration.Url"/> in
+    /// effect.</summary>
+    public string? Url { get; set; }
+
+    /// <summary>Per-environment HTTP-verb override. <c>null</c> (the default, not
+    /// merged from base) leaves the base <see cref="HttpConfiguration.Method"/> in
+    /// effect.</summary>
+    public HttpMethod? Method { get; set; }
+
+    /// <summary>Per-environment success-status override — an exact code or a status
+    /// class. <c>null</c> (the default, not merged from base) leaves the base
+    /// <see cref="HttpConfiguration.SuccessStatus"/> in effect.</summary>
+    public string? SuccessStatus { get; set; }
+
+    /// <summary>Per-environment TLS-verification override. <c>null</c> (the default,
+    /// not merged from base) leaves the base <see cref="HttpConfiguration.TlsVerify"/>
+    /// in effect.</summary>
+    public bool? TlsVerify { get; set; }
+
+    /// <summary>Per-environment CA-certificate override (PEM). <c>null</c> (the
+    /// default, not merged from base) leaves the base
+    /// <see cref="HttpConfiguration.CaCert"/> in effect.</summary>
+    public string? CaCert { get; set; }
+
+    /// <summary>Per-environment header overrides, as a name→value map. Each entry
+    /// overrides that single header for this environment (base headers it does not
+    /// name are unaffected). Empty (the default) overrides no header. Use
+    /// <see cref="SetHeader"/> / <see cref="GetHeader"/> to set or read one by name.</summary>
+    public IDictionary<string, string> Headers { get; set; } = new Dictionary<string, string>();
+
+    /// <summary>Override (or add) a single header by name in this environment.</summary>
+    /// <param name="name">Header name (e.g. <c>"DD-API-KEY"</c>).</param>
+    /// <param name="value">Header value.</param>
+    public void SetHeader(string name, string value) => Headers[name] = value;
+
+    /// <summary>This environment's override for header <paramref name="name"/>, or
+    /// <c>null</c> when it does not override that header.</summary>
+    /// <param name="name">Header name to read.</param>
+    public string? GetHeader(string name) => Headers.TryGetValue(name, out var value) ? value : null;
 }
 
 /// <summary>
@@ -369,10 +403,14 @@ public sealed class HttpConfiguration
     public HttpMethod Method { get; set; } = HttpMethod.Post;
     /// <summary>Destination URL the audit service posts each event to.</summary>
     public required string Url { get; set; }
-    /// <summary>Headers attached to every outbound request. Values often carry
-    /// credentials and are returned in plaintext on reads, so a get-mutate-put
-    /// round-trip preserves them without re-entering secrets.</summary>
-    public IList<HttpHeader> Headers { get; set; } = new List<HttpHeader>();
+    /// <summary>Outbound request headers, as a name→value map (e.g.
+    /// <c>{ ["DD-API-KEY"] = "..." }</c>). Values often carry credentials and are
+    /// returned in plaintext on reads, so a get-mutate-put round-trip preserves them
+    /// without re-entering secrets. Use <see cref="SetHeader"/> /
+    /// <see cref="GetHeader"/> to set or read a single header by name; a header is
+    /// overridden for one environment via
+    /// <c>forwarder.Environment(env).SetHeader(name, value)</c>.</summary>
+    public IDictionary<string, string> Headers { get; set; } = new Dictionary<string, string>();
     /// <summary>Status code or class that signals delivery success.
     /// Defaults to <c>"2xx"</c>.</summary>
     public string SuccessStatus { get; set; } = "2xx";
@@ -387,6 +425,15 @@ public sealed class HttpConfiguration
     /// <see cref="TlsVerify"/> is <c>false</c>. <c>null</c> (the default)
     /// means "use system CAs only".</summary>
     public string? CaCert { get; set; }
+
+    /// <summary>Set (or replace) a single request header by name.</summary>
+    /// <param name="name">Header name (e.g. <c>"DD-API-KEY"</c>).</param>
+    /// <param name="value">Header value.</param>
+    public void SetHeader(string name, string value) => Headers[name] = value;
+
+    /// <summary>The value of header <paramref name="name"/>, or <c>null</c> if it is not set.</summary>
+    /// <param name="name">Header name to read.</param>
+    public string? GetHeader(string name) => Headers.TryGetValue(name, out var value) ? value : null;
 }
 
 /// <summary>
@@ -416,19 +463,22 @@ public sealed class Forwarder
     /// <see cref="Environments"/> replaces this base configuration for that
     /// environment.</summary>
     public HttpConfiguration Configuration { get; set; }
-    /// <summary>Read-only. Always <c>false</c> — the base enablement is pinned
-    /// off server-side. Whether a forwarder actually delivers is decided per
-    /// environment via <see cref="Environments"/>; this field round-trips the
-    /// server value but setting it has no effect.</summary>
-    public bool Enabled { get; internal set; }
+    /// <summary>Read-only roll-up: <c>true</c> when the forwarder delivers in at
+    /// least one environment. The forwarder has no server-side base enablement
+    /// (enablement is per-environment, ADR-056); enable it with
+    /// <c>Environment(env).Enabled = true</c>. Derived from the environment map; the
+    /// SDK never writes it.</summary>
+    public bool Enabled => Environments.Values.Any(e => e.Enabled);
     /// <summary>Per-environment overrides keyed by environment key (e.g.
     /// <c>"production"</c>, <c>"staging"</c>). A forwarder delivers in an
-    /// environment only when <c>Environments[env].Enabled</c> is <c>true</c>.
-    /// Each entry may carry an optional <see cref="HttpConfiguration"/> override;
-    /// omit it to inherit the base <see cref="Configuration"/>. Every referenced
-    /// environment must exist and be managed for the account. On update, this is
-    /// a full replace for the environments you can manage; overrides for
-    /// environments outside your access are preserved server-side.</summary>
+    /// environment only when <c>Environments[env].Enabled</c> is <c>true</c>; each
+    /// entry is a sparse <see cref="ForwarderEnvironment"/> carrying only the leaves
+    /// that environment overrides (everything else inherits the base, resolved
+    /// server-side). Read or set an environment's overrides through
+    /// <see cref="Environment"/>; every referenced environment must exist and be
+    /// managed for the account. On update, this is a full replace for the
+    /// environments you can manage; overrides for environments outside your access
+    /// are preserved server-side.</summary>
     public IDictionary<string, ForwarderEnvironment> Environments { get; set; }
     /// <summary>Optional free-text description.</summary>
     public string? Description { get; set; }
@@ -471,7 +521,6 @@ public sealed class Forwarder
         string name,
         ForwarderType forwarderType,
         HttpConfiguration configuration,
-        bool enabled = false,
         IDictionary<string, ForwarderEnvironment>? environments = null,
         string? description = null,
         bool forwardSmplkitEvents = false,
@@ -492,7 +541,6 @@ public sealed class Forwarder
         Name = name;
         ForwarderType = forwarderType;
         Configuration = configuration;
-        Enabled = enabled;
         Environments = environments ?? new Dictionary<string, ForwarderEnvironment>();
         Description = description;
         ForwardSmplkitEvents = forwardSmplkitEvents;
@@ -532,14 +580,25 @@ public sealed class Forwarder
     }
 
     /// <summary>
-    /// Return the override for <paramref name="environment"/>, creating an empty one if absent.
+    /// The per-environment override for <paramref name="environment"/> — the single
+    /// place to read or set what this forwarder overrides there (ADR-056).
     ///
-    /// <para>Mirrors <c>Smplkit.Config.Config.ItemsTarget</c> — the per-environment
-    /// mutators reach through here so an existing override's other field is
-    /// preserved when only one of <c>Enabled</c> / <c>Configuration</c> is being
-    /// set.</para>
+    /// <para>Returns the <see cref="ForwarderEnvironment"/> for
+    /// <paramref name="environment"/>, creating an empty one (and inserting it into
+    /// <see cref="Environments"/>) on first access, so you can set overrides
+    /// directly:</para>
+    /// <code>
+    /// forwarder.Environment("production").Enabled = true;
+    /// forwarder.Environment("production").Url = "https://prod.siem.example.com/in";
+    /// forwarder.Environment("production").SetHeader("DD-API-KEY", "prod-secret");
+    /// </code>
+    /// <para>Only the leaves you set are sent on save; everything else inherits the
+    /// base definition (the server resolves base ⊕ overrides on delivery). Call
+    /// <see cref="SaveAsync"/> to persist.</para>
     /// </summary>
-    private ForwarderEnvironment EnvironmentOverride(string environment)
+    /// <param name="environment">Environment key (e.g. <c>"production"</c>).</param>
+    /// <returns>The cached <see cref="ForwarderEnvironment"/> override for that environment.</returns>
+    public ForwarderEnvironment Environment(string environment)
     {
         if (!Environments.TryGetValue(environment, out var env))
         {
@@ -549,50 +608,6 @@ public sealed class Forwarder
         return env;
     }
 
-    /// <summary>
-    /// Set this forwarder's destination configuration in memory.
-    ///
-    /// <para>With <paramref name="environment"/> omitted, replaces the base
-    /// <see cref="Configuration"/>. With <paramref name="environment"/> given,
-    /// sets the per-environment override's configuration on
-    /// <see cref="Environments"/>, creating the override entry if it doesn't
-    /// exist yet (preserving any already-set <c>Enabled</c> on it). Call
-    /// <see cref="SaveAsync"/> to persist.</para>
-    /// </summary>
-    /// <param name="configuration">The <see cref="HttpConfiguration"/> to apply.</param>
-    /// <param name="environment">Environment key to scope the change to. Omit to
-    /// set the base configuration that all environments inherit.</param>
-    public void SetConfiguration(HttpConfiguration configuration, string? environment = null)
-    {
-        if (environment is null)
-            Configuration = configuration;
-        else
-            EnvironmentOverride(environment).Configuration = configuration;
-    }
-
-    /// <summary>
-    /// Set this forwarder's enablement in memory.
-    ///
-    /// <para>With <paramref name="environment"/> omitted, sets the base
-    /// <see cref="Enabled"/> (which the server pins false regardless —
-    /// enablement is per-environment). With <paramref name="environment"/> given,
-    /// sets the per-environment override's <c>Enabled</c> on
-    /// <see cref="Environments"/>, creating the override entry if it doesn't
-    /// exist yet (preserving any already-set <c>Configuration</c> on it). Call
-    /// <see cref="SaveAsync"/> to persist.</para>
-    /// </summary>
-    /// <param name="enabled">Whether the forwarder delivers events in the targeted scope.</param>
-    /// <param name="environment">Environment key to scope the change to. Omit to
-    /// set the base <c>Enabled</c> (which the server pins false — enablement is
-    /// per-environment).</param>
-    public void SetEnabled(bool enabled, string? environment = null)
-    {
-        if (environment is null)
-            Enabled = enabled;
-        else
-            EnvironmentOverride(environment).Enabled = enabled;
-    }
-
     /// <summary>Copy every server-authoritative field from <paramref name="other"/> onto self.</summary>
     internal void Apply(Forwarder other)
     {
@@ -600,7 +615,7 @@ public sealed class Forwarder
         Name = other.Name;
         ForwarderType = other.ForwarderType;
         Configuration = other.Configuration;
-        Enabled = other.Enabled;
+        // Enabled is a derived roll-up over Environments (no field to copy).
         Environments = other.Environments;
         Description = other.Description;
         ForwardSmplkitEvents = other.ForwardSmplkitEvents;

@@ -89,12 +89,6 @@ public enum Backoff
     Fixed,
 }
 
-/// <summary>A single name/value HTTP header on the request a job performs.</summary>
-/// <param name="Name">Header name (e.g. <c>"Authorization"</c>, <c>"Content-Type"</c>).</param>
-/// <param name="Value">Header value. Returned in plaintext on reads, so a
-/// get-mutate-put round-trip preserves it without re-entering secrets.</param>
-public sealed record HttpHeader(string Name, string Value);
-
 /// <summary>
 /// The HTTP request a job performs when it fires (the <c>http</c> configuration).
 /// </summary>
@@ -104,10 +98,13 @@ public sealed class HttpConfig
     public HttpMethod Method { get; set; } = HttpMethod.Post;
     /// <summary>Destination URL the job requests on each run.</summary>
     public required string Url { get; set; }
-    /// <summary>Headers attached to every request. Values come back in plaintext
+    /// <summary>Request headers, as a name→value map (e.g.
+    /// <c>{ ["Authorization"] = "Bearer s3cr3t" }</c>). Values come back in plaintext
     /// on reads, so a fetched job round-trips through <see cref="Job.SaveAsync"/>
-    /// without re-entering secrets.</summary>
-    public IList<HttpHeader> Headers { get; set; } = new List<HttpHeader>();
+    /// without re-entering secrets. Use <see cref="SetHeader"/> / <see cref="GetHeader"/>
+    /// to set or read a single header by name. A header is overridden for one
+    /// environment via <c>job.Environment(env).SetHeader(name, value)</c>.</summary>
+    public IDictionary<string, string> Headers { get; set; } = new Dictionary<string, string>();
     /// <summary>Request body sent on each run. <c>null</c> (the default) sends an
     /// empty body, suitable for a connectivity ping. Sent verbatim — pair with a
     /// matching <c>Content-Type</c> header.</summary>
@@ -128,6 +125,15 @@ public sealed class HttpConfig
     /// the system CA store. Ignored when <see cref="TlsVerify"/> is <c>false</c>.
     /// <c>null</c> (the default) means "use system CAs only".</summary>
     public string? CaCert { get; set; }
+
+    /// <summary>Set (or replace) a single request header by name.</summary>
+    /// <param name="name">Header name (e.g. <c>"Authorization"</c>).</param>
+    /// <param name="value">Header value.</param>
+    public void SetHeader(string name, string value) => Headers[name] = value;
+
+    /// <summary>The value of header <paramref name="name"/>, or <c>null</c> if it is not set.</summary>
+    /// <param name="name">Header name to read.</param>
+    public string? GetHeader(string name) => Headers.TryGetValue(name, out var value) ? value : null;
 }
 
 /// <summary>
@@ -140,52 +146,100 @@ public sealed class HttpConfig
 public sealed record RunRetry(string Of, int Attempt);
 
 /// <summary>
-/// Per-environment enablement, schedule, and configuration override for a job.
+/// A job's sparse per-environment override (ADR-056) — the single place to read or
+/// set what a job overrides in one environment.
 ///
-/// <para>A job runs in a given environment only when that environment has an entry
-/// in <see cref="Job.Environments"/> with <see cref="Enabled"/> set to <c>true</c>
-/// (scheduled there for a recurring job, triggerable there for a manual one); an
-/// environment with no entry (or <see cref="Enabled"/> = <c>false</c>) is disabled
-/// there.</para>
+/// <para>Reached via <see cref="Job.Environment"/>. A job runs in a given
+/// environment only when that environment's override has <see cref="Enabled"/> set
+/// to <c>true</c> (scheduled there for a recurring job, triggerable there for a
+/// manual one); an environment with no override (or <see cref="Enabled"/> =
+/// <c>false</c>) is disabled there.</para>
+///
+/// <para>Every other leaf is a <em>pure override</em>: reading it returns this
+/// environment's override, or <c>null</c> when it does not override that leaf — the
+/// SDK never merges in the base value (jobs resolve base ⊕ overrides server-side).
+/// To read a base value, read the job's base definition
+/// (<see cref="Job.Configuration"/>, <see cref="Job.Schedule"/>, …). Only the leaves
+/// you set are sent on save.</para>
 /// </summary>
 public sealed class JobEnvironment
 {
-    /// <summary>Whether the job is enabled in this environment. Defaults to <c>false</c>.</summary>
+    /// <summary>Whether the job is enabled in this environment. Defaults to <c>false</c>.
+    /// Always sent on save.</summary>
     public bool Enabled { get; set; }
 
-    /// <summary>Optional per-environment schedule override — a 5-field cron
-    /// expression evaluated in UTC (e.g. <c>"0 3 * * *"</c>) that varies the cadence
-    /// for this environment only. <c>null</c> (the default) inherits the job's base
-    /// <see cref="Job.Schedule"/>. Allowed only on a recurring (cron) job; it cannot
-    /// turn a one-off job recurring or vice-versa.</summary>
+    /// <summary>Per-environment schedule override — a 5-field cron expression
+    /// evaluated in this environment's <see cref="Timezone"/> (e.g. <c>"0 3 * * *"</c>)
+    /// that varies the cadence for this environment only. <c>null</c> (the default,
+    /// not merged from base) leaves the base <see cref="Job.Schedule"/> in effect.
+    /// Allowed only on a recurring (cron) job.</summary>
     public string? Schedule { get; set; }
 
-    /// <summary>Optional per-environment IANA timezone override for evaluating this
-    /// environment's cron <see cref="Schedule"/> (recurring jobs only).
-    /// <c>null</c> (the default) inherits the job's base <see cref="Job.Timezone"/>,
-    /// else UTC. When set, it must be a valid IANA zone key (e.g.
-    /// <c>"America/New_York"</c>); it may be set on an environment that inherits the
-    /// base schedule (it need not also override <see cref="Schedule"/>). Sent on
-    /// writes only when non-<c>null</c>.</summary>
+    /// <summary>Per-environment IANA timezone override for evaluating this
+    /// environment's cron <see cref="Schedule"/> (recurring jobs only), e.g.
+    /// <c>"America/New_York"</c>. <c>null</c> (the default, not merged from base)
+    /// leaves the base <see cref="Job.Timezone"/> in effect.</summary>
     public string? Timezone { get; set; }
 
-    /// <summary>Optional per-environment retry-policy override — the id of a
-    /// <see cref="RetryPolicy"/> (or <c>"Default"</c>). <c>null</c> (the default)
-    /// inherits the job's base <see cref="Job.RetryPolicy"/>. Sent on writes only
-    /// when non-<c>null</c>.</summary>
+    /// <summary>Per-environment retry-policy override — the id of a
+    /// <see cref="RetryPolicy"/> (or <c>"Default"</c>). Assigning accepts a policy id
+    /// string or a <see cref="RetryPolicy"/> instance (coerced to its id via the
+    /// implicit conversion). <c>null</c> (the default, not merged from base) leaves
+    /// the base <see cref="Job.RetryPolicy"/> in effect.</summary>
     public string? RetryPolicy { get; set; }
 
-    /// <summary>Optional per-environment request configuration that fully replaces
-    /// the job's base <see cref="Job.Configuration"/> for this environment.
-    /// <c>null</c> (the default) inherits the base configuration. As with the base
-    /// configuration, header values are returned in plaintext on reads, so a
-    /// get-mutate-put round-trip preserves them without re-entering secrets.</summary>
-    public HttpConfig? Configuration { get; set; }
+    /// <summary>Per-environment destination-URL override. <c>null</c> (the default,
+    /// not merged from base) leaves the base <see cref="HttpConfig.Url"/> in effect.</summary>
+    public string? Url { get; set; }
+
+    /// <summary>Per-environment HTTP-verb override. <c>null</c> (the default, not
+    /// merged from base) leaves the base <see cref="HttpConfig.Method"/> in effect.</summary>
+    public HttpMethod? Method { get; set; }
+
+    /// <summary>Per-environment per-run timeout override, in seconds. <c>null</c>
+    /// (the default, not merged from base) leaves the base
+    /// <see cref="HttpConfig.Timeout"/> in effect.</summary>
+    public int? Timeout { get; set; }
+
+    /// <summary>Per-environment request-body override. <c>null</c> (the default, not
+    /// merged from base) leaves the base <see cref="HttpConfig.Body"/> in effect.</summary>
+    public string? Body { get; set; }
+
+    /// <summary>Per-environment success-status override — an exact code or a status
+    /// class. <c>null</c> (the default, not merged from base) leaves the base
+    /// <see cref="HttpConfig.SuccessStatus"/> in effect.</summary>
+    public string? SuccessStatus { get; set; }
+
+    /// <summary>Per-environment TLS-verification override. <c>null</c> (the default,
+    /// not merged from base) leaves the base <see cref="HttpConfig.TlsVerify"/> in
+    /// effect.</summary>
+    public bool? TlsVerify { get; set; }
+
+    /// <summary>Per-environment CA-certificate override (PEM). <c>null</c> (the
+    /// default, not merged from base) leaves the base <see cref="HttpConfig.CaCert"/>
+    /// in effect.</summary>
+    public string? CaCert { get; set; }
+
+    /// <summary>Per-environment header overrides, as a name→value map. Each entry
+    /// overrides that single header for this environment (base headers it does not
+    /// name are unaffected). Empty (the default) overrides no header. Use
+    /// <see cref="SetHeader"/> / <see cref="GetHeader"/> to set or read one by name.</summary>
+    public IDictionary<string, string> Headers { get; set; } = new Dictionary<string, string>();
 
     /// <summary>Read-only. The next scheduled fire time in this environment.
     /// <c>null</c> when the environment is not enabled, or once a one-off run has
     /// fired. Server-derived; the SDK never sends it.</summary>
     public DateTimeOffset? NextRunAt { get; internal set; }
+
+    /// <summary>Override (or add) a single header by name in this environment.</summary>
+    /// <param name="name">Header name (e.g. <c>"Authorization"</c>).</param>
+    /// <param name="value">Header value.</param>
+    public void SetHeader(string name, string value) => Headers[name] = value;
+
+    /// <summary>This environment's override for header <paramref name="name"/>, or
+    /// <c>null</c> when it does not override that header.</summary>
+    /// <param name="name">Header name to read.</param>
+    public string? GetHeader(string name) => Headers.TryGetValue(name, out var value) ? value : null;
 }
 
 /// <summary>A job definition. Mutate fields, then call <see cref="SaveAsync"/>.</summary>
@@ -202,16 +256,16 @@ public sealed class Job
     /// <summary>Per-environment overrides keyed by environment key (e.g.
     /// <c>"production"</c>, <c>"development"</c>). A job is enabled in an
     /// environment only when <c>Environments[env].Enabled</c> is <c>true</c>; each
-    /// entry may carry an optional <see cref="HttpConfig"/> override that replaces
-    /// the base <see cref="Configuration"/> for that environment (omit it to
-    /// inherit the base). Set enablement with <see cref="SetEnabled"/> and the
-    /// per-environment configuration with <see cref="SetConfiguration"/>; every
-    /// referenced environment must exist and be managed for the account.</summary>
+    /// entry is a sparse <see cref="JobEnvironment"/> carrying only the leaves that
+    /// environment overrides (everything else inherits the base, resolved
+    /// server-side). Read or set an environment's overrides through
+    /// <see cref="Environment"/>; every referenced environment must exist and be
+    /// managed for the account.</summary>
     public IDictionary<string, JobEnvironment> Environments { get; set; }
     /// <summary>Read-only roll-up: <c>true</c> when the job is enabled in at least
     /// one environment. Enablement is per-environment — set it with
-    /// <see cref="SetEnabled"/> / <see cref="Environments"/>, not here. Derived from
-    /// the environment map; the SDK never writes it.</summary>
+    /// <c>Environment(env).Enabled = true</c>, not here. Derived from the
+    /// environment map; the SDK never writes it.</summary>
     public bool Enabled => Environments.Values.Any(e => e.Enabled);
     /// <summary>Read-only server-derived kind (see <see cref="JobKind"/>): recurring
     /// for a cron schedule, manual for no schedule, or one-off for a datetime /
@@ -225,24 +279,25 @@ public sealed class Job
     /// a 5-field cron expression evaluated in UTC (recurring), an ISO-8601 datetime
     /// (a one-off run at that instant), or the literal <c>"now"</c> (run once, as
     /// soon as possible). <c>null</c> for a manual job, which never auto-fires. A
-    /// datetime or <c>"now"</c> job disables itself after it fires. Set it with
-    /// <see cref="SetSchedule"/>.</summary>
+    /// datetime or <c>"now"</c> job disables itself after it fires. Assign it
+    /// directly; override it for one environment via
+    /// <c>Environment(env).Schedule</c>.</summary>
     public string? Schedule { get; set; }
     /// <summary>The base IANA timezone the cron <see cref="Schedule"/> is evaluated in
     /// (e.g. <c>"America/New_York"</c>); <c>null</c> means UTC. The base every
     /// environment inherits unless it sets its own <see cref="JobEnvironment.Timezone"/>.
     /// The cron fires on this zone's wall clock (DST-aware) while the per-environment
     /// next-run time is still reported as a UTC instant. Only valid on a recurring
-    /// (cron) job — <c>null</c> for a manual or one-off job. Set it with
-    /// <see cref="SetTimezone"/>. Sent on writes only when non-<c>null</c>.</summary>
+    /// (cron) job — <c>null</c> for a manual or one-off job. Assign it directly;
+    /// override it for one environment via <c>Environment(env).Timezone</c>. Sent on
+    /// writes only when non-<c>null</c>.</summary>
     public string? Timezone { get; set; }
     /// <summary>The base retry policy for failed runs — the id of a
     /// <see cref="RetryPolicy"/> (or the built-in <c>"Default"</c>, which never
     /// retries), overridable per environment via
-    /// <see cref="JobEnvironment.RetryPolicy"/>. <c>null</c> (the default, omitted on
-    /// the wire) uses the server default <c>Default</c> policy. Set it with
-    /// <see cref="SetRetryPolicy(RetryPolicy, string)"/> or
-    /// <see cref="SetRetryPolicy(string, string)"/>.</summary>
+    /// <see cref="JobEnvironment.RetryPolicy"/>. Assigning accepts a policy id string
+    /// or a <see cref="RetryPolicy"/> instance (coerced to its id). <c>null</c> (the
+    /// default, omitted on the wire) uses the server default <c>Default</c> policy.</summary>
     public string? RetryPolicy { get; set; }
     /// <summary>The base HTTP request to perform when the job fires. A
     /// per-environment override in <see cref="Environments"/> replaces this for
@@ -375,11 +430,24 @@ public sealed class Job
     }
 
     /// <summary>
-    /// Return the override for <paramref name="environment"/>, creating an empty
-    /// one if absent so the per-environment mutators preserve an existing entry's
-    /// other field when only one of <c>Enabled</c> / <c>Configuration</c> is set.
+    /// The per-environment override for <paramref name="environment"/> — the single
+    /// place to read or set what this job overrides there (ADR-056).
+    ///
+    /// <para>Returns the <see cref="JobEnvironment"/> for <paramref name="environment"/>,
+    /// creating an empty one (and inserting it into <see cref="Environments"/>) on
+    /// first access, so you can set overrides directly:</para>
+    /// <code>
+    /// job.Environment("production").Enabled = true;
+    /// job.Environment("production").Url = "https://prod.example.com/warm";
+    /// job.Environment("production").SetHeader("Authorization", "Bearer prod");
+    /// </code>
+    /// <para>Only the leaves you set are sent on save; everything else inherits the
+    /// base definition (the server resolves base ⊕ overrides when the job fires).
+    /// Call <see cref="SaveAsync"/> to persist.</para>
     /// </summary>
-    private JobEnvironment EnvironmentOverride(string environment)
+    /// <param name="environment">Environment key (e.g. <c>"production"</c>).</param>
+    /// <returns>The cached <see cref="JobEnvironment"/> override for that environment.</returns>
+    public JobEnvironment Environment(string environment)
     {
         if (!Environments.TryGetValue(environment, out var env))
         {
@@ -387,143 +455,6 @@ public sealed class Job
             Environments[environment] = env;
         }
         return env;
-    }
-
-    /// <summary>Enable or disable the job in a single environment (in memory).
-    /// Call <see cref="SaveAsync"/> to persist.</summary>
-    /// <param name="enabled">Whether the job fires in <paramref name="environment"/>.</param>
-    /// <param name="environment">Environment key to scope the change to.</param>
-    public void SetEnabled(bool enabled, string environment)
-        => EnvironmentOverride(environment).Enabled = enabled;
-
-    /// <summary>Whether the job is enabled.</summary>
-    /// <param name="environment">With <c>null</c> (the default), returns the
-    /// roll-up — <c>true</c> when the job is enabled in at least one environment.
-    /// With an environment, returns whether the job is enabled in that specific
-    /// environment.</param>
-    /// <returns>The roll-up or the per-environment enablement.</returns>
-    public bool IsEnabled(string? environment = null)
-    {
-        if (environment is null)
-            return Enabled;
-        return Environments.TryGetValue(environment, out var env) && env.Enabled;
-    }
-
-    /// <summary>Set the job's configuration in memory — base
-    /// (<paramref name="environment"/> omitted) or per-environment. Call
-    /// <see cref="SaveAsync"/> to persist.</summary>
-    /// <param name="configuration">The <see cref="HttpConfig"/> to apply.</param>
-    /// <param name="environment">Environment key to scope the change to. Omit to
-    /// set the base configuration that all environments inherit.</param>
-    public void SetConfiguration(HttpConfig configuration, string? environment = null)
-    {
-        if (environment is null)
-            Configuration = configuration;
-        else
-            EnvironmentOverride(environment).Configuration = configuration;
-    }
-
-    /// <summary>The job's effective configuration.</summary>
-    /// <param name="environment">With <c>null</c> (the default), returns the base
-    /// configuration. With an environment, returns that environment's override when
-    /// it has one, else the base configuration — the request the job actually sends
-    /// when it fires in that environment.</param>
-    /// <returns>The base or per-environment configuration.</returns>
-    public HttpConfig GetConfiguration(string? environment = null)
-    {
-        if (environment is not null
-            && Environments.TryGetValue(environment, out var env)
-            && env.Configuration is not null)
-        {
-            return env.Configuration;
-        }
-        return Configuration;
-    }
-
-    /// <summary>Set the job's schedule in memory — base
-    /// (<paramref name="environment"/> omitted) or per-environment. Call
-    /// <see cref="SaveAsync"/> to persist.
-    ///
-    /// <para>The base schedule is the cron / datetime / <c>"now"</c> schedule every
-    /// environment inherits. A per-environment override is a 5-field cron expression
-    /// (UTC) that varies the cadence for that environment only; it is allowed only on
-    /// a recurring (cron) job and cannot turn a one-off job recurring or
-    /// vice-versa.</para>
-    ///
-    /// <para>Because the timezone is an integral part of a cron cadence, a
-    /// <paramref name="timezone"/> may be supplied alongside the schedule; when given
-    /// it sets the same scope's timezone too (equivalent to a follow-up
-    /// <see cref="SetTimezone"/>). Omit it to leave the timezone untouched. For a
-    /// timezone-only change, use <see cref="SetTimezone"/>.</para></summary>
-    /// <param name="schedule">The new schedule.</param>
-    /// <param name="timezone">Optional IANA zone key (e.g. <c>"America/New_York"</c>)
-    /// to set for the same scope. Omit to leave the timezone unchanged.</param>
-    /// <param name="environment">Environment key to scope the change to. Omit to set
-    /// the base schedule that all environments inherit.</param>
-    public void SetSchedule(string schedule, string? timezone = null, string? environment = null)
-    {
-        if (environment is null)
-            Schedule = schedule;
-        else
-            EnvironmentOverride(environment).Schedule = schedule;
-        if (timezone is not null)
-            SetTimezone(timezone, environment);
-    }
-
-    /// <summary>Set the IANA timezone the cron schedule is evaluated in, in memory —
-    /// base (<paramref name="environment"/> omitted) or per-environment. Call
-    /// <see cref="SaveAsync"/> to persist.
-    ///
-    /// <para>The base timezone is the zone every environment inherits unless it sets
-    /// its own. A per-environment override applies to that environment only; it may
-    /// be set even when the environment inherits the base schedule (it need not also
-    /// override <see cref="SetSchedule"/>). A timezone is only valid on a recurring
-    /// (cron) job.</para></summary>
-    /// <param name="timezone">The IANA zone key (e.g. <c>"America/New_York"</c>).</param>
-    /// <param name="environment">Environment key to scope the change to. Omit to set
-    /// the base timezone that all environments inherit.</param>
-    public void SetTimezone(string timezone, string? environment = null)
-    {
-        if (environment is null)
-            Timezone = timezone;
-        else
-            EnvironmentOverride(environment).Timezone = timezone;
-    }
-
-    /// <summary>Set the retry policy for failed runs, in memory — base
-    /// (<paramref name="environment"/> omitted) or per-environment. Call
-    /// <see cref="SaveAsync"/> to persist.
-    ///
-    /// <para>The base policy is the one every environment inherits unless it sets its
-    /// own. A per-environment override applies to that environment only, creating the
-    /// override entry if it doesn't exist yet (preserving any already-set
-    /// <c>Enabled</c> / <c>Schedule</c> / <c>Timezone</c> / <c>Configuration</c> on
-    /// it).</para></summary>
-    /// <param name="retryPolicy">The <see cref="RetryPolicy"/> whose id is applied.</param>
-    /// <param name="environment">Environment key to scope the change to. Omit to set
-    /// the base policy that all environments inherit.</param>
-    public void SetRetryPolicy(RetryPolicy retryPolicy, string? environment = null)
-        => SetRetryPolicy(retryPolicy.Id, environment);
-
-    /// <summary>Set the retry policy for failed runs, in memory — base
-    /// (<paramref name="environment"/> omitted) or per-environment. Call
-    /// <see cref="SaveAsync"/> to persist.
-    ///
-    /// <para>The base policy is the one every environment inherits unless it sets its
-    /// own. A per-environment override applies to that environment only, creating the
-    /// override entry if it doesn't exist yet (preserving any already-set
-    /// <c>Enabled</c> / <c>Schedule</c> / <c>Timezone</c> / <c>Configuration</c> on
-    /// it).</para></summary>
-    /// <param name="retryPolicyId">The id of a <see cref="RetryPolicy"/>, or the
-    /// built-in <c>"Default"</c> (never-retry) policy.</param>
-    /// <param name="environment">Environment key to scope the change to. Omit to set
-    /// the base policy that all environments inherit.</param>
-    public void SetRetryPolicy(string retryPolicyId, string? environment = null)
-    {
-        if (environment is null)
-            RetryPolicy = retryPolicyId;
-        else
-            EnvironmentOverride(environment).RetryPolicy = retryPolicyId;
     }
 
     /// <summary>Copy every server-authoritative field from <paramref name="other"/> onto self.</summary>
@@ -707,8 +638,8 @@ public sealed class Usage
 /// A named, reusable retry policy. Mutate fields, then call <see cref="SaveAsync"/>.
 /// </summary>
 /// <remarks>Retry policies are account-global — never environment-scoped. Reference
-/// one from a job's retry policy via
-/// <see cref="Job.SetRetryPolicy(RetryPolicy, string)"/> or
+/// one from a job's retry policy by assigning the policy (or its id) to
+/// <see cref="Job.RetryPolicy"/> / <see cref="JobEnvironment.RetryPolicy"/>, or via
 /// <see cref="JobsClient.NewRecurringJob"/>.</remarks>
 public sealed class RetryPolicy
 {
@@ -717,6 +648,12 @@ public sealed class RetryPolicy
     /// <summary>Caller-supplied unique identifier for the policy (the resource
     /// <c>id</c>). Unique within the account and immutable.</summary>
     public string Id { get; internal set; }
+
+    /// <summary>Use a policy wherever its id string is expected — assigning a
+    /// <see cref="RetryPolicy"/> to <see cref="Job.RetryPolicy"/> or
+    /// <see cref="JobEnvironment.RetryPolicy"/> stores its <see cref="Id"/>.</summary>
+    /// <param name="policy">The policy whose <see cref="Id"/> is used.</param>
+    public static implicit operator string(RetryPolicy policy) => policy.Id;
     /// <summary>Human-readable name for the policy.</summary>
     public string Name { get; set; }
     /// <summary>How many times a failed run is retried after the initial attempt —

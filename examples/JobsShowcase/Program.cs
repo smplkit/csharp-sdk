@@ -51,33 +51,30 @@ try
         {
             Method = HttpMethod.Post,
             Url = "https://httpbin.org/post",
-            Headers = new List<HttpHeader> { new("Authorization", "Bearer s3cr3t") },
+            Headers = new Dictionary<string, string> { ["Authorization"] = "Bearer s3cr3t" },
             Body = "{\"scope\": \"all\"}",
             Timeout = 30,
         });
-    job.SetEnabled(true, environment: "development");
-    job.SetEnabled(true, environment: "production");
-    job.SetSchedule("0 */6 * * *", timezone: "America/New_York", environment: "development");
-    job.SetConfiguration(
-        new HttpConfig
-        {
-            Method = HttpMethod.Post,
-            Url = "https://development.example.com/cache/warm",
-            Headers = new List<HttpHeader> { new("Authorization", "Bearer development-s3cr3t") },
-            Body = "{\"scope\": \"all\"}",
-        },
-        environment: "development");
+
+    // enable the job to run in various environments
+    job.Environment("development").Enabled = true;
+    job.Environment("production").Enabled = true;
+
+    // change how the job runs in production (only the leaves you set)
+    var prod = job.Environment("production");
+    prod.Schedule = "0 */6 * * *";
+    prod.Timezone = "America/New_York";
+    prod.Url = "https://production.example.com/cache/warm";
+    prod.SetHeader("Authorization", "Bearer production-s3cr3t");
     await job.SaveAsync();
     Debug.Assert(job.IsRecurring());
-    Debug.Assert(job.IsEnabled(environment: "development"));
-    Debug.Assert(job.IsEnabled(environment: "production"));
-    Debug.Assert(job.Environments["development"].Timezone == "America/New_York");
-    Debug.Assert(job.GetConfiguration(environment: "development").Url == "https://development.example.com/cache/warm");
+    Debug.Assert(job.Environment("production").Schedule == "0 */6 * * *");
+    Debug.Assert(job.Environment("production").Url == "https://production.example.com/cache/warm");
     Console.WriteLine($"Created recurring job '{job.Id}' (v{job.Version})");
 
     // get a job
     var fetched = await jobs.GetAsync(RecurringJobId);
-    Debug.Assert(fetched.Environments["development"].Schedule == "0 */6 * * *");
+    Debug.Assert(fetched.Environments["production"].Schedule == "0 */6 * * *");
     Console.WriteLine($"Fetched job '{RecurringJobId}'");
 
     // list jobs, filtered to recurring jobs
@@ -87,8 +84,7 @@ try
 
     // update a job
     job.Name = "Nightly cache warm (v2)";
-    job.SetRetryPolicy(retryPolicy, environment: "production");
-    job.SetSchedule("30 2 * * *", timezone: "America/Los_Angeles", environment: "production");
+    job.Environment("production").RetryPolicy = retryPolicy;
     await job.SaveAsync();
     Debug.Assert(job.Version == 2);
     Console.WriteLine($"Updated job to v{job.Version}");
@@ -133,7 +129,7 @@ try
         ManualJobId,
         name: "On-demand reindex",
         configuration: new HttpConfig { Method = HttpMethod.Post, Url = "https://httpbin.org/post" });
-    manual.SetEnabled(true, environment: "production");
+    manual.Environment("production").Enabled = true;
     await manual.SaveAsync();
     Debug.Assert(manual.IsManual());
     var manualRun = await manual.TriggerAsync(environment: "production");
@@ -150,7 +146,7 @@ try
         environment: "development");
     await oneoff.SaveAsync();
     Debug.Assert(oneoff.IsOneOff());
-    Debug.Assert(oneoff.IsEnabled(environment: "development"));
+    Debug.Assert(oneoff.Environment("development").Enabled);
     Debug.Assert(oneoff.Environments["development"].NextRunAt != null);
     Console.WriteLine($"Created one-off job '{oneoff.Id}' to run in development");
 

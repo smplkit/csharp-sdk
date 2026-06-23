@@ -114,7 +114,7 @@ try
         forwarderType: ForwarderType.Http,
         configuration: new HttpConfiguration
         {
-            Headers = new List<HttpHeader> { new("X-Showcase", "ok") },
+            Headers = new Dictionary<string, string> { ["X-Showcase"] = "ok" },
             Method = HttpMethod.Post,
             Url = "https://example.com",
         },
@@ -134,21 +134,15 @@ try
     Console.WriteLine($"Fetched forwarder: {forwarder.Name} (id={forwarder.Id})");
     Debug.Assert(forwarder.Id == forwarderId);
 
-    // configure where to forward events in production
-    forwarder.SetConfiguration(
-        new HttpConfiguration
-        {
-            Headers = new List<HttpHeader> { new("X-Showcase", "ok") },
-            Method = HttpMethod.Post,
-            Url = "https://httpbin.org/post",
-        },
-        environment: "production");
+    // configure where to forward events in production (only the leaves you set)
+    forwarder.Environment("production").Url = "https://httpbin.org/post";
+    forwarder.Environment("production").SetHeader("X-Showcase", "ok");
     await forwarder.SaveAsync();
-    Debug.Assert(forwarder.Environments["production"].Configuration!.Url == "https://httpbin.org/post");
+    Debug.Assert(forwarder.Environments["production"].Url == "https://httpbin.org/post");
     Console.WriteLine($"Updated forwarder: {forwarder.Name}");
 
     // start forwarding events in production
-    forwarder.SetEnabled(true, environment: "production");
+    forwarder.Environment("production").Enabled = true;
     await forwarder.SaveAsync();
     Console.WriteLine($"Enabled forwarder {forwarder.Name} (id={forwarder.Id}) "
         + "to start forwarding events in production");

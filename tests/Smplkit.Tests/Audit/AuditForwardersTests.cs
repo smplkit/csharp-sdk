@@ -38,7 +38,7 @@ public class AuditForwardersTests
             + "\"name\":\"" + name + "\","
             + "\"forwarder_type\":\"DATADOG\",\"enabled\":true,"
             + "\"configuration\":{\"method\":\"POST\",\"url\":\"https://siem.example.com/in\","
-            + "\"headers\":[{\"name\":\"DD-API-KEY\",\"value\":\"<redacted>\"}],"
+            + "\"headers\":{\"DD-API-KEY\":\"<redacted>\"},"
             + "\"success_status\":\"2xx\"},"
             + "\"created_at\":\"2026-05-07T12:00:00Z\","
             + "\"updated_at\":\"2026-05-07T12:00:00Z\",\"version\":1}}";
@@ -90,7 +90,7 @@ public class AuditForwardersTests
             configuration: new HttpConfiguration
             {
                 Url = "https://siem.example.com/in",
-                Headers = new List<HttpHeader> { new("DD-API-KEY", "real-secret") },
+                Headers = new Dictionary<string, string> { ["DD-API-KEY"] = "real-secret" },
             },
             filter: new Dictionary<string, object?> { ["=="] = new[] { 1, 1 } },
             transform: "$",
@@ -241,7 +241,7 @@ public class AuditForwardersTests
         })).GetAsync(FwdId);
         Assert.Equal(FwdId, fwd.Id);
         Assert.Single(fwd.Configuration.Headers);
-        Assert.Equal("<redacted>", fwd.Configuration.Headers[0].Value);
+        Assert.Equal("<redacted>", fwd.Configuration.GetHeader("DD-API-KEY"));
     }
 
     [Fact]
@@ -352,7 +352,7 @@ public class AuditForwardersTests
                 Content = JsonApi(
                     "{\"data\":{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\",\"attributes\":{"
                     + "\"name\":\"n\",\"forwarder_type\":\"" + wire + "\",\"enabled\":true,"
-                    + "\"configuration\":{\"method\":\"POST\",\"url\":\"u\",\"headers\":[],\"success_status\":\"2xx\"}}}}"),
+                    + "\"configuration\":{\"method\":\"POST\",\"url\":\"u\",\"headers\":{},\"success_status\":\"2xx\"}}}}"),
             };
         });
         var fwds = new ForwardersClient(gen);
@@ -773,7 +773,7 @@ public class AuditForwardersTests
             + "\"name\":\"Datadog\",\"forwarder_type\":\"DATADOG\",\"enabled\":true,"
             + "\"forward_smplkit_events\":true,"
             + "\"configuration\":{\"method\":\"POST\",\"url\":\"https://siem.example.com/in\","
-            + "\"headers\":[],\"success_status\":\"2xx\"},"
+            + "\"headers\":{},\"success_status\":\"2xx\"},"
             + "\"created_at\":\"2026-05-07T12:00:00Z\","
             + "\"updated_at\":\"2026-05-07T12:00:00Z\",\"version\":1}}";
         var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
@@ -806,7 +806,7 @@ public class AuditForwardersTests
                 "{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\",\"attributes\":{"
                 + "\"name\":\"n\",\"forwarder_type\":\"http\",\"enabled\":false,"
                 + "\"forward_smplkit_events\":true,"
-                + "\"configuration\":{\"method\":\"POST\",\"url\":\"u\",\"headers\":[],\"success_status\":\"2xx\"},"
+                + "\"configuration\":{\"method\":\"POST\",\"url\":\"u\",\"headers\":{},\"success_status\":\"2xx\"},"
                 + "\"created_at\":\"2026-05-07T12:00:00Z\",\"version\":1}}";
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)
             {
@@ -858,28 +858,36 @@ public class AuditForwardersTests
             id: FwdId,
             name: "Datadog production",
             forwarderType: ForwarderType.Datadog,
-            configuration: new HttpConfiguration { Url = "https://siem.example.com/in" },
-            environments: new Dictionary<string, ForwarderEnvironment>
-            {
-                ["production"] = new ForwarderEnvironment
-                {
-                    Enabled = true,
-                    Configuration = new HttpConfiguration
-                    {
-                        Url = "https://prod.example.com/in",
-                        Headers = new List<HttpHeader> { new("DD-API-KEY", "prod-secret") },
-                    },
-                },
-                ["staging"] = new ForwarderEnvironment { Enabled = false },
-            });
+            configuration: new HttpConfiguration { Url = "https://siem.example.com/in" });
+        // production: flat url + method + tls_verify + ca_cert + header-leaf overrides.
+        var prod = fwd.Environment("production");
+        prod.Enabled = true;
+        prod.Url = "https://prod.example.com/in";
+        prod.Method = HttpMethod.Put;
+        prod.SuccessStatus = "200";
+        prod.TlsVerify = false;
+        prod.CaCert = "-----BEGIN CERTIFICATE-----\nx\n-----END CERTIFICATE-----";
+        prod.SetHeader("DD-API-KEY", "prod-secret");
+        prod.SetHeader("X-Foo.Bar", "v");   // dotted header name survives the wire
+        fwd.Environment("staging").Enabled = false;
         await fwd.SaveAsync();
-        Assert.Contains("\"environments\":", capturedBody);
-        Assert.Contains("\"production\":", capturedBody!);
-        Assert.Contains("\"enabled\":true", capturedBody!);
-        // Per-environment configuration override reaches the wire with real headers.
-        Assert.Contains("https://prod.example.com/in", capturedBody!);
-        Assert.Contains("prod-secret", capturedBody!);
-        Assert.Contains("\"staging\":", capturedBody!);
+
+        using var doc = System.Text.Json.JsonDocument.Parse(capturedBody!);
+        var envs = doc.RootElement.GetProperty("data").GetProperty("attributes")
+            .GetProperty("environments");
+        var p = envs.GetProperty("production");
+        // The overlay is flat — only overridden leaves, never a nested configuration.
+        Assert.False(p.TryGetProperty("configuration", out _));
+        Assert.True(p.GetProperty("enabled").GetBoolean());
+        Assert.Equal("https://prod.example.com/in", p.GetProperty("url").GetString());
+        Assert.Equal("PUT", p.GetProperty("method").GetString());
+        Assert.Equal("200", p.GetProperty("success_status").GetString());
+        Assert.False(p.GetProperty("tls_verify").GetBoolean());
+        Assert.Contains("BEGIN CERTIFICATE", p.GetProperty("ca_cert").GetString());
+        Assert.Equal("prod-secret", p.GetProperty("headers.DD-API-KEY").GetString());
+        // First-dot keying preserves the dotted header name.
+        Assert.Equal("v", p.GetProperty("headers.X-Foo.Bar").GetString());
+        Assert.False(envs.GetProperty("staging").GetProperty("enabled").GetBoolean());
     }
 
     [Fact]
@@ -904,13 +912,14 @@ public class AuditForwardersTests
     {
         var resource =
             "{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\",\"attributes\":{"
-            + "\"name\":\"Datadog\",\"forwarder_type\":\"DATADOG\",\"enabled\":false,"
+            + "\"name\":\"Datadog\",\"forwarder_type\":\"DATADOG\","
             + "\"configuration\":{\"method\":\"POST\",\"url\":\"https://base.example.com/in\","
-            + "\"headers\":[],\"success_status\":\"2xx\"},"
+            + "\"headers\":{},\"success_status\":\"2xx\"},"
             + "\"environments\":{"
-            + "\"production\":{\"enabled\":true,\"configuration\":{\"method\":\"POST\","
-            + "\"url\":\"https://prod.example.com/in\",\"headers\":[{\"name\":\"DD-API-KEY\","
-            + "\"value\":\"<redacted>\"}],\"success_status\":\"2xx\"}},"
+            + "\"production\":{\"enabled\":true,\"url\":\"https://prod.example.com/in\","
+            + "\"method\":\"PUT\",\"success_status\":\"200\",\"tls_verify\":false,"
+            + "\"ca_cert\":\"CA\",\"headers.DD-API-KEY\":\"<redacted>\","
+            + "\"headers.X-Foo.Bar\":\"v\",\"also.dotted\":\"ignored\",\"unknown\":\"ignored\"},"
             + "\"staging\":{\"enabled\":false}},"
             + "\"created_at\":\"2026-05-07T12:00:00Z\","
             + "\"updated_at\":\"2026-05-07T12:00:00Z\",\"version\":1}}";
@@ -920,12 +929,72 @@ public class AuditForwardersTests
         }));
         var fwd = await fwds.GetAsync(FwdId);
         Assert.Equal(2, fwd.Environments.Count);
-        Assert.True(fwd.Environments["production"].Enabled);
-        Assert.NotNull(fwd.Environments["production"].Configuration);
-        Assert.Equal("https://prod.example.com/in", fwd.Environments["production"].Configuration!.Url);
+        var prod = fwd.Environments["production"];
+        Assert.True(prod.Enabled);
+        // Flat leaf overrides parse off the wire as pure overrides.
+        Assert.Equal("https://prod.example.com/in", prod.Url);
+        Assert.Equal(HttpMethod.Put, prod.Method);
+        Assert.Equal("200", prod.SuccessStatus);
+        Assert.False(prod.TlsVerify);
+        Assert.Equal("CA", prod.CaCert);
+        Assert.Equal("<redacted>", prod.GetHeader("DD-API-KEY"));
+        // First-dot split preserves the dotted header name; unknown / dotted-non-header
+        // leaves are ignored for forward compatibility.
+        Assert.Equal("v", prod.GetHeader("X-Foo.Bar"));
         Assert.False(fwd.Environments["staging"].Enabled);
-        // No per-environment override → Configuration inherits (null).
-        Assert.Null(fwd.Environments["staging"].Configuration);
+        // staging overrides no request leaf → all read null (no base merge).
+        Assert.Null(fwd.Environments["staging"].Url);
+        Assert.Empty(fwd.Environments["staging"].Headers);
+    }
+
+    [Fact]
+    public async Task GetAsync_EnvironmentNonObjectOrNullValue_YieldsEmptyOverride()
+    {
+        // Forward-compat: a JSON null and a non-object env value both parse to an
+        // empty (disabled, all-null) override rather than throwing.
+        var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi("{\"data\":{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\","
+                + "\"attributes\":{\"name\":\"x\",\"forwarder_type\":\"http\","
+                + "\"environments\":{\"production\":null,\"staging\":\"not-an-object\"}}}}"),
+        }));
+        var fwd = await fwds.GetAsync(FwdId);
+        Assert.False(fwd.Environments["production"].Enabled);
+        Assert.Null(fwd.Environments["production"].Url);
+        Assert.False(fwd.Environments["staging"].Enabled);
+        Assert.Empty(fwd.Environments["staging"].Headers);
+    }
+
+    [Fact]
+    public void Environment_Accessor_LazyCreate_PureOverride_AndHeaderHelpers()
+    {
+        var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        var fwd = fwds.New(id: "k", name: "n", forwarderType: ForwarderType.Http,
+            configuration: new HttpConfiguration { Url = "https://base" });
+        Assert.False(fwd.Enabled);
+
+        var prod = fwd.Environment("production");
+        // First access lazily creates and inserts an empty (disabled, all-null)
+        // override; repeated access returns the same stored instance.
+        Assert.Same(prod, fwd.Environment("production"));
+        Assert.Null(prod.Url);
+        Assert.Null(prod.Method);
+        Assert.Null(prod.SuccessStatus);
+        Assert.Null(prod.TlsVerify);
+        Assert.Null(prod.CaCert);
+        Assert.Null(prod.GetHeader("DD-API-KEY"));   // header-miss read
+
+        prod.Enabled = true;
+        prod.SetHeader("DD-API-KEY", "prod-secret");
+        Assert.Equal("prod-secret", prod.GetHeader("DD-API-KEY"));
+        // Enablement drives the derived roll-up; base configuration is untouched.
+        Assert.True(fwd.Enabled);
+        Assert.Equal("https://base", fwd.Configuration.Url);
+
+        // Base HttpConfiguration header helpers.
+        Assert.Null(fwd.Configuration.GetHeader("X-Trace"));   // miss
+        fwd.Configuration.SetHeader("X-Trace", "on");
+        Assert.Equal("on", fwd.Configuration.GetHeader("X-Trace"));
     }
 
     [Fact]
@@ -941,20 +1010,33 @@ public class AuditForwardersTests
     }
 
     [Fact]
-    public async Task Enabled_IsReadOnly_AlwaysPinnedFalse_AndNotMutatedOnWire()
+    public async Task Enabled_IsDerivedRollup_OverEnvironmentMap()
     {
-        // The base `enabled` is server-pinned false; the wrapper exposes it as
-        // a read-only round-trip value. A forwarder enabled per-environment
-        // still reports the base Enabled as whatever the server returned.
+        // The forwarder has no base `enabled` on the wire (ADR-056); the wrapper
+        // derives it as a roll-up — true when any environment is enabled.
         var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = JsonApi("{\"data\":{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\","
-                + "\"attributes\":{\"name\":\"x\",\"forwarder_type\":\"http\",\"enabled\":false,"
-                + "\"environments\":{\"production\":{\"enabled\":true}}}}}"),
+                + "\"attributes\":{\"name\":\"x\",\"forwarder_type\":\"http\","
+                + "\"environments\":{\"production\":{\"enabled\":true},\"staging\":{\"enabled\":false}}}}}"),
+        }));
+        var fwd = await fwds.GetAsync(FwdId);
+        Assert.True(fwd.Enabled);   // production is enabled
+        Assert.True(fwd.Environments["production"].Enabled);
+        Assert.False(fwd.Environments["staging"].Enabled);
+    }
+
+    [Fact]
+    public async Task Enabled_DerivedRollup_FalseWhenNoEnvironmentEnabled()
+    {
+        var fwds = MakeForwarders(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonApi("{\"data\":{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\","
+                + "\"attributes\":{\"name\":\"x\",\"forwarder_type\":\"http\","
+                + "\"environments\":{\"staging\":{\"enabled\":false}}}}}"),
         }));
         var fwd = await fwds.GetAsync(FwdId);
         Assert.False(fwd.Enabled);
-        Assert.True(fwd.Environments["production"].Enabled);
     }
 
     [Fact]
@@ -967,7 +1049,7 @@ public class AuditForwardersTests
             var resource =
                 "{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\",\"attributes\":{"
                 + "\"name\":\"n\",\"forwarder_type\":\"http\",\"enabled\":false,"
-                + "\"configuration\":{\"method\":\"POST\",\"url\":\"u\",\"headers\":[],\"success_status\":\"2xx\"},"
+                + "\"configuration\":{\"method\":\"POST\",\"url\":\"u\",\"headers\":{},\"success_status\":\"2xx\"},"
                 + "\"environments\":{\"production\":{\"enabled\":true}},"
                 + "\"created_at\":\"2026-05-07T12:00:00Z\",\"version\":1}}";
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)
@@ -999,7 +1081,6 @@ public class AuditForwardersTests
                     "n",   // name
                     ForwarderType.Http,
                     new HttpConfiguration { Url = "u" },
-                    false, // enabled (server-pinned)
                     null,  // environments
                     null,  // description
                     false, // forwardSmplkitEvents
@@ -1046,7 +1127,7 @@ public class AuditForwardersTests
             configuration: new HttpConfiguration
             {
                 Url = "https://siem.example.com/in",
-                Headers = new List<HttpHeader> { new("DD-API-KEY", "secret") },
+                Headers = new Dictionary<string, string> { ["DD-API-KEY"] = "secret" },
                 TlsVerify = false,
                 CaCert = "-----BEGIN CERTIFICATE-----\nfoo\n-----END CERTIFICATE-----",
             });
@@ -1062,7 +1143,7 @@ public class AuditForwardersTests
             "{\"id\":\"" + FwdId + "\",\"type\":\"forwarder\",\"attributes\":{"
             + "\"name\":\"Datadog\",\"forwarder_type\":\"DATADOG\",\"enabled\":true,"
             + "\"configuration\":{\"method\":\"POST\",\"url\":\"https://siem.example.com/in\","
-            + "\"headers\":[{\"name\":\"DD-API-KEY\",\"value\":\"<redacted>\"}],"
+            + "\"headers\":{\"DD-API-KEY\":\"<redacted>\"},"
             + "\"success_status\":\"2xx\","
             + "\"tls_verify\":false,"
             + "\"ca_cert\":\"-----BEGIN CERTIFICATE-----\\nfoo\\n-----END CERTIFICATE-----\"},"
