@@ -41,16 +41,16 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <br/>account and immutable. The job's kind follows from its `schedule`: omit the
         /// <br/>schedule for a permanent **manual** job (triggered on demand), give a cron
         /// <br/>expression for a **recurring** job, or a datetime / `now` for a **one-off**
-        /// <br/>job. A recurring or manual job supplies `environments` to choose where it
-        /// <br/>runs; a recurring job begins scheduling immediately in each enabled
-        /// <br/>environment. A one-off job is created in the environment named by the
-        /// <br/>`X-Smplkit-Environment` header (implied when the credential is scoped to a
-        /// <br/>single environment); a `now` one-off enqueues its single run immediately.
+        /// <br/>job. Supply `environments` to choose where the job runs: a recurring job
+        /// <br/>begins scheduling immediately in each enabled environment, while a one-off
+        /// <br/>job names its target environment(s) by the keys of that map and enqueues one
+        /// <br/>run per environment (a single-environment credential implies the one
+        /// <br/>environment when the map is empty). A `now` one-off enqueues its run(s)
+        /// <br/>immediately.
         /// </remarks>
-        /// <param name="x_Smplkit_Environment">The environment to operate in. Names the single environment a one-off job is born in (or a manual run executes in). Optional when the credential is scoped to a single environment (which is then implied); required when the credential can reach several environments and the choice is otherwise ambiguous. Ignored for a recurring job, whose environments come from its `environments` map.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<JobResponse> Create_jobAsync(JobCreateRequest body, string? x_Smplkit_Environment = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<JobResponse> Create_jobAsync(JobCreateRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -101,16 +101,15 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <br/>
         /// <br/>The job's kind is re-derived from the new `schedule` (omit it for a manual
         /// <br/>job). Set enablement per environment via the `environments` map (a recurring
-        /// <br/>or manual job), or by recreating a one-off job in the desired environment.
-        /// <br/>Each environment may carry its own cron `schedule` override (recurring jobs
-        /// <br/>only). Editing a recurring environment's effective schedule recomputes its
-        /// <br/>next fire time; an edit that leaves it unchanged preserves the existing
-        /// <br/>cadence.
+        /// <br/>or manual job), or by recreating a one-off job naming its target
+        /// <br/>environment(s) in that map. Each environment may carry its own cron
+        /// <br/>`schedule` override (recurring jobs only). Editing a recurring environment's
+        /// <br/>effective schedule recomputes its next fire time; an edit that leaves it
+        /// <br/>unchanged preserves the existing cadence.
         /// </remarks>
-        /// <param name="x_Smplkit_Environment">The environment to operate in. Names the single environment a one-off job is born in (or a manual run executes in). Optional when the credential is scoped to a single environment (which is then implied); required when the credential can reach several environments and the choice is otherwise ambiguous. Ignored for a recurring job, whose environments come from its `environments` map.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<JobResponse> Update_jobAsync(string job_id, JobRequest body, string? x_Smplkit_Environment = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<JobResponse> Update_jobAsync(string job_id, JobRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -133,19 +132,18 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <br/>
         /// <br/>This is the primary execution path for a manual job and is also usable ad
         /// <br/>hoc for a recurring job ("run now"). The job's schedule and enabled state are
-        /// <br/>untouched. The run executes in the environment named by the
-        /// <br/>`X-Smplkit-Environment` header; when the job is enabled in exactly one
-        /// <br/>environment that environment is used, and a single-environment credential
-        /// <br/>implies it. The environment must be one the job is **enabled** in (409
-        /// <br/>otherwise). The run executes the job's effective configuration for that
-        /// <br/>environment. It is enqueued and executed by the worker; if the account is
-        /// <br/>over its run allotment the run will fail with reason `QUOTA_EXCEEDED` rather
-        /// <br/>than being rejected here.
+        /// <br/>untouched. The run executes in the environment named by the request body's
+        /// <br/>`environment`; when the job is enabled in exactly one environment that
+        /// <br/>environment is used, and a single-environment credential implies it. The
+        /// <br/>environment must be one the job is **enabled** in (409 otherwise). The run
+        /// <br/>executes the job's effective configuration for that environment. It is
+        /// <br/>enqueued and executed by the worker; if the account is over its run
+        /// <br/>allotment the run will fail with reason `QUOTA_EXCEEDED` rather than being
+        /// <br/>rejected here.
         /// </remarks>
-        /// <param name="x_Smplkit_Environment">The environment to operate in. Names the single environment a one-off job is born in (or a manual run executes in). Optional when the credential is scoped to a single environment (which is then implied); required when the credential can reach several environments and the choice is otherwise ambiguous. Ignored for a recurring job, whose environments come from its `environments` map.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<RunResponse> Run_job_nowAsync(string job_id, string? x_Smplkit_Environment = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<RunResponse> Run_job_nowAsync(string job_id, RunNowRequest? body = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -386,16 +384,16 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <br/>account and immutable. The job's kind follows from its `schedule`: omit the
         /// <br/>schedule for a permanent **manual** job (triggered on demand), give a cron
         /// <br/>expression for a **recurring** job, or a datetime / `now` for a **one-off**
-        /// <br/>job. A recurring or manual job supplies `environments` to choose where it
-        /// <br/>runs; a recurring job begins scheduling immediately in each enabled
-        /// <br/>environment. A one-off job is created in the environment named by the
-        /// <br/>`X-Smplkit-Environment` header (implied when the credential is scoped to a
-        /// <br/>single environment); a `now` one-off enqueues its single run immediately.
+        /// <br/>job. Supply `environments` to choose where the job runs: a recurring job
+        /// <br/>begins scheduling immediately in each enabled environment, while a one-off
+        /// <br/>job names its target environment(s) by the keys of that map and enqueues one
+        /// <br/>run per environment (a single-environment credential implies the one
+        /// <br/>environment when the map is empty). A `now` one-off enqueues its run(s)
+        /// <br/>immediately.
         /// </remarks>
-        /// <param name="x_Smplkit_Environment">The environment to operate in. Names the single environment a one-off job is born in (or a manual run executes in). Optional when the credential is scoped to a single environment (which is then implied); required when the credential can reach several environments and the choice is otherwise ambiguous. Ignored for a recurring job, whose environments come from its `environments` map.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<JobResponse> Create_jobAsync(JobCreateRequest body, string? x_Smplkit_Environment = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<JobResponse> Create_jobAsync(JobCreateRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (body == null)
                 throw new System.ArgumentNullException("body");
@@ -406,9 +404,6 @@ namespace Smplkit.Internal.Generated.Jobs
             {
                 using (var request_ = new System.Net.Http.HttpRequestMessage())
                 {
-
-                    if (x_Smplkit_Environment != null)
-                        request_.Headers.TryAddWithoutValidation("X-Smplkit-Environment", ConvertToString(x_Smplkit_Environment, System.Globalization.CultureInfo.InvariantCulture));
                     var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
                     var content_ = new System.Net.Http.ByteArrayContent(json_);
                     content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/vnd.api+json");
@@ -688,16 +683,15 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <br/>
         /// <br/>The job's kind is re-derived from the new `schedule` (omit it for a manual
         /// <br/>job). Set enablement per environment via the `environments` map (a recurring
-        /// <br/>or manual job), or by recreating a one-off job in the desired environment.
-        /// <br/>Each environment may carry its own cron `schedule` override (recurring jobs
-        /// <br/>only). Editing a recurring environment's effective schedule recomputes its
-        /// <br/>next fire time; an edit that leaves it unchanged preserves the existing
-        /// <br/>cadence.
+        /// <br/>or manual job), or by recreating a one-off job naming its target
+        /// <br/>environment(s) in that map. Each environment may carry its own cron
+        /// <br/>`schedule` override (recurring jobs only). Editing a recurring environment's
+        /// <br/>effective schedule recomputes its next fire time; an edit that leaves it
+        /// <br/>unchanged preserves the existing cadence.
         /// </remarks>
-        /// <param name="x_Smplkit_Environment">The environment to operate in. Names the single environment a one-off job is born in (or a manual run executes in). Optional when the credential is scoped to a single environment (which is then implied); required when the credential can reach several environments and the choice is otherwise ambiguous. Ignored for a recurring job, whose environments come from its `environments` map.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<JobResponse> Update_jobAsync(string job_id, JobRequest body, string? x_Smplkit_Environment = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<JobResponse> Update_jobAsync(string job_id, JobRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (job_id == null)
                 throw new System.ArgumentNullException("job_id");
@@ -711,9 +705,6 @@ namespace Smplkit.Internal.Generated.Jobs
             {
                 using (var request_ = new System.Net.Http.HttpRequestMessage())
                 {
-
-                    if (x_Smplkit_Environment != null)
-                        request_.Headers.TryAddWithoutValidation("X-Smplkit-Environment", ConvertToString(x_Smplkit_Environment, System.Globalization.CultureInfo.InvariantCulture));
                     var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
                     var content_ = new System.Net.Http.ByteArrayContent(json_);
                     content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/vnd.api+json");
@@ -864,19 +855,18 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <br/>
         /// <br/>This is the primary execution path for a manual job and is also usable ad
         /// <br/>hoc for a recurring job ("run now"). The job's schedule and enabled state are
-        /// <br/>untouched. The run executes in the environment named by the
-        /// <br/>`X-Smplkit-Environment` header; when the job is enabled in exactly one
-        /// <br/>environment that environment is used, and a single-environment credential
-        /// <br/>implies it. The environment must be one the job is **enabled** in (409
-        /// <br/>otherwise). The run executes the job's effective configuration for that
-        /// <br/>environment. It is enqueued and executed by the worker; if the account is
-        /// <br/>over its run allotment the run will fail with reason `QUOTA_EXCEEDED` rather
-        /// <br/>than being rejected here.
+        /// <br/>untouched. The run executes in the environment named by the request body's
+        /// <br/>`environment`; when the job is enabled in exactly one environment that
+        /// <br/>environment is used, and a single-environment credential implies it. The
+        /// <br/>environment must be one the job is **enabled** in (409 otherwise). The run
+        /// <br/>executes the job's effective configuration for that environment. It is
+        /// <br/>enqueued and executed by the worker; if the account is over its run
+        /// <br/>allotment the run will fail with reason `QUOTA_EXCEEDED` rather than being
+        /// <br/>rejected here.
         /// </remarks>
-        /// <param name="x_Smplkit_Environment">The environment to operate in. Names the single environment a one-off job is born in (or a manual run executes in). Optional when the credential is scoped to a single environment (which is then implied); required when the credential can reach several environments and the choice is otherwise ambiguous. Ignored for a recurring job, whose environments come from its `environments` map.</param>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<RunResponse> Run_job_nowAsync(string job_id, string? x_Smplkit_Environment = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<RunResponse> Run_job_nowAsync(string job_id, RunNowRequest? body = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (job_id == null)
                 throw new System.ArgumentNullException("job_id");
@@ -887,10 +877,10 @@ namespace Smplkit.Internal.Generated.Jobs
             {
                 using (var request_ = new System.Net.Http.HttpRequestMessage())
                 {
-
-                    if (x_Smplkit_Environment != null)
-                        request_.Headers.TryAddWithoutValidation("X-Smplkit-Environment", ConvertToString(x_Smplkit_Environment, System.Globalization.CultureInfo.InvariantCulture));
-                    request_.Content = new System.Net.Http.StringContent(string.Empty, System.Text.Encoding.UTF8, "application/json");
+                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/vnd.api+json");
+                    request_.Content = content_;
                     request_.Method = new System.Net.Http.HttpMethod("POST");
                     request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
 
@@ -2137,8 +2127,8 @@ namespace Smplkit.Internal.Generated.Jobs
     /// <br/>be enabled in several environments at once and fires once per enabled
     /// <br/>environment, each on its own next-fire schedule; a **manual** job (no
     /// <br/>schedule) is permanent and never auto-fires — it runs only when triggered;
-    /// <br/>a **one-off** (`now` or a future datetime) job runs a single time in the
-    /// <br/>environment it was created in and is then spent.
+    /// <br/>a **one-off** (`now` or a future datetime) job runs a single time in each
+    /// <br/>environment it was created in (one run per environment) and is then spent.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Job
@@ -2181,7 +2171,7 @@ namespace Smplkit.Internal.Generated.Jobs
         public JobHttpConfiguration Configuration { get; set; } = new JobHttpConfiguration();
 
         /// <summary>
-        /// Per-environment overrides keyed by environment key (e.g. `production`, `staging`). Each entry is a flat, sparse overlay: only the leaves that differ from the base definition are present, and everything absent is inherited. Set `enabled` to `true` to run the job in that environment (the base is disabled everywhere; an environment with no entry, or an entry without `enabled: true`, does not run). Overridable leaves are `url`, `method`, `timeout`, `body`, `success_status`, `tls_verify`, `ca_cert`, `schedule` and `timezone` (recurring jobs only), `retry_policy` (the `id` of a retry policy), and an individual header as `headers.&lt;name&gt;` (e.g. `headers.Authorization`). On read, each entry also reports the read-only `next_run_at` for that environment (the next fire time, or `null`). For a recurring or manual job, supply this map to choose where it runs. For a one-off job, the environment it is created in is recorded here automatically — name it with the `X-Smplkit-Environment` header. Every referenced environment must exist for the account.
+        /// Per-environment overrides keyed by environment key (e.g. `production`, `staging`). Each entry is a flat, sparse overlay: only the leaves that differ from the base definition are present, and everything absent is inherited. Set `enabled` to `true` to run the job in that environment (the base is disabled everywhere; an environment with no entry, or an entry without `enabled: true`, does not run). Overridable leaves are `url`, `method`, `timeout`, `body`, `success_status`, `tls_verify`, `ca_cert`, `schedule` and `timezone` (recurring jobs only), `retry_policy` (the `id` of a retry policy), and an individual header as `headers.&lt;name&gt;` (e.g. `headers.Authorization`). On read, each entry also reports the read-only `next_run_at` for that environment (the next fire time, or `null`). For a recurring or manual job, supply this map to choose where it runs. For a one-off job, name its target environment(s) here as the map keys — one run is enqueued per named environment; when the map is empty a single-environment credential implies the one environment. Every referenced environment must exist for the account.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("environments")]
         public System.Collections.Generic.IDictionary<string, object> Environments { get; set; } = default!;
@@ -2779,7 +2769,7 @@ namespace Smplkit.Internal.Generated.Jobs
         public int? Job_version { get; set; } = default!;
 
         /// <summary>
-        /// The environment this run executed in. A scheduled run inherits the firing job-environment; a manual run is created in the environment you name with the `X-Smplkit-Environment` header; a rerun copies its source run's environment.
+        /// The environment this run executed in. A scheduled run inherits the firing job-environment; a manual run is created in the environment you name in the run request body (implied when your credential is scoped to a single environment); a rerun copies its source run's environment.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("environment")]
         public string Environment { get; set; } = default!;
@@ -2948,6 +2938,34 @@ namespace Smplkit.Internal.Generated.Jobs
 
         [System.Text.Json.Serialization.JsonPropertyName("links")]
         public RunListLinks? Links { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Request body for the run-now action (`POST /jobs/{id}/actions/run`).
+    /// <br/>
+    /// <br/>A plain object (not a JSON:API envelope), matching the platform convention
+    /// <br/>for action endpoints. The body itself is optional — omit it entirely when
+    /// <br/>the target environment is unambiguous.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RunNowRequest
+    {
+
+        /// <summary>
+        /// The environment to run the job in. Must be one the job is **enabled** in (otherwise the request is rejected). Optional when the target is unambiguous: when the job is enabled in exactly one environment, or your credential is scoped to a single environment, that environment is used.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("environment")]
+        public string? Environment { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 

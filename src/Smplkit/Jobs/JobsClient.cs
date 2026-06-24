@@ -17,10 +17,10 @@
 // Environment scoping: a job carries a per-environment `environments` map
 // (enablement + optional configuration override per environment); the base
 // `enabled` is a read-only server-derived roll-up the SDK never writes. A
-// one-off job is born in a single environment named via the
-// X-Smplkit-Environment header on create; a manual run executes in the
-// environment named on the trigger; run reads accept a filter[environment]
-// scope. The client's configured environment defaults all three.
+// one-off job is born in a single environment named as an enabled entry in
+// that map on create; a manual run names its environment in the run-now request
+// body; run reads accept a filter[environment] scope. The client's configured
+// environment defaults all three.
 //
 // Every call delegates HTTP to the auto-generated Smplkit.Internal.Generated.Jobs
 // client; this wrapper only shapes models and raises SDK exceptions.
@@ -364,8 +364,8 @@ public sealed class JobsClient : IDisposable
         string? environment = null)
     {
         // Reuse the account-global config resolver (jobs is never
-        // environment-scoped on the transport — env scoping rides the
-        // X-Smplkit-Environment header / filter[environment]) and the shared
+        // environment-scoped on the transport — env scoping rides the request
+        // body's environments map / run-now body / filter[environment]) and the shared
         // per-service URL helper, so a standalone jobs client resolves
         // credentials/base-domain from ~/.smplkit / env vars / constructor args
         // exactly like the top-level clients do.
@@ -407,8 +407,8 @@ public sealed class JobsClient : IDisposable
         RetryPolicies = new RetryPoliciesClient(_gen);
     }
 
-    /// <summary>Build an unsaved <see cref="Job"/> bound to this client and record
-    /// its birth environment. Shared by the public factory methods.</summary>
+    /// <summary>Build an unsaved <see cref="Job"/> bound to this client. Shared by
+    /// the public factory methods.</summary>
     private Job NewJob(
         string id,
         string name,
@@ -417,11 +417,9 @@ public sealed class JobsClient : IDisposable
         string? description,
         IDictionary<string, JobEnvironment>? environments,
         string concurrencyPolicy,
-        string? environment,
         string? timezone = null,
         string? retryPolicy = null)
-    {
-        var job = new Job(
+        => new Job(
             this,
             id: id,
             name: name,
@@ -432,8 +430,18 @@ public sealed class JobsClient : IDisposable
             concurrencyPolicy: concurrencyPolicy,
             timezone: timezone,
             retryPolicy: retryPolicy);
-        job.BirthEnvironment = environment ?? _environment;
-        return job;
+
+    /// <summary>A one-off job's birth environment as an enabled entry in the
+    /// <c>environments</c> map. The target environment of a one-off job is conveyed
+    /// by the keys of the body's <c>environments</c> map (there is no request
+    /// header). <c>null</c> when the environment is unknown, leaving the map empty
+    /// so a single-environment credential implies it server-side.</summary>
+    private IDictionary<string, JobEnvironment>? BirthEnvironmentMap(string? environment)
+    {
+        var env = environment ?? _environment;
+        return env is null
+            ? null
+            : new Dictionary<string, JobEnvironment> { [env] = new JobEnvironment { Enabled = true } };
     }
 
     /// <summary>
@@ -474,7 +482,7 @@ public sealed class JobsClient : IDisposable
         IDictionary<string, JobEnvironment>? environments = null,
         string concurrencyPolicy = "ALLOW")
         => NewJob(id, name, schedule, configuration, description, environments, concurrencyPolicy,
-            environment: null, timezone: timezone, retryPolicy: retryPolicy);
+            timezone: timezone, retryPolicy: retryPolicy);
 
     /// <summary>
     /// Return an unsaved manual <see cref="Job"/>. Call <see cref="Job.SaveAsync"/> to create it.
@@ -508,7 +516,7 @@ public sealed class JobsClient : IDisposable
         string concurrencyPolicy = "ALLOW",
         string? retryPolicy = null)
         => NewJob(id, name, schedule: null, configuration, description, environments, concurrencyPolicy,
-            environment: null, retryPolicy: retryPolicy);
+            retryPolicy: retryPolicy);
 
     /// <summary>
     /// Return an unsaved one-off <see cref="Job"/>. Call <see cref="Job.SaveAsync"/> to create it.
@@ -544,7 +552,7 @@ public sealed class JobsClient : IDisposable
         => NewJob(
             id, name,
             schedule.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
-            configuration, description, environments: null, concurrencyPolicy, environment,
+            configuration, description, BirthEnvironmentMap(environment), concurrencyPolicy,
             retryPolicy: retryPolicy);
 
     /// <summary>List jobs in the account.</summary>
@@ -604,8 +612,13 @@ public sealed class JobsClient : IDisposable
     /// <returns>The <see cref="Run"/> that was started, with <see cref="Run.Trigger"/> set to <c>MANUAL</c>.</returns>
     public async Task<Run> RunAsync(string id, string? environment = null, CancellationToken ct = default)
     {
+        // The target environment travels in the request body. When neither an
+        // explicit arg nor the client default resolves it, Environment stays null
+        // and the serializer (DefaultIgnoreCondition.WhenWritingNull) emits an empty
+        // body, letting the service imply the environment.
+        var body = new GenJobs.RunNowRequest { Environment = environment ?? _environment };
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.Run_job_nowAsync(id, x_Smplkit_Environment: environment ?? _environment, cancellationToken: ct)).ConfigureAwait(false);
+            () => _gen.Run_job_nowAsync(id, body, cancellationToken: ct)).ConfigureAwait(false);
         return RunFromResource(resp.Data, Runs);
     }
 
@@ -633,11 +646,11 @@ public sealed class JobsClient : IDisposable
                 Attributes = BuildJobAttributes(job),
             },
         };
-        // A one-off job is born in its birth environment (explicit New(environment:)
-        // or the client default); recurring jobs ignore the header and route via
-        // their environments map.
+        // A one-off job's birth environment travels as an enabled entry in the
+        // body's environments map (built by Schedule); recurring and manual jobs
+        // carry their own map. There is no longer an environment request header.
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.Create_jobAsync(body, x_Smplkit_Environment: job.BirthEnvironment, cancellationToken: ct)).ConfigureAwait(false);
+            () => _gen.Create_jobAsync(body, cancellationToken: ct)).ConfigureAwait(false);
         return FromResource(resp.Data);
     }
 
@@ -653,10 +666,10 @@ public sealed class JobsClient : IDisposable
                 Attributes = BuildJobAttributes(job),
             },
         };
-        // Updates carry the client's configured environment (if any); a recurring
-        // job ignores it and routes via its environments map.
+        // Updates carry no environment header; enablement and per-environment
+        // routing travel entirely through the body's environments map.
         var resp = await ApiExceptionMapper.ExecuteAsync(
-            () => _gen.Update_jobAsync(job.Id, body, x_Smplkit_Environment: _environment, cancellationToken: ct)).ConfigureAwait(false);
+            () => _gen.Update_jobAsync(job.Id, body, cancellationToken: ct)).ConfigureAwait(false);
         return FromResource(resp.Data);
     }
 

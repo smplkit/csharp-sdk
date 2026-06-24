@@ -652,17 +652,22 @@ public class JobsClientTests
     }
 
     // ----------------------------------------------------------------------
-    // X-Smplkit-Environment header on create / update / run
+    // Body-borne environment on create / update / run (no env header anymore)
     // ----------------------------------------------------------------------
+
+    // No request carries an X-Smplkit-Environment header any longer. Assert it is
+    // never present, regardless of how the environment is resolved.
+    private static bool HasEnvHeader(HttpRequestMessage req) =>
+        req.Headers.Contains("X-Smplkit-Environment");
 
     [Fact]
     public async Task Schedule_OneOff_SerializesDatetimeAndBirthEnvironment()
     {
-        string? header = null;
+        bool hasHeader = true;
         string? capturedBody = null;
         var jobs = MakeJobs(async req =>
         {
-            header = req.Headers.TryGetValues("X-Smplkit-Environment", out var v) ? v.First() : null;
+            hasHeader = HasEnvHeader(req);
             capturedBody = await req.Content!.ReadAsStringAsync();
             return new HttpResponseMessage(HttpStatusCode.Created)
             {
@@ -672,29 +677,61 @@ public class JobsClientTests
         var when = new DateTimeOffset(2030, 1, 1, 12, 30, 0, TimeSpan.Zero);
         var job = jobs.Schedule("showcase-oneoff", name: "n", schedule: when, configuration: Cfg(), environment: "development");
         await job.SaveAsync();
-        Assert.Equal("development", header);  // birth environment
-        // The datetime is serialized to its ISO-8601 round-trip string on the wire.
+        Assert.False(hasHeader);  // birth environment travels in the body, not a header
         using var doc = JsonDocument.Parse(capturedBody!);
+        var attrs = doc.RootElement.GetProperty("data").GetProperty("attributes");
+        // The datetime is serialized to its ISO-8601 round-trip string on the wire.
         Assert.Equal(
             when.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
-            doc.RootElement.GetProperty("data").GetProperty("attributes").GetProperty("schedule").GetString());
+            attrs.GetProperty("schedule").GetString());
+        // The birth environment is an enabled entry in the environments map.
+        var env = attrs.GetProperty("environments").GetProperty("development");
+        Assert.True(env.GetProperty("enabled").GetBoolean());
     }
 
     [Fact]
     public async Task Create_BirthEnvironmentDefaultsToClientEnvironment()
     {
-        string? header = null;
-        var jobs = MakeJobs(req =>
+        bool hasHeader = true;
+        string? capturedBody = null;
+        var jobs = MakeJobs(async req =>
         {
-            header = req.Headers.TryGetValues("X-Smplkit-Environment", out var v) ? v.First() : null;
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)
+            hasHeader = HasEnvHeader(req);
+            capturedBody = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.Created)
             {
                 Content = JsonApi("{\"data\":" + JobResource() + "}"),
-            });
+            };
         }, environment: "production");
         var job = jobs.Schedule(JobId, name: "n", schedule: new DateTimeOffset(2030, 1, 1, 12, 30, 0, TimeSpan.Zero), configuration: Cfg());
         await job.SaveAsync();
-        Assert.Equal("production", header);
+        Assert.False(hasHeader);
+        // The client default seeds the birth-environment map when no explicit arg.
+        using var doc = JsonDocument.Parse(capturedBody!);
+        var env = doc.RootElement.GetProperty("data").GetProperty("attributes")
+            .GetProperty("environments").GetProperty("production");
+        Assert.True(env.GetProperty("enabled").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Schedule_OneOff_NoEnvironment_OmitsEnvironmentsMap()
+    {
+        // No explicit environment and no client default → empty map; the service
+        // implies the environment from a single-environment credential.
+        string? capturedBody = null;
+        var jobs = MakeJobs(async req =>
+        {
+            capturedBody = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = JsonApi("{\"data\":" + JobResource("o2", kind: "one_off") + "}"),
+            };
+        });
+        var job = jobs.Schedule("o2", name: "O2", schedule: new DateTimeOffset(2030, 1, 1, 12, 30, 0, TimeSpan.Zero), configuration: Cfg());
+        await job.SaveAsync();
+        using var doc = JsonDocument.Parse(capturedBody!);
+        Assert.False(doc.RootElement.GetProperty("data").GetProperty("attributes")
+            .TryGetProperty("environments", out _));
     }
 
     [Fact]
@@ -703,7 +740,7 @@ public class JobsClientTests
         bool hasHeader = true;
         var jobs = MakeJobs(req =>
         {
-            hasHeader = req.Headers.Contains("X-Smplkit-Environment");
+            hasHeader = HasEnvHeader(req);
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)
             {
                 Content = JsonApi("{\"data\":" + JobResource() + "}"),
@@ -715,9 +752,9 @@ public class JobsClientTests
     }
 
     [Fact]
-    public async Task Update_SendsClientEnvironmentHeader()
+    public async Task Update_SendsNoEnvironmentHeader()
     {
-        string? putHeader = null;
+        bool putHasHeader = true;
         var jobs = MakeJobs(req =>
         {
             if (req.Method == System.Net.Http.HttpMethod.Get)
@@ -725,7 +762,7 @@ public class JobsClientTests
                 {
                     Content = JsonApi("{\"data\":" + JobResource() + "}"),
                 });
-            putHeader = req.Headers.TryGetValues("X-Smplkit-Environment", out var v) ? v.First() : null;
+            putHasHeader = HasEnvHeader(req);
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = JsonApi("{\"data\":" + JobResource(version: 2) + "}"),
@@ -734,75 +771,64 @@ public class JobsClientTests
         var job = await jobs.GetAsync(JobId);
         job.Name = "renamed";
         await job.SaveAsync();
-        Assert.Equal("production", putHeader);
+        Assert.False(putHasHeader);  // update carries no environment header
     }
 
     [Fact]
-    public async Task Update_NoClientEnvironment_OmitsHeader()
+    public async Task Run_SendsExplicitEnvironmentInBody()
     {
         bool hasHeader = true;
-        var jobs = MakeJobs(req =>
+        string? capturedBody = null;
+        var run = await MakeJobs(async req =>
         {
-            if (req.Method == System.Net.Http.HttpMethod.Get)
-                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = JsonApi("{\"data\":" + JobResource() + "}"),
-                });
-            hasHeader = req.Headers.Contains("X-Smplkit-Environment");
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = JsonApi("{\"data\":" + JobResource(version: 2) + "}"),
-            });
-        });
-        var job = await jobs.GetAsync(JobId);
-        await job.SaveAsync();
-        Assert.False(hasHeader);
-    }
-
-    [Fact]
-    public async Task Run_SendsExplicitEnvironmentHeader()
-    {
-        string? header = null;
-        var run = await MakeJobs(req =>
-        {
-            header = req.Headers.TryGetValues("X-Smplkit-Environment", out var v) ? v.First() : null;
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            hasHeader = HasEnvHeader(req);
+            capturedBody = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = JsonApi("{\"data\":" + RunResource(trigger: "MANUAL") + "}"),
-            });
+            };
         }, environment: "development").RunAsync(JobId, environment: "production");
-        Assert.Equal("production", header);
+        Assert.False(hasHeader);  // no request header anymore
+        using var doc = JsonDocument.Parse(capturedBody!);
+        Assert.Equal("production", doc.RootElement.GetProperty("environment").GetString());
         Assert.Equal("MANUAL", run.Trigger);
     }
 
     [Fact]
-    public async Task Run_DefaultsToClientEnvironmentHeader()
+    public async Task Run_DefaultsToClientEnvironmentInBody()
     {
-        string? header = null;
-        await MakeJobs(req =>
+        string? capturedBody = null;
+        await MakeJobs(async req =>
         {
-            header = req.Headers.TryGetValues("X-Smplkit-Environment", out var v) ? v.First() : null;
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            capturedBody = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = JsonApi("{\"data\":" + RunResource(trigger: "MANUAL") + "}"),
-            });
+            };
         }, environment: "production").RunAsync(JobId);
-        Assert.Equal("production", header);
+        using var doc = JsonDocument.Parse(capturedBody!);
+        Assert.Equal("production", doc.RootElement.GetProperty("environment").GetString());
     }
 
     [Fact]
-    public async Task Run_NoEnvironment_OmitsHeader()
+    public async Task Run_NoEnvironment_SendsEmptyBody()
     {
         bool hasHeader = true;
-        await MakeJobs(req =>
+        string? capturedBody = null;
+        await MakeJobs(async req =>
         {
-            hasHeader = req.Headers.Contains("X-Smplkit-Environment");
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            hasHeader = HasEnvHeader(req);
+            capturedBody = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = JsonApi("{\"data\":" + RunResource(trigger: "MANUAL") + "}"),
-            });
+            };
         }).RunAsync(JobId);
         Assert.False(hasHeader);
+        // Neither an explicit arg nor a client default → environment omitted from the
+        // body (the service implies it).
+        using var doc = JsonDocument.Parse(capturedBody!);
+        Assert.False(doc.RootElement.TryGetProperty("environment", out _));
     }
 
     // ----------------------------------------------------------------------
@@ -1005,24 +1031,25 @@ public class JobsClientTests
     [Fact]
     public async Task Job_TriggerAsync_DelegatesToRun_WithEnvironment()
     {
-        string? header = null;
-        var jobs = MakeJobs(req =>
+        string? capturedBody = null;
+        var jobs = MakeJobs(async req =>
         {
             if (req.Method == System.Net.Http.HttpMethod.Get)
-                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                return new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = JsonApi("{\"data\":" + JobResource() + "}"),
-                });
-            header = req.Headers.TryGetValues("X-Smplkit-Environment", out var v) ? v.First() : null;
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                };
+            capturedBody = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = JsonApi("{\"data\":" + RunResource(trigger: "MANUAL") + "}"),
-            });
+            };
         });
         var job = await jobs.GetAsync(JobId);
         var run = await job.TriggerAsync(environment: "production");
         Assert.Equal("MANUAL", run.Trigger);
-        Assert.Equal("production", header);
+        using var doc = JsonDocument.Parse(capturedBody!);
+        Assert.Equal("production", doc.RootElement.GetProperty("environment").GetString());
     }
 
     [Fact]
