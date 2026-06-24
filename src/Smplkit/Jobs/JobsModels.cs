@@ -314,12 +314,6 @@ public sealed class Job
     /// <summary>Monotonic version counter; bumped on every server-side write.</summary>
     public int? Version { get; internal set; }
 
-    // Creation-time only: the environment a one-off job is born in, sent as the
-    // X-Smplkit-Environment header by JobsClient.CreateAsync. Ignored for a
-    // recurring job, whose environments come from the Environments map. Set by
-    // JobsClient.New (explicit environment, else the client's configured one).
-    internal string? BirthEnvironment { get; set; }
-
     internal Job(
         JobsClient? client,
         string id,
