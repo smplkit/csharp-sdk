@@ -155,8 +155,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// Create a retry policy for this account.
         /// <br/>
         /// <br/>The caller supplies the policy's id as `data.id`. Ids are unique within an
-        /// <br/>account and immutable. `Default` is reserved for the built-in policy and
-        /// <br/>cannot be created.
+        /// <br/>account and immutable.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -170,9 +169,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// List this account's retry policies.
         /// <br/>
         /// <br/>Default sort is `name` ascending. Sort by `name`, `created_at`, or
-        /// <br/>`updated_at` (prefix `-` for descending). The built-in `Default` policy is
-        /// <br/>not included here — it always exists and is retrievable at
-        /// <br/>`/retry-policies/Default`.
+        /// <br/>`updated_at` (prefix `-` for descending).
         /// </remarks>
         /// <param name="filtername">Case-insensitive substring match on the policy `name` (matches when the name contains the given text).</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
@@ -189,8 +186,6 @@ namespace Smplkit.Internal.Generated.Jobs
         /// </summary>
         /// <remarks>
         /// Retrieve a single retry policy by its id.
-        /// <br/>
-        /// <br/>`Default` returns the built-in do-not-retry policy.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -202,8 +197,6 @@ namespace Smplkit.Internal.Generated.Jobs
         /// </summary>
         /// <remarks>
         /// Replace an existing retry policy. Every writable field is overwritten.
-        /// <br/>
-        /// <br/>The built-in `Default` policy cannot be modified.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -216,10 +209,10 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <remarks>
         /// Delete a retry policy.
         /// <br/>
-        /// <br/>The built-in `Default` policy cannot be deleted (`403`). A policy still
-        /// <br/>referenced by any job — at the base level or in a per-environment override —
-        /// <br/>cannot be deleted (`409`); the error lists the referencing job ids under
-        /// <br/>`meta.referencing_jobs` so they can be reassigned to `Default` first.
+        /// <br/>A policy still referenced by any job — at the base level or in a
+        /// <br/>per-environment override — cannot be deleted (`409`); the error lists the
+        /// <br/>referencing job ids under `meta.referencing_jobs` so they can be reassigned
+        /// <br/>(or cleared to no policy) first.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -968,8 +961,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// Create a retry policy for this account.
         /// <br/>
         /// <br/>The caller supplies the policy's id as `data.id`. Ids are unique within an
-        /// <br/>account and immutable. `Default` is reserved for the built-in policy and
-        /// <br/>cannot be created.
+        /// <br/>account and immutable.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1056,9 +1048,7 @@ namespace Smplkit.Internal.Generated.Jobs
         /// List this account's retry policies.
         /// <br/>
         /// <br/>Default sort is `name` ascending. Sort by `name`, `created_at`, or
-        /// <br/>`updated_at` (prefix `-` for descending). The built-in `Default` policy is
-        /// <br/>not included here — it always exists and is retrievable at
-        /// <br/>`/retry-policies/Default`.
+        /// <br/>`updated_at` (prefix `-` for descending).
         /// </remarks>
         /// <param name="filtername">Case-insensitive substring match on the policy `name` (matches when the name contains the given text).</param>
         /// <param name="sort">Field to sort by. Prefix with `-` for descending order. Default: `name`. Allowed values: `created_at`, `-created_at`, `name`, `-name`, `updated_at`, `-updated_at`.</param>
@@ -1163,8 +1153,6 @@ namespace Smplkit.Internal.Generated.Jobs
         /// </summary>
         /// <remarks>
         /// Retrieve a single retry policy by its id.
-        /// <br/>
-        /// <br/>`Default` returns the built-in do-not-retry policy.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1246,8 +1234,6 @@ namespace Smplkit.Internal.Generated.Jobs
         /// </summary>
         /// <remarks>
         /// Replace an existing retry policy. Every writable field is overwritten.
-        /// <br/>
-        /// <br/>The built-in `Default` policy cannot be modified.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -1337,10 +1323,10 @@ namespace Smplkit.Internal.Generated.Jobs
         /// <remarks>
         /// Delete a retry policy.
         /// <br/>
-        /// <br/>The built-in `Default` policy cannot be deleted (`403`). A policy still
-        /// <br/>referenced by any job — at the base level or in a per-environment override —
-        /// <br/>cannot be deleted (`409`); the error lists the referencing job ids under
-        /// <br/>`meta.referencing_jobs` so they can be reassigned to `Default` first.
+        /// <br/>A policy still referenced by any job — at the base level or in a
+        /// <br/>per-environment override — cannot be deleted (`409`); the error lists the
+        /// <br/>referencing job ids under `meta.referencing_jobs` so they can be reassigned
+        /// <br/>(or cleared to no policy) first.
         /// </remarks>
         /// <returns>Successful Response</returns>
         /// <exception cref="ApiException">A server side error occurred.</exception>
@@ -2195,7 +2181,7 @@ namespace Smplkit.Internal.Generated.Jobs
         public JobHttpConfiguration Configuration { get; set; } = new JobHttpConfiguration();
 
         /// <summary>
-        /// Per-environment overrides keyed by environment key (e.g. `production`, `staging`). Each entry is a flat, sparse overlay: only the leaves that differ from the base definition are present, and everything absent is inherited. Set `enabled` to `true` to run the job in that environment (the base is disabled everywhere; an environment with no entry, or an entry without `enabled: true`, does not run). Overridable leaves are `url`, `method`, `timeout`, `body`, `success_status`, `tls_verify`, `ca_cert`, `schedule` and `timezone` (recurring jobs only), `retry_policy` (the `id` of a retry policy, or `Default`), and an individual header as `headers.&lt;name&gt;` (e.g. `headers.Authorization`). On read, each entry also reports the read-only `next_run_at` for that environment (the next fire time, or `null`). For a recurring or manual job, supply this map to choose where it runs. For a one-off job, the environment it is created in is recorded here automatically — name it with the `X-Smplkit-Environment` header. Every referenced environment must exist for the account.
+        /// Per-environment overrides keyed by environment key (e.g. `production`, `staging`). Each entry is a flat, sparse overlay: only the leaves that differ from the base definition are present, and everything absent is inherited. Set `enabled` to `true` to run the job in that environment (the base is disabled everywhere; an environment with no entry, or an entry without `enabled: true`, does not run). Overridable leaves are `url`, `method`, `timeout`, `body`, `success_status`, `tls_verify`, `ca_cert`, `schedule` and `timezone` (recurring jobs only), `retry_policy` (the `id` of a retry policy), and an individual header as `headers.&lt;name&gt;` (e.g. `headers.Authorization`). On read, each entry also reports the read-only `next_run_at` for that environment (the next fire time, or `null`). For a recurring or manual job, supply this map to choose where it runs. For a one-off job, the environment it is created in is recorded here automatically — name it with the `X-Smplkit-Environment` header. Every referenced environment must exist for the account.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("environments")]
         public System.Collections.Generic.IDictionary<string, object> Environments { get; set; } = default!;
@@ -2207,7 +2193,7 @@ namespace Smplkit.Internal.Generated.Jobs
         public string Concurrency_policy { get; set; } = "ALLOW";
 
         /// <summary>
-        /// The base retry policy for failed runs — the `id` of a retry policy (or the built-in `Default`), overridable per environment. Omit (or send `null`) to use `Default`, which never retries — so a job that sets nothing behaves exactly as before retries existed.
+        /// The base retry policy for failed runs — the `id` of a retry policy, overridable per environment. Omit (or send `null`) to reference no policy, in which case failed runs are never retried.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("retry_policy")]
         public string? Retry_policy { get; set; } = default!;
@@ -2533,8 +2519,7 @@ namespace Smplkit.Internal.Generated.Jobs
     /// <br/>
     /// <br/>A policy decides whether and how a failed run is retried. Reference it from
     /// <br/>a job's `retry_policy` (and optionally override it per environment). A job
-    /// <br/>that references nothing uses the built-in `Default` policy, which never
-    /// <br/>retries.
+    /// <br/>that references no policy is never retried.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class RetryPolicy
