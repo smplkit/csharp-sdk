@@ -77,9 +77,52 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
 
+  test-min-floor:
+    name: Test (minimum dependency floor)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Assert customer-facing packages resolved to their declared floor
+        run: |
+          # NuGet resolves a direct PackageReference Version="X" to the lowest
+          # available >=X, so the build already compiles against the floor we
+          # publish — UNLESS a transitive dependency silently raises it. Parse
+          # the customer-facing packages (PackageReference without
+          # PrivateAssets="All") from the csproj and assert each resolved to its
+          # declared floor, keeping the floor real and not aspirational. Derived
+          # from the csproj — nothing to keep in sync.
+          assets=src/Smplkit/obj/project.assets.json
+          fail=0
+          deps=$(grep 'PackageReference' src/Smplkit/Smplkit.csproj | grep -v 'PrivateAssets' | sed -E 's/.*Include="([^"]+)".*Version="([^"]+)".*/\1 \2/')
+          while read -r pkg ver; do
+            [ -z "$pkg" ] && continue
+            resolved=$(jq -r --arg p "$pkg" '[.libraries | keys[] | select(ascii_downcase | startswith(($p|ascii_downcase)+"/")) | split("/")[1]][0] // ""' "$assets")
+            if [ "$resolved" = "$ver" ]; then
+              echo "OK    $pkg floor=$ver resolved=$resolved"
+            else
+              echo "DRIFT $pkg declared floor=$ver but resolved=$resolved"; fail=1
+            fi
+          done <<< "$deps"
+          exit $fail
+
+      - name: Build
+        run: dotnet build --no-restore
+
+      - name: Test against the declared floor
+        run: dotnet test --no-build
+
   ci-gate:
     if: always()
-    needs: [lint, test]
+    needs: [lint, test, test-min-floor]
     runs-on: ubuntu-latest
     steps:
       - uses: smplkit/.github-public/actions/ci-gate@main
