@@ -215,6 +215,35 @@ public class AuditCoverageTests
     }
 
     [Fact]
+    public async Task Record_PassesSeverity()
+    {
+        string? capturedBody = null;
+        var (gen, _) = MakeGen(async req =>
+        {
+            if (req.Content != null)
+                capturedBody = await req.Content.ReadAsStringAsync().ConfigureAwait(false);
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = new StringContent(SuccessJson, Encoding.UTF8, "application/vnd.api+json"),
+            };
+        });
+        await using var client = new TestAuditClient(gen);
+        client.Events.Record(new CreateEventInput
+        {
+            EventType = "user.login_failed",
+            ResourceType = "user",
+            ResourceId = "u-1",
+            Severity = "WARN",
+        });
+        await client.Events.FlushAsync(TimeSpan.FromSeconds(2));
+        var deadline = DateTime.UtcNow.AddSeconds(2);
+        while (capturedBody is null && DateTime.UtcNow < deadline)
+            await Task.Delay(20);
+        Assert.NotNull(capturedBody);
+        Assert.Contains("\"severity\":\"WARN\"", capturedBody!);
+    }
+
+    [Fact]
     public async Task EventResource_CategoryFromResponse()
     {
         const string body = """

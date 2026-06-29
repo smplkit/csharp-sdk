@@ -61,6 +61,10 @@ public sealed class CreateEventInput
     public required string ResourceId { get; set; }
     /// <summary>Optional free-form bucket label. Null round-trips as null on read.</summary>
     public string? Category { get; set; }
+    /// <summary>Optional severity level — one of <c>TRACE</c>, <c>DEBUG</c>, <c>INFO</c>,
+    /// <c>WARN</c>, <c>ERROR</c>, <c>FATAL</c>. Null records the event at the
+    /// server-side default of <c>INFO</c>.</summary>
+    public string? Severity { get; set; }
     /// <summary>Optional. Defaults to server-side <c>now()</c> if null.</summary>
     public DateTimeOffset? OccurredAt { get; set; }
     /// <summary>

@@ -61,6 +61,10 @@ public sealed class AuditEvents
         {
             attrs.Category = input.Category;
         }
+        if (input.Severity is not null)
+        {
+            attrs.Severity = Enum.Parse<GenAudit.Severity>(input.Severity);
+        }
         if (input.OccurredAt.HasValue)
         {
             attrs.Occurred_at = input.OccurredAt.Value;
