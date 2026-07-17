@@ -160,11 +160,18 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      # -p:Version stamps the assembly metadata (AssemblyVersion, FileVersion,
+      # AssemblyInformationalVersion) with the release version so the SDK's
+      # runtime User-Agent (smplkit-sdk-csharp/<version>, read from the
+      # informational version) reports the published version rather than the
+      # csproj default. -p:PackageVersion keeps the NuGet package version
+      # explicit as before.
       - name: Pack
         if: steps.prep.outputs.released == 'true'
         run: >
           dotnet pack src/Smplkit/Smplkit.csproj -c Release
           -p:PackageVersion=${{ steps.prep.outputs.version }}
+          -p:Version=${{ steps.prep.outputs.version }}
           --output ./nupkg
 
       - name: Verify package

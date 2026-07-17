@@ -3,6 +3,7 @@ using System.Text;
 using Smplkit;
 using Smplkit.Account;
 using Smplkit.Errors;
+using Smplkit.Internal;
 using Smplkit.Tests.Helpers;
 using Xunit;
 
@@ -131,5 +132,29 @@ public class AccountSettingsClientTests
             handler: handler);
         await settings.GetAsync();
         Assert.Equal("acme", captured!.Headers.GetValues("X-Tenant").Single());
+    }
+
+    [Fact]
+    public async Task GetAsync_SendsDefaultUserAgent()
+    {
+        HttpRequestMessage? captured = null;
+        var (settings, _) = Make(req => { captured = req; return Task.FromResult(Resp("{}")); });
+        await settings.GetAsync();
+        var userAgent = captured!.Headers.GetValues("User-Agent").Single();
+        Assert.Equal(SdkVersion.UserAgent, userAgent);
+        Assert.StartsWith("smplkit-sdk-csharp/", userAgent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ExtraHeaders_UserAgent_LowercaseKey_OverridesDefault()
+    {
+        HttpRequestMessage? captured = null;
+        var handler = new MockHttpMessageHandler(req => { captured = req; return Task.FromResult(Resp("{}")); });
+        var settings = new SettingsClient(
+            "https://app.smplkit.com/", "sk_test_key",
+            extraHeaders: new Dictionary<string, string> { ["user-agent"] = "acct-agent/5.5" },
+            handler: handler);
+        await settings.GetAsync();
+        Assert.Equal("acct-agent/5.5", captured!.Headers.GetValues("User-Agent").Single());
     }
 }

@@ -50,6 +50,12 @@ public sealed class SettingsClient
         if (extraHeaders is not null)
             foreach (var kv in extraHeaders)
                 headers[kv.Key] = kv.Value;
+        // This endpoint bypasses the shared generated-client transport, so the
+        // SDK's default User-Agent is stamped here too — the platform edge
+        // rejects UA-less requests — unless the caller supplied their own
+        // (any casing) via extraHeaders.
+        if (!headers.Keys.Any(k => string.Equals(k, "User-Agent", StringComparison.OrdinalIgnoreCase)))
+            headers["User-Agent"] = SdkVersion.UserAgent;
         _headers = headers;
         _handler = handler;
     }

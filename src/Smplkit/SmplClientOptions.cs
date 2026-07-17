@@ -78,8 +78,10 @@ public sealed class SmplClientOptions
 
     /// <summary>
     /// Gets additional HTTP headers sent on every request.
-    /// SDK-owned headers (Authorization, Accept, Content-Type, User-Agent) take precedence
-    /// and cannot be overridden through this property.
+    /// SDK-owned headers (Authorization, Accept, Content-Type) take precedence
+    /// and cannot be overridden through this property. A <c>User-Agent</c>
+    /// entry (any casing) replaces the SDK's default
+    /// <c>smplkit-sdk-csharp/&lt;version&gt;</c> User-Agent.
     /// </summary>
     public IDictionary<string, string>? ExtraHeaders { get; init; }
 }

@@ -106,6 +106,10 @@ public sealed class ConfigClient : IDisposable
     private SharedWebSocket? _wsManager;
     private bool _ownsWs;
 
+    // Effective User-Agent from the HTTP transport, reused on the owned
+    // WebSocket handshake so both channels present the same agent.
+    private readonly string _userAgent;
+
     // LiveConfigProxy instances for Subscribe(id) callers; one per config id.
     private readonly Dictionary<string, LiveConfigProxy> _proxies = new();
     private readonly object _proxyLock = new();
@@ -181,6 +185,7 @@ public sealed class ConfigClient : IDisposable
             ExtraHeaders = extraHeaders is null ? null : new Dictionary<string, string>(extraHeaders),
         });
         _genClient = clients.Config;
+        _userAgent = clients.EffectiveUserAgent;
 
         // A standalone client opens its own WebSocket against the app event
         // gateway on first live use, and its own metrics reporter.
@@ -206,6 +211,7 @@ public sealed class ConfigClient : IDisposable
     {
         _genClient = clients.Config;
         _ensureWs = ensureWs;
+        _userAgent = clients.EffectiveUserAgent;
         _parent = parent;
         _metrics = metrics;
         _ownedMetrics = null;
@@ -791,7 +797,8 @@ public sealed class ConfigClient : IDisposable
             _wsManager = new SharedWebSocket(
                 _standaloneApiKey ?? string.Empty,
                 metrics: _metrics,
-                appBaseUrl: _appBaseUrl ?? "https://app.smplkit.com");
+                appBaseUrl: _appBaseUrl ?? "https://app.smplkit.com",
+                userAgent: _userAgent);
             _wsManager.Start();
             _ownsWs = true;
         }

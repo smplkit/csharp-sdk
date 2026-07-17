@@ -17,6 +17,7 @@ internal sealed class SharedWebSocket
 
     private readonly string _apiKey;
     private readonly string _appBaseUrl;
+    private readonly string _userAgent;
     private readonly ConcurrentDictionary<string, List<Action<Dictionary<string, object?>>>> _listeners = new();
     private readonly object _listenersLock = new();
     private readonly MetricsReporter? _metrics;
@@ -33,13 +34,20 @@ internal sealed class SharedWebSocket
         string apiKey,
         Func<Uri, CancellationToken, Task<WebSocket>>? wsFactory = null,
         MetricsReporter? metrics = null,
-        string appBaseUrl = "https://app.smplkit.com")
+        string appBaseUrl = "https://app.smplkit.com",
+        string? userAgent = null)
     {
         _apiKey = apiKey;
         _appBaseUrl = appBaseUrl;
         _wsFactory = wsFactory ?? DefaultWsFactoryAsync;
         _metrics = metrics;
+        _userAgent = userAgent ?? SdkVersion.UserAgent;
     }
+
+    /// <summary>The User-Agent stamped on the WebSocket upgrade request —
+    /// the HTTP transport's effective value when wired by a client, else the
+    /// SDK default. Exposed for tests.</summary>
+    internal string HandshakeUserAgent => _userAgent;
 
     // ------------------------------------------------------------------
     // Listener registration
@@ -190,15 +198,16 @@ internal sealed class SharedWebSocket
     }
 
     [ExcludeFromCodeCoverage]
-    private static async Task<WebSocket> DefaultWsFactoryAsync(Uri uri, CancellationToken ct)
+    private async Task<WebSocket> DefaultWsFactoryAsync(Uri uri, CancellationToken ct)
     {
         var cws = new ClientWebSocket();
         // CloudFront's WAF blocks WebSocket upgrades that omit a User-Agent
         // header. .NET's ClientWebSocket doesn't set one by default
-        // (browsers do), so we inject it explicitly to match the
-        // User-Agent the HTTP transport sends. Without this, the upgrade
-        // is rejected with HTTP 403 before reaching our backend.
-        cws.Options.SetRequestHeader("User-Agent", "smplkit-dotnet-sdk/0.0.0");
+        // (browsers do), so we inject the transport's effective User-Agent —
+        // the caller's own value when one was supplied, else the SDK default —
+        // to match the User-Agent the HTTP transport sends. Without this, the
+        // upgrade is rejected with HTTP 403 before reaching our backend.
+        cws.Options.SetRequestHeader("User-Agent", _userAgent);
         await cws.ConnectAsync(uri, ct).ConfigureAwait(false);
         return cws;
     }

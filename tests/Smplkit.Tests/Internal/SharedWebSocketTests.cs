@@ -76,6 +76,25 @@ public class SharedWebSocketTests
     }
 
     // ---------------------------------------------------------------
+    // Handshake User-Agent
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void HandshakeUserAgent_DefaultsToSdkUserAgent()
+    {
+        var ws = new SharedWebSocket("test-key");
+        Assert.Equal(SdkVersion.UserAgent, ws.HandshakeUserAgent);
+        Assert.StartsWith("smplkit-sdk-csharp/", ws.HandshakeUserAgent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void HandshakeUserAgent_UsesCallerSuppliedValue()
+    {
+        var ws = new SharedWebSocket("test-key", userAgent: "caller-agent/7.7");
+        Assert.Equal("caller-agent/7.7", ws.HandshakeUserAgent);
+    }
+
+    // ---------------------------------------------------------------
     // On / Off
     // ---------------------------------------------------------------
 

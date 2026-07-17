@@ -96,6 +96,10 @@ public sealed class LoggingClient : IDisposable
 
     private volatile bool _started;
     private SharedWebSocket? _wsManager;
+
+    // Effective User-Agent from the HTTP transport, reused on the owned
+    // WebSocket handshake so both channels present the same agent.
+    private readonly string _userAgent;
     private readonly List<ILoggingAdapter> _adapters = new();
     private readonly List<Action<LoggerChangeEvent>> _globalListeners = new();
     private readonly Dictionary<string, List<Action<LoggerChangeEvent>>> _scopedListeners = new();
@@ -194,6 +198,7 @@ public sealed class LoggingClient : IDisposable
             ExtraHeaders = extraHeaders is null ? null : new Dictionary<string, string>(extraHeaders),
         });
         _genClient = clients.Logging;
+        _userAgent = clients.EffectiveUserAgent;
         // The WebSocket gateway lives on the app service (like flags); a
         // standalone client opens its own WebSocket against it on Install().
         _appBaseUrl = ConfigResolver.ServiceUrl(resolved.Scheme, "app", resolved.BaseDomain);
@@ -220,6 +225,7 @@ public sealed class LoggingClient : IDisposable
     {
         _genClient = clients.Logging;
         _ensureWs = ensureWs;
+        _userAgent = clients.EffectiveUserAgent;
         _parent = parent;
         _metrics = metrics;
         _environment = parent?.Environment;
@@ -282,7 +288,8 @@ public sealed class LoggingClient : IDisposable
             _wsManager = new SharedWebSocket(
                 _standaloneApiKey!,
                 metrics: _metrics,
-                appBaseUrl: _appBaseUrl!);
+                appBaseUrl: _appBaseUrl!,
+                userAgent: _userAgent);
             _wsManager.Start();
             _ownsWs = true;
         }

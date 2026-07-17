@@ -15,7 +15,12 @@ namespace Smplkit.Internal;
 internal sealed class GeneratedClientFactory
 {
     private const string JsonApiMediaType = "application/vnd.api+json";
-    private const string UserAgent = "smplkit-dotnet-sdk/0.0.0";
+
+    /// <summary>Gets the User-Agent value riding every request from this transport —
+    /// the caller-supplied value when one was provided (on the <see cref="HttpClient"/>
+    /// or via <see cref="SmplClientOptions.ExtraHeaders"/>), else the SDK default.
+    /// The WebSocket handshake reuses it so both channels present the same agent.</summary>
+    internal string EffectiveUserAgent { get; }
 
     /// <summary>Gets the generated Config API client.</summary>
     internal GenConfig.ConfigClient Config { get; }
@@ -46,8 +51,17 @@ internal sealed class GeneratedClientFactory
     {
         httpClient.Timeout = options.Timeout;
 
-        if (!httpClient.DefaultRequestHeaders.Contains("User-Agent"))
-            httpClient.DefaultRequestHeaders.Add("User-Agent", UserAgent);
+        // User-Agent precedence: a caller-supplied value — already present on a
+        // caller-owned HttpClient, or provided via ExtraHeaders under any casing —
+        // always wins; otherwise the SDK stamps its own product token. The
+        // platform edge rejects requests with no User-Agent at all, so some
+        // value must always ride along. (HttpHeaders name lookups are
+        // case-insensitive, so Contains covers any casing on the HttpClient.)
+        var callerSuppliedUserAgent = options.ExtraHeaders is not null
+            && options.ExtraHeaders.Keys.Any(
+                k => string.Equals(k, "User-Agent", StringComparison.OrdinalIgnoreCase));
+        if (!callerSuppliedUserAgent && !httpClient.DefaultRequestHeaders.Contains("User-Agent"))
+            httpClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", SdkVersion.UserAgent);
 
         if (!httpClient.DefaultRequestHeaders.Contains("Accept"))
             httpClient.DefaultRequestHeaders.Add("Accept", JsonApiMediaType);
@@ -57,11 +71,15 @@ internal sealed class GeneratedClientFactory
         if (options.ExtraHeaders is { } extra)
         {
             var sdkOwned = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-                { "Authorization", "Accept", "Content-Type", "User-Agent" };
+                { "Authorization", "Accept", "Content-Type" };
             foreach (var (k, v) in extra)
                 if (!sdkOwned.Contains(k))
                     httpClient.DefaultRequestHeaders.TryAddWithoutValidation(k, v);
         }
+
+        EffectiveUserAgent = httpClient.DefaultRequestHeaders.TryGetValues("User-Agent", out var uaValues)
+            ? string.Join(" ", uaValues)
+            : SdkVersion.UserAgent;
 
         var scheme = options.Scheme ?? "https";
         var domain = options.BaseDomain ?? "smplkit.com";

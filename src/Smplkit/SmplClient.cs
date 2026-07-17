@@ -274,7 +274,9 @@ public sealed class SmplClient : IDisposable
         lock (_wsLock)
         {
             if (_sharedWs is not null) return _sharedWs;
-            _sharedWs = new SharedWebSocket(_apiKey, metrics: _metrics, appBaseUrl: _appBaseUrl);
+            _sharedWs = new SharedWebSocket(
+                _apiKey, metrics: _metrics, appBaseUrl: _appBaseUrl,
+                userAgent: _clients.EffectiveUserAgent);
             _sharedWs.Start();
             return _sharedWs;
         }

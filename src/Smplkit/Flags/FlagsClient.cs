@@ -117,6 +117,10 @@ public sealed class FlagsClient : IDisposable
     private SharedWebSocket? _wsManager;
     private bool _ownsWs;
 
+    // Effective User-Agent from the HTTP transport, reused on the owned
+    // WebSocket handshake so both channels present the same agent.
+    private readonly string _userAgent;
+
     // Flag auto-registration (the discovery buffer, owned directly).
     private readonly FlagRegistrationBuffer _flagBuffer = new();
     private Timer? _flagFlushTimer;
@@ -142,6 +146,7 @@ public sealed class FlagsClient : IDisposable
         _apiKey = apiKey;
         _ensureWs = ensureWs;
         _contextBuffer = contextBuffer;
+        _userAgent = clients.EffectiveUserAgent;
         _parent = parent;
         _metrics = metrics;
         _ownedHttpClient = null;
@@ -224,6 +229,7 @@ public sealed class FlagsClient : IDisposable
         });
         _genFlagsClient = factory.Flags;
         _genAppClient = factory.App;
+        _userAgent = factory.EffectiveUserAgent;
 
         _metrics = resolved.Telemetry
             ? new MetricsReporter(_ownedHttpClient, _environment ?? string.Empty, _service ?? string.Empty, appBaseUrl: _appBaseUrl)
@@ -602,7 +608,10 @@ public sealed class FlagsClient : IDisposable
     private SharedWebSocket EnsureOwnedWebSocket()
     {
         if (_wsManager is not null) return _wsManager;
-        _wsManager = new SharedWebSocket(_apiKey, metrics: _metrics, appBaseUrl: _appBaseUrl ?? "https://app.smplkit.com");
+        _wsManager = new SharedWebSocket(
+            _apiKey, metrics: _metrics,
+            appBaseUrl: _appBaseUrl ?? "https://app.smplkit.com",
+            userAgent: _userAgent);
         _wsManager.Start();
         _ownsWs = true;
         return _wsManager;
