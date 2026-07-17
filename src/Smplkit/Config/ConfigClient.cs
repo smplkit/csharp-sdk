@@ -56,6 +56,10 @@ namespace Smplkit.Config;
 /// connects lazily on first use — the first call flushes discovery, fetches and resolves all configs into
 /// the local cache, and opens the live-updates WebSocket. No explicit
 /// install step is required.</para>
+/// <para>For serverless or short-lived processes, construct with
+/// <c>streaming: false</c>: the first live call still fetches and resolves every
+/// config once, <see cref="RefreshAsync"/> re-fetches on demand, and no WebSocket
+/// or background work is ever created.</para>
 /// </remarks>
 public sealed class ConfigClient : IDisposable
 {
@@ -80,6 +84,12 @@ public sealed class ConfigClient : IDisposable
     // Discovery buffer is owned by this client (no delegation).
     private readonly ConfigRegistrationBuffer _buffer = new();
     private const int RegistrationFlushSize = 50;
+
+    // Live-updates mode: true (default) opens a WebSocket on first live use;
+    // false keeps the client fully stateless — the first live call fetches and
+    // resolves once, discovery flushes run inline, and RefreshAsync re-fetches
+    // on demand.
+    private readonly bool _streaming;
 
     // Live-surface state.
     private volatile bool _connected;
@@ -122,6 +132,11 @@ public sealed class ConfigClient : IDisposable
     /// <param name="debug">Enable SDK debug logging.</param>
     /// <param name="telemetry">Enable SDK telemetry reporting. Defaults to enabled.</param>
     /// <param name="extraHeaders">Extra headers attached to every request.</param>
+    /// <param name="streaming">When <c>true</c> (the default), the first live call
+    /// opens a WebSocket for push updates. Set to <c>false</c> for serverless or
+    /// short-lived processes: the first live call still fetches and resolves every
+    /// config once, discovery flushes run inline, and <see cref="RefreshAsync"/>
+    /// re-fetches on demand — no WebSocket or background work is ever created.</param>
     public ConfigClient(
         string? apiKey = null,
         string? environment = null,
@@ -131,7 +146,8 @@ public sealed class ConfigClient : IDisposable
         string? scheme = null,
         bool? debug = null,
         bool? telemetry = null,
-        IReadOnlyDictionary<string, string>? extraHeaders = null)
+        IReadOnlyDictionary<string, string>? extraHeaders = null,
+        bool streaming = true)
     {
         // Reuse the account-global config resolver, filling in whatever is
         // missing (~/.smplkit / env vars / defaults). Environment is not
@@ -153,6 +169,7 @@ public sealed class ConfigClient : IDisposable
 
         _environment = string.IsNullOrEmpty(environment) ? NullIfEmpty(resolved.Environment) : environment;
         _service = string.IsNullOrEmpty(service) ? NullIfEmpty(resolved.Service) : service;
+        _streaming = streaming;
 
         _ownedHttpClient = new HttpClient();
         var clients = new GeneratedClientFactory(_ownedHttpClient, new SmplClientOptions
@@ -184,7 +201,8 @@ public sealed class ConfigClient : IDisposable
     /// <param name="ensureWs">Factory for the shared WebSocket.</param>
     /// <param name="parent">The parent <see cref="SmplClient"/>, if any.</param>
     /// <param name="metrics">Optional metrics reporter for telemetry.</param>
-    internal ConfigClient(GeneratedClientFactory clients, Func<SharedWebSocket>? ensureWs = null, SmplClient? parent = null, MetricsReporter? metrics = null)
+    /// <param name="streaming">Whether the live surface opens a WebSocket on connect.</param>
+    internal ConfigClient(GeneratedClientFactory clients, Func<SharedWebSocket>? ensureWs = null, SmplClient? parent = null, MetricsReporter? metrics = null, bool streaming = true)
     {
         _genClient = clients.Config;
         _ensureWs = ensureWs;
@@ -196,6 +214,7 @@ public sealed class ConfigClient : IDisposable
         _service = parent?.Service;
         _appBaseUrl = null;
         _standaloneApiKey = null;
+        _streaming = streaming;
     }
 
     private static string? NullIfEmpty(string? s) => string.IsNullOrEmpty(s) ? null : s;
@@ -323,9 +342,7 @@ public sealed class ConfigClient : IDisposable
     {
         _buffer.Declare(configId, service, environment, parent, name, description);
         if (_buffer.PendingCount >= RegistrationFlushSize)
-        {
-            _ = Task.Run(async () => { try { await FlushAsync().ConfigureAwait(false); } catch { } });
-        }
+            ThresholdFlush();
     }
 
     /// <summary>
@@ -346,9 +363,23 @@ public sealed class ConfigClient : IDisposable
     {
         _buffer.AddItem(configId, itemKey, itemType, @default, description);
         if (_buffer.PendingCount >= RegistrationFlushSize)
+            ThresholdFlush();
+    }
+
+    /// <summary>
+    /// Threshold-triggered discovery flush: background in streaming mode, inline
+    /// in stateless mode so no work outlives the call. Discovery is best-effort —
+    /// failures are swallowed either way.
+    /// </summary>
+    private void ThresholdFlush()
+    {
+        if (_streaming)
         {
             _ = Task.Run(async () => { try { await FlushAsync().ConfigureAwait(false); } catch { } });
+            return;
         }
+        try { FlushAsync().GetAwaiter().GetResult(); }
+        catch { /* Discovery is best-effort. */ }
     }
 
     /// <summary>Number of pending config declarations awaiting flush.</summary>
@@ -795,6 +826,14 @@ public sealed class ConfigClient : IDisposable
             // so any registered listeners see "initial" events).
             DoRefresh("initial");
             _connected = true;
+
+            // Stateless mode (streaming: false): the one-time fetch above is the
+            // whole connect — no WebSocket. RefreshAsync re-fetches on demand.
+            if (!_streaming)
+            {
+                DebugLog.Log("websocket", "config runtime connected (streaming disabled)");
+                return;
+            }
 
             DebugLog.Log("registration", "registering config_changed, config_deleted, and configs_changed handlers");
             _wsManager = EnsureWs();

@@ -352,8 +352,10 @@ public sealed class JobsClient : IDisposable
     /// <param name="environment">Default environment for environment-scoped
     /// operations — the environment a one-off job created through this client is
     /// born in, the default a manual run executes in, and the default scope for
-    /// <see cref="RunsClient.ListAsync"/>. <c>null</c> leaves these unset (the
-    /// credential's permitted environment is implied where unambiguous).</param>
+    /// <see cref="RunsClient.ListAsync"/>. When omitted, resolved from
+    /// <c>SMPLKIT_ENVIRONMENT</c> or <c>~/.smplkit</c>; unset everywhere leaves
+    /// these unset (the credential's permitted environment is implied where
+    /// unambiguous).</param>
     public JobsClient(
         string? apiKey = null,
         string? profile = null,
@@ -367,11 +369,13 @@ public sealed class JobsClient : IDisposable
         // environment-scoped on the transport — env scoping rides the request
         // body's environments map / run-now body / filter[environment]) and the shared
         // per-service URL helper, so a standalone jobs client resolves
-        // credentials/base-domain from ~/.smplkit / env vars / constructor args
-        // exactly like the top-level clients do.
+        // credentials/base-domain — and the default environment scope — from
+        // ~/.smplkit / env vars / constructor args exactly like the top-level
+        // clients do.
         var resolved = ConfigResolver.ResolveAccountGlobal(new SmplClientOptions
         {
             ApiKey = apiKey,
+            Environment = environment,
             Profile = profile,
             BaseDomain = baseDomain,
             Scheme = scheme,
@@ -386,8 +390,12 @@ public sealed class JobsClient : IDisposable
             ExtraHeaders = extraHeaders is null ? null : new Dictionary<string, string>(extraHeaders),
         });
         _gen = clients.Jobs;
-        _environment = environment;
-        Runs = new RunsClient(_gen, environment);
+        // An explicit constructor argument always wins; otherwise the value
+        // resolved from SMPLKIT_ENVIRONMENT / ~/.smplkit (or none) applies.
+        _environment = string.IsNullOrEmpty(environment)
+            ? (string.IsNullOrEmpty(resolved.Environment) ? null : resolved.Environment)
+            : environment;
+        Runs = new RunsClient(_gen, _environment);
         RetryPolicies = new RetryPoliciesClient(_gen);
     }
 

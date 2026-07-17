@@ -54,6 +54,9 @@ namespace Smplkit.Audit;
 /// <para>Namespaces: <see cref="Events"/> (record/flush/list/get),
 /// <see cref="ResourceTypes"/>, <see cref="EventTypes"/>,
 /// <see cref="Categories"/> (discovery), and <see cref="Forwarders"/> (CRUD).</para>
+/// <para>For serverless or short-lived processes, construct with
+/// <c>buffered: false</c>: every <c>Record</c> then performs one awaited POST and
+/// raises on failure, and no background buffer or worker is ever created.</para>
 /// </remarks>
 public sealed class AuditClient : IAsyncDisposable
 {
@@ -79,6 +82,7 @@ public sealed class AuditClient : IAsyncDisposable
     /// </summary>
     /// <param name="apiKey">API key. When omitted, resolved from <c>SMPLKIT_API_KEY</c> or <c>~/.smplkit</c>.</param>
     /// <param name="environment">Deployment environment to scope recording and reads to.
+    /// When omitted, resolved from <c>SMPLKIT_ENVIRONMENT</c> or <c>~/.smplkit</c>.
     /// Sent on the event request body when recording and as the default
     /// <c>filter[environment]</c> on the read surfaces. Optional — forwarder CRUD and
     /// get-by-id are environment-agnostic, and reads accept an explicit
@@ -94,6 +98,13 @@ public sealed class AuditClient : IAsyncDisposable
     /// <param name="scheme">URL scheme (default <c>https</c>).</param>
     /// <param name="debug">Enable SDK debug logging.</param>
     /// <param name="extraHeaders">Extra headers attached to every request.</param>
+    /// <param name="buffered">When <c>true</c> (the default),
+    /// <see cref="AuditEvents.Record"/> enqueues onto an in-memory buffer whose
+    /// background worker performs the POST with retry, and returns immediately.
+    /// Set to <c>false</c> for serverless or short-lived processes: no buffer or
+    /// background worker is created, each <c>Record</c> call performs one awaited
+    /// POST and raises the SDK's typed exceptions on failure, and no flush is
+    /// needed before exit.</param>
     public AuditClient(
         string? apiKey = null,
         string? environment = null,
@@ -102,7 +113,8 @@ public sealed class AuditClient : IAsyncDisposable
         string? baseDomain = null,
         string? scheme = null,
         bool? debug = null,
-        IReadOnlyDictionary<string, string>? extraHeaders = null)
+        IReadOnlyDictionary<string, string>? extraHeaders = null,
+        bool buffered = true)
     {
         // Build a standalone audit transport from resolved config. baseUrl/apiKey
         // are used directly when both are supplied (the path a top-level client
@@ -113,12 +125,12 @@ public sealed class AuditClient : IAsyncDisposable
         // stamp it on the event body and default filter[environment] on reads.
         // Forwarder CRUD and get-by-id are environment-agnostic and get none.
         var generated = BuildTransport(
-            apiKey, baseUrl, profile, baseDomain, scheme, debug, extraHeaders,
-            out _ownedHttpClient);
-        Events = new AuditEvents(generated, environment);
-        ResourceTypes = new AuditResourceTypes(generated, environment);
-        EventTypes = new AuditEventTypes(generated, environment);
-        Categories = new AuditCategories(generated, environment);
+            apiKey, baseUrl, environment, profile, baseDomain, scheme, debug, extraHeaders,
+            out _ownedHttpClient, out var resolvedEnvironment);
+        Events = new AuditEvents(generated, resolvedEnvironment, buffered);
+        ResourceTypes = new AuditResourceTypes(generated, resolvedEnvironment);
+        EventTypes = new AuditEventTypes(generated, resolvedEnvironment);
+        Categories = new AuditCategories(generated, resolvedEnvironment);
         Forwarders = new ForwardersClient(generated);
     }
 
@@ -139,34 +151,42 @@ public sealed class AuditClient : IAsyncDisposable
     }
 
     /// <summary>
-    /// Resolve the (audit base URL, api key) and build a generated audit client
-    /// over a fresh <see cref="HttpClient"/>. Environment scoping no longer rides
-    /// on this transport (ADR-055) — it travels on the event body when recording
-    /// and as the default <c>filter[environment]</c> on reads — so the transport
-    /// carries only auth plus any caller-supplied <paramref name="extraHeaders"/>.
+    /// Resolve the (audit base URL, api key, environment) and build a generated
+    /// audit client over a fresh <see cref="HttpClient"/>. Environment scoping no
+    /// longer rides on this transport (ADR-055) — it travels on the event body when
+    /// recording and as the default <c>filter[environment]</c> on reads — so the
+    /// transport carries only auth plus any caller-supplied
+    /// <paramref name="extraHeaders"/>; the resolved environment is returned for
+    /// the sub-clients to stamp on those surfaces.
     /// </summary>
     private static GenAudit.AuditClient BuildTransport(
         string? apiKey,
         string? baseUrl,
+        string? environment,
         string? profile,
         string? baseDomain,
         string? scheme,
         bool? debug,
         IReadOnlyDictionary<string, string>? extraHeaders,
-        out HttpClient ownedHttpClient)
+        out HttpClient ownedHttpClient,
+        out string? resolvedEnvironment)
     {
         string resolvedKey;
         string auditUrl;
         if (apiKey is not null && baseUrl is not null)
         {
+            // The top-level-client path: everything, including the environment,
+            // has already been resolved by the caller and is used verbatim.
             resolvedKey = apiKey;
             auditUrl = baseUrl;
+            resolvedEnvironment = environment;
         }
         else
         {
             var resolved = ConfigResolver.ResolveAccountGlobal(new SmplClientOptions
             {
                 ApiKey = apiKey,
+                Environment = environment,
                 Profile = profile,
                 BaseDomain = baseDomain,
                 Scheme = scheme,
@@ -176,6 +196,11 @@ public sealed class AuditClient : IAsyncDisposable
                 Internal.Debug.Enabled = true;
             resolvedKey = apiKey ?? resolved.ApiKey;
             auditUrl = baseUrl ?? ConfigResolver.ServiceUrl(resolved.Scheme, "audit", resolved.BaseDomain);
+            // An explicit constructor argument always wins; otherwise the value
+            // resolved from SMPLKIT_ENVIRONMENT / ~/.smplkit (or none) applies.
+            resolvedEnvironment = string.IsNullOrEmpty(environment)
+                ? (string.IsNullOrEmpty(resolved.Environment) ? null : resolved.Environment)
+                : environment;
         }
 
         ownedHttpClient = new HttpClient();

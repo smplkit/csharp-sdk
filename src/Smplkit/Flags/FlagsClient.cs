@@ -65,6 +65,10 @@ namespace Smplkit.Flags;
 /// use — the first call flushes discovery, fetches all flag definitions into the
 /// local cache, and opens the live-updates WebSocket. No explicit install step is
 /// required.</para>
+/// <para>For serverless or short-lived processes, construct with
+/// <c>streaming: false</c>: the first live call still fetches all flag definitions
+/// once, <see cref="RefreshAsync"/> re-fetches on demand, and no WebSocket, timer,
+/// or background work is ever created.</para>
 /// </remarks>
 public sealed class FlagsClient : IDisposable
 {
@@ -84,6 +88,12 @@ public sealed class FlagsClient : IDisposable
     // Runtime state
     private string? _environment;
     private readonly string? _service;
+
+    // Live-updates mode: true (default) opens a WebSocket + periodic flush
+    // timer on first live use; false keeps the client fully stateless — the
+    // first live call fetches once, discovery flushes run inline, and
+    // RefreshAsync re-fetches on demand.
+    private readonly bool _streaming;
     private readonly ConcurrentDictionary<string, Dictionary<string, object?>> _flagStore = new();
     internal volatile bool _connected;
     private readonly object _initLock = new();
@@ -125,7 +135,7 @@ public sealed class FlagsClient : IDisposable
     /// the live channel, and the shared context registration buffer
     /// (<c>client.Platform.Contexts</c>) as the evaluation-context registration seam.
     /// </summary>
-    internal FlagsClient(GeneratedClientFactory clients, string apiKey, Func<SharedWebSocket> ensureWs, ContextRegistrationBuffer contextBuffer, SmplClient? parent = null, MetricsReporter? metrics = null)
+    internal FlagsClient(GeneratedClientFactory clients, string apiKey, Func<SharedWebSocket> ensureWs, ContextRegistrationBuffer contextBuffer, SmplClient? parent = null, MetricsReporter? metrics = null, bool streaming = true)
     {
         _genFlagsClient = clients.Flags;
         _genAppClient = clients.App;
@@ -138,6 +148,7 @@ public sealed class FlagsClient : IDisposable
         _appBaseUrl = null;
         _environment = parent?.Environment;
         _service = parent?.Service;
+        _streaming = streaming;
     }
 
     /// <summary>
@@ -147,15 +158,23 @@ public sealed class FlagsClient : IDisposable
     /// </summary>
     /// <param name="apiKey">API key. When omitted, resolved from <c>SMPLKIT_API_KEY</c> or <c>~/.smplkit</c>.</param>
     /// <param name="environment">Deployment environment used to resolve runtime flag
-    /// values and to scope discovery declarations. Optional.</param>
+    /// values and to scope discovery declarations. When omitted, resolved from
+    /// <c>SMPLKIT_ENVIRONMENT</c> or <c>~/.smplkit</c>. Optional.</param>
     /// <param name="service">Service identifier auto-injected as evaluation context and
-    /// attached to discovery declarations. Optional.</param>
+    /// attached to discovery declarations. When omitted, resolved from
+    /// <c>SMPLKIT_SERVICE</c> or <c>~/.smplkit</c>. Optional.</param>
     /// <param name="profile">Named <c>~/.smplkit</c> profile section.</param>
     /// <param name="baseDomain">Base domain for API requests (default <c>smplkit.com</c>).</param>
     /// <param name="scheme">URL scheme (default <c>https</c>).</param>
     /// <param name="debug">Enable SDK debug logging.</param>
     /// <param name="telemetry">Enable usage telemetry. Defaults to enabled.</param>
     /// <param name="extraHeaders">Extra headers attached to every request.</param>
+    /// <param name="streaming">When <c>true</c> (the default), the first live call
+    /// opens a WebSocket for push updates and starts a periodic discovery flush.
+    /// Set to <c>false</c> for serverless or short-lived processes: the first live
+    /// call still fetches all flag definitions once, discovery flushes run inline,
+    /// and <see cref="RefreshAsync"/> re-fetches on demand — no WebSocket, timer,
+    /// or background work is ever created.</param>
     public FlagsClient(
         string? apiKey = null,
         string? environment = null,
@@ -165,16 +184,19 @@ public sealed class FlagsClient : IDisposable
         string? scheme = null,
         bool? debug = null,
         bool? telemetry = null,
-        IReadOnlyDictionary<string, string>? extraHeaders = null)
+        IReadOnlyDictionary<string, string>? extraHeaders = null,
+        bool streaming = true)
     {
         // Reuse the account-global config resolver (flags CRUD is not scoped to
         // an environment) and the shared per-service URL helper, so a standalone
-        // flags client resolves credentials/base-domain from ~/.smplkit / env
-        // vars / constructor args exactly like the top-level clients do. Runtime
-        // evaluation is scoped by the supplied environment/service.
+        // flags client resolves credentials/base-domain — and the runtime
+        // environment/service scope — from ~/.smplkit / env vars / constructor
+        // args exactly like the top-level clients do.
         var resolved = ConfigResolver.ResolveAccountGlobal(new SmplClientOptions
         {
             ApiKey = apiKey,
+            Environment = environment,
+            Service = service,
             Profile = profile,
             BaseDomain = baseDomain,
             Scheme = scheme,
@@ -187,8 +209,9 @@ public sealed class FlagsClient : IDisposable
         var resolvedKey = apiKey ?? resolved.ApiKey;
         _apiKey = resolvedKey;
         _appBaseUrl = ConfigResolver.ServiceUrl(resolved.Scheme, "app", resolved.BaseDomain);
-        _environment = environment;
-        _service = service;
+        _environment = string.IsNullOrEmpty(environment) ? NullIfEmpty(resolved.Environment) : environment;
+        _service = string.IsNullOrEmpty(service) ? NullIfEmpty(resolved.Service) : service;
+        _streaming = streaming;
 
         _ownedHttpClient = new HttpClient();
         var factory = new GeneratedClientFactory(_ownedHttpClient, new SmplClientOptions
@@ -196,14 +219,14 @@ public sealed class FlagsClient : IDisposable
             ApiKey = resolvedKey,
             BaseDomain = resolved.BaseDomain,
             Scheme = resolved.Scheme,
-            Environment = environment,
+            Environment = _environment,
             ExtraHeaders = extraHeaders is null ? null : new Dictionary<string, string>(extraHeaders),
         });
         _genFlagsClient = factory.Flags;
         _genAppClient = factory.App;
 
         _metrics = resolved.Telemetry
-            ? new MetricsReporter(_ownedHttpClient, environment ?? string.Empty, service ?? string.Empty, appBaseUrl: _appBaseUrl)
+            ? new MetricsReporter(_ownedHttpClient, _environment ?? string.Empty, _service ?? string.Empty, appBaseUrl: _appBaseUrl)
             : null;
 
         // Standalone: build our own contexts buffer (the evaluation-context seam) and
@@ -212,6 +235,8 @@ public sealed class FlagsClient : IDisposable
         _parent = null;
         _ensureWs = EnsureOwnedWebSocket;
     }
+
+    private static string? NullIfEmpty(string? s) => string.IsNullOrEmpty(s) ? null : s;
 
     // ------------------------------------------------------------------
     // CRUD surface: builders (no live connection)
@@ -401,10 +426,20 @@ public sealed class FlagsClient : IDisposable
         if (flush)
         {
             _lastFlagBufferFlushTask = FlushAsync();
+            // Stateless mode never leaves work running past the call: the
+            // requested flush completes (and surfaces failures) inline.
+            if (!_streaming)
+                _lastFlagBufferFlushTask.GetAwaiter().GetResult();
             return;
         }
         if (_flagBuffer.PendingCount >= 50)
+        {
             _lastFlagBufferFlushTask = SafeFlushFlagsAsync();
+            // Stateless mode: the threshold flush runs inline (best-effort,
+            // errors swallowed) instead of floating in the background.
+            if (!_streaming)
+                _lastFlagBufferFlushTask.GetAwaiter().GetResult();
+        }
     }
 
     /// <summary>
@@ -497,11 +532,15 @@ public sealed class FlagsClient : IDisposable
 
             _environment = _parent is not null ? _parent.Environment : _environment;
 
-            // Fire-and-forget environment + service context registration (best-effort, once).
+            // Fire-and-forget environment + service context registration
+            // (best-effort, once). Stateless mode runs it inline so no work
+            // outlives the call; failures are swallowed internally either way.
             if (_service is { Length: > 0 } svc)
             {
                 var env = _environment;
                 _initRegistrationTask = RegisterInitialContextsAsync(svc, env);
+                if (!_streaming)
+                    _initRegistrationTask.GetAwaiter().GetResult();
             }
 
             DebugLog.Log("websocket", "flags runtime initializing");
@@ -522,6 +561,15 @@ public sealed class FlagsClient : IDisposable
             _startRetryDelayS = 1.0;
             _nextStartAttemptAt = 0L;
             _cache.Clear();
+
+            // Stateless mode (streaming: false): the one-time fetch above is the
+            // whole connect — no periodic flush timer, no WebSocket. RefreshAsync
+            // re-fetches on demand.
+            if (!_streaming)
+            {
+                DebugLog.Log("websocket", "flags runtime connected (streaming disabled)");
+                return;
+            }
 
             _flagFlushTimer = new Timer(_ => FlushTimerCallback(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
 
@@ -781,6 +829,19 @@ public sealed class FlagsClient : IDisposable
     }
 
     /// <summary>
+    /// Threshold-triggered context flush: background in streaming mode, inline
+    /// in stateless mode so no work outlives the call. <see cref="FlushContextsAsync"/>
+    /// swallows failures internally either way — context registration is
+    /// best-effort.
+    /// </summary>
+    private void ThresholdFlushContexts()
+    {
+        _lastContextBufferFlushTask = FlushContextsAsync();
+        if (!_streaming)
+            _lastContextBufferFlushTask.GetAwaiter().GetResult();
+    }
+
+    /// <summary>
     /// Timer callback: flush the flag buffer. Errors are swallowed — items
     /// stay queued for the next attempt.
     /// </summary>
@@ -823,7 +884,7 @@ public sealed class FlagsClient : IDisposable
             // at the entry point, so the provider branch below doesn't need to.)
             _contextBuffer.Observe(context);
             if (_contextBuffer.PendingCount >= ContextBatchFlushSize)
-                _lastContextBufferFlushTask = FlushContextsAsync();
+                ThresholdFlushContexts();
             evalDict = ContextsToEvalDict(context);
         }
         else if (_contextProvider is not null)
@@ -832,7 +893,7 @@ public sealed class FlagsClient : IDisposable
             evalDict = ContextsToEvalDict(contexts);
             _contextBuffer.Observe(contexts);
             if (_contextBuffer.PendingCount >= ContextBatchFlushSize)
-                _lastContextBufferFlushTask = FlushContextsAsync();
+                ThresholdFlushContexts();
         }
         else
         {

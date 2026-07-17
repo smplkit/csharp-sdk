@@ -14,14 +14,16 @@ namespace Smplkit.Audit;
 public sealed class AuditEvents
 {
     private readonly GenAudit.AuditClient _gen;
-    private readonly AuditEventBuffer _buffer;
+    // The background buffer, or null in unbuffered mode (buffered: false on
+    // the client), where every Record performs one awaited POST instead.
+    private readonly AuditEventBuffer? _buffer;
     private readonly string? _environment;
 
-    internal AuditEvents(GenAudit.AuditClient gen, string? environment = null)
+    internal AuditEvents(GenAudit.AuditClient gen, string? environment = null, bool buffered = true)
     {
         _gen = gen;
         _environment = environment;
-        _buffer = new AuditEventBuffer(gen);
+        _buffer = buffered ? new AuditEventBuffer(gen) : null;
     }
 
     /// <summary>Record an audit event. Fire-and-forget by default; blocks when <see cref="CreateEventInput.Flush"/> is set.</summary>
@@ -37,6 +39,11 @@ public sealed class AuditEvents
     /// <see cref="CreateEventInput.ResourceType"/> beginning with <c>smpl.</c> is
     /// reserved for smplkit-emitted events; the server rejects customer attempts
     /// with a 403 and the buffer drops the item.
+    /// <para>When the client was constructed with <c>buffered: false</c>, there is
+    /// no buffer: each call performs the POST before returning and raises the SDK's
+    /// typed exceptions on failure. <see cref="CreateEventInput.Flush"/> is
+    /// meaningless in that mode and ignored — the event is already durable when
+    /// the call returns.</para>
     /// </remarks>
     /// <param name="input">The event to record. <see cref="CreateEventInput.EventType"/>,
     /// <see cref="CreateEventInput.ResourceType"/>, and
@@ -109,6 +116,17 @@ public sealed class AuditEvents
             Attributes = attrs,
         };
         var body = new GenAudit.EventRequest { Data = resource };
+
+        // Unbuffered mode: one POST per call, completed before this method
+        // returns. Failures surface as the SDK's typed exceptions — the same
+        // mapping every awaited call uses. Flush is meaningless here.
+        if (_buffer is null)
+        {
+            ApiExceptionMapper.ExecuteAsync(
+                () => _gen.Record_eventAsync(body, input.IdempotencyKey)).GetAwaiter().GetResult();
+            return;
+        }
+
         _buffer.Enqueue(body, input.IdempotencyKey);
 
         // Inline flush: block until the buffer drains (or the timeout elapses) so
@@ -198,11 +216,13 @@ public sealed class AuditEvents
     }
 
     /// <summary>Block until the in-memory buffer is drained or timeout elapses.</summary>
+    /// <remarks>A no-op when the client was constructed with <c>buffered: false</c>,
+    /// where every <see cref="Record"/> is already durable on return.</remarks>
     /// <param name="timeout">Upper bound on the blocking flush.</param>
-    public Task FlushAsync(TimeSpan timeout) => _buffer.FlushAsync(timeout);
+    public Task FlushAsync(TimeSpan timeout) => _buffer?.FlushAsync(timeout) ?? Task.CompletedTask;
 
     /// <summary>Drains best-effort and stops the background worker. Called from <see cref="AuditClient.DisposeAsync"/>.</summary>
-    internal ValueTask DisposeAsync() => _buffer.DisposeAsync();
+    internal ValueTask DisposeAsync() => _buffer?.DisposeAsync() ?? ValueTask.CompletedTask;
 
     private static AuditEvent FromResource(GenAudit.EventResource r)
     {

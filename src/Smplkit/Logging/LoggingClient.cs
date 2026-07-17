@@ -59,6 +59,10 @@ namespace Smplkit.Logging;
 /// <see cref="OnChange(Action{LoggerChangeEvent})"/> / <see cref="RefreshAsync"/>)
 /// requires <see cref="InstallAsync"/> first; calling <c>OnChange</c> / <c>Refresh</c>
 /// earlier raises <see cref="NotInstalledException"/>.</para>
+/// <para>For serverless or short-lived processes, construct with
+/// <c>streaming: false</c>: <see cref="InstallAsync"/> still hooks adapters and
+/// applies levels once, <see cref="RefreshAsync"/> re-fetches on demand, and no
+/// WebSocket, timer, or background work is ever created.</para>
 /// </remarks>
 public sealed class LoggingClient : IDisposable
 {
@@ -73,6 +77,12 @@ public sealed class LoggingClient : IDisposable
     private readonly MetricsReporter? _metrics;
     private readonly string? _environment;
     private readonly string? _service;
+
+    // Live-updates mode: true (default) opens a WebSocket + periodic flush
+    // timer on install; false keeps the client fully stateless — install
+    // fetches and applies levels once, discovery flushes run inline, and
+    // RefreshAsync re-fetches on demand.
+    private readonly bool _streaming;
 
     // Standalone construction owns its transport + WebSocket; wired construction
     // borrows the parent's. _ensureWs returns the parent's shared WebSocket when
@@ -121,14 +131,23 @@ public sealed class LoggingClient : IDisposable
     /// </summary>
     /// <param name="apiKey">API key. When omitted, resolved from <c>SMPLKIT_API_KEY</c> or <c>~/.smplkit</c>.</param>
     /// <param name="environment">Deployment environment used to resolve runtime levels and
-    /// to scope discovery declarations. Optional.</param>
-    /// <param name="service">Service name used to scope discovery declarations. Optional.</param>
+    /// to scope discovery declarations. When omitted, resolved from
+    /// <c>SMPLKIT_ENVIRONMENT</c> or <c>~/.smplkit</c>. Optional.</param>
+    /// <param name="service">Service name used to scope discovery declarations.
+    /// When omitted, resolved from <c>SMPLKIT_SERVICE</c> or <c>~/.smplkit</c>. Optional.</param>
     /// <param name="profile">Named <c>~/.smplkit</c> profile section.</param>
     /// <param name="baseDomain">Base domain for API requests (default <c>smplkit.com</c>).</param>
     /// <param name="scheme">URL scheme (default <c>https</c>).</param>
     /// <param name="debug">Enable SDK debug logging.</param>
     /// <param name="telemetry">Enable anonymous SDK usage telemetry. Defaults to enabled.</param>
     /// <param name="extraHeaders">Extra headers attached to every request.</param>
+    /// <param name="streaming">When <c>true</c> (the default),
+    /// <see cref="InstallAsync"/> opens a WebSocket for push level updates and
+    /// starts a periodic discovery flush. Set to <c>false</c> for serverless or
+    /// short-lived processes: <see cref="InstallAsync"/> still hooks adapters and
+    /// fetches and applies levels once, discovery flushes run inline, and
+    /// <see cref="RefreshAsync"/> re-fetches on demand — no WebSocket, timer, or
+    /// background work is ever created.</param>
     public LoggingClient(
         string? apiKey = null,
         string? environment = null,
@@ -138,16 +157,19 @@ public sealed class LoggingClient : IDisposable
         string? scheme = null,
         bool? debug = null,
         bool? telemetry = null,
-        IReadOnlyDictionary<string, string>? extraHeaders = null)
+        IReadOnlyDictionary<string, string>? extraHeaders = null,
+        bool streaming = true)
     {
         // Reuse the account-global config resolver (logging CRUD is not scoped
         // to an environment) and the shared per-service URL helper, so a
-        // standalone logging client resolves credentials/base-domain from
-        // ~/.smplkit / env vars / constructor args exactly like the top-level
-        // clients do.
+        // standalone logging client resolves credentials/base-domain — and the
+        // runtime environment/service scope — from ~/.smplkit / env vars /
+        // constructor args exactly like the top-level clients do.
         var resolved = ConfigResolver.ResolveAccountGlobal(new SmplClientOptions
         {
             ApiKey = apiKey,
+            Environment = environment,
+            Service = service,
             Profile = profile,
             BaseDomain = baseDomain,
             Scheme = scheme,
@@ -158,8 +180,9 @@ public sealed class LoggingClient : IDisposable
             DebugLog.Enabled = true;
 
         _parent = null;
-        _environment = environment;
-        _service = service;
+        _environment = string.IsNullOrEmpty(environment) ? NullIfEmpty(resolved.Environment) : environment;
+        _service = string.IsNullOrEmpty(service) ? NullIfEmpty(resolved.Service) : service;
+        _streaming = streaming;
         _ensureWs = null;
 
         _ownedHttpClient = new HttpClient();
@@ -193,7 +216,7 @@ public sealed class LoggingClient : IDisposable
     /// client and WebSocket are owned by the parent; this instance must not tear
     /// them down.
     /// </summary>
-    internal LoggingClient(GeneratedClientFactory clients, string apiKey, Func<SharedWebSocket> ensureWs, SmplClient? parent = null, MetricsReporter? metrics = null)
+    internal LoggingClient(GeneratedClientFactory clients, string apiKey, Func<SharedWebSocket> ensureWs, SmplClient? parent = null, MetricsReporter? metrics = null, bool streaming = true)
     {
         _genClient = clients.Logging;
         _ensureWs = ensureWs;
@@ -202,10 +225,13 @@ public sealed class LoggingClient : IDisposable
         _environment = parent?.Environment;
         _service = parent?.Service;
         _ownsTransport = false;
+        _streaming = streaming;
 
         Loggers = new LoggersClient(_genClient, _loggerBuffer);
         LogGroups = new LogGroupsClient(_genClient);
     }
+
+    private static string? NullIfEmpty(string? s) => string.IsNullOrEmpty(s) ? null : s;
 
     // ------------------------------------------------------------------
     // Adapter registration (pre-install, ungated)
@@ -310,6 +336,16 @@ public sealed class LoggingClient : IDisposable
         //    level cache from the resolved levels, so subsequent diffs fire on
         //    *resolved* changes — including group-driven ones.
         ApplyResolvedLevels(seedDiffCache: true);
+
+        // Stateless mode (streaming: false): the one-time fetch + apply above is
+        // the whole install — no WebSocket, no periodic flush timer. RefreshAsync
+        // re-fetches on demand.
+        if (!_streaming)
+        {
+            _started = true;
+            DebugLog.Log("websocket", "logging runtime connected (streaming disabled)");
+            return;
+        }
 
         // 7. Wire WebSocket
         DebugLog.Log("registration", "registering logger_changed, logger_deleted, group_changed, group_deleted, loggers_changed handlers");
@@ -614,7 +650,13 @@ public sealed class LoggingClient : IDisposable
         _loggerBuffer.Add(LoggersClient.NormalizeLoggerName(loggerName), null, smplLevel, _service, _environment);
 
         if (_loggerBuffer.PendingCount >= 50)
+        {
             _lastLoggerBufferFlushTask = FlushLoggerBufferAsync();
+            // Stateless mode: the threshold flush runs inline (best-effort,
+            // errors swallowed) instead of floating in the background.
+            if (!_streaming)
+                _lastLoggerBufferFlushTask.GetAwaiter().GetResult();
+        }
 
         // Still fire listeners for immediate in-process notification
         var evt = new LoggerChangeEvent(loggerName, level, "adapter");
