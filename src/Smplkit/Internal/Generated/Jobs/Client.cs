@@ -218,6 +218,40 @@ namespace Smplkit.Internal.Generated.Jobs
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
+        /// Get Run Stats
+        /// </summary>
+        /// <remarks>
+        /// Report aggregated statistics over this account's runs.
+        /// <br/>
+        /// <br/>One request answers the common monitoring questions: how many runs matched
+        /// <br/>the filters (`total`), how they broke down by lifecycle state (`tally`),
+        /// <br/>how they were distributed over time (`buckets`, when the `bucket`
+        /// <br/>directive is given), which runs failed most recently (`recent_failures`,
+        /// <br/>at most 3, newest first), and what fires next (`next_scheduled`).
+        /// <br/>
+        /// <br/>Filters compose with AND:
+        /// <br/>
+        /// <br/>- `filter[created_at]` — a half-open `[start,end)` date range (see the
+        /// <br/>  parameter for the interval syntax).
+        /// <br/>- `filter[environment]` — one environment key or a comma-separated list
+        /// <br/>  (any-of); omitted covers every environment you can access.
+        /// <br/>
+        /// <br/>`next_scheduled` honors only the environment filter: it reports the
+        /// <br/>soonest `PENDING` run with a fire time at or after the request, no matter
+        /// <br/>when that run was created.
+        /// <br/>
+        /// <br/>The resource id is always `current` — statistics are computed at read
+        /// <br/>time, not stored.
+        /// </remarks>
+        /// <param name="filtercreated_at">Restrict the statistics to runs whose `created_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,*)` covers everything from June 1 onward. Does not apply to `next_scheduled`.</param>
+        /// <param name="filterenvironment">Comma-separated list of environment keys to scope the statistics to (e.g. `production,staging`). When omitted, statistics cover every environment you can access.</param>
+        /// <param name="bucket">Also return run counts over time, grouped into buckets of this size (a directive, not a filter). One of `1m`, `5m`, `15m`, `1h`, `6h`, or `1d`. Omit to skip the time series.</param>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<RunStatsResponse> Get_run_statsAsync(string? filtercreated_at = null, string? filterenvironment = null, Bucket? bucket = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
         /// List Runs
         /// </summary>
         /// <remarks>
@@ -1365,6 +1399,120 @@ namespace Smplkit.Internal.Generated.Jobs
                         if (status_ == 204)
                         {
                             return;
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new ApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Get Run Stats
+        /// </summary>
+        /// <remarks>
+        /// Report aggregated statistics over this account's runs.
+        /// <br/>
+        /// <br/>One request answers the common monitoring questions: how many runs matched
+        /// <br/>the filters (`total`), how they broke down by lifecycle state (`tally`),
+        /// <br/>how they were distributed over time (`buckets`, when the `bucket`
+        /// <br/>directive is given), which runs failed most recently (`recent_failures`,
+        /// <br/>at most 3, newest first), and what fires next (`next_scheduled`).
+        /// <br/>
+        /// <br/>Filters compose with AND:
+        /// <br/>
+        /// <br/>- `filter[created_at]` — a half-open `[start,end)` date range (see the
+        /// <br/>  parameter for the interval syntax).
+        /// <br/>- `filter[environment]` — one environment key or a comma-separated list
+        /// <br/>  (any-of); omitted covers every environment you can access.
+        /// <br/>
+        /// <br/>`next_scheduled` honors only the environment filter: it reports the
+        /// <br/>soonest `PENDING` run with a fire time at or after the request, no matter
+        /// <br/>when that run was created.
+        /// <br/>
+        /// <br/>The resource id is always `current` — statistics are computed at read
+        /// <br/>time, not stored.
+        /// </remarks>
+        /// <param name="filtercreated_at">Restrict the statistics to runs whose `created_at` falls in a half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open. The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]` (inclusive) or `)` (exclusive). Example: `[2026-06-01T00:00:00Z,*)` covers everything from June 1 onward. Does not apply to `next_scheduled`.</param>
+        /// <param name="filterenvironment">Comma-separated list of environment keys to scope the statistics to (e.g. `production,staging`). When omitted, statistics cover every environment you can access.</param>
+        /// <param name="bucket">Also return run counts over time, grouped into buckets of this size (a directive, not a filter). One of `1m`, `5m`, `15m`, `1h`, `6h`, or `1d`. Omit to skip the time series.</param>
+        /// <returns>Successful Response</returns>
+        /// <exception cref="ApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<RunStatsResponse> Get_run_statsAsync(string? filtercreated_at = null, string? filterenvironment = null, Bucket? bucket = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        {
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    request_.Method = new System.Net.Http.HttpMethod("GET");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/vnd.api+json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
+                    // Operation Path: "api/v1/run_stats"
+                    urlBuilder_.Append("api/v1/run_stats");
+                    urlBuilder_.Append('?');
+                    if (filtercreated_at != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[created_at]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filtercreated_at, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (filterenvironment != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("filter[environment]")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(filterenvironment, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (bucket != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("bucket")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(bucket, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    urlBuilder_.Length--;
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RunStatsResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new ApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
                         }
                         else
                         {
@@ -3057,6 +3205,269 @@ namespace Smplkit.Internal.Generated.Jobs
     }
 
     /// <summary>
+    /// Aggregated run statistics for the requested scope.
+    /// <br/>
+    /// <br/>Computed on demand from the account's runs; `total`, `tally`, `buckets`,
+    /// <br/>and `recent_failures` honor the request's filters, while `next_scheduled`
+    /// <br/>honors only the environment filter (it is forward-looking by definition).
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RunStat
+    {
+
+        /// <summary>
+        /// Runs matching the filters.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("total")]
+        public int Total { get; set; } = default!;
+
+        /// <summary>
+        /// Those runs counted by lifecycle state.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("tally")]
+        public RunStatTally Tally { get; set; } = new RunStatTally();
+
+        /// <summary>
+        /// Run counts over time at the requested `bucket` granularity, ordered by bucket start. Only buckets containing at least one run are listed — treat missing buckets as zero. `null` when the request did not include the `bucket` directive.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("buckets")]
+        public System.Collections.Generic.List<RunStatBucket>? Buckets { get; set; } = default!;
+
+        /// <summary>
+        /// The most recently created `FAILED` runs matching the filters, newest first — at most 3.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("recent_failures")]
+        public System.Collections.Generic.List<RunStatFailure> Recent_failures { get; set; } = new System.Collections.Generic.List<RunStatFailure>();
+
+        /// <summary>
+        /// The soonest `PENDING` run with a fire time at or after the request, or `null` when nothing upcoming is scheduled. The `filter[created_at]` range does not apply here — a run scheduled long ago for a future fire time is still next.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("next_scheduled")]
+        public RunStatNextScheduled? Next_scheduled { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Run count for one time bucket.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RunStatBucket
+    {
+
+        /// <summary>
+        /// Start of the bucket (UTC). Buckets are aligned to the epoch — e.g. `1h` buckets start on the hour.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("bucket")]
+        public System.DateTimeOffset Bucket { get; set; } = default!;
+
+        /// <summary>
+        /// Runs created within this bucket.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("count")]
+        public int Count { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// One recently failed run.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RunStatFailure
+    {
+
+        /// <summary>
+        /// Key of the job the failed run belongs to.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("job")]
+        public string Job { get; set; } = default!;
+
+        /// <summary>
+        /// Display name of that job, resolved at read time; `null` when the job no longer exists.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("job_name")]
+        public string? Job_name { get; set; } = default!;
+
+        /// <summary>
+        /// Why the run failed; `null` when unrecorded.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("failure_reason")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<RunStatFailureFailure_reason>))]
+        public RunStatFailureFailure_reason? Failure_reason { get; set; } = default!;
+
+        /// <summary>
+        /// When the failed run was created.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("created_at")]
+        public System.DateTimeOffset Created_at { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// The soonest upcoming scheduled run.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RunStatNextScheduled
+    {
+
+        /// <summary>
+        /// Key of the job the run belongs to.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("job")]
+        public string Job { get; set; } = default!;
+
+        /// <summary>
+        /// Display name of that job, resolved at read time; `null` when the job no longer exists.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("job_name")]
+        public string? Job_name { get; set; } = default!;
+
+        /// <summary>
+        /// The intended fire time.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("scheduled_for")]
+        public System.DateTimeOffset Scheduled_for { get; set; } = default!;
+
+        /// <summary>
+        /// Environment the run will execute in.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("environment")]
+        public string Environment { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API resource envelope for run statistics.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RunStatResource
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string Id { get; set; } = "current";
+
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        public string Type { get; set; } = "run_stat";
+
+        [System.Text.Json.Serialization.JsonPropertyName("attributes")]
+        public RunStat Attributes { get; set; } = new RunStat();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Run counts by lifecycle state within the requested scope.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RunStatTally
+    {
+
+        /// <summary>
+        /// Runs in status `PENDING`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("pending")]
+        public int Pending { get; set; } = default!;
+
+        /// <summary>
+        /// Runs in status `RUNNING`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("running")]
+        public int Running { get; set; } = default!;
+
+        /// <summary>
+        /// Runs in status `SUCCEEDED`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("succeeded")]
+        public int Succeeded { get; set; } = default!;
+
+        /// <summary>
+        /// Runs in status `FAILED`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("failed")]
+        public int Failed { get; set; } = default!;
+
+        /// <summary>
+        /// Runs in status `CANCELED`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("canceled")]
+        public int Canceled { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// JSON:API single-resource response for run statistics.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RunStatsResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public RunStatResource Data { get; set; } = new RunStatResource();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
     /// Current-period usage against the account's plan allotments.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -3207,6 +3618,33 @@ namespace Smplkit.Internal.Generated.Jobs
     }
 
     /// <summary>
+    /// Also return run counts over time, grouped into buckets of this size (a directive, not a filter). One of `1m`, `5m`, `15m`, `1h`, `6h`, or `1d`. Omit to skip the time series.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum Bucket
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"1m")]
+        _1m = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"5m")]
+        _5m = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"15m")]
+        _15m = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"1h")]
+        _1h = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"6h")]
+        _6h = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"1d")]
+        _1d = 5,
+
+    }
+
+    /// <summary>
     /// Field to sort by. Prefix with `-` for descending order. Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `finished_at`, `-finished_at`, `job`, `-job`, `scheduled_for`, `-scheduled_for`, `started_at`, `-started_at`, `status`, `-status`, `total_duration_ms`, `-total_duration_ms`.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -3346,6 +3784,30 @@ namespace Smplkit.Internal.Generated.Jobs
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public enum RunFailure_reason
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"TIMEOUT")]
+        TIMEOUT = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"CONNECTION_ERROR")]
+        CONNECTION_ERROR = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"NON_SUCCESS_STATUS")]
+        NON_SUCCESS_STATUS = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"SSRF_BLOCKED")]
+        SSRF_BLOCKED = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"QUOTA_EXCEEDED")]
+        QUOTA_EXCEEDED = 4,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"WORKER_LOST")]
+        WORKER_LOST = 5,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum RunStatFailureFailure_reason
     {
 
         [System.Runtime.Serialization.EnumMember(Value = @"TIMEOUT")]
