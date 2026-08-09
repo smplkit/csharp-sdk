@@ -21,7 +21,7 @@ An end-to-end walkthrough of the Smpl Config SDK covering:
 - **Environment overrides** — `SetValuesAsync()` and `SetValueAsync()` for per-environment configuration
 - **Multi-level inheritance** — child → parent → common hierarchy setup
 - **Runtime value resolution** — `ConnectAsync()`, `Get()`, typed accessors (`GetString`, `GetInt`, `GetBool`)
-- **Real-time updates** — WebSocket-driven cache invalidation with change listeners
+- **Real-time updates** — server-pushed cache invalidation with change listeners
 - **Manual refresh and cache diagnostics** — `RefreshAsync()`, `Stats()`
 - **Cancellation** — all async methods accept `CancellationToken`
 
