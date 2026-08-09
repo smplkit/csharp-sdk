@@ -13567,6 +13567,13 @@ namespace Smplkit.Internal.Generated.App
         public string Name { get; set; } = default!;
 
         /// <summary>
+        /// Credential class of the key, set at creation and immutable. `PRIVATE` (the default) keys carry full API access and must be kept secret — never expose one in a browser or client application. `PUBLIC` keys are browser-safe, read-only credentials for reading feature flags and configuration from client-side code; they must be scoped to exactly one environment with `permissions: ["read"]`. Accepted case-insensitively.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("kind")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ApiKeyKind>))]
+        public ApiKeyKind Kind { get; set; } = Smplkit.Internal.Generated.App.ApiKeyKind.PRIVATE;
+
+        /// <summary>
         /// Lifecycle state of the key. `ACTIVE` keys may be used to authenticate; `REVOKED` keys are rejected.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("status")]
@@ -18225,6 +18232,18 @@ namespace Smplkit.Internal.Generated.App
 
         [System.Runtime.Serialization.EnumMember(Value = @"subscription")]
         Subscription = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum ApiKeyKind
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"PUBLIC")]
+        PUBLIC = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"PRIVATE")]
+        PRIVATE = 1,
 
     }
 
