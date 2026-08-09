@@ -35,8 +35,8 @@ public sealed class SmplClient : IDisposable
     private readonly GeneratedClientFactory _clients;
     private readonly MetricsReporter? _metrics;
     private readonly ContextRegistrationBuffer _contextBuffer;
-    private SharedWebSocket? _sharedWs;
-    private readonly object _wsLock = new();
+    private EventStream? _sharedEvents;
+    private readonly object _eventsLock = new();
     private readonly AsyncLocal<IReadOnlyList<Context>?> _ambientContext = new();
 
     /// <summary>Gets the resolved environment key.</summary>
@@ -149,17 +149,17 @@ public sealed class SmplClient : IDisposable
         // (the settings sub-client uses HttpClient directly).
         Account = new AccountClient(apiKey: resolved.ApiKey, baseUrl: _appBaseUrl, extraHeaders: extraHeaders);
         // Config's full surface on one client; wired into this parent so it
-        // borrows the shared config transport and WebSocket.
-        Config = new ConfigClient(_clients, EnsureSharedWebSocket, this, _metrics);
+        // borrows the shared config transport and live event stream.
+        Config = new ConfigClient(_clients, EnsureSharedEventStream, this, _metrics);
         // Flags' full surface on one client; wired into this parent so it borrows
-        // the shared flags transport and WebSocket. The context buffer is the
+        // the shared flags transport and live event stream. The context buffer is the
         // injection seam for evaluation-context registration, wired to
         // client.Platform.Contexts.
-        Flags = new FlagsClient(_clients, _apiKey, EnsureSharedWebSocket, _contextBuffer, this, _metrics);
+        Flags = new FlagsClient(_clients, _apiKey, EnsureSharedEventStream, _contextBuffer, this, _metrics);
         // Logging's full surface on one client; wired into this parent so it
-        // borrows the shared logging transport and WebSocket. The two CRUD
+        // borrows the shared logging transport and live event stream. The two CRUD
         // sub-clients live at client.Logging.Loggers / client.Logging.LogGroups.
-        Logging = new LoggingClient(_clients, _apiKey, EnsureSharedWebSocket, this, _metrics);
+        Logging = new LoggingClient(_clients, _apiKey, EnsureSharedEventStream, this, _metrics);
         // Audit's full surface; this runtime instance scopes recording and reads
         // to the configured environment via the event body and filter[environment]
         // (ADR-055) and owns its own transport (closed in Dispose()).
@@ -218,23 +218,23 @@ public sealed class SmplClient : IDisposable
     public IDisposable SetContext(Context context) => SetContext(new[] { context });
 
     /// <summary>
-    /// Optionally pre-warm the SDK and block until the live socket is up.
+    /// Optionally pre-warm the SDK and block until the live event stream is up.
     /// </summary>
     /// <remarks>
     /// Eagerly connects config and flags — flushing discovery, pre-fetching all
-    /// flags and configs into the local cache, opening the live-updates WebSocket —
-    /// and waits for the handshake to complete. After this returns, <c>flag.Get()</c> /
+    /// flags and configs into the local cache, opening the live-updates event stream —
+    /// and waits for the connection to establish. After this returns, <c>flag.Get()</c> /
     /// <c>client.Config.Subscribe()</c> hit cache (no first-request connect tax) and any
     /// <c>OnChange</c> listeners receive every server event from this point forward.
     /// Optional: config and flags connect lazily on first live use, so this is purely
-    /// a pre-warm / WebSocket-ready barrier. Logging integration is <i>not</i> connected
+    /// a pre-warm / stream-ready barrier. Logging integration is <i>not</i> connected
     /// here — call <see cref="LoggingClient.InstallAsync"/> separately if you want it (it
     /// installs adapters and hooks into your application's logger, which should be opt-in).
     /// </remarks>
-    /// <param name="timeout">Maximum time to wait for the live-updates WebSocket handshake
+    /// <param name="timeout">Maximum time to wait for the live-updates event stream to connect
     /// before giving up. Defaults to 10 seconds.</param>
     /// <param name="ct">A token to cancel the wait.</param>
-    /// <exception cref="Smplkit.Errors.TimeoutException">If the WebSocket fails to connect within <paramref name="timeout"/>.</exception>
+    /// <exception cref="Smplkit.Errors.TimeoutException">If the event stream fails to connect within <paramref name="timeout"/>.</exception>
     public async Task WaitUntilReadyAsync(TimeSpan? timeout = null, CancellationToken ct = default)
     {
         var deadline = timeout ?? TimeSpan.FromSeconds(10);
@@ -247,10 +247,10 @@ public sealed class SmplClient : IDisposable
             Flags.EnsureConnected();
             Config.EnsureConnected();
 
-            // Wait for WebSocket connection.
-            var ws = EnsureSharedWebSocket();
+            // Wait for the event stream connection.
+            var events = EnsureSharedEventStream();
             var pollInterval = TimeSpan.FromMilliseconds(50);
-            while (ws.ConnectionStatus != "connected")
+            while (events.ConnectionStatus != "connected")
             {
                 cts.Token.ThrowIfCancellationRequested();
                 await Task.Delay(pollInterval, cts.Token).ConfigureAwait(false);
@@ -260,7 +260,7 @@ public sealed class SmplClient : IDisposable
         {
             throw new Smplkit.Errors.TimeoutException(
                 $"WaitUntilReadyAsync timed out after {deadline}. The SDK could not "
-                + "fully initialize within the deadline (flags, configs, or WebSocket).");
+                + "fully initialize within the deadline (flags, configs, or event stream).");
         }
     }
 
@@ -268,17 +268,17 @@ public sealed class SmplClient : IDisposable
         => _ambientContext.Value ?? Array.Empty<Context>();
 
     /// <summary>Ensures the real-time connection is available.</summary>
-    internal SharedWebSocket EnsureSharedWebSocket()
+    internal EventStream EnsureSharedEventStream()
     {
-        if (_sharedWs is not null) return _sharedWs;
-        lock (_wsLock)
+        if (_sharedEvents is not null) return _sharedEvents;
+        lock (_eventsLock)
         {
-            if (_sharedWs is not null) return _sharedWs;
-            _sharedWs = new SharedWebSocket(
+            if (_sharedEvents is not null) return _sharedEvents;
+            _sharedEvents = new EventStream(
                 _apiKey, metrics: _metrics, appBaseUrl: _appBaseUrl,
                 userAgent: _clients.EffectiveUserAgent);
-            _sharedWs.Start();
-            return _sharedWs;
+            _sharedEvents.Start();
+            return _sharedEvents;
         }
     }
 
@@ -290,10 +290,10 @@ public sealed class SmplClient : IDisposable
         Logging.Close();
         Audit.DisposeAsync().AsTask().GetAwaiter().GetResult();
 
-        if (_sharedWs is not null)
+        if (_sharedEvents is not null)
         {
-            _sharedWs.StopAsync().GetAwaiter().GetResult();
-            _sharedWs = null;
+            _sharedEvents.StopAsync().GetAwaiter().GetResult();
+            _sharedEvents = null;
         }
 
         _metrics?.Dispose();

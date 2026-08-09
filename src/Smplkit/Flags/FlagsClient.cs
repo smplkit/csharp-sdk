@@ -14,19 +14,19 @@
 //   / JsonFlag) whose .Get() evaluates against the cached definitions,
 //   plus RefreshAsync / Stats / OnChange. The first live call
 //   transparently flushes discovery, fetches all flag definitions into
-//   the local cache, and opens the live-updates WebSocket — no explicit
+//   the local cache, and opens the live-updates event stream — no explicit
 //   install step.
 //
 // The client supports two construction shapes:
 //
 // * Wired into Smplkit.SmplClient — borrows the parent's flags transport for
-//   both runtime fetch and CRUD, the parent's shared WebSocket for the live
+//   both runtime fetch and CRUD, the parent's shared event stream for the live
 //   channel, and client.Platform.Contexts (the shared context buffer) for
 //   evaluation-context registration. This is the common path.
 // * Standalone — new FlagsClient(apiKey: ..., environment: ..., ...) builds
 //   and owns its own flags transport and a contexts buffer (against its own
-//   app transport), and on first live use opens and owns its own WebSocket.
-//   Dispose() tears down only the owned transports and owned WebSocket.
+//   app transport), and on first live use opens and owns its own event
+//   stream. Dispose() tears down only the owned transports and owned stream.
 
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
@@ -63,11 +63,11 @@ namespace Smplkit.Flags;
 /// (<c>BooleanFlag</c> / <c>StringFlag</c> / <c>NumberFlag</c> / <c>JsonFlag</c> /
 /// <c>RefreshAsync</c> / <c>Stats</c> / <c>OnChange</c>) connects lazily on first
 /// use — the first call flushes discovery, fetches all flag definitions into the
-/// local cache, and opens the live-updates WebSocket. No explicit install step is
+/// local cache, and opens the live-updates event stream. No explicit install step is
 /// required.</para>
 /// <para>For serverless or short-lived processes, construct with
 /// <c>streaming: false</c>: the first live call still fetches all flag definitions
-/// once, <see cref="RefreshAsync"/> re-fetches on demand, and no WebSocket, timer,
+/// once, <see cref="RefreshAsync"/> re-fetches on demand, and no event stream, timer,
 /// or background work is ever created.</para>
 /// </remarks>
 public sealed class FlagsClient : IDisposable
@@ -77,7 +77,7 @@ public sealed class FlagsClient : IDisposable
     private readonly GenFlags.FlagsClient _genFlagsClient;
     private readonly GenApp.AppClient _genAppClient;
     private readonly string _apiKey;
-    private readonly Func<SharedWebSocket> _ensureWs;
+    private readonly Func<EventStream> _ensureEvents;
     private readonly SmplClient? _parent;
     private readonly MetricsReporter? _metrics;
 
@@ -89,7 +89,7 @@ public sealed class FlagsClient : IDisposable
     private string? _environment;
     private readonly string? _service;
 
-    // Live-updates mode: true (default) opens a WebSocket + periodic flush
+    // Live-updates mode: true (default) opens an event stream + periodic flush
     // timer on first live use; false keeps the client fully stateless — the
     // first live call fetches once, discovery flushes run inline, and
     // RefreshAsync re-fetches on demand.
@@ -102,7 +102,7 @@ public sealed class FlagsClient : IDisposable
     internal const double MaxStartRetryDelayS = 60.0;
     internal double _startRetryDelayS = 1.0;
     internal long _nextStartAttemptAt = 0L;
-    internal bool _wsSubscribed;
+    internal bool _eventsSubscribed;
     private readonly ResolutionCache _cache = new(CacheMaxSize);
     private Func<IReadOnlyList<Context>>? _contextProvider;
     private readonly ContextRegistrationBuffer _contextBuffer;
@@ -113,12 +113,12 @@ public sealed class FlagsClient : IDisposable
     // Context-flush sizing (matches the discovery threshold).
     private const int ContextBatchFlushSize = 100;
 
-    // Shared WebSocket — the parent's when wired, our own when standalone.
-    private SharedWebSocket? _wsManager;
-    private bool _ownsWs;
+    // Shared event stream — the parent's when wired, our own when standalone.
+    private EventStream? _eventStream;
+    private bool _ownsEventStream;
 
     // Effective User-Agent from the HTTP transport, reused on the owned
-    // WebSocket handshake so both channels present the same agent.
+    // event stream request so both channels present the same agent.
     private readonly string _userAgent;
 
     // Flag auto-registration (the discovery buffer, owned directly).
@@ -135,16 +135,16 @@ public sealed class FlagsClient : IDisposable
 
     /// <summary>
     /// Wired constructor used by <see cref="Smplkit.SmplClient"/>: borrows the parent's
-    /// flags transport for both runtime fetch and CRUD, the parent's shared WebSocket for
-    /// the live channel, and the shared context registration buffer
+    /// flags transport for both runtime fetch and CRUD, the parent's shared event stream
+    /// for the live channel, and the shared context registration buffer
     /// (<c>client.Platform.Contexts</c>) as the evaluation-context registration seam.
     /// </summary>
-    internal FlagsClient(GeneratedClientFactory clients, string apiKey, Func<SharedWebSocket> ensureWs, ContextRegistrationBuffer contextBuffer, SmplClient? parent = null, MetricsReporter? metrics = null, bool streaming = true)
+    internal FlagsClient(GeneratedClientFactory clients, string apiKey, Func<EventStream> ensureEvents, ContextRegistrationBuffer contextBuffer, SmplClient? parent = null, MetricsReporter? metrics = null, bool streaming = true)
     {
         _genFlagsClient = clients.Flags;
         _genAppClient = clients.App;
         _apiKey = apiKey;
-        _ensureWs = ensureWs;
+        _ensureEvents = ensureEvents;
         _contextBuffer = contextBuffer;
         _userAgent = clients.EffectiveUserAgent;
         _parent = parent;
@@ -159,7 +159,7 @@ public sealed class FlagsClient : IDisposable
     /// <summary>
     /// Initializes a standalone <see cref="FlagsClient"/> that builds and owns its own
     /// flags transport and a contexts buffer (against its own app transport), and on first
-    /// live use opens and owns its own WebSocket.
+    /// live use opens and owns its own event stream.
     /// </summary>
     /// <param name="apiKey">API key. When omitted, resolved from <c>SMPLKIT_API_KEY</c> or <c>~/.smplkit</c>.</param>
     /// <param name="environment">Deployment environment used to resolve runtime flag
@@ -175,10 +175,10 @@ public sealed class FlagsClient : IDisposable
     /// <param name="telemetry">Enable usage telemetry. Defaults to enabled.</param>
     /// <param name="extraHeaders">Extra headers attached to every request.</param>
     /// <param name="streaming">When <c>true</c> (the default), the first live call
-    /// opens a WebSocket for push updates and starts a periodic discovery flush.
+    /// opens an event stream for push updates and starts a periodic discovery flush.
     /// Set to <c>false</c> for serverless or short-lived processes: the first live
     /// call still fetches all flag definitions once, discovery flushes run inline,
-    /// and <see cref="RefreshAsync"/> re-fetches on demand — no WebSocket, timer,
+    /// and <see cref="RefreshAsync"/> re-fetches on demand — no event stream, timer,
     /// or background work is ever created.</param>
     public FlagsClient(
         string? apiKey = null,
@@ -236,10 +236,10 @@ public sealed class FlagsClient : IDisposable
             : null;
 
         // Standalone: build our own contexts buffer (the evaluation-context seam) and
-        // open our own WebSocket on first live use.
+        // open our own event stream on first live use.
         _contextBuffer = new ContextRegistrationBuffer(lruSize: 10_000, flushSize: 100);
         _parent = null;
-        _ensureWs = EnsureOwnedWebSocket;
+        _ensureEvents = EnsureOwnedEventStream;
     }
 
     private static string? NullIfEmpty(string? s) => string.IsNullOrEmpty(s) ? null : s;
@@ -517,7 +517,7 @@ public sealed class FlagsClient : IDisposable
     /// </summary>
     /// <remarks>
     /// <para>Flushes any buffered discovery declarations, fetches all flag
-    /// definitions into the local cache, opens the shared WebSocket, and
+    /// definitions into the local cache, opens the shared event stream, and
     /// subscribes to <c>flag_changed</c> / <c>flag_deleted</c> / <c>flags_changed</c>
     /// events.</para>
     /// <para>Idempotent and internal — every live method calls it on first use, so
@@ -549,7 +549,7 @@ public sealed class FlagsClient : IDisposable
                     _initRegistrationTask.GetAwaiter().GetResult();
             }
 
-            DebugLog.Log("websocket", "flags runtime initializing");
+            DebugLog.Log("events", "flags runtime initializing");
             try
             {
                 // Flush declarations BEFORE fetching definitions; items stay queued
@@ -569,26 +569,27 @@ public sealed class FlagsClient : IDisposable
             _cache.Clear();
 
             // Stateless mode (streaming: false): the one-time fetch above is the
-            // whole connect — no periodic flush timer, no WebSocket. RefreshAsync
+            // whole connect — no periodic flush timer, no event stream. RefreshAsync
             // re-fetches on demand.
             if (!_streaming)
             {
-                DebugLog.Log("websocket", "flags runtime connected (streaming disabled)");
+                DebugLog.Log("events", "flags runtime connected (streaming disabled)");
                 return;
             }
 
             _flagFlushTimer = new Timer(_ => FlushTimerCallback(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
 
-            _wsManager = _ensureWs();
-            if (!_wsSubscribed)
+            _eventStream = _ensureEvents();
+            if (!_eventsSubscribed)
             {
                 DebugLog.Log("registration", "registering flag_changed, flag_deleted, and flags_changed handlers");
-                _wsManager.On("flag_changed", HandleFlagChanged);
-                _wsManager.On("flag_deleted", HandleFlagDeleted);
-                _wsManager.On("flags_changed", HandleFlagsChanged);
-                _wsSubscribed = true;
+                _eventStream.On("flag_changed", HandleFlagChanged);
+                _eventStream.On("flag_deleted", HandleFlagDeleted);
+                _eventStream.On("flags_changed", HandleFlagsChanged);
+                _eventStream.OnReconnect(HandleReconnectRefetch);
+                _eventsSubscribed = true;
             }
-            DebugLog.Log("websocket", "flags runtime connected");
+            DebugLog.Log("events", "flags runtime connected");
         }
     }
 
@@ -603,18 +604,18 @@ public sealed class FlagsClient : IDisposable
     }
 
     /// <summary>
-    /// Return the shared WebSocket — the parent's when wired, else our own (lazily started).
+    /// Return the shared event stream — the parent's when wired, else our own (lazily started).
     /// </summary>
-    private SharedWebSocket EnsureOwnedWebSocket()
+    private EventStream EnsureOwnedEventStream()
     {
-        if (_wsManager is not null) return _wsManager;
-        _wsManager = new SharedWebSocket(
+        if (_eventStream is not null) return _eventStream;
+        _eventStream = new EventStream(
             _apiKey, metrics: _metrics,
             appBaseUrl: _appBaseUrl ?? "https://app.smplkit.com",
             userAgent: _userAgent);
-        _wsManager.Start();
-        _ownsWs = true;
-        return _wsManager;
+        _eventStream.Start();
+        _ownsEventStream = true;
+        return _eventStream;
     }
 
     // ------------------------------------------------------------------
@@ -721,7 +722,7 @@ public sealed class FlagsClient : IDisposable
     /// <summary>
     /// Gets the current real-time connection status.
     /// </summary>
-    public string ConnectionStatus => _wsManager?.ConnectionStatus ?? "disconnected";
+    public string ConnectionStatus => _eventStream?.ConnectionStatus ?? "disconnected";
 
     /// <summary>Return evaluation statistics. Connects lazily on first use.</summary>
     public FlagStats Stats
@@ -944,13 +945,20 @@ public sealed class FlagsClient : IDisposable
     }
 
     // ------------------------------------------------------------------
-    // Internal: event handlers (called by SharedWebSocket)
+    // Internal: event handlers (called by EventStream)
     // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Reconnect refetch: the event stream dropped and came back, so events may
+    /// have been missed. Reuses the flags_changed bulk-refresh path — change
+    /// listeners fire only for flags whose resolved state actually changed.
+    /// </summary>
+    private void HandleReconnectRefetch() => HandleFlagsChanged(new Dictionary<string, object?>());
 
     private void HandleFlagChanged(Dictionary<string, object?> data)
     {
         var flagId = data.TryGetValue("id", out var k) ? k as string : null;
-        DebugLog.Log("websocket", $"flag_changed event received, id={flagId ?? "<unknown>"}");
+        DebugLog.Log("events", $"flag_changed event received, id={flagId ?? "<unknown>"}");
         if (flagId is null) return;
 
         try
@@ -966,31 +974,31 @@ public sealed class FlagsClient : IDisposable
             if (!FlagDefEquals(preState, newState))
             {
                 _cache.Clear();
-                FireChangeListeners(flagId, "websocket");
+                FireChangeListeners(flagId, "push");
             }
         }
         catch (Exception ex)
         {
             System.Diagnostics.Trace.TraceWarning(
                 "[smplkit] Flag refresh failed: {0}", ex.Message);
-            DebugLog.Log("websocket", $"Flag refresh failed: {ex}");
+            DebugLog.Log("events", $"Flag refresh failed: {ex}");
         }
     }
 
     private void HandleFlagDeleted(Dictionary<string, object?> data)
     {
         var flagId = data.TryGetValue("id", out var k) ? k as string : null;
-        DebugLog.Log("websocket", $"flag_deleted event received, id={flagId ?? "<unknown>"}");
+        DebugLog.Log("events", $"flag_deleted event received, id={flagId ?? "<unknown>"}");
         if (flagId is null) return;
 
         _flagStore.TryRemove(flagId, out _);
         _cache.Clear();
-        FireChangeListeners(flagId, "websocket", deleted: true);
+        FireChangeListeners(flagId, "push", deleted: true);
     }
 
     private void HandleFlagsChanged(Dictionary<string, object?> data)
     {
-        DebugLog.Log("websocket", "flags_changed event received — full list refetch");
+        DebugLog.Log("events", "flags_changed event received — full list refetch");
         try
         {
             // Snapshot pre-state
@@ -1022,17 +1030,17 @@ public sealed class FlagsClient : IDisposable
             if (changedKeys.Count == 0) return;
 
             // Fire global listener exactly once
-            FireGlobalListeners("flags_changed", "websocket");
+            FireGlobalListeners("flags_changed", "push");
 
             // Fire per-key listeners for each changed key
             foreach (var id in changedKeys)
-                FireScopedListeners(id, "websocket");
+                FireScopedListeners(id, "push");
         }
         catch (Exception ex)
         {
             System.Diagnostics.Trace.TraceWarning(
                 "[smplkit] Flags bulk refresh failed: {0}", ex.Message);
-            DebugLog.Log("websocket", $"Flags bulk refresh failed: {ex}");
+            DebugLog.Log("events", $"Flags bulk refresh failed: {ex}");
         }
     }
 
@@ -1140,40 +1148,41 @@ public sealed class FlagsClient : IDisposable
     /// Release resources — only those this client owns.
     /// </summary>
     /// <remarks>
-    /// Stops the periodic flag flush timer and unregisters WebSocket event handlers.
-    /// Tears down the owned WebSocket (standalone) and the owned flags + app HTTP
+    /// Stops the periodic flag flush timer and unregisters event stream handlers.
+    /// Tears down the owned event stream (standalone) and the owned flags + app HTTP
     /// transports (standalone construction). A wired client borrows the parent's
-    /// transport, WebSocket, and context buffer and closes none of them.
+    /// transport, event stream, and context buffer and closes none of them.
     /// </remarks>
     public void Dispose()
     {
         Close();
-        if (_ownsWs && _wsManager is not null)
+        if (_ownsEventStream && _eventStream is not null)
         {
-            _wsManager.StopAsync().GetAwaiter().GetResult();
-            _wsManager = null;
-            _ownsWs = false;
+            _eventStream.StopAsync().GetAwaiter().GetResult();
+            _eventStream = null;
+            _ownsEventStream = false;
         }
         _metrics?.Dispose();
         _ownedHttpClient?.Dispose();
     }
 
     /// <summary>
-    /// Stops the periodic flag flush timer and unregisters WebSocket event handlers.
+    /// Stops the periodic flag flush timer and unregisters event stream handlers.
     /// </summary>
     internal void Close()
     {
         _flagFlushTimer?.Dispose();
         _flagFlushTimer = null;
-        if (_wsManager is not null)
+        if (_eventStream is not null)
         {
-            _wsManager.Off("flag_changed", HandleFlagChanged);
-            _wsManager.Off("flag_deleted", HandleFlagDeleted);
-            _wsManager.Off("flags_changed", HandleFlagsChanged);
-            if (!_ownsWs)
-                _wsManager = null;
+            _eventStream.Off("flag_changed", HandleFlagChanged);
+            _eventStream.Off("flag_deleted", HandleFlagDeleted);
+            _eventStream.Off("flags_changed", HandleFlagsChanged);
+            _eventStream.OffReconnect(HandleReconnectRefetch);
+            if (!_ownsEventStream)
+                _eventStream = null;
         }
-        _wsSubscribed = false;
+        _eventsSubscribed = false;
     }
 
     // ------------------------------------------------------------------

@@ -237,6 +237,6 @@ public sealed class LogGroup
 /// <param name="Id">The affected logger's normalized id.</param>
 /// <param name="Level">The newly-applied effective level. Always non-null —
 /// resolution falls back to <see cref="LogLevel.Info"/> if nothing else matches.</param>
-/// <param name="Source">Trigger label: <c>"websocket"</c> for push updates
+/// <param name="Source">Trigger label: <c>"push"</c> for updates pushed
 /// from the server, <c>"manual"</c> for <see cref="LoggingClient.RefreshAsync"/>.</param>
 public sealed record LoggerChangeEvent(string Id, LogLevel Level, string Source);

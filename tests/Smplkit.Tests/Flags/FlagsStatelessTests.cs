@@ -12,13 +12,13 @@ namespace Smplkit.Tests.Flags;
 
 /// <summary>
 /// Tests for the stateless flags mode (<c>streaming: false</c>): the first live
-/// call fetches once with no WebSocket and no periodic flush timer, discovery and
+/// call fetches once with no event stream and no periodic flush timer, discovery and
 /// context threshold flushes run inline, and RefreshAsync re-fetches on demand.
 /// </summary>
 public class FlagsStatelessTests
 {
-    private static readonly Func<SharedWebSocket> ThrowingWs =
-        () => throw new InvalidOperationException("stateless mode must not create a WebSocket");
+    private static readonly Func<EventStream> ThrowingEvents =
+        () => throw new InvalidOperationException("stateless mode must not create an event stream");
 
     private static (FlagsClient flags, MockHttpMessageHandler handler, ContextRegistrationBuffer buffer) MakeStateless(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> respond, SmplClient? parent = null, HttpClient? http = null)
@@ -31,7 +31,7 @@ public class FlagsStatelessTests
             BaseDomain = "example.test",
         });
         var buffer = new ContextRegistrationBuffer(lruSize: 10_000, flushSize: 100);
-        var flags = new FlagsClient(factory, TestData.ApiKey, ThrowingWs, buffer, parent, metrics: null, streaming: false);
+        var flags = new FlagsClient(factory, TestData.ApiKey, ThrowingEvents, buffer, parent, metrics: null, streaming: false);
         return (flags, handler, buffer);
     }
 
@@ -71,7 +71,7 @@ public class FlagsStatelessTests
             .GetValue(flags);
 
     [Fact]
-    public void StatelessConnect_NoWebSocketNoTimer_HandleEvaluates()
+    public void StatelessConnect_NoEventStreamNoTimer_HandleEvaluates()
     {
         var (flags, _, _) = MakeStateless(_ => Task.FromResult(Json(BooleanFlagListJson)));
 
@@ -80,9 +80,9 @@ public class FlagsStatelessTests
         // Connected, evaluating from the one-time fetch...
         Assert.True(flags._connected);
         Assert.True(handle.Get());
-        // ...with no live machinery: no WebSocket, no subscription, no timer.
-        Assert.Null(Field(flags, "_wsManager"));
-        Assert.False(flags._wsSubscribed);
+        // ...with no live machinery: no event stream, no subscription, no timer.
+        Assert.Null(Field(flags, "_eventStream"));
+        Assert.False(flags._eventsSubscribed);
         Assert.Null(Field(flags, "_flagFlushTimer"));
         Assert.Equal("disconnected", flags.ConnectionStatus);
     }

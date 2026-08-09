@@ -112,8 +112,8 @@ public class MetricsReporterTests
     {
         var (reporter, handler) = CreateReporter();
 
-        reporter.RecordGauge("platform.websocket_connections", 1, unit: "connections");
-        reporter.RecordGauge("platform.websocket_connections", 0, unit: "connections");
+        reporter.RecordGauge("platform.event_connections", 1, unit: "connections");
+        reporter.RecordGauge("platform.event_connections", 0, unit: "connections");
         reporter.Flush();
 
         var payload = ParsePayload(handler);

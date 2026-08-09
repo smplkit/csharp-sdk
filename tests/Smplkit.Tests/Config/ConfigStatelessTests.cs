@@ -11,13 +11,13 @@ namespace Smplkit.Tests.Config;
 
 /// <summary>
 /// Tests for the stateless config mode (<c>streaming: false</c>): the first live
-/// call fetches and resolves once with no WebSocket, discovery threshold flushes
+/// call fetches and resolves once with no event stream, discovery threshold flushes
 /// run inline, and RefreshAsync re-fetches on demand.
 /// </summary>
 public class ConfigStatelessTests
 {
-    private static readonly Func<SharedWebSocket> ThrowingWs =
-        () => throw new InvalidOperationException("stateless mode must not create a WebSocket");
+    private static readonly Func<EventStream> ThrowingEvents =
+        () => throw new InvalidOperationException("stateless mode must not create an event stream");
 
     private static (ConfigClient config, MockHttpMessageHandler handler) MakeStateless(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> respond)
@@ -29,7 +29,7 @@ public class ConfigStatelessTests
             ApiKey = TestData.ApiKey,
             BaseDomain = "example.test",
         });
-        var config = new ConfigClient(factory, ThrowingWs, parent: null, metrics: null, streaming: false);
+        var config = new ConfigClient(factory, ThrowingEvents, parent: null, metrics: null, streaming: false);
         return (config, handler);
     }
 
@@ -63,7 +63,7 @@ public class ConfigStatelessTests
         """;
 
     [Fact]
-    public void StatelessConnect_NoWebSocket_SubscribeAndGetValueWork()
+    public void StatelessConnect_NoEventStream_SubscribeAndGetValueWork()
     {
         var (config, _) = MakeStateless(_ => Task.FromResult(Json(ConfigListJson)));
 
@@ -71,8 +71,8 @@ public class ConfigStatelessTests
         Assert.Equal(50L, proxy["max_seats"]);
         Assert.Equal(50L, config.GetValue("billing", "max_seats"));
 
-        // No WebSocket was opened or subscribed.
-        Assert.Null(typeof(ConfigClient).GetField("_wsManager",
+        // No event stream was opened or subscribed.
+        Assert.Null(typeof(ConfigClient).GetField("_eventStream",
             BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(config));
     }
 

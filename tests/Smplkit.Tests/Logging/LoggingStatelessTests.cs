@@ -14,13 +14,13 @@ namespace Smplkit.Tests.Logging;
 /// <summary>
 /// Tests for the stateless logging mode (<c>streaming: false</c>):
 /// InstallAsync still hooks adapters and applies levels once, but opens no
-/// WebSocket and starts no periodic flush timer; adapter-discovered loggers
+/// event stream and starts no periodic flush timer; adapter-discovered loggers
 /// past the threshold flush inline; RefreshAsync re-fetches on demand.
 /// </summary>
 public class LoggingStatelessTests
 {
-    private static readonly Func<SharedWebSocket> ThrowingWs =
-        () => throw new InvalidOperationException("stateless mode must not create a WebSocket");
+    private static readonly Func<EventStream> ThrowingEvents =
+        () => throw new InvalidOperationException("stateless mode must not create an event stream");
 
     private static (LoggingClient logging, MockHttpMessageHandler handler) MakeStateless(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> respond)
@@ -32,7 +32,7 @@ public class LoggingStatelessTests
             ApiKey = TestData.ApiKey,
             BaseDomain = "example.test",
         });
-        var logging = new LoggingClient(factory, TestData.ApiKey, ThrowingWs, parent: null, metrics: null, streaming: false);
+        var logging = new LoggingClient(factory, TestData.ApiKey, ThrowingEvents, parent: null, metrics: null, streaming: false);
         return (logging, handler);
     }
 
@@ -78,7 +78,7 @@ public class LoggingStatelessTests
             .GetValue(logging);
 
     [Fact]
-    public async Task InstallAsync_Stateless_NoWebSocketNoTimer_AppliesLevelsOnce()
+    public async Task InstallAsync_Stateless_NoEventStreamNoTimer_AppliesLevelsOnce()
     {
         var (logging, _) = MakeStateless(req =>
             Task.FromResult(Json(req.RequestUri!.AbsolutePath.Contains("/log_groups")
@@ -91,8 +91,8 @@ public class LoggingStatelessTests
 
         // Levels were fetched and applied once...
         Assert.Contains(("billing", LogLevel.Warn), adapter.AppliedLevels);
-        // ...with no live machinery: no WebSocket, no periodic flush timer.
-        Assert.Null(Field(logging, "_wsManager"));
+        // ...with no live machinery: no event stream, no periodic flush timer.
+        Assert.Null(Field(logging, "_eventStream"));
         Assert.Null(Field(logging, "_loggerFlushTimer"));
 
         // The live surface is installed: OnChange registers without throwing.

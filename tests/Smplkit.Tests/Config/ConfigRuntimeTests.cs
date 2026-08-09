@@ -11,7 +11,7 @@ namespace Smplkit.Tests.Config;
 /// <summary>
 /// Tests for the runtime <see cref="ConfigClient"/>: lazy initialization,
 /// resolved-value Get / GetValue / GetValueOr, OnChange listeners,
-/// RefreshAsync, and the WebSocket event handlers (HandleConfigChanged /
+/// RefreshAsync, and the event stream handlers (HandleConfigChanged /
 /// HandleConfigDeleted / HandleConfigsChanged).
 /// </summary>
 public class ConfigRuntimeTests
@@ -483,12 +483,12 @@ public class ConfigRuntimeTests
         };
         var method = typeof(ConfigClient).GetMethod("DiffAndFire",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-        method.Invoke(client.Config, new object?[] { oldCache, newCache, "websocket" });
+        method.Invoke(client.Config, new object?[] { oldCache, newCache, "push" });
 
         Assert.Single(events);
         Assert.Null(events[0].OldValue);
         Assert.Equal("v", events[0].NewValue);
-        Assert.Equal("websocket", events[0].Source);
+        Assert.Equal("push", events[0].Source);
     }
 
     [Fact]
@@ -515,7 +515,7 @@ public class ConfigRuntimeTests
         Assert.Null(events[0].NewValue);
     }
 
-    // WebSocket event handlers — invoked via reflection to verify behavior
+    // Event stream handlers — invoked via reflection to verify behavior
 
     [Fact]
     public void HandleConfigChanged_RefreshesCache()
@@ -611,6 +611,40 @@ public class ConfigRuntimeTests
         // Cache should still work
         var values = client.Config.Subscribe("user-svc");
         Assert.NotNull(values);
+    }
+
+    [Fact]
+    public void HandleReconnectRefetch_ReusesConfigsChangedBulkPath()
+    {
+        int listCall = 0;
+        var (client, _) = MakeClient(req =>
+        {
+            if (req.RequestUri!.ToString().Contains("config."))
+            {
+                listCall++;
+                var body = listCall <= 1
+                    ? ConfigListJson
+                    : ConfigListJson.Replace(
+                        "\"retries\": {\"value\": 3, \"type\": \"NUMBER\"}",
+                        "\"retries\": {\"value\": 7, \"type\": \"NUMBER\"}");
+                return Task.FromResult(Json(body));
+            }
+            return Task.FromResult(Json("{}"));
+        });
+
+        client.Config.Subscribe("user-svc"); // initialize (list call 1)
+
+        var events = new List<ConfigChangeEvent>();
+        client.Config.OnChange(evt => events.Add(evt));
+
+        var handler = typeof(ConfigClient).GetMethod("HandleReconnectRefetch",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        handler.Invoke(client.Config, Array.Empty<object>());
+
+        // The refetch reuses the configs_changed bulk path: only the moved
+        // value fires, with the push source label, and the cache is refreshed.
+        Assert.Contains(events, e => e.ItemKey == "retries" && e.Source == "push");
+        Assert.Equal(7L, client.Config.GetValue("user-svc", "retries"));
     }
 
     [Fact]

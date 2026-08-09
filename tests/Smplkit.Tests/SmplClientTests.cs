@@ -101,9 +101,9 @@ public class SmplClientTests
     }
 
     [Fact]
-    public async Task WaitUntilReadyAsync_TimesOut_WhenWebSocketDoesntConnect()
+    public async Task WaitUntilReadyAsync_TimesOut_WhenEventStreamDoesntConnect()
     {
-        // The default mock returns valid responses but the WebSocket never connects.
+        // The default mock returns valid responses but the event stream never connects.
         var (client, _) = MakeClient(_ => Task.FromResult(Json("""{"data":[]}""")));
         await Assert.ThrowsAsync<Smplkit.Errors.TimeoutException>(
             () => client.WaitUntilReadyAsync(TimeSpan.FromMilliseconds(150)));
@@ -237,11 +237,11 @@ public class SmplClientTests
     }
 
     [Fact]
-    public void EnsureSharedWebSocket_ReturnsSameInstance()
+    public void EnsureSharedEventStream_ReturnsSameInstance()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json("{}")));
-        var ws1 = client.EnsureSharedWebSocket();
-        var ws2 = client.EnsureSharedWebSocket();
-        Assert.Same(ws1, ws2);
+        var events1 = client.EnsureSharedEventStream();
+        var events2 = client.EnsureSharedEventStream();
+        Assert.Same(events1, events2);
     }
 }

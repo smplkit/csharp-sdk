@@ -12,7 +12,7 @@ namespace Smplkit.Tests.Logging;
 
 /// <summary>
 /// Tests for the runtime <see cref="LoggingClient"/>: InstallAsync, listener
-/// registration, the websocket-style handler delegates, the registration buffer
+/// registration, the push-style handler delegates, the registration buffer
 /// flush, ApplyLevels, FireListeners (with throwing listener resilience),
 /// RefreshAsync, and Close lifecycle.
 /// </summary>
@@ -551,7 +551,7 @@ public class LoggingRuntimeTests
         method.Invoke(client.Logging, Array.Empty<object>());
     }
 
-    // The async websocket handlers (Task.Run inside) — invoke and wait.
+    // The async push handlers (Task.Run inside) — invoke and wait.
 
     [Fact]
     public async Task HandleLoggerChanged_FetchesAndAppliesLevel()
@@ -780,6 +780,48 @@ public class LoggingRuntimeTests
             BindingFlags.Instance | BindingFlags.NonPublic)!;
         if (taskField.GetValue(client.Logging) is Task t) await t;
         Assert.True(fireCount >= 1);
+    }
+
+    [Fact]
+    public async Task HandleReconnectRefetch_ReusesLoggersChangedBulkPath()
+    {
+        int loggersCall = 0;
+        var (client, _) = MakeClient(req =>
+        {
+            var path = req.RequestUri!.AbsolutePath;
+            if (path.EndsWith("/loggers"))
+            {
+                loggersCall++;
+                if (loggersCall <= 1) return Task.FromResult(Json(LoggerListJson));
+                // The refetch sees a different server state (an extra logger).
+                return Task.FromResult(Json("""
+                    {"data":[
+                        {"id":"new-logger","type":"logger","attributes":{"name":"new-logger","level":"WARN","managed":true,"environments":{}}}
+                    ]}
+                    """));
+            }
+            if (path.EndsWith("/log_groups")) return Task.FromResult(Json(LogGroupListJson));
+            return Task.FromResult(Json("{}"));
+        });
+        var fake = new FakeAdapter();
+        client.Logging.RegisterAdapter(fake);
+        await client.Logging.InstallAsync();
+
+        var events = new List<LoggerChangeEvent>();
+        client.Logging.OnChange(evt => events.Add(evt));
+
+        var method = typeof(LoggingClient).GetMethod("HandleReconnectRefetch",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        method.Invoke(client.Logging, Array.Empty<object>());
+
+        var taskField = typeof(LoggingClient).GetField("_lastLoggersChangedTask",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        if (taskField.GetValue(client.Logging) is Task t) await t;
+
+        // The refetch reuses the loggers_changed bulk path (loggers + groups):
+        // listeners fire per moved logger with the push source label.
+        Assert.NotEmpty(events);
+        Assert.All(events, e => Assert.Equal("push", e.Source));
     }
 
     [Fact]

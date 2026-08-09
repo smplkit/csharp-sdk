@@ -164,7 +164,7 @@ public class InheritanceTests
         Assert.NotNull(captured);
         Assert.Equal("my-logger", captured!.Id);
         Assert.Equal(LogLevel.Error, captured.Level);
-        Assert.Equal("websocket", captured.Source);
+        Assert.Equal("push", captured.Source);
     }
 
     [Fact]
@@ -232,7 +232,7 @@ public class InheritanceTests
     [Fact]
     public async Task GroupChanged_NoLevelDelta_DoesNotFireListener()
     {
-        // Group's level unchanged after the websocket nudge — apply work
+        // Group's level unchanged after the pushed nudge — apply work
         // still happens, but no listener fires.
         var (client, _) = MakeClient(req =>
         {

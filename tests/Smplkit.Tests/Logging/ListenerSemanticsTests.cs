@@ -134,7 +134,7 @@ public class ListenerSemanticsTests
         {
             Assert.True(byId.ContainsKey(descendant));
             Assert.Equal(LogLevel.Error, byId[descendant].Level);
-            Assert.Equal("websocket", byId[descendant].Source);
+            Assert.Equal("push", byId[descendant].Source);
         }
     }
 
@@ -178,7 +178,7 @@ public class ListenerSemanticsTests
         {
             var evt = globalEvents.Single(e => e.Id == id);
             Assert.Equal(LogLevel.Error, evt.Level);
-            Assert.Equal("websocket", evt.Source);
+            Assert.Equal("push", evt.Source);
         }
     }
 
@@ -327,7 +327,7 @@ public class ListenerSemanticsTests
         if (taskField.GetValue(client.Logging) is Task tl) await tl;
 
         Assert.Equal(2, globalEvents.Count);
-        Assert.All(globalEvents, e => Assert.Equal("websocket", e.Source));
+        Assert.All(globalEvents, e => Assert.Equal("push", e.Source));
     }
 
     // ------------------------------------------------------------------

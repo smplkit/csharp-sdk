@@ -19,7 +19,7 @@ public static class SmplkitLoggingBuilderExtensions
     /// <remarks>
     /// <para>After this call, every <c>ILoggerFactory.CreateLogger(name)</c> in
     /// the host is observed by smplkit (auto-discovery), and any server-managed
-    /// level pushed by <c>client.Logging.InstallAsync()</c> or the WebSocket
+    /// level pushed by <c>client.Logging.InstallAsync()</c> or the event stream
     /// triggers a host-level filter refresh that gates output to <em>every</em>
     /// other registered provider.</para>
     /// <para>Call <c>await client.Logging.InstallAsync()</c> at startup to

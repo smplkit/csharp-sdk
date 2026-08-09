@@ -216,11 +216,11 @@ public class FlagsStartRetryTests
     }
 
     // ------------------------------------------------------------------
-    // 5. WebSocket handlers are registered only once across retry attempts
+    // 5. Event stream handlers are registered only once across retry attempts
     // ------------------------------------------------------------------
 
     [Fact]
-    public void WsSubscribed_OnlyOnceAcrossRetryAttempts()
+    public void EventsSubscribed_OnlyOnceAcrossRetryAttempts()
     {
         int bulkCallCount = 0;
         var (client, _) = MakeClient(req =>
@@ -239,16 +239,16 @@ public class FlagsStartRetryTests
 
         // First attempt fails — not yet subscribed.
         handle.Get();
-        Assert.False(client.Flags._wsSubscribed);
+        Assert.False(client.Flags._eventsSubscribed);
 
         // Skip backoff, second attempt succeeds — subscribes once.
         client.Flags._nextStartAttemptAt = 0L;
         handle.Get();
-        Assert.True(client.Flags._wsSubscribed);
+        Assert.True(client.Flags._eventsSubscribed);
         Assert.True(client.Flags._connected);
 
-        // Third call — fast path, already connected, _wsSubscribed unchanged.
+        // Third call — fast path, already connected, _eventsSubscribed unchanged.
         handle.Get();
-        Assert.True(client.Flags._wsSubscribed);
+        Assert.True(client.Flags._eventsSubscribed);
     }
 }

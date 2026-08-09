@@ -4,6 +4,7 @@ using System.Text;
 using Smplkit;
 using Smplkit.Errors;
 using Smplkit.Flags;
+using Smplkit.Internal;
 using Smplkit.Tests.Helpers;
 using Xunit;
 
@@ -11,7 +12,7 @@ namespace Smplkit.Tests.Flags;
 
 /// <summary>
 /// Tests for the runtime <see cref="FlagsClient"/>: handle declaration,
-/// listeners, refresh/refetch, websocket-driven updates, context provider,
+/// listeners, refresh/refetch, push-driven updates, context provider,
 /// flag registration buffer, lifecycle (Close).
 /// </summary>
 public class FlagsRuntimeTests
@@ -383,6 +384,113 @@ public class FlagsRuntimeTests
         {
             new Dictionary<string, object?>(),
         });
+    }
+
+    [Fact]
+    public void HandleReconnectRefetch_ReusesFlagsChangedBulkPath()
+    {
+        var listV1 = FlagListJson(("f1", "BOOLEAN", "true", true, null));
+        var listV2 = FlagListJson(("f1", "BOOLEAN", "false", true, null));
+        int listCall = 0;
+        var (client, _) = MakeClient(req =>
+        {
+            if (req.Method == HttpMethod.Get && req.RequestUri!.AbsolutePath.EndsWith("/flags"))
+            {
+                listCall++;
+                return Task.FromResult(Json(listCall <= 1 ? listV1 : listV2));
+            }
+            return Task.FromResult(Json("{}"));
+        });
+
+        client.Flags.BooleanFlag("f1", false).Get(); // init (call 1: list)
+
+        var fired = new List<FlagChangeEvent>();
+        client.Flags.OnChange(evt => fired.Add(evt));
+
+        var method = typeof(FlagsClient).GetMethod("HandleReconnectRefetch",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        method.Invoke(client.Flags, Array.Empty<object>());
+
+        // The refetch reuses the flags_changed bulk path: listeners fire for
+        // changed keys only, with the push source label.
+        Assert.NotEmpty(fired);
+        Assert.All(fired, e => Assert.Equal("push", e.Source));
+    }
+
+    [Fact]
+    public async Task EventStreamReconnect_RefetchesFlags_AndFiresPushListeners()
+    {
+        // Full-stack staleness regression: the flags module registers its bulk
+        // refetch with the shared event stream; dropping and re-establishing
+        // the stream must re-fetch all flags and fire change listeners
+        // (source "push") for values that moved while disconnected.
+        var listV1 = FlagListJson(("f1", "BOOLEAN", "true", true, null));
+        var listV2 = FlagListJson(("f1", "BOOLEAN", "false", true, null));
+        int listCall = 0;
+        var handler = new MockHttpMessageHandler(req =>
+        {
+            if (req.Method == HttpMethod.Get && req.RequestUri!.AbsolutePath.EndsWith("/flags"))
+            {
+                var n = Interlocked.Increment(ref listCall);
+                return Task.FromResult(Json(n <= 1 ? listV1 : listV2));
+            }
+            return Task.FromResult(Json("{}"));
+        });
+        var http = new HttpClient(handler);
+        var factory = new GeneratedClientFactory(http, new SmplClientOptions
+        {
+            ApiKey = TestData.ApiKey,
+            BaseDomain = "example.test",
+        });
+
+        var streams = new List<SsePushStream>();
+        var server = new SseTestServer(_ =>
+        {
+            var s = new SsePushStream();
+            lock (streams) streams.Add(s);
+            return SseTestServer.CreateSseResponse(s);
+        });
+        EventStream? es = null;
+        EventStream EnsureEvents()
+        {
+            if (es is null)
+            {
+                es = new EventStream(TestData.ApiKey, server.SendAsync);
+                es.DelayAsync = (_, ct) =>
+                {
+                    ct.ThrowIfCancellationRequested();
+                    return Task.CompletedTask;
+                };
+                es.Start();
+            }
+            return es;
+        }
+
+        var flags = new FlagsClient(factory, TestData.ApiKey, EnsureEvents,
+            new ContextRegistrationBuffer(lruSize: 100, flushSize: 100));
+        try
+        {
+            var handle = flags.BooleanFlag("f1", false);
+            Assert.True(handle.Get()); // v1 default served
+
+            var pushed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            flags.OnChange(evt =>
+            {
+                if (evt.Source == "push") pushed.TrySetResult();
+            });
+
+            await es!.WaitForInitialConnectAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            // Drop the stream: the reconnect must trigger the registered refetch.
+            lock (streams) streams[0].Complete();
+
+            await pushed.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.False(handle.Get()); // v2 default served after the refetch
+        }
+        finally
+        {
+            flags.Dispose();
+            if (es is not null) await es.StopAsync();
+        }
     }
 
     [Fact]

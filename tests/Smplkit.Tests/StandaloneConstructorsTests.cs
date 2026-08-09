@@ -21,7 +21,7 @@ namespace Smplkit.Tests;
 /// <summary>
 /// Coverage for the standalone (direct-construction) entry points of every
 /// product client — <c>new ConfigClient(apiKey: ...)</c>, <c>new FlagsClient(...)</c>,
-/// and so on — plus the standalone-only WebSocket / Dispose teardown paths.
+/// and so on — plus the standalone-only event stream / Dispose teardown paths.
 /// </summary>
 /// <remarks>
 /// Standalone construction resolves config via <see cref="ConfigResolver"/> and
@@ -59,15 +59,15 @@ public class StandaloneConstructorsTests
     }
 
     [Fact]
-    public void ConfigClient_Standalone_OwnedWebSocket_OpenedAndDisposed()
+    public void ConfigClient_Standalone_OwnedEventStream_OpenedAndDisposed()
     {
         var config = new ConfigClient(apiKey: Key, baseDomain: Domain, telemetry: false);
-        // Force the standalone EnsureWs path (builds + starts an owned socket).
-        var ensureWs = typeof(ConfigClient).GetMethod("EnsureWs",
+        // Force the standalone EnsureEventStream path (builds + starts an owned stream).
+        var ensureEvents = typeof(ConfigClient).GetMethod("EnsureEventStream",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
-        var ws = ensureWs.Invoke(config, null);
-        Assert.NotNull(ws);
-        // Dispose tears down the owned socket + transport (the _ownsWs branch).
+        var events = ensureEvents.Invoke(config, null);
+        Assert.NotNull(events);
+        // Dispose tears down the owned stream + transport (the _ownsEventStream branch).
         config.Dispose();
     }
 
@@ -94,15 +94,15 @@ public class StandaloneConstructorsTests
     }
 
     [Fact]
-    public void FlagsClient_Standalone_OwnedWebSocket_OpenedAndDisposed()
+    public void FlagsClient_Standalone_OwnedEventStream_OpenedAndDisposed()
     {
         var flags = new FlagsClient(apiKey: Key, baseDomain: Domain, telemetry: false);
-        var ensureWs = typeof(FlagsClient).GetMethod("EnsureOwnedWebSocket",
+        var ensureEvents = typeof(FlagsClient).GetMethod("EnsureOwnedEventStream",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
-        var ws = ensureWs.Invoke(flags, null);
-        Assert.NotNull(ws);
+        var events = ensureEvents.Invoke(flags, null);
+        Assert.NotNull(events);
         // Calling again returns the same instance (the early-return branch).
-        Assert.Same(ws, ensureWs.Invoke(flags, null));
+        Assert.Same(events, ensureEvents.Invoke(flags, null));
         flags.Dispose();
     }
 
@@ -129,15 +129,15 @@ public class StandaloneConstructorsTests
     }
 
     [Fact]
-    public void LoggingClient_Standalone_OwnedWebSocket_OpenedAndDisposed()
+    public void LoggingClient_Standalone_OwnedEventStream_OpenedAndDisposed()
     {
         var logging = new LoggingClient(apiKey: Key, baseDomain: Domain);
-        var ensureWs = typeof(LoggingClient).GetMethod("EnsureWs",
+        var ensureEvents = typeof(LoggingClient).GetMethod("EnsureEventStream",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
-        var ws = ensureWs.Invoke(logging, null);
-        Assert.NotNull(ws);
-        Assert.Same(ws, ensureWs.Invoke(logging, null));
-        // Mark started so Close() runs the WS-teardown branch, then Dispose.
+        var events = ensureEvents.Invoke(logging, null);
+        Assert.NotNull(events);
+        Assert.Same(events, ensureEvents.Invoke(logging, null));
+        // Mark started so Close() runs the stream-teardown branch, then Dispose.
         typeof(LoggingClient).GetField("_started",
             BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(logging, true);
         logging.Dispose();

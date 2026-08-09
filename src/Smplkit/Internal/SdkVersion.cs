@@ -5,7 +5,7 @@ namespace Smplkit.Internal;
 /// <summary>
 /// Resolves the SDK's own release version from assembly metadata and exposes
 /// the default <c>User-Agent</c> product token stamped on every outbound
-/// request (HTTP and the WebSocket upgrade) when the caller has not supplied
+/// request (HTTP calls and the event stream) when the caller has not supplied
 /// one. The platform edge (CloudFront + AWS managed WAF rules) rejects
 /// requests that carry no User-Agent header at all, and .NET's
 /// <see cref="HttpClient"/> sends none by default.

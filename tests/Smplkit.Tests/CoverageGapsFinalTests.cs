@@ -607,12 +607,12 @@ public class CoverageGapsFinalTests
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json("""{"data":[]}""")));
 
-        // Force the WS into "connected" state via reflection so the loop exits
-        // cleanly. The real WS thread may race (overwrite the status as it
-        // connects/reconnects), so keep poking the field from a helper thread
-        // until WaitUntilReadyAsync exits.
-        var ws = client.EnsureSharedWebSocket();
-        var statusField = typeof(Smplkit.Internal.SharedWebSocket).GetField("_connectionStatus",
+        // Force the stream into "connected" state via reflection so the loop
+        // exits cleanly. The real stream task may race (overwrite the status as
+        // it connects/reconnects), so keep poking the field from a helper
+        // thread until WaitUntilReadyAsync exits.
+        var events = client.EnsureSharedEventStream();
+        var statusField = typeof(Smplkit.Internal.EventStream).GetField("_connectionStatus",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
         using var stopPoking = new CancellationTokenSource();
         var poker = Task.Run(async () =>
@@ -623,7 +623,7 @@ public class CoverageGapsFinalTests
             try { await Task.Delay(200, stopPoking.Token); } catch { return; }
             while (!stopPoking.Token.IsCancellationRequested)
             {
-                statusField.SetValue(ws, "connected");
+                statusField.SetValue(events, "connected");
                 try { await Task.Delay(5, stopPoking.Token); } catch { return; }
             }
         });

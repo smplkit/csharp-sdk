@@ -12,17 +12,17 @@
 //   (an ad-hoc resolved read), Bind (a live POCO/dict binding),
 //   OnChange, and Refresh. The first live call transparently flushes
 //   discovery, fetches and resolves every config into the local cache,
-//   and opens the live-updates WebSocket — no explicit install step.
+//   and opens the live-updates event stream — no explicit install step.
 //
 // The client supports two construction shapes:
 //
 // * Wired into SmplClient — borrows the parent's config
 //   transport for both runtime fetch and CRUD and the parent's shared
-//   WebSocket for the live channel. This is the common path.
+//   event stream for the live channel. This is the common path.
 // * Standalone — ConfigClient(apiKey: ..., baseDomain: ..., ...) builds
 //   and owns its own config transport, and on first live use opens and owns
-//   its own WebSocket. Dispose() tears down only the owned
-//   transport and owned WebSocket.
+//   its own event stream. Dispose() tears down only the owned
+//   transport and owned event stream.
 
 using System.Reflection;
 using System.Text.Json;
@@ -54,18 +54,18 @@ namespace Smplkit.Config;
 /// (<see cref="Subscribe(string)"/> / <see cref="GetValue(string, string)"/> /
 /// <see cref="Bind{T}(string, T, object?)"/> / <c>OnChange</c> / <see cref="RefreshAsync(CancellationToken)"/>)
 /// connects lazily on first use — the first call flushes discovery, fetches and resolves all configs into
-/// the local cache, and opens the live-updates WebSocket. No explicit
+/// the local cache, and opens the live-updates event stream. No explicit
 /// install step is required.</para>
 /// <para>For serverless or short-lived processes, construct with
 /// <c>streaming: false</c>: the first live call still fetches and resolves every
-/// config once, <see cref="RefreshAsync"/> re-fetches on demand, and no WebSocket
-/// or background work is ever created.</para>
+/// config once, <see cref="RefreshAsync"/> re-fetches on demand, and no event
+/// stream or background work is ever created.</para>
 /// </remarks>
 public sealed class ConfigClient : IDisposable
 {
     private readonly GenConfig.ConfigClient _genClient;
     private readonly SmplClient? _parent;
-    private readonly Func<SharedWebSocket>? _ensureWs;
+    private readonly Func<EventStream>? _ensureEvents;
     private readonly MetricsReporter? _metrics;
     private readonly MetricsReporter? _ownedMetrics;
     private readonly HttpClient? _ownedHttpClient;
@@ -76,8 +76,8 @@ public sealed class ConfigClient : IDisposable
     private readonly string? _environment;
     private readonly string? _service;
 
-    // Standalone-only: the app base URL the owned WebSocket connects to, and the
-    // api key it authenticates with.
+    // Standalone-only: the app base URL the owned event stream connects to, and
+    // the api key it authenticates with.
     private readonly string? _appBaseUrl;
     private readonly string? _standaloneApiKey;
 
@@ -85,7 +85,7 @@ public sealed class ConfigClient : IDisposable
     private readonly ConfigRegistrationBuffer _buffer = new();
     private const int RegistrationFlushSize = 50;
 
-    // Live-updates mode: true (default) opens a WebSocket on first live use;
+    // Live-updates mode: true (default) opens an event stream on first live use;
     // false keeps the client fully stateless — the first live call fetches and
     // resolves once, discovery flushes run inline, and RefreshAsync re-fetches
     // on demand.
@@ -103,11 +103,11 @@ public sealed class ConfigClient : IDisposable
     private Dictionary<string, Config> _rawConfigCache = new();
     private readonly List<(Action<ConfigChangeEvent> Callback, string? ConfigId, string? ItemKey)> _listeners = new();
     private readonly object _listenerLock = new();
-    private SharedWebSocket? _wsManager;
-    private bool _ownsWs;
+    private EventStream? _eventStream;
+    private bool _ownsEventStream;
 
     // Effective User-Agent from the HTTP transport, reused on the owned
-    // WebSocket handshake so both channels present the same agent.
+    // event stream request so both channels present the same agent.
     private readonly string _userAgent;
 
     // LiveConfigProxy instances for Subscribe(id) callers; one per config id.
@@ -115,7 +115,7 @@ public sealed class ConfigClient : IDisposable
     private readonly object _proxyLock = new();
 
     // POCO / dict instances bound via Bind(id, ...); one per config id.
-    // WebSocket dispatch mutates these in place when values change.
+    // Event stream dispatch mutates these in place when values change.
     private readonly Dictionary<string, object> _bindings = new();
     private readonly object _bindingsLock = new();
 
@@ -137,10 +137,10 @@ public sealed class ConfigClient : IDisposable
     /// <param name="telemetry">Enable SDK telemetry reporting. Defaults to enabled.</param>
     /// <param name="extraHeaders">Extra headers attached to every request.</param>
     /// <param name="streaming">When <c>true</c> (the default), the first live call
-    /// opens a WebSocket for push updates. Set to <c>false</c> for serverless or
+    /// opens an event stream for push updates. Set to <c>false</c> for serverless or
     /// short-lived processes: the first live call still fetches and resolves every
     /// config once, discovery flushes run inline, and <see cref="RefreshAsync"/>
-    /// re-fetches on demand — no WebSocket or background work is ever created.</param>
+    /// re-fetches on demand — no event stream or background work is ever created.</param>
     public ConfigClient(
         string? apiKey = null,
         string? environment = null,
@@ -187,12 +187,12 @@ public sealed class ConfigClient : IDisposable
         _genClient = clients.Config;
         _userAgent = clients.EffectiveUserAgent;
 
-        // A standalone client opens its own WebSocket against the app event
+        // A standalone client opens its own event stream against the app event
         // gateway on first live use, and its own metrics reporter.
         _appBaseUrl = ConfigResolver.ServiceUrl(resolved.Scheme, "app", resolved.BaseDomain);
         _standaloneApiKey = resolved.ApiKey;
         _parent = null;
-        _ensureWs = null;
+        _ensureEvents = null;
         _ownedMetrics = resolved.Telemetry
             ? new MetricsReporter(_ownedHttpClient, _environment ?? string.Empty, _service ?? string.Empty, appBaseUrl: _appBaseUrl)
             : null;
@@ -203,14 +203,14 @@ public sealed class ConfigClient : IDisposable
     /// Initializes a new <see cref="ConfigClient"/> wired into a parent <see cref="SmplClient"/>.
     /// </summary>
     /// <param name="clients">The generated client factory.</param>
-    /// <param name="ensureWs">Factory for the shared WebSocket.</param>
+    /// <param name="ensureEvents">Factory for the shared event stream.</param>
     /// <param name="parent">The parent <see cref="SmplClient"/>, if any.</param>
     /// <param name="metrics">Optional metrics reporter for telemetry.</param>
-    /// <param name="streaming">Whether the live surface opens a WebSocket on connect.</param>
-    internal ConfigClient(GeneratedClientFactory clients, Func<SharedWebSocket>? ensureWs = null, SmplClient? parent = null, MetricsReporter? metrics = null, bool streaming = true)
+    /// <param name="streaming">Whether the live surface opens an event stream on connect.</param>
+    internal ConfigClient(GeneratedClientFactory clients, Func<EventStream>? ensureEvents = null, SmplClient? parent = null, MetricsReporter? metrics = null, bool streaming = true)
     {
         _genClient = clients.Config;
-        _ensureWs = ensureWs;
+        _ensureEvents = ensureEvents;
         _userAgent = clients.EffectiveUserAgent;
         _parent = parent;
         _metrics = metrics;
@@ -477,7 +477,7 @@ public sealed class ConfigClient : IDisposable
     /// values are authoritative and synced onto the bound object; if it is
     /// brand-new, the cache entry is seeded in-memory from the bound
     /// object's values resolved through its bound parent chain (no network
-    /// round-trip). On every WebSocket-delivered change thereafter the
+    /// round-trip). On every stream-delivered change thereafter the
     /// bound object is mutated in place. Readers always
     /// see the current resolved value with no proxy indirection.</para>
     /// <para>Idempotent. Repeated calls with the same <paramref name="id"/>
@@ -526,7 +526,7 @@ public sealed class ConfigClient : IDisposable
 
             RegisterBindingDeclaration(id, target, parentId);
 
-            // Register the binding BEFORE syncing so WebSocket dispatch finds it.
+            // Register the binding BEFORE syncing so event stream dispatch finds it.
             _bindings[id] = target;
             _boundParents[id] = parentId;
             resolved = target;
@@ -784,25 +784,25 @@ public sealed class ConfigClient : IDisposable
     internal bool HasResolved(string id) => _connected && _configCache.ContainsKey(id);
 
     // ------------------------------------------------------------------
-    // Live surface: lazy connect + transport / WebSocket helpers
+    // Live surface: lazy connect + transport / event stream helpers
     // ------------------------------------------------------------------
 
-    /// <summary>Return the shared WebSocket — the parent's when wired, else our own.</summary>
-    private SharedWebSocket EnsureWs()
+    /// <summary>Return the shared event stream — the parent's when wired, else our own.</summary>
+    private EventStream EnsureEventStream()
     {
-        if (_ensureWs is not null)
-            return _ensureWs();
-        if (_wsManager is null)
+        if (_ensureEvents is not null)
+            return _ensureEvents();
+        if (_eventStream is null)
         {
-            _wsManager = new SharedWebSocket(
+            _eventStream = new EventStream(
                 _standaloneApiKey ?? string.Empty,
                 metrics: _metrics,
                 appBaseUrl: _appBaseUrl ?? "https://app.smplkit.com",
                 userAgent: _userAgent);
-            _wsManager.Start();
-            _ownsWs = true;
+            _eventStream.Start();
+            _ownsEventStream = true;
         }
-        return _wsManager;
+        return _eventStream;
     }
 
     /// <summary>
@@ -811,7 +811,7 @@ public sealed class ConfigClient : IDisposable
     /// <remarks>
     /// Flushes any buffered discovery declarations, fetches and resolves
     /// every config for the configured environment into the local cache,
-    /// opens the shared WebSocket, and subscribes to <c>config_changed</c> /
+    /// opens the shared event stream, and subscribes to <c>config_changed</c> /
     /// <c>config_deleted</c> / <c>configs_changed</c> events.
     /// <para>Idempotent and internal — every live method calls it on first use, so
     /// the live surface auto-connects with no explicit step.</para>
@@ -835,20 +835,21 @@ public sealed class ConfigClient : IDisposable
             _connected = true;
 
             // Stateless mode (streaming: false): the one-time fetch above is the
-            // whole connect — no WebSocket. RefreshAsync re-fetches on demand.
+            // whole connect — no event stream. RefreshAsync re-fetches on demand.
             if (!_streaming)
             {
-                DebugLog.Log("websocket", "config runtime connected (streaming disabled)");
+                DebugLog.Log("events", "config runtime connected (streaming disabled)");
                 return;
             }
 
             DebugLog.Log("registration", "registering config_changed, config_deleted, and configs_changed handlers");
-            _wsManager = EnsureWs();
-            _wsManager.On("config_changed", HandleConfigChanged);
-            _wsManager.On("config_deleted", HandleConfigDeleted);
-            _wsManager.On("configs_changed", HandleConfigsChanged);
-            _wsManager.WaitForInitialConnectAsync().GetAwaiter().GetResult();
-            DebugLog.Log("websocket", "config runtime connected");
+            _eventStream = EnsureEventStream();
+            _eventStream.On("config_changed", HandleConfigChanged);
+            _eventStream.On("config_deleted", HandleConfigDeleted);
+            _eventStream.On("configs_changed", HandleConfigsChanged);
+            _eventStream.OnReconnect(HandleReconnectRefetch);
+            _eventStream.WaitForInitialConnectAsync().GetAwaiter().GetResult();
+            DebugLog.Log("events", "config runtime connected");
         }
     }
 
@@ -907,7 +908,7 @@ public sealed class ConfigClient : IDisposable
     /// <remarks>
     /// A freshly-bound config lives only as a seed until it is flushed and
     /// fetched; without this, any cache rebuild (a manual refresh, or a
-    /// WebSocket event for another config) would drop it. Server-present
+    /// pushed event for another config) would drop it. Server-present
     /// configs are already in <paramref name="newCache"/> and are authoritative — only
     /// bound ids missing from it are re-seeded.
     /// </remarks>
@@ -1077,13 +1078,20 @@ public sealed class ConfigClient : IDisposable
     }
 
     // ------------------------------------------------------------------
-    // Internal: WebSocket event handlers
+    // Internal: event stream handlers
     // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Reconnect refetch: the event stream dropped and came back, so events may
+    /// have been missed. Reuses the configs_changed bulk-refresh path — change
+    /// listeners fire only for values that actually changed.
+    /// </summary>
+    private void HandleReconnectRefetch() => HandleConfigsChanged(new Dictionary<string, object?>());
 
     private void HandleConfigChanged(Dictionary<string, object?> data)
     {
         var configId = data.TryGetValue("id", out var k) ? k as string : null;
-        DebugLog.Log("websocket", $"config_changed event received, id={configId ?? "<unknown>"}");
+        DebugLog.Log("events", $"config_changed event received, id={configId ?? "<unknown>"}");
         if (!_connected || configId is null)
         {
             HandleConfigsChanged(data);
@@ -1100,19 +1108,19 @@ public sealed class ConfigClient : IDisposable
             if (config is null) return;
             rawCache[configId] = config;
             EnsureAncestorsCached(rawCache);
-            RebuildResolvedCache(rawCache, "websocket");
+            RebuildResolvedCache(rawCache, "push");
         }
         catch (Exception ex)
         {
             System.Diagnostics.Trace.TraceWarning("[smplkit] Config refresh failed: {0}", ex.Message);
-            DebugLog.Log("websocket", $"Config refresh failed: {ex}");
+            DebugLog.Log("events", $"Config refresh failed: {ex}");
         }
     }
 
     private void HandleConfigDeleted(Dictionary<string, object?> data)
     {
         var configId = data.TryGetValue("id", out var k) ? k as string : null;
-        DebugLog.Log("websocket", $"config_deleted event received, id={configId ?? "<unknown>"}");
+        DebugLog.Log("events", $"config_deleted event received, id={configId ?? "<unknown>"}");
         if (!_connected || configId is null)
         {
             HandleConfigsChanged(data);
@@ -1123,22 +1131,22 @@ public sealed class ConfigClient : IDisposable
         // remaining config so any descendants lose its inherited values.
         var rawCache = new Dictionary<string, Config>(_rawConfigCache);
         if (!rawCache.Remove(configId)) return;
-        RebuildResolvedCache(rawCache, "websocket");
+        RebuildResolvedCache(rawCache, "push");
     }
 
     private void HandleConfigsChanged(Dictionary<string, object?> data)
     {
-        DebugLog.Log("websocket", "configs_changed event received — full list refetch");
+        DebugLog.Log("events", "configs_changed event received — full list refetch");
         if (!_connected) return;
 
         try
         {
-            DoRefresh("websocket");
+            DoRefresh("push");
         }
         catch (Exception ex)
         {
             System.Diagnostics.Trace.TraceWarning("[smplkit] Configs bulk refresh failed: {0}", ex.Message);
-            DebugLog.Log("websocket", $"Configs bulk refresh failed: {ex}");
+            DebugLog.Log("events", $"Configs bulk refresh failed: {ex}");
         }
     }
 
@@ -1207,18 +1215,18 @@ public sealed class ConfigClient : IDisposable
     /// Release resources — only those this client owns.
     /// </summary>
     /// <remarks>
-    /// Tears down the owned WebSocket (opened by a standalone client on
+    /// Tears down the owned event stream (opened by a standalone client on
     /// first live use) and the owned HTTP transport (standalone
     /// construction). A wired client borrows the parent's transport and
-    /// WebSocket and closes neither.
+    /// event stream and closes neither.
     /// </remarks>
     public void Dispose()
     {
-        if (_ownsWs && _wsManager is not null)
+        if (_ownsEventStream && _eventStream is not null)
         {
-            _wsManager.StopAsync().GetAwaiter().GetResult();
-            _wsManager = null;
-            _ownsWs = false;
+            _eventStream.StopAsync().GetAwaiter().GetResult();
+            _eventStream = null;
+            _ownsEventStream = false;
         }
         _ownedMetrics?.Dispose();
         _ownedHttpClient?.Dispose();

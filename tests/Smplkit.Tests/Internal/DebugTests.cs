@@ -96,7 +96,7 @@ public class DebugTests
         var (prevEnabled, prevOut, captured) = CaptureDebug(false);
         try
         {
-            Debug.Log("websocket", "should not appear");
+            Debug.Log("events", "should not appear");
             Assert.Equal(string.Empty, captured.ToString());
         }
         finally { RestoreDebug(prevEnabled, prevOut); }
@@ -108,8 +108,8 @@ public class DebugTests
         var (prevEnabled, prevOut, captured) = CaptureDebug(true);
         try
         {
-            Debug.Log("websocket", "connected");
-            Assert.Contains("[smplkit:websocket]", captured.ToString());
+            Debug.Log("events", "connected");
+            Assert.Contains("[smplkit:events]", captured.ToString());
         }
         finally { RestoreDebug(prevEnabled, prevOut); }
     }
@@ -167,7 +167,7 @@ public class DebugTests
 
     [Theory]
     [InlineData("lifecycle")]
-    [InlineData("websocket")]
+    [InlineData("events")]
     [InlineData("api")]
     [InlineData("discovery")]
     [InlineData("resolution")]

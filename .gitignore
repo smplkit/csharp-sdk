@@ -28,6 +28,13 @@ bld/
 
 ## Test results
 TestResults/
+
+## Coverage artifacts
+coverage/
+coverage_ci/
+coverage_detail/
+coverage.lcov
+coverage.cobertura.xml
 coverage/
 coverage.json
 *.trx

@@ -99,7 +99,7 @@ using var _ = client.SetContext(new[]
 });
 
 // Evaluate flags — local, typed, instant (no network per call).
-// Definitions are fetched and the WebSocket opens on first .Get(); no
+// Definitions are fetched and live updates begin on first .Get(); no
 // explicit Connect call is required.
 if (checkout.Get())
     RenderNewCheckout();
@@ -115,6 +115,8 @@ var result = checkout.Get(new List<Context>
 
 // Listen for real-time changes
 client.Flags.OnChange(e => Console.WriteLine($"Flag {e.Id} changed via {e.Source}"));
+// e.Source is "push" for changes pushed from the server in real time,
+// and "manual" for changes you triggered with RefreshAsync().
 ```
 
 ### Flag Management
@@ -176,8 +178,8 @@ await client.Logging.InstallAsync();
 var dbLogger = loggerFactory.CreateLogger("MyApp.Db");
 dbLogger.LogInformation("Hello — server-managed level controls whether this is emitted");
 
-// Re-fetch managed levels and re-apply them (rarely needed; the WebSocket
-// pushes changes automatically).
+// Re-fetch managed levels and re-apply them (rarely needed; changes are
+// pushed automatically in real time).
 await client.Logging.RefreshAsync();
 
 // Listen for level changes
@@ -340,7 +342,7 @@ Each line follows the format:
 [smplkit:{subsystem}] {ISO-8601 timestamp} {message}
 ```
 
-Subsystems: `lifecycle`, `websocket`, `api`, `discovery`, `resolution`, `adapter`, `registration`.
+Subsystems: `lifecycle`, `events`, `api`, `discovery`, `resolution`, `adapter`, `registration`.
 
 Output writes directly to `Console.Error` to avoid interference with the managed logging infrastructure.
 

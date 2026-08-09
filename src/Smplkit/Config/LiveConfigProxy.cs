@@ -11,7 +11,7 @@ namespace Smplkit.Config;
 /// the latest server-pushed state — every read sees current values.</para>
 /// <para>For typed access via a declarative schema, use
 /// <see cref="ConfigClient.Bind{T}(string, T, object?)"/> instead — bound
-/// instances stay live on the same WebSocket cache, with attribute access
+/// instances stay live on the same push-updated cache, with attribute access
 /// typed by the customer's POCO class.</para>
 /// <para>Implements <see cref="IReadOnlyDictionary{TKey,TValue}"/> so
 /// idiomatic C# patterns work: <c>proxy["key"]</c>,

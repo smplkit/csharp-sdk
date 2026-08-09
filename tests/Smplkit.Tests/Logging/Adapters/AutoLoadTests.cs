@@ -29,7 +29,7 @@ public class AutoLoadTests
     {
         // With auto-load removed, InstallAsync with zero registered adapters
         // is a valid path — discovery, hook install, and apply-levels all become
-        // no-ops, and InstallAsync proceeds to the websocket subscription stage.
+        // no-ops, and InstallAsync proceeds to the event stream subscription stage.
         var (client, _) = CreateClient();
 
         try
@@ -38,7 +38,7 @@ public class AutoLoadTests
         }
         catch
         {
-            // WebSocket may fail in this test harness — the relevant assertion
+            // The event stream may fail in this test harness — the relevant assertion
             // is that everything up to that point ran without throwing.
         }
     }
@@ -59,7 +59,7 @@ public class AutoLoadTests
         }
         catch
         {
-            // WebSocket will fail
+            // The event stream will fail
         }
 
         mockAdapter.Verify(a => a.Discover(), Times.Once);
@@ -77,7 +77,7 @@ public class AutoLoadTests
         }
         catch
         {
-            // WebSocket will fail, but _started is set to true
+            // The event stream will fail, but _started is set to true
         }
 
         var mockAdapter = new Mock<ILoggingAdapter>();
@@ -134,7 +134,7 @@ public class AutoLoadTests
         }
         catch
         {
-            // WebSocket will fail
+            // The event stream will fail
         }
 
         // Both adapters should have Discover, InstallHook, and ApplyLevel called
@@ -168,7 +168,7 @@ public class AutoLoadTests
         }
         catch
         {
-            // WebSocket will fail
+            // The event stream will fail
         }
 
         client.Dispose();
@@ -225,7 +225,7 @@ public class AutoLoadTests
         }
         catch
         {
-            // WebSocket will fail
+            // The event stream will fail
         }
 
         // ApplyLevel must not be called for unmanaged loggers.

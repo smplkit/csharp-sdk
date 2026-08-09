@@ -487,12 +487,12 @@ public class ConfigDiscoveryTests
     }
 
     [Fact]
-    public void Bind_Poco_InPlaceMutationOnWebSocketEvent()
+    public void Bind_Poco_InPlaceMutationOnPushedEvent()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json(EmptyListJson)));
         var billing = client.Config.Bind("billing", new Billing());
 
-        // Drive a change via DiffAndFire (the websocket dispatch entry point)
+        // Drive a change via DiffAndFire (the push dispatch entry point)
         var oldCache = new Dictionary<string, Dictionary<string, object?>>
         {
             ["billing"] = new() { ["max_seats"] = 5L },
@@ -503,13 +503,13 @@ public class ConfigDiscoveryTests
         };
         var method = typeof(ConfigClient).GetMethod("DiffAndFire",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
-        method.Invoke(client.Config, new object?[] { oldCache, newCache, "websocket" });
+        method.Invoke(client.Config, new object?[] { oldCache, newCache, "push" });
 
         Assert.Equal(42, billing.MaxSeats);
     }
 
     [Fact]
-    public void Bind_Poco_NestedMutationOnWebSocketEvent()
+    public void Bind_Poco_NestedMutationOnPushedEvent()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json(EmptyListJson)));
         var nested = client.Config.Bind("svc", new Nested());
@@ -524,7 +524,7 @@ public class ConfigDiscoveryTests
         };
         var method = typeof(ConfigClient).GetMethod("DiffAndFire",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
-        method.Invoke(client.Config, new object?[] { oldCache, newCache, "websocket" });
+        method.Invoke(client.Config, new object?[] { oldCache, newCache, "push" });
 
         Assert.Equal(100, nested.Plan.MaxSeats);
     }
@@ -551,7 +551,7 @@ public class ConfigDiscoveryTests
         };
         var method = typeof(ConfigClient).GetMethod("DiffAndFire",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
-        method.Invoke(client.Config, new object?[] { oldCache, newCache, "websocket" });
+        method.Invoke(client.Config, new object?[] { oldCache, newCache, "push" });
 
         Assert.Equal(42, billing.MaxSeats);
     }
@@ -580,13 +580,13 @@ public class ConfigDiscoveryTests
         };
         var method = typeof(ConfigClient).GetMethod("DiffAndFire",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
-        method.Invoke(client.Config, new object?[] { oldCache, newCache, "websocket" });
+        method.Invoke(client.Config, new object?[] { oldCache, newCache, "push" });
         // Computed unchanged; no exception.
         Assert.Equal(99, inst.Computed);
     }
 
     [Fact]
-    public void Bind_Poco_UnknownKeyOnWebSocketEvent_NoOp()
+    public void Bind_Poco_UnknownKeyOnPushedEvent_NoOp()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json(EmptyListJson)));
         var billing = client.Config.Bind("billing", new Billing());
@@ -599,7 +599,7 @@ public class ConfigDiscoveryTests
         };
         var method = typeof(ConfigClient).GetMethod("DiffAndFire",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
-        method.Invoke(client.Config, new object?[] { oldCache, newCache, "websocket" });
+        method.Invoke(client.Config, new object?[] { oldCache, newCache, "push" });
 
         Assert.Equal(5, billing.MaxSeats);
     }
@@ -622,7 +622,7 @@ public class ConfigDiscoveryTests
             {
                 ["svc"] = new() { ["plan.max_seats"] = 9L },
             },
-            "websocket",
+            "push",
         });
         Assert.Null(instance.Plan);
     }
@@ -711,7 +711,7 @@ public class ConfigDiscoveryTests
     }
 
     [Fact]
-    public void Bind_Dict_InPlaceMutationOnWebSocketEvent()
+    public void Bind_Dict_InPlaceMutationOnPushedEvent()
     {
         var (client, _) = MakeClient(_ => Task.FromResult(Json(EmptyListJson)));
         var dict = client.Config.Bind("db", new Dictionary<string, object?>
@@ -731,7 +731,7 @@ public class ConfigDiscoveryTests
             {
                 ["db"] = new() { ["pool_size"] = 50L },
             },
-            "websocket",
+            "push",
         });
 
         Assert.Equal(50L, dict["pool_size"]);
@@ -758,7 +758,7 @@ public class ConfigDiscoveryTests
             {
                 ["db"] = new() { ["primary.host"] = "db-new" },
             },
-            "websocket",
+            "push",
         });
 
         var nested = (IDictionary<string, object?>)dict["primary"]!;
@@ -784,7 +784,7 @@ public class ConfigDiscoveryTests
             {
                 ["db"] = new() { ["unknown.subkey"] = 1L },
             },
-            "websocket",
+            "push",
         });
         // Original dict unchanged.
         Assert.False(dict.ContainsKey("unknown"));
@@ -1153,7 +1153,7 @@ public class ConfigDiscoveryTests
             {
                 ["svc"] = new() { ["inner.max_seats"] = 9L },
             },
-            "websocket",
+            "push",
         });
         // No exception — handled silently.
     }
@@ -1164,7 +1164,7 @@ public class ConfigDiscoveryTests
         // Cache an uncoercible value for an int property — both the setter
         // and the backing-field assignment throw; the catch on line 705
         // absorbs the failure so we don't surface a TargetException to
-        // the WebSocket dispatch thread.
+        // the event stream dispatch thread.
         var (client, _) = MakeClient(_ => Task.FromResult(Json(EmptyListJson)));
         var inst = client.Config.Bind("svc", new Billing());
 
@@ -1180,7 +1180,7 @@ public class ConfigDiscoveryTests
             {
                 ["svc"] = new() { ["max_seats"] = new List<int> { 1, 2, 3 } },
             },
-            "websocket",
+            "push",
         });
         // MaxSeats unchanged.
         Assert.Equal(5, inst.MaxSeats);

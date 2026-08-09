@@ -19,7 +19,7 @@ internal sealed class GeneratedClientFactory
     /// <summary>Gets the User-Agent value riding every request from this transport —
     /// the caller-supplied value when one was provided (on the <see cref="HttpClient"/>
     /// or via <see cref="SmplClientOptions.ExtraHeaders"/>), else the SDK default.
-    /// The WebSocket handshake reuses it so both channels present the same agent.</summary>
+    /// The event stream request reuses it so both channels present the same agent.</summary>
     internal string EffectiveUserAgent { get; }
 
     /// <summary>Gets the generated Config API client.</summary>

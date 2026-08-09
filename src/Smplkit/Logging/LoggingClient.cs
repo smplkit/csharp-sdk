@@ -20,19 +20,19 @@
 //   Install() opens the live connection (wires into the app's logging
 //   framework via the registered adapter, discovers loggers, fetches +
 //   applies levels, opens the shared
-//   WebSocket). OnChange / Refresh require Install() first;
+//   event stream). OnChange / Refresh require Install() first;
 //   calling them earlier raises NotInstalledException.
 //
 // The client supports two construction shapes:
 //
 // * Wired into SmplClient — borrows the parent's logging
-//   transport for both runtime fetch and CRUD and the parent's shared WebSocket
-//   for the live channel. This is the common path.
+//   transport for both runtime fetch and CRUD and the parent's shared event
+//   stream for the live channel. This is the common path.
 // * Standalone — new LoggingClient(apiKey: ..., baseDomain: ..., ...) builds and
-//   owns its own logging transport and an app transport (the WebSocket gateway
+//   owns its own logging transport and an app transport (the event gateway
 //   lives on the app service), and on Install() opens and owns its own
-//   WebSocket. Dispose() tears down only the owned transports and owned
-//   WebSocket.
+//   event stream. Dispose() tears down only the owned transports and owned
+//   event stream.
 
 using Smplkit.Errors;
 using Smplkit.Internal;
@@ -62,7 +62,7 @@ namespace Smplkit.Logging;
 /// <para>For serverless or short-lived processes, construct with
 /// <c>streaming: false</c>: <see cref="InstallAsync"/> still hooks adapters and
 /// applies levels once, <see cref="RefreshAsync"/> re-fetches on demand, and no
-/// WebSocket, timer, or background work is ever created.</para>
+/// event stream, timer, or background work is ever created.</para>
 /// </remarks>
 public sealed class LoggingClient : IDisposable
 {
@@ -78,27 +78,27 @@ public sealed class LoggingClient : IDisposable
     private readonly string? _environment;
     private readonly string? _service;
 
-    // Live-updates mode: true (default) opens a WebSocket + periodic flush
+    // Live-updates mode: true (default) opens an event stream + periodic flush
     // timer on install; false keeps the client fully stateless — install
     // fetches and applies levels once, discovery flushes run inline, and
     // RefreshAsync re-fetches on demand.
     private readonly bool _streaming;
 
-    // Standalone construction owns its transport + WebSocket; wired construction
-    // borrows the parent's. _ensureWs returns the parent's shared WebSocket when
-    // wired, else lazily builds and owns one.
-    private readonly Func<SharedWebSocket>? _ensureWs;
+    // Standalone construction owns its transport + event stream; wired
+    // construction borrows the parent's. _ensureEvents returns the parent's
+    // shared event stream when wired, else lazily builds and owns one.
+    private readonly Func<EventStream>? _ensureEvents;
     private readonly HttpClient? _ownedHttpClient;
     private readonly string? _appBaseUrl;
     private readonly string? _standaloneApiKey;
     private readonly bool _ownsTransport;
-    private bool _ownsWs;
+    private bool _ownsEventStream;
 
     private volatile bool _started;
-    private SharedWebSocket? _wsManager;
+    private EventStream? _eventStream;
 
     // Effective User-Agent from the HTTP transport, reused on the owned
-    // WebSocket handshake so both channels present the same agent.
+    // event stream request so both channels present the same agent.
     private readonly string _userAgent;
     private readonly List<ILoggingAdapter> _adapters = new();
     private readonly List<Action<LoggerChangeEvent>> _globalListeners = new();
@@ -117,7 +117,7 @@ public sealed class LoggingClient : IDisposable
     private Timer? _loggerFlushTimer;
 
     // Exposed for tests to await fire-and-forget threshold-triggered flushes
-    // and the websocket-handler async work (otherwise the lambda body
+    // and the push-handler async work (otherwise the lambda body
     // coverage races with process exit on CI).
     internal Task? _lastLoggerBufferFlushTask;
     internal Task? _lastLoggerChangedTask;
@@ -146,11 +146,11 @@ public sealed class LoggingClient : IDisposable
     /// <param name="telemetry">Enable anonymous SDK usage telemetry. Defaults to enabled.</param>
     /// <param name="extraHeaders">Extra headers attached to every request.</param>
     /// <param name="streaming">When <c>true</c> (the default),
-    /// <see cref="InstallAsync"/> opens a WebSocket for push level updates and
+    /// <see cref="InstallAsync"/> opens an event stream for push level updates and
     /// starts a periodic discovery flush. Set to <c>false</c> for serverless or
     /// short-lived processes: <see cref="InstallAsync"/> still hooks adapters and
     /// fetches and applies levels once, discovery flushes run inline, and
-    /// <see cref="RefreshAsync"/> re-fetches on demand — no WebSocket, timer, or
+    /// <see cref="RefreshAsync"/> re-fetches on demand — no event stream, timer, or
     /// background work is ever created.</param>
     public LoggingClient(
         string? apiKey = null,
@@ -187,7 +187,7 @@ public sealed class LoggingClient : IDisposable
         _environment = string.IsNullOrEmpty(environment) ? NullIfEmpty(resolved.Environment) : environment;
         _service = string.IsNullOrEmpty(service) ? NullIfEmpty(resolved.Service) : service;
         _streaming = streaming;
-        _ensureWs = null;
+        _ensureEvents = null;
 
         _ownedHttpClient = new HttpClient();
         var clients = new GeneratedClientFactory(_ownedHttpClient, new SmplClientOptions
@@ -199,8 +199,8 @@ public sealed class LoggingClient : IDisposable
         });
         _genClient = clients.Logging;
         _userAgent = clients.EffectiveUserAgent;
-        // The WebSocket gateway lives on the app service (like flags); a
-        // standalone client opens its own WebSocket against it on Install().
+        // The event gateway lives on the app service (like flags); a
+        // standalone client opens its own event stream against it on Install().
         _appBaseUrl = ConfigResolver.ServiceUrl(resolved.Scheme, "app", resolved.BaseDomain);
         _standaloneApiKey = resolved.ApiKey;
         _ownsTransport = true;
@@ -217,14 +217,14 @@ public sealed class LoggingClient : IDisposable
 
     /// <summary>
     /// Internal — wired by a top-level client so the logging surface shares one
-    /// connection pool and the parent's shared WebSocket. The borrowed generated
-    /// client and WebSocket are owned by the parent; this instance must not tear
-    /// them down.
+    /// connection pool and the parent's shared event stream. The borrowed
+    /// generated client and event stream are owned by the parent; this instance
+    /// must not tear them down.
     /// </summary>
-    internal LoggingClient(GeneratedClientFactory clients, string apiKey, Func<SharedWebSocket> ensureWs, SmplClient? parent = null, MetricsReporter? metrics = null, bool streaming = true)
+    internal LoggingClient(GeneratedClientFactory clients, string apiKey, Func<EventStream> ensureEvents, SmplClient? parent = null, MetricsReporter? metrics = null, bool streaming = true)
     {
         _genClient = clients.Logging;
-        _ensureWs = ensureWs;
+        _ensureEvents = ensureEvents;
         _userAgent = clients.EffectiveUserAgent;
         _parent = parent;
         _metrics = metrics;
@@ -269,7 +269,7 @@ public sealed class LoggingClient : IDisposable
     }
 
     // ------------------------------------------------------------------
-    // Live surface: Install (gate) + WebSocket helper
+    // Live surface: Install (gate) + event stream helper
     // ------------------------------------------------------------------
 
     private void RequireInstalled()
@@ -278,22 +278,22 @@ public sealed class LoggingClient : IDisposable
             throw new NotInstalledException(NotInstalledMessage);
     }
 
-    /// <summary>Return the shared WebSocket — the parent's when wired, else our own.</summary>
-    private SharedWebSocket EnsureWs()
+    /// <summary>Return the shared event stream — the parent's when wired, else our own.</summary>
+    private EventStream EnsureEventStream()
     {
-        if (_ensureWs is not null)
-            return _ensureWs();
-        if (_wsManager is null)
+        if (_ensureEvents is not null)
+            return _ensureEvents();
+        if (_eventStream is null)
         {
-            _wsManager = new SharedWebSocket(
+            _eventStream = new EventStream(
                 _standaloneApiKey!,
                 metrics: _metrics,
                 appBaseUrl: _appBaseUrl!,
                 userAgent: _userAgent);
-            _wsManager.Start();
-            _ownsWs = true;
+            _eventStream.Start();
+            _ownsEventStream = true;
         }
-        return _wsManager;
+        return _eventStream;
     }
 
     /// <summary>
@@ -301,7 +301,7 @@ public sealed class LoggingClient : IDisposable
     /// </summary>
     /// <remarks>
     /// Loads adapters, scans existing loggers, applies levels from the
-    /// smplkit server, and wires WebSocket handlers for live updates. This
+    /// smplkit server, and wires event stream handlers for live updates. This
     /// IS the explicit consent gate — <see cref="OnChange(Action{LoggerChangeEvent})"/> /
     /// <see cref="RefreshAsync"/> require it first.
     /// <para>Idempotent — safe to call multiple times.</para>
@@ -316,7 +316,7 @@ public sealed class LoggingClient : IDisposable
         //    Adapters must be wired in explicitly — for Microsoft.Extensions.Logging,
         //    via the AddSmplkit ILoggingBuilder extension; for Serilog, via
         //    SerilogAdapter.GetOrCreateSwitch(...) wired into LoggerConfiguration.
-        DebugLog.Log("websocket", "logging runtime initializing");
+        DebugLog.Log("events", "logging runtime initializing");
         var discovered = DiscoverAll();
         DebugLog.Log("discovery", $"discovered {discovered.Count} loggers from adapters");
         foreach (var d in discovered)
@@ -345,29 +345,30 @@ public sealed class LoggingClient : IDisposable
         ApplyResolvedLevels(seedDiffCache: true);
 
         // Stateless mode (streaming: false): the one-time fetch + apply above is
-        // the whole install — no WebSocket, no periodic flush timer. RefreshAsync
+        // the whole install — no event stream, no periodic flush timer. RefreshAsync
         // re-fetches on demand.
         if (!_streaming)
         {
             _started = true;
-            DebugLog.Log("websocket", "logging runtime connected (streaming disabled)");
+            DebugLog.Log("events", "logging runtime connected (streaming disabled)");
             return;
         }
 
-        // 7. Wire WebSocket
+        // 7. Wire the event stream
         DebugLog.Log("registration", "registering logger_changed, logger_deleted, group_changed, group_deleted, loggers_changed handlers");
-        _wsManager = EnsureWs();
-        _wsManager.On("logger_changed", HandleLoggerChanged);
-        _wsManager.On("logger_deleted", HandleLoggerDeleted);
-        _wsManager.On("group_changed", HandleGroupChanged);
-        _wsManager.On("group_deleted", HandleGroupDeleted);
-        _wsManager.On("loggers_changed", HandleLoggersChanged);
+        _eventStream = EnsureEventStream();
+        _eventStream.On("logger_changed", HandleLoggerChanged);
+        _eventStream.On("logger_deleted", HandleLoggerDeleted);
+        _eventStream.On("group_changed", HandleGroupChanged);
+        _eventStream.On("group_deleted", HandleGroupDeleted);
+        _eventStream.On("loggers_changed", HandleLoggersChanged);
+        _eventStream.OnReconnect(HandleReconnectRefetch);
         _started = true;
 
         // 8. Start periodic flush timer for post-startup loggers
         _loggerFlushTimer = new Timer(_ => OnFlushTimer(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
 
-        DebugLog.Log("websocket", "logging runtime connected");
+        DebugLog.Log("events", "logging runtime connected");
     }
 
     // ------------------------------------------------------------------
@@ -420,7 +421,7 @@ public sealed class LoggingClient : IDisposable
     /// Re-fetches managed loggers and log groups from the server and re-applies
     /// their levels onto every registered adapter. Fires change listeners with
     /// <c>Source = "manual"</c> for any logger whose effective level differs
-    /// from the cached value. Errors propagate to the caller — the websocket
+    /// from the cached value. Errors propagate to the caller — the push
     /// path swallows them, but a user-initiated refresh does not.
     /// </summary>
     /// <remarks>
@@ -444,10 +445,10 @@ public sealed class LoggingClient : IDisposable
     /// Release resources — only those this client owns.
     /// </summary>
     /// <remarks>
-    /// Uninstalls the adapter hooks, unsubscribes from the WebSocket, and
-    /// tears down the owned WebSocket (standalone install) and the owned
+    /// Uninstalls the adapter hooks, unsubscribes from the event stream, and
+    /// tears down the owned event stream (standalone install) and the owned
     /// logging + app HTTP transport (standalone construction). A wired
-    /// client borrows the parent's transport and WebSocket and closes
+    /// client borrows the parent's transport and event stream and closes
     /// neither.
     /// </remarks>
     internal void Close()
@@ -461,19 +462,20 @@ public sealed class LoggingClient : IDisposable
         _loggerFlushTimer?.Dispose();
         _loggerFlushTimer = null;
 
-        if (_wsManager is not null)
+        if (_eventStream is not null)
         {
-            _wsManager.Off("logger_changed", HandleLoggerChanged);
-            _wsManager.Off("logger_deleted", HandleLoggerDeleted);
-            _wsManager.Off("group_changed", HandleGroupChanged);
-            _wsManager.Off("group_deleted", HandleGroupDeleted);
-            _wsManager.Off("loggers_changed", HandleLoggersChanged);
-            if (_ownsWs)
+            _eventStream.Off("logger_changed", HandleLoggerChanged);
+            _eventStream.Off("logger_deleted", HandleLoggerDeleted);
+            _eventStream.Off("group_changed", HandleGroupChanged);
+            _eventStream.Off("group_deleted", HandleGroupDeleted);
+            _eventStream.Off("loggers_changed", HandleLoggersChanged);
+            _eventStream.OffReconnect(HandleReconnectRefetch);
+            if (_ownsEventStream)
             {
-                _wsManager.StopAsync().GetAwaiter().GetResult();
-                _ownsWs = false;
+                _eventStream.StopAsync().GetAwaiter().GetResult();
+                _ownsEventStream = false;
             }
-            _wsManager = null;
+            _eventStream = null;
         }
         _started = false;
         DebugLog.Log("lifecycle", "LoggingClient closed");
@@ -484,7 +486,7 @@ public sealed class LoggingClient : IDisposable
     /// </summary>
     /// <remarks>
     /// A logging client wired by a top-level client shares that client's
-    /// transport and WebSocket; the owning client's <c>Dispose()</c> handles
+    /// transport and event stream; the owning client's <c>Dispose()</c> handles
     /// teardown via <see cref="Close"/>.
     /// </remarks>
     public void Dispose()
@@ -697,10 +699,18 @@ public sealed class LoggingClient : IDisposable
     // Internal: event handlers
     // ------------------------------------------------------------------
 
+    /// <summary>
+    /// Reconnect refetch: the event stream dropped and came back, so events may
+    /// have been missed. Reuses the loggers_changed bulk-refresh path (loggers +
+    /// groups) — change listeners fire only for loggers whose resolved level
+    /// actually moved.
+    /// </summary>
+    private void HandleReconnectRefetch() => HandleLoggersChanged(new Dictionary<string, object?>());
+
     private void HandleLoggerChanged(Dictionary<string, object?> data)
     {
         var loggerId = data.TryGetValue("id", out var k) ? k as string : null;
-        DebugLog.Log("websocket", $"logger_changed event received, id={loggerId ?? "<unknown>"}");
+        DebugLog.Log("events", $"logger_changed event received, id={loggerId ?? "<unknown>"}");
         if (loggerId is null || !_started) return;
         _lastLoggerChangedTask = HandleLoggerChangedAsync(loggerId);
     }
@@ -720,20 +730,20 @@ public sealed class LoggingClient : IDisposable
                 _loggersCache[loggerId] = logger;
             }
 
-            FireDeltasFromApply("websocket");
+            FireDeltasFromApply("push");
         }
         catch (Exception ex)
         {
             System.Diagnostics.Trace.TraceWarning(
                 "[smplkit] Logger refresh failed: {0}", ex.Message);
-            DebugLog.Log("websocket", $"Logger refresh failed: {ex}");
+            DebugLog.Log("events", $"Logger refresh failed: {ex}");
         }
     }
 
     private void HandleLoggerDeleted(Dictionary<string, object?> data)
     {
         var loggerId = data.TryGetValue("id", out var k) ? k as string : null;
-        DebugLog.Log("websocket", $"logger_deleted event received, id={loggerId ?? "<unknown>"}");
+        DebugLog.Log("events", $"logger_deleted event received, id={loggerId ?? "<unknown>"}");
         if (loggerId is null || !_started) return;
 
         // Deletion is a cache eviction, not a level change — no event fires
@@ -746,13 +756,13 @@ public sealed class LoggingClient : IDisposable
             wasKnown = _loggersCache.Remove(loggerId);
         }
         if (wasKnown)
-            FireDeltasFromApply("websocket");
+            FireDeltasFromApply("push");
     }
 
     private void HandleGroupChanged(Dictionary<string, object?> data)
     {
         var groupId = data.TryGetValue("id", out var k) ? k as string : null;
-        DebugLog.Log("websocket", $"group_changed event received, id={groupId ?? "<unknown>"}");
+        DebugLog.Log("events", $"group_changed event received, id={groupId ?? "<unknown>"}");
         if (groupId is null || !_started) return;
         _lastGroupChangedTask = HandleGroupChangedAsync(groupId);
     }
@@ -772,20 +782,20 @@ public sealed class LoggingClient : IDisposable
                 _groupsCache[groupId] = group;
             }
 
-            FireDeltasFromApply("websocket");
+            FireDeltasFromApply("push");
         }
         catch (Exception ex)
         {
             System.Diagnostics.Trace.TraceWarning(
                 "[smplkit] Logger group refresh failed: {0}", ex.Message);
-            DebugLog.Log("websocket", $"Logger group refresh failed: {ex}");
+            DebugLog.Log("events", $"Logger group refresh failed: {ex}");
         }
     }
 
     private void HandleGroupDeleted(Dictionary<string, object?> data)
     {
         var groupId = data.TryGetValue("id", out var k) ? k as string : null;
-        DebugLog.Log("websocket", $"group_deleted event received, id={groupId ?? "<unknown>"}");
+        DebugLog.Log("events", $"group_deleted event received, id={groupId ?? "<unknown>"}");
         if (groupId is null || !_started) return;
 
         // Drop the group then re-resolve. Loggers that inherited from this
@@ -797,12 +807,12 @@ public sealed class LoggingClient : IDisposable
             wasKnown = _groupsCache.Remove(groupId);
         }
         if (wasKnown)
-            FireDeltasFromApply("websocket");
+            FireDeltasFromApply("push");
     }
 
     private void HandleLoggersChanged(Dictionary<string, object?> data)
     {
-        DebugLog.Log("websocket", "loggers_changed event received — full refetch");
+        DebugLog.Log("events", "loggers_changed event received — full refetch");
         if (!_started) return;
         _lastLoggersChangedTask = HandleLoggersChangedAsync();
     }
@@ -811,13 +821,13 @@ public sealed class LoggingClient : IDisposable
     {
         try
         {
-            await RefetchAndApplyAsync("websocket").ConfigureAwait(false);
+            await RefetchAndApplyAsync("push").ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             System.Diagnostics.Trace.TraceWarning(
                 "[smplkit] Loggers bulk refresh failed: {0}", ex.Message);
-            DebugLog.Log("websocket", $"Loggers bulk refresh failed: {ex}");
+            DebugLog.Log("events", $"Loggers bulk refresh failed: {ex}");
         }
     }
 
@@ -834,7 +844,7 @@ public sealed class LoggingClient : IDisposable
         }
 
         // Per-logger fanout — global subscribers see one event per affected
-        // logger, not a single summary event. Identical to the websocket
+        // logger, not a single summary event. Identical to the push
         // handlers; only the source label differs.
         FireDeltasFromApply(source);
     }
